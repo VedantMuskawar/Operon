@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="OPERON - Organization Management System">
+  
+  <!-- Content Security Policy - Comprehensive for Firebase and Flutter -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' 
+      https://www.gstatic.com 
+      https://www.google.com 
+      https://www.gstatic.com/firebasejs/
+      https://www.googletagmanager.com
+      https://www.google-analytics.com
+      https://www.gstatic.com/recaptcha/
+      https://www.google.com/recaptcha/;
+    style-src 'self' 'unsafe-inline' 
+      https://fonts.googleapis.com;
+    font-src 'self' 
+      https://fonts.gstatic.com
+      https://www.gstatic.com;
+    img-src 'self' data: blob: 
+      https://www.google.com
+      https://www.gstatic.com;
+    connect-src 'self' 
+      https://identitytoolkit.googleapis.com 
+      https://securetoken.googleapis.com
+      https://firebase.googleapis.com
+      https://www.googleapis.com
+      https://www.google-analytics.com
+      https://analytics.google.com
+      https://www.gstatic.com
+      https://fonts.gstatic.com
+      https://fonts.googleapis.com
+      https://www.googletagmanager.com
+      https://www.google.com
+      https://firestore.googleapis.com
+      https://*.googleapis.com
+      https://*.gstatic.com;
+    frame-src 'self' 
+      https://www.google.com 
+      https://www.gstatic.com;
+    worker-src 'self' blob:;
+    child-src 'self' blob:;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+  ">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+
+  <!-- Firebase Configuration -->
+  <script>
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyC4tekbNZIHRf_G6oV2eV255vNGWXxHZ40",
+      authDomain: "operanapp.firebaseapp.com",
+      projectId: "operanapp",
+      storageBucket: "operanapp.firebasestorage.app",
+      messagingSenderId: "930813983941",
+      appId: "1:930813983941:web:b914730a5ba72c922c44ac",
+      measurementId: "G-KZ3Z34XSQ3"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    firebase.analytics();
+
+    // Initialize reCAPTCHA after DOM is ready
+    function initializeRecaptcha() {
+      try {
+        const container = document.getElementById('recaptcha-container');
+        if (!container) {
+          console.error('reCAPTCHA container not found');
+          return;
+        }
+
+        // Configure reCAPTCHA v2 for phone authentication
+        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier(container, {
+          'size': 'normal',
+          'callback': (response) => {
+            // reCAPTCHA solved, allow signInWithPhoneNumber.
+            console.log('reCAPTCHA v2 solved');
+          },
+          'expired-callback': () => {
+            // Response expired. Ask user to solve reCAPTCHA again.
+            console.log('reCAPTCHA v2 expired');
+          },
+          'error-callback': (error) => {
+            // Error occurred. Log the error.
+            console.error('reCAPTCHA v2 error:', error);
+          }
+        });
+        console.log('reCAPTCHA verifier initialized successfully');
+      } catch (error) {
+        console.error('Error initializing reCAPTCHA verifier:', error);
+      }
+    }
+
+    // Try to initialize immediately if DOM is already ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeRecaptcha);
+    } else {
+      initializeRecaptcha();
+    }
+
+    // Fallback initialization with timeout
+    setTimeout(() => {
+      if (!window.recaptchaVerifier) {
+        console.log('Attempting fallback reCAPTCHA initialization...');
+        initializeRecaptcha();
+      }
+    }, 2000);
+  </script>
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="operon">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>operon</title>
+  <link rel="manifest" href="manifest.json">
+  
+  <style>
+    #recaptcha-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 15px;
+      min-width: 300px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Hide reCAPTCHA container initially */
+    #recaptcha-container.hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- reCAPTCHA container for phone authentication -->
+  <div id="recaptcha-container"></div>
+  
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read/write access for authenticated users
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // ORGANIZATIONS Collection with USERS Subcollection
+    match /ORGANIZATIONS/{orgId} {
+      allow read, write: if request.auth != null;
+      
+      match /USERS/{userId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      match /SUBSCRIPTION/{subscriptionId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      match /ACTIVITY/{activityId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+    
+    // USERS Collection with ORGANIZATIONS Subcollection
+    match /USERS/{userId} {
+      allow read, write: if request.auth != null;
+      
+      match /ORGANIZATIONS/{orgId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      match /ACTIVITY/{activityId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+    
+    match /SUPERADMIN_CONFIG/settings {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /SYSTEM_METADATA/counters {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
