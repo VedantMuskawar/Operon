@@ -9,38 +9,27 @@ class AuthRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final ConfigRepository _configRepository = ConfigRepository();
 
-  // Check if phone number is authorized for Super Admin
-  bool isAuthorizedPhoneNumber(String phoneNumber) {
-    // Remove any formatting and compare
+  // Check if phone number is valid (10 digits)
+  bool isValidPhoneNumber(String phoneNumber) {
     String cleanInput = phoneNumber.replaceAll(RegExp(r'[^\d]'), '');
-    
-    // Extract the 10-digit mobile number from the authorized number
-    String authorizedNumber = AppConstants.superAdminPhoneNumber.replaceAll(RegExp(r'[^\d]'), '');
-    String authorizedMobileNumber = authorizedNumber.substring(authorizedNumber.length - 10);
-    
-    // Debug logging
-    print('🔍 Phone Number Verification:');
-    print('  Input: $phoneNumber');
-    print('  Clean Input: $cleanInput');
-    print('  Authorized Number: ${AppConstants.superAdminPhoneNumber}');
-    print('  Clean Authorized: $authorizedNumber');
-    print('  Mobile Number: $authorizedMobileNumber');
-    print('  Match: ${cleanInput == authorizedMobileNumber}');
-    
-    // Compare the 10-digit mobile numbers
-    return cleanInput == authorizedMobileNumber;
+    return cleanInput.length == 10;
   }
 
   // Send OTP to phone number
   Future<void> sendOTP(String phoneNumber) async {
-    if (!isAuthorizedPhoneNumber(phoneNumber)) {
-      throw Exception('Unauthorized phone number');
+    if (!isValidPhoneNumber(phoneNumber)) {
+      throw Exception('Please enter a valid 10-digit phone number');
     }
 
     // Format phone number for Firebase (ensure it has +91 prefix)
     String formattedPhoneNumber = phoneNumber.startsWith('+91') 
         ? phoneNumber 
         : '+91$phoneNumber';
+
+    // For development, use test phone numbers to bypass reCAPTCHA
+    if (_isTestPhoneNumber(formattedPhoneNumber)) {
+      print('Using test phone number: $formattedPhoneNumber');
+    }
 
     try {
       await _auth.verifyPhoneNumber(
@@ -96,6 +85,16 @@ class AuthRepository {
     }
   }
 
+  // Check if phone number is a test number (for development)
+  bool _isTestPhoneNumber(String phoneNumber) {
+    // Firebase test phone numbers for development
+    const testNumbers = [
+      '+919876543210', // Super Admin test number
+      '+1234567890',   // Generic test number
+    ];
+    return testNumbers.contains(phoneNumber);
+  }
+
   String? _verificationId;
   int? _resendToken;
 
@@ -113,11 +112,11 @@ class AuthRepository {
 
       firebase_auth.UserCredential userCredential = await _auth.signInWithCredential(credential);
       
-      // Create or update user document
-      await _createOrUpdateUserDocument(userCredential.user!);
+      // Verify user exists in USERS collection and has organization access
+      await _verifyUserAccess(userCredential.user!);
       
-      // Initialize collections if they don't exist (first Super Admin login)
-      await _initializeCollectionsIfNeeded();
+      // Update last login date
+      await _updateLastLoginDate(userCredential.user!);
       
       return userCredential.user;
     } catch (e) {
@@ -125,39 +124,69 @@ class AuthRepository {
     }
   }
 
-  // Create or update user document in Firestore
-  Future<void> _createOrUpdateUserDocument(firebase_auth.User firebaseUser) async {
-    final userRef = _firestore.collection(AppConstants.usersCollection).doc(firebaseUser.uid);
+  // Verify user has access to at least one organization
+  Future<void> _verifyUserAccess(firebase_auth.User firebaseUser) async {
+    print('🔍 Checking user access for UID: ${firebaseUser.uid}');
+    print('🔍 Phone number: ${firebaseUser.phoneNumber}');
     
-    final docSnapshot = await userRef.get();
+    final userRef = _firestore.collection(AppConstants.usersCollection).doc(firebaseUser.uid);
+    var docSnapshot = await userRef.get();
+    
+    print('🔍 Document exists: ${docSnapshot.exists}');
     
     if (!docSnapshot.exists) {
-      // Create new user document
-      final newUser = app_user.User(
-        userId: firebaseUser.uid,
-        name: 'Super Admin',
-        phoneNo: firebaseUser.phoneNumber ?? '',
-        email: firebaseUser.email ?? '',
-        profilePhotoUrl: null,
-        status: AppConstants.userStatusActive,
-        createdDate: DateTime.now(),
-        updatedDate: DateTime.now(),
-        lastLoginDate: DateTime.now(),
-        metadata: const app_user.UserMetadata(
-          totalOrganizations: 0,
-          primaryOrgId: null,
-          notificationPreferences: {},
-        ),
-      );
+      print('🔍 Trying phone number lookup...');
+      // Try phone number lookup for pre-created users
+      final phoneQuery = await _firestore
+          .collection(AppConstants.usersCollection)
+          .where('phoneNo', isEqualTo: firebaseUser.phoneNumber)
+          .limit(1)
+          .get();
       
-      await userRef.set(newUser.toMap());
-    } else {
-      // Update last login date
-      await userRef.update({
-        'lastLoginDate': Timestamp.fromDate(DateTime.now()),
-        'updatedDate': Timestamp.fromDate(DateTime.now()),
-      });
+      if (phoneQuery.docs.isEmpty) {
+        print('❌ User document not found in USERS collection');
+        throw Exception('User not found. Please contact your administrator.');
+      }
+      
+      print('🔍 Found user by phone number, migrating to correct UID...');
+      // Migrate user document to correct UID
+      await _migrateUserDocument(phoneQuery.docs.first, firebaseUser.uid);
+      docSnapshot = await userRef.get();
     }
+    
+    final userData = docSnapshot.data()!;
+    print('🔍 User data: ${userData.toString()}');
+    
+    final organizations = userData['organizations'] as List<dynamic>? ?? [];
+    print('🔍 Organizations found: ${organizations.length}');
+    
+    if (organizations.isEmpty) {
+      throw Exception('No organization access found. Please contact your administrator.');
+    }
+    
+    // Check if user has at least one active organization
+    bool hasActiveOrg = false;
+    for (var org in organizations) {
+      if (org['status'] == AppConstants.orgStatusActive) {
+        hasActiveOrg = true;
+        break;
+      }
+    }
+    
+    if (!hasActiveOrg) {
+      throw Exception('No active organization access. Please contact your administrator.');
+    }
+    
+    print('✅ User access verified successfully');
+  }
+
+  // Update last login date
+  Future<void> _updateLastLoginDate(firebase_auth.User firebaseUser) async {
+    final userRef = _firestore.collection(AppConstants.usersCollection).doc(firebaseUser.uid);
+    await userRef.update({
+      'lastLoginDate': Timestamp.fromDate(DateTime.now()),
+      'updatedDate': Timestamp.fromDate(DateTime.now()),
+    });
   }
 
   // Get current user
@@ -188,6 +217,77 @@ class AuthRepository {
         .get();
     
     return docSnapshot.exists ? docSnapshot.data() : null;
+  }
+
+  // Check if user is Super Admin
+  bool isSuperAdmin(firebase_auth.User firebaseUser) {
+    // This method is not used in the current flow
+    // SuperAdmin status is determined in the auth bloc based on user's organizations
+    // Return false as a fallback - the actual determination happens in auth bloc
+    return false;
+  }
+
+  // Get user organizations
+  Future<List<Map<String, dynamic>>> getUserOrganizations(String userId) async {
+    final userRef = _firestore.collection(AppConstants.usersCollection).doc(userId);
+    final docSnapshot = await userRef.get();
+    
+    if (!docSnapshot.exists) {
+      return [];
+    }
+    
+    final userData = docSnapshot.data()!;
+    final organizations = userData['organizations'] as List<dynamic>? ?? [];
+    
+    // Get organization details for each organization
+    List<Map<String, dynamic>> orgDetails = [];
+    for (var org in organizations) {
+      if (org['status'] == AppConstants.orgStatusActive) {
+        final orgRef = _firestore.collection(AppConstants.organizationsCollection).doc(org['orgId']);
+        final orgSnapshot = await orgRef.get();
+        
+        if (orgSnapshot.exists) {
+          final orgData = orgSnapshot.data()!;
+          orgDetails.add({
+            'orgId': org['orgId'],
+            'orgName': orgData['orgName'],
+            'orgLogoUrl': orgData['orgLogoUrl'],
+            'role': org['role'],
+            'status': org['status'],
+            'joinedDate': org['joinedDate'],
+            'isPrimary': org['isPrimary'] ?? false,
+            'permissions': org['permissions'] ?? [],
+          });
+        }
+      }
+    }
+    
+    return orgDetails;
+  }
+
+  // Migrate user document from old ID to Firebase Auth UID
+  Future<void> _migrateUserDocument(
+    DocumentSnapshot oldDoc,
+    String newUid,
+  ) async {
+    try {
+      print('🔄 Migrating user document from ${oldDoc.id} to $newUid');
+      
+      final data = oldDoc.data() as Map<String, dynamic>;
+      data['userId'] = newUid;
+      data['updatedDate'] = Timestamp.fromDate(DateTime.now());
+      
+      // Create new document with correct UID
+      await _firestore.collection(AppConstants.usersCollection).doc(newUid).set(data);
+      
+      // Delete old document
+      await oldDoc.reference.delete();
+      
+      print('✅ User document migrated successfully');
+    } catch (e) {
+      print('❌ Error migrating user document: $e');
+      throw Exception('Failed to migrate user data: $e');
+    }
   }
 
   // Initialize SUPERADMIN_CONFIG and SYSTEM_METADATA collections if they don't exist

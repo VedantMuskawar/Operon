@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/models/organization.dart';
 import '../../../../core/models/subscription.dart';
@@ -27,7 +27,8 @@ class _EditOrganizationFormState extends State<EditOrganizationForm> {
   late TextEditingController _gstNoController;
   late TextEditingController _userLimitController;
   
-  File? _selectedLogoFile;
+  dynamic _selectedLogoFile; // File on mobile, Uint8List on web
+  String? _selectedLogoFileName;
   String _selectedStatus = '';
   String _selectedTier = '';
   String _selectedType = '';
@@ -400,8 +401,8 @@ class _EditOrganizationFormState extends State<EditOrganizationForm> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          _selectedLogoFile!,
+                        child: Image.memory(
+                          _selectedLogoFile as Uint8List,
                           fit: BoxFit.cover,
                           width: double.infinity,
                         ),
@@ -414,7 +415,7 @@ class _EditOrganizationFormState extends State<EditOrganizationForm> {
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Text(
-                  _selectedLogoFile!.path.split('/').last,
+                  _selectedLogoFileName ?? 'logo',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppTheme.textSecondaryColor,
                   ),
@@ -466,13 +467,17 @@ class _EditOrganizationFormState extends State<EditOrganizationForm> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final file = File(result.files.first.path!);
-        setState(() {
-          _selectedLogoFile = file;
-        });
+        final pickedFile = result.files.first;
+        if (pickedFile.bytes != null) {
+          setState(() {
+            _selectedLogoFile = pickedFile.bytes;
+            _selectedLogoFileName = pickedFile.name;
+          });
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

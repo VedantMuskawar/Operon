@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/models/subscription.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
+import '../../../../core/widgets/custom_text_field.dart';
+import '../../../../core/widgets/custom_button.dart';
+import '../../../../core/widgets/custom_dropdown.dart';
 import '../../bloc/organization_bloc.dart';
 import '../../../dashboard/presentation/widgets/dashboard_sidebar.dart';
 
@@ -21,14 +25,20 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
   final _orgNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _gstNoController = TextEditingController();
+  final _industryController = TextEditingController();
+  final _locationController = TextEditingController();
   final _adminNameController = TextEditingController();
   final _adminPhoneController = TextEditingController();
   final _adminEmailController = TextEditingController();
   
-  File? _selectedLogoFile;
+  dynamic _selectedLogoFile; // File on mobile, Uint8List on web
+  String? _selectedLogoFileName;
   String _selectedTier = AppConstants.subscriptionTierBasic;
   String _selectedType = AppConstants.subscriptionTypeMonthly;
   int _userLimit = 10;
+  double _amount = 0.0;
+  String _currency = 'INR';
+  bool _autoRenew = false;
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 30));
 
@@ -37,6 +47,8 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
     _orgNameController.dispose();
     _emailController.dispose();
     _gstNoController.dispose();
+    _industryController.dispose();
+    _locationController.dispose();
     _adminNameController.dispose();
     _adminPhoneController.dispose();
     _adminEmailController.dispose();
@@ -135,13 +147,12 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
             Row(
               children: [
                 Expanded(
-                  child: TextFormField(
+                  child: CustomTextField(
                     controller: _orgNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Organization Name *',
-                      hintText: 'Enter organization name',
-                      prefixIcon: Icon(Icons.business),
-                    ),
+                    labelText: 'Organization Name *',
+                    hintText: 'Enter organization name',
+                    variant: CustomTextFieldVariant.defaultField,
+                    prefixIcon: const Icon(Icons.business),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter organization name';
@@ -152,25 +163,23 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextFormField(
+                  child: CustomTextField(
                     controller: _gstNoController,
-                    decoration: const InputDecoration(
-                      labelText: 'GST Number',
-                      hintText: 'Enter GST number',
-                      prefixIcon: Icon(Icons.receipt),
-                    ),
+                    labelText: 'GST Number',
+                    hintText: 'Enter GST number',
+                    variant: CustomTextFieldVariant.defaultField,
+                    prefixIcon: const Icon(Icons.receipt),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            TextFormField(
+            CustomTextField(
               controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: 'Organization Email *',
-                hintText: 'Enter organization email',
-                prefixIcon: Icon(Icons.email),
-              ),
+              labelText: 'Organization Email *',
+              hintText: 'Enter organization email',
+              variant: CustomTextFieldVariant.email,
+              prefixIcon: const Icon(Icons.email),
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter organization email';
@@ -180,6 +189,30 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: CustomTextField(
+                    controller: _industryController,
+                    labelText: 'Industry',
+                    hintText: 'e.g., Technology, Healthcare',
+                    variant: CustomTextFieldVariant.defaultField,
+                    prefixIcon: const Icon(Icons.work),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: CustomTextField(
+                    controller: _locationController,
+                    labelText: 'Location',
+                    hintText: 'e.g., Mumbai, Delhi',
+                    variant: CustomTextFieldVariant.defaultField,
+                    prefixIcon: const Icon(Icons.location_on),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -204,13 +237,12 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
             Row(
               children: [
                 Expanded(
-                  child: TextFormField(
+                  child: CustomTextField(
                     controller: _adminNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Admin Name *',
-                      hintText: 'Enter admin name',
-                      prefixIcon: Icon(Icons.person),
-                    ),
+                    labelText: 'Admin Name *',
+                    hintText: 'Enter admin name',
+                    variant: CustomTextFieldVariant.defaultField,
+                    prefixIcon: const Icon(Icons.person),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter admin name';
@@ -221,13 +253,13 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextFormField(
+                  child: CustomTextField(
                     controller: _adminPhoneController,
-                    decoration: const InputDecoration(
-                      labelText: 'Admin Phone *',
-                      hintText: 'Enter admin phone',
-                      prefixIcon: Icon(Icons.phone),
-                    ),
+                    labelText: 'Admin Phone *',
+                    hintText: 'Enter admin phone',
+                    variant: CustomTextFieldVariant.number,
+                    keyboardType: TextInputType.phone,
+                    prefixIcon: const Icon(Icons.phone),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter admin phone';
@@ -239,13 +271,12 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
               ],
             ),
             const SizedBox(height: 16),
-            TextFormField(
+            CustomTextField(
               controller: _adminEmailController,
-              decoration: const InputDecoration(
-                labelText: 'Admin Email *',
-                hintText: 'Enter admin email',
-                prefixIcon: Icon(Icons.email),
-              ),
+              labelText: 'Admin Email *',
+              hintText: 'Enter admin email',
+              variant: CustomTextFieldVariant.email,
+              prefixIcon: const Icon(Icons.email),
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter admin email';
@@ -279,12 +310,10 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: CustomDropdown<String>(
                     value: _selectedTier,
-                    decoration: const InputDecoration(
-                      labelText: 'Subscription Tier',
-                      prefixIcon: Icon(Icons.star),
-                    ),
+                    labelText: 'Subscription Tier',
+                    prefixIcon: const Icon(Icons.star),
                     items: [
                       DropdownMenuItem(
                         value: AppConstants.subscriptionTierBasic,
@@ -308,12 +337,10 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
+                  child: CustomDropdown<String>(
                     value: _selectedType,
-                    decoration: const InputDecoration(
-                      labelText: 'Billing Type',
-                      prefixIcon: Icon(Icons.schedule),
-                    ),
+                    labelText: 'Billing Type',
+                    prefixIcon: const Icon(Icons.schedule),
                     items: [
                       DropdownMenuItem(
                         value: AppConstants.subscriptionTypeMonthly,
@@ -337,13 +364,12 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
             Row(
               children: [
                 Expanded(
-                  child: TextFormField(
+                  child: CustomTextField(
                     initialValue: _userLimit.toString(),
-                    decoration: const InputDecoration(
-                      labelText: 'User Limit',
-                      prefixIcon: Icon(Icons.people),
-                    ),
+                    labelText: 'User Limit',
+                    variant: CustomTextFieldVariant.number,
                     keyboardType: TextInputType.number,
+                    prefixIcon: const Icon(Icons.people),
                     onChanged: (value) {
                       _userLimit = int.tryParse(value) ?? 10;
                     },
@@ -351,13 +377,64 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextFormField(
-                    initialValue: '30 days',
-                    decoration: const InputDecoration(
-                      labelText: 'Duration',
-                      prefixIcon: Icon(Icons.calendar_today),
+                  child: CustomTextField(
+                    initialValue: _amount.toString(),
+                    labelText: 'Amount (₹)',
+                    variant: CustomTextFieldVariant.number,
+                    keyboardType: TextInputType.number,
+                    prefixIcon: const Icon(Icons.attach_money),
+                    onChanged: (value) {
+                      _amount = double.tryParse(value) ?? 0.0;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: CustomDropdown<String>(
+                    value: _currency,
+                    labelText: 'Currency',
+                    prefixIcon: const Icon(Icons.monetization_on),
+                    items: const [
+                      DropdownMenuItem(value: 'INR', child: Text('INR (₹)')),
+                      DropdownMenuItem(value: 'USD', child: Text('USD (\$)')),
+                      DropdownMenuItem(value: 'EUR', child: Text('EUR (€)')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _currency = value!;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderColor),
                     ),
-                    readOnly: true,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.autorenew, color: AppTheme.textSecondaryColor),
+                        const SizedBox(width: 12),
+                        const Text('Auto Renew'),
+                        const Spacer(),
+                        Switch(
+                          value: _autoRenew,
+                          onChanged: (value) {
+                            setState(() {
+                              _autoRenew = value;
+                            });
+                          },
+                          activeColor: AppTheme.primaryColor,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -385,10 +462,12 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: CustomButton(
+                    text: 'Upload Logo',
                     onPressed: _pickLogo,
+                    variant: CustomButtonVariant.outline,
                     icon: const Icon(Icons.upload),
-                    label: const Text('Upload Logo'),
+                    iconPosition: IconPosition.left,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -397,13 +476,13 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
                     child: Container(
                       height: 60,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: AppTheme.borderColor),
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          _selectedLogoFile!,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(
+                          _selectedLogoFile as Uint8List,
                           fit: BoxFit.cover,
                           width: double.infinity,
                         ),
@@ -416,7 +495,7 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Text(
-                  _selectedLogoFile!.path.split('/').last,
+                  _selectedLogoFileName ?? 'logo',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppTheme.textSecondaryColor,
                   ),
@@ -431,33 +510,13 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
   Widget _buildSubmitButton() {
     return BlocBuilder<OrganizationBloc, OrganizationState>(
       builder: (context, state) {
-        return SizedBox(
+        return CustomButton(
+          text: 'Create Organization',
+          onPressed: state is OrganizationLoading ? null : _submitForm,
+          isLoading: state is OrganizationLoading,
+          variant: CustomButtonVariant.primary,
+          size: CustomButtonSize.large,
           width: double.infinity,
-          child: ElevatedButton(
-            onPressed: state is OrganizationLoading ? null : _submitForm,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: state is OrganizationLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    'Create Organization',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-          ),
         );
       },
     );
@@ -468,13 +527,17 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
+        withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
-        final file = File(result.files.first.path!);
-        setState(() {
-          _selectedLogoFile = file;
-        });
+        final pickedFile = result.files.first;
+        if (pickedFile.bytes != null) {
+          setState(() {
+            _selectedLogoFile = pickedFile.bytes;
+            _selectedLogoFileName = pickedFile.name;
+          });
+        }
       }
     } catch (e) {
       CustomSnackBar.showError(context, 'Error picking file: $e');
@@ -491,10 +554,10 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
         endDate: _endDate,
         userLimit: _userLimit,
         status: AppConstants.subscriptionStatusActive,
-        amount: 0.0,
-        currency: AppConstants.defaultCurrency,
+        amount: _amount,
+        currency: _currency,
         isActive: true,
-        autoRenew: false,
+        autoRenew: _autoRenew,
         createdDate: DateTime.now(),
         updatedDate: DateTime.now(),
       );
@@ -504,11 +567,14 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
           orgName: _orgNameController.text.trim(),
           email: _emailController.text.trim(),
           gstNo: _gstNoController.text.trim(),
+          industry: _industryController.text.trim().isEmpty ? null : _industryController.text.trim(),
+          location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
           adminName: _adminNameController.text.trim(),
           adminPhone: _adminPhoneController.text.trim(),
           adminEmail: _adminEmailController.text.trim(),
           subscription: subscription,
           logoFile: _selectedLogoFile,
+          logoFileName: _selectedLogoFileName,
         ),
       );
     }
@@ -518,11 +584,19 @@ class _AddOrganizationFormState extends State<AddOrganizationForm> {
     _orgNameController.clear();
     _emailController.clear();
     _gstNoController.clear();
+    _industryController.clear();
+    _locationController.clear();
     _adminNameController.clear();
     _adminPhoneController.clear();
     _adminEmailController.clear();
     setState(() {
       _selectedLogoFile = null;
+      _selectedTier = AppConstants.subscriptionTierBasic;
+      _selectedType = AppConstants.subscriptionTypeMonthly;
+      _userLimit = 10;
+      _amount = 0.0;
+      _currency = 'INR';
+      _autoRenew = false;
     });
   }
 }

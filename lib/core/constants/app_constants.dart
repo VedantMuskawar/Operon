@@ -51,6 +51,10 @@ class AppConstants {
   static const String subscriptionSubcollection = 'SUBSCRIPTION';
   static const String usersSubcollection = 'USERS';
   static const String organizationsSubcollection = 'ORGANIZATIONS';
+
+  // SuperAdmin Configuration
+  static const String superAdminOrgId = 'superadmin_org';
+  static const String superAdminOrgName = 'OPERON SuperAdmin';
   static const String activitySubcollection = 'ACTIVITY';
 
   // Storage Paths - Organized Folder Structure

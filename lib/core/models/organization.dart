@@ -37,8 +37,12 @@ class Organization extends Equatable {
       gstNo: map['gstNo'] ?? '',
       orgLogoUrl: map['orgLogoUrl'],
       status: map['status'] ?? 'active',
-      createdDate: (map['createdDate'] as Timestamp).toDate(),
-      updatedDate: (map['updatedDate'] as Timestamp).toDate(),
+      createdDate: map['createdDate'] != null 
+          ? (map['createdDate'] as Timestamp).toDate()
+          : DateTime.now(),
+      updatedDate: map['updatedDate'] != null 
+          ? (map['updatedDate'] as Timestamp).toDate()
+          : DateTime.now(),
       createdBy: map['createdBy'] ?? '',
       metadata: OrganizationMetadata.fromMap(map['metadata'] ?? {}),
       subscription: map['subscription'] != null 

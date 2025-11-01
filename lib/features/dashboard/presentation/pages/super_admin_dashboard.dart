@@ -12,15 +12,16 @@ import '../widgets/metrics_cards.dart';
 import '../widgets/organizations_list.dart';
 import '../widgets/subscription_analytics_chart.dart';
 
-class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+class SuperAdminDashboard extends StatefulWidget {
+  const SuperAdminDashboard({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  State<SuperAdminDashboard> createState() => _SuperAdminDashboardState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _SuperAdminDashboardState extends State<SuperAdminDashboard> {
   int _selectedIndex = 0;
+  double _sidebarWidth = 280.0;
 
   final List<Widget> _pages = [
     const DashboardHomePage(),
@@ -58,6 +59,7 @@ class _DashboardPageState extends State<DashboardPage> {
               children: [
                 DashboardSidebar(
                   selectedIndex: _selectedIndex,
+                  initialWidth: _sidebarWidth,
                   onItemSelected: (index) {
                     setState(() {
                       _selectedIndex = index;

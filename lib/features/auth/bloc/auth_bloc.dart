@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/constants/app_constants.dart';
 import '../repository/auth_repository.dart';
 
 // Events
@@ -78,6 +79,23 @@ class AuthFailure extends AuthState {
   List<Object?> get props => [message];
 }
 
+class AuthOrganizationSelectionRequired extends AuthState {
+  final User firebaseUser;
+  final Map<String, dynamic> userData;
+  final List<Map<String, dynamic>> organizations;
+  final bool isSuperAdmin;
+
+  const AuthOrganizationSelectionRequired({
+    required this.firebaseUser,
+    required this.userData,
+    required this.organizations,
+    required this.isSuperAdmin,
+  });
+
+  @override
+  List<Object?> get props => [firebaseUser, userData, organizations, isSuperAdmin];
+}
+
 // BLoC
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository authRepository;
@@ -98,7 +116,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (authRepository.isAuthenticated()) {
       final user = authRepository.getCurrentUser();
       if (user != null) {
-        emit(AuthAuthenticated(firebaseUser: user));
+        // Get user data and organizations to show organization selection
+        try {
+          final userData = await authRepository.getUserDocument(user.uid);
+          final organizations = await authRepository.getUserOrganizations(user.uid);
+          
+          // Check if user is SuperAdmin by looking for SuperAdmin organization with role 0
+          final isSuperAdmin = organizations.any((org) => 
+            org['orgId'] == AppConstants.superAdminOrgId && org['role'] == 0);
+          
+          if (userData != null) {
+            emit(AuthOrganizationSelectionRequired(
+              firebaseUser: user,
+              userData: userData,
+              organizations: organizations,
+              isSuperAdmin: isSuperAdmin,
+            ));
+          } else {
+            emit(AuthUnauthenticated());
+          }
+        } catch (e) {
+          // If there's an error getting user data, sign out and show login
+          await authRepository.signOut();
+          emit(AuthUnauthenticated());
+        }
       } else {
         emit(AuthUnauthenticated());
       }
@@ -130,7 +171,29 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     try {
       final user = await authRepository.verifyOTPAndSignIn(event.otp);
       if (user != null) {
-        emit(AuthAuthenticated(firebaseUser: user));
+        // Get user data and organizations
+        final userData = await authRepository.getUserDocument(user.uid);
+        final organizations = await authRepository.getUserOrganizations(user.uid);
+        
+        // Check if user is SuperAdmin by looking for SuperAdmin organization with role 0
+        final isSuperAdmin = organizations.any((org) => 
+          org['orgId'] == AppConstants.superAdminOrgId && org['role'] == 0);
+        
+        print('🔍 AuthBloc: Checking SuperAdmin status...');
+        print('🔍 AuthBloc: Organizations: ${organizations.map((org) => '${org['orgId']}:${org['role']}').join(', ')}');
+        print('🔍 AuthBloc: SuperAdmin Org ID: ${AppConstants.superAdminOrgId}');
+        print('🔍 AuthBloc: Is SuperAdmin: $isSuperAdmin');
+        
+        if (userData != null) {
+          emit(AuthOrganizationSelectionRequired(
+            firebaseUser: user,
+            userData: userData,
+            organizations: organizations,
+            isSuperAdmin: isSuperAdmin,
+          ));
+        } else {
+          emit(const AuthFailure(message: 'User data not found'));
+        }
       } else {
         emit(const AuthFailure(message: 'Authentication failed'));
       }

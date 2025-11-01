@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import '../models/organization.dart';
 import '../models/user.dart';
 import '../models/subscription.dart';
+import '../models/organization_role.dart';
 import '../constants/app_constants.dart';
 import '../utils/storage_utils.dart';
 
@@ -11,16 +12,19 @@ class OrganizationRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // Create organization with initial admin user
+  // Create organization with initial admin user (Direct Firestore - Cloud Functions disabled)
   Future<String> createOrganization({
     required String orgName,
     required String email,
     required String gstNo,
+    String? industry,
+    String? location,
     required String adminName,
     required String adminPhone,
     required String adminEmail,
     required Subscription subscription,
-    File? logoFile,
+    Uint8List? logoFile,
+    String? logoFileName,
   }) async {
     final batch = _firestore.batch();
     
@@ -39,11 +43,11 @@ class OrganizationRepository {
         createdDate: DateTime.now(),
         updatedDate: DateTime.now(),
         createdBy: 'system', // Will be updated with actual super admin ID
-        metadata: const OrganizationMetadata(
+        metadata: OrganizationMetadata(
           totalUsers: 1,
           activeUsers: 1,
-          industry: null,
-          location: null,
+          industry: industry,
+          location: location,
         ),
       );
 
@@ -53,8 +57,13 @@ class OrganizationRepository {
       // Upload logo if provided
       String? logoUrl;
       if (logoFile != null) {
-        logoUrl = await _uploadOrganizationLogo(orgId, logoFile);
-        batch.update(orgRef, {'orgLogoUrl': logoUrl});
+        try {
+          logoUrl = await _uploadOrganizationLogo(orgId, logoFile, fileName: logoFileName);
+          batch.update(orgRef, {'orgLogoUrl': logoUrl});
+        } catch (e) {
+          print('Warning: Failed to upload logo: $e');
+          // Continue without logo
+        }
       }
 
       // Create subscription document
@@ -66,12 +75,12 @@ class OrganizationRepository {
       // Generate user ID
       final userId = _firestore.collection(AppConstants.usersCollection).doc().id;
 
-      // Create user document
+      // Create user document with phone auth
       final user = User(
         userId: userId,
         name: adminName,
         phoneNo: adminPhone,
-        email: adminEmail,
+        email: adminEmail, // Optional - only for notifications
         profilePhotoUrl: null,
         status: AppConstants.userStatusActive,
         createdDate: DateTime.now(),
@@ -80,8 +89,22 @@ class OrganizationRepository {
         metadata: UserMetadata(
           totalOrganizations: 1,
           primaryOrgId: orgId,
-          notificationPreferences: {},
+          notificationPreferences: {
+            'sms': true,
+            'email': adminEmail.isNotEmpty,
+            'push': true,
+          },
         ),
+        organizations: [
+          OrganizationRole(
+            orgId: orgId,
+            role: AppConstants.adminRole,
+            status: AppConstants.userStatusActive,
+            joinedDate: DateTime.now(),
+            isPrimary: true,
+            permissions: ['all'],
+          ),
+        ],
       );
 
       final userRef = _firestore.collection(AppConstants.usersCollection).doc(userId);
@@ -123,14 +146,12 @@ class OrganizationRepository {
           .doc(orgId);
       batch.set(userOrgRef, userOrg.toMap());
 
-      // Update system counters
-      await _updateSystemCounters();
-
       // Commit batch
       await batch.commit();
 
       return orgId;
     } catch (e) {
+      print('Error in createOrganization: $e');
       throw Exception('Failed to create organization: $e');
     }
   }
@@ -144,30 +165,48 @@ class OrganizationRepository {
   }) async {
     try {
       Query query = _firestore
-          .collection(AppConstants.organizationsCollection)
-          .orderBy('createdDate', descending: true);
+          .collection(AppConstants.organizationsCollection);
 
+      // Apply status filter first (simpler query)
       if (statusFilter != null && statusFilter.isNotEmpty) {
         query = query.where('status', isEqualTo: statusFilter);
       }
 
+      // Apply search query (simpler range query)
       if (searchQuery != null && searchQuery.isNotEmpty) {
         query = query
             .where('orgName', isGreaterThanOrEqualTo: searchQuery)
             .where('orgName', isLessThan: searchQuery + '\uf8ff');
       }
 
+      // Add pagination
       if (startAfter != null) {
         query = query.startAfterDocument(startAfter);
       }
 
+      // Add limit
       query = query.limit(limit);
 
       final querySnapshot = await query.get();
       
-      return querySnapshot.docs
-          .map((doc) => Organization.fromMap(doc.data() as Map<String, dynamic>))
+      // Sort in memory to avoid complex index requirements
+      final organizations = querySnapshot.docs
+          .map((doc) {
+            try {
+              return Organization.fromMap(doc.data() as Map<String, dynamic>);
+            } catch (e) {
+              print('Error parsing organization document ${doc.id}: $e');
+              return null;
+            }
+          })
+          .where((org) => org != null)
+          .cast<Organization>()
           .toList();
+      
+      // Sort by createdDate descending in memory
+      organizations.sort((a, b) => b.createdDate.compareTo(a.createdDate));
+      
+      return organizations;
     } catch (e) {
       throw Exception('Failed to fetch organizations: $e');
     }
@@ -214,6 +253,41 @@ class OrganizationRepository {
       });
     } catch (e) {
       throw Exception('Failed to delete organization: $e');
+    }
+  }
+
+  // Update organization with optional logo upload
+  Future<void> updateOrganizationWithLogo(
+    String orgId,
+    Organization organization,
+    Uint8List? logoFile,
+    {String? logoFileName}
+  ) async {
+    try {
+      final batch = _firestore.batch();
+      final orgRef = _firestore.collection(AppConstants.organizationsCollection).doc(orgId);
+      
+      // Upload logo if provided
+      String? logoUrl = organization.orgLogoUrl;
+      if (logoFile != null) {
+        try {
+          logoUrl = await _uploadOrganizationLogo(orgId, logoFile, fileName: logoFileName);
+        } catch (e) {
+          print('Warning: Failed to upload logo: $e');
+          // Continue without logo update
+        }
+      }
+      
+      // Update organization with new logo URL if uploaded
+      final updatedOrg = organization.copyWith(
+        orgLogoUrl: logoUrl,
+        updatedDate: DateTime.now(),
+      );
+      
+      batch.update(orgRef, updatedOrg.toMap());
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to update organization: $e');
     }
   }
 
@@ -290,40 +364,12 @@ class OrganizationRepository {
     }
   }
 
-  // Upload organization logo
-  Future<String> _uploadOrganizationLogo(String orgId, File logoFile) async {
-    return await StorageUtils.uploadOrganizationLogo(orgId, logoFile);
-  }
-
-  // Update system counters
-  Future<void> _updateSystemCounters() async {
-    try {
-      final countersRef = _firestore
-          .collection(AppConstants.systemMetadataCollection)
-          .doc('counters');
-
-      await _firestore.runTransaction((transaction) async {
-        final snapshot = await transaction.get(countersRef);
-        
-        if (snapshot.exists) {
-          final currentCount = snapshot.data()!['organizationCount'] ?? 0;
-          transaction.update(countersRef, {
-            'organizationCount': currentCount + 1,
-            'lastUpdated': Timestamp.fromDate(DateTime.now()),
-          });
-        } else {
-          transaction.set(countersRef, {
-            'organizationCount': 1,
-            'userCount': 1,
-            'subscriptionCount': 1,
-            'lastUpdated': Timestamp.fromDate(DateTime.now()),
-          });
-        }
-      });
-    } catch (e) {
-      // Log error but don't throw - this is not critical
-      print('Failed to update system counters: $e');
+  // Upload organization logo (platform-agnostic)
+  Future<String> _uploadOrganizationLogo(String orgId, Uint8List? logoBytes, {String? fileName}) async {
+    if (logoBytes == null) {
+      throw Exception('No logo bytes provided');
     }
+    return await StorageUtils.uploadOrganizationLogo(orgId, logoBytes, fileName: fileName);
   }
 
   // Get dashboard analytics

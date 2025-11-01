@@ -3,8 +3,6 @@ import 'package:equatable/equatable.dart';
 import '../../../core/repositories/organization_repository.dart';
 import '../../../core/models/organization.dart';
 import '../../../core/models/subscription.dart';
-import '../../../core/widgets/custom_snackbar.dart';
-import 'dart:io';
 
 // Events
 abstract class OrganizationEvent extends Equatable {
@@ -31,21 +29,27 @@ class CreateOrganization extends OrganizationEvent {
   final String orgName;
   final String email;
   final String gstNo;
+  final String? industry;
+  final String? location;
   final String adminName;
   final String adminPhone;
   final String adminEmail;
   final Subscription subscription;
-  final File? logoFile;
+  final dynamic logoFile;
+  final String? logoFileName;
 
   const CreateOrganization({
     required this.orgName,
     required this.email,
     required this.gstNo,
+    this.industry,
+    this.location,
     required this.adminName,
     required this.adminPhone,
     required this.adminEmail,
     required this.subscription,
     this.logoFile,
+    this.logoFileName,
   });
 
   @override
@@ -53,11 +57,14 @@ class CreateOrganization extends OrganizationEvent {
         orgName,
         email,
         gstNo,
+        industry,
+        location,
         adminName,
         adminPhone,
         adminEmail,
         subscription,
         logoFile,
+        logoFileName,
       ];
 }
 
@@ -81,6 +88,32 @@ class DeleteOrganization extends OrganizationEvent {
 
   @override
   List<Object?> get props => [orgId];
+}
+
+class LoadOrganizationDetails extends OrganizationEvent {
+  final String orgId;
+
+  const LoadOrganizationDetails(this.orgId);
+
+  @override
+  List<Object?> get props => [orgId];
+}
+
+class UpdateOrganizationDetails extends OrganizationEvent {
+  final String orgId;
+  final Organization organization;
+  final dynamic logoFile;
+  final String? logoFileName;
+
+  const UpdateOrganizationDetails({
+    required this.orgId,
+    required this.organization,
+    this.logoFile,
+    this.logoFileName,
+  });
+
+  @override
+  List<Object?> get props => [orgId, organization, logoFile, logoFileName];
 }
 
 // States
@@ -125,6 +158,19 @@ class OrganizationDeleted extends OrganizationState {
   const OrganizationDeleted();
 }
 
+class OrganizationDetailsLoaded extends OrganizationState {
+  final Organization organization;
+  final Subscription? subscription;
+
+  const OrganizationDetailsLoaded({
+    required this.organization,
+    this.subscription,
+  });
+
+  @override
+  List<Object?> get props => [organization, subscription];
+}
+
 class OrganizationFailure extends OrganizationState {
   final String message;
 
@@ -143,6 +189,8 @@ class OrganizationBloc extends Bloc<OrganizationEvent, OrganizationState> {
     on<CreateOrganization>(_onCreateOrganization);
     on<UpdateOrganization>(_onUpdateOrganization);
     on<DeleteOrganization>(_onDeleteOrganization);
+    on<LoadOrganizationDetails>(_onLoadOrganizationDetails);
+    on<UpdateOrganizationDetails>(_onUpdateOrganizationDetails);
   }
 
   Future<void> _onLoadOrganizations(
@@ -173,11 +221,14 @@ class OrganizationBloc extends Bloc<OrganizationEvent, OrganizationState> {
         orgName: event.orgName,
         email: event.email,
         gstNo: event.gstNo,
+        industry: event.industry,
+        location: event.location,
         adminName: event.adminName,
         adminPhone: event.adminPhone,
         adminEmail: event.adminEmail,
         subscription: event.subscription,
         logoFile: event.logoFile,
+        logoFileName: event.logoFileName,
       );
       
       emit(OrganizationCreated(orgId: orgId));
@@ -212,6 +263,47 @@ class OrganizationBloc extends Bloc<OrganizationEvent, OrganizationState> {
     try {
       await organizationRepository.deleteOrganization(event.orgId);
       emit(const OrganizationDeleted());
+    } catch (e) {
+      emit(OrganizationFailure(message: e.toString()));
+    }
+  }
+
+  Future<void> _onLoadOrganizationDetails(
+    LoadOrganizationDetails event,
+    Emitter<OrganizationState> emit,
+  ) async {
+    emit(const OrganizationLoading());
+    
+    try {
+      final organization = await organizationRepository.getOrganizationById(event.orgId);
+      if (organization != null) {
+        final subscription = await organizationRepository.getOrganizationSubscription(event.orgId);
+        emit(OrganizationDetailsLoaded(
+          organization: organization,
+          subscription: subscription,
+        ));
+      } else {
+        emit(const OrganizationFailure(message: 'Organization not found'));
+      }
+    } catch (e) {
+      emit(OrganizationFailure(message: e.toString()));
+    }
+  }
+
+  Future<void> _onUpdateOrganizationDetails(
+    UpdateOrganizationDetails event,
+    Emitter<OrganizationState> emit,
+  ) async {
+    emit(const OrganizationLoading());
+    
+    try {
+      await organizationRepository.updateOrganizationWithLogo(
+        event.orgId,
+        event.organization,
+        event.logoFile,
+        logoFileName: event.logoFileName,
+      );
+      emit(const OrganizationUpdated());
     } catch (e) {
       emit(OrganizationFailure(message: e.toString()));
     }

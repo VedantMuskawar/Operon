@@ -1,47 +1,48 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write access for authenticated users
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/USERS/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/USERS/$(request.auth.uid)).data.organizations.size() > 0 &&
+             get(/databases/$(database)/documents/USERS/$(request.auth.uid)).data.organizations[0].orgId == 'superadmin_org' &&
+             get(/databases/$(database)/documents/USERS/$(request.auth.uid)).data.organizations[0].role == 0;
+    }
+    
+    // Temporary permissive rules for testing
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      // Allow authenticated users to read/write for now
+      allow read, write: if isAuthenticated();
+      
+      // Allow Cloud Functions to write (they have no auth)
+      allow write: if request.auth == null;
     }
     
-    // ORGANIZATIONS Collection with USERS Subcollection
-    match /ORGANIZATIONS/{orgId} {
-      allow read, write: if request.auth != null;
-      
-      match /USERS/{userId} {
-        allow read, write: if request.auth != null;
-      }
-      
-      match /SUBSCRIPTION/{subscriptionId} {
-        allow read, write: if request.auth != null;
-      }
-      
-      match /ACTIVITY/{activityId} {
-        allow read, write: if request.auth != null;
-      }
-    }
-    
-    // USERS Collection with ORGANIZATIONS Subcollection
-    match /USERS/{userId} {
-      allow read, write: if request.auth != null;
-      
-      match /ORGANIZATIONS/{orgId} {
-        allow read, write: if request.auth != null;
-      }
-      
-      match /ACTIVITY/{activityId} {
-        allow read, write: if request.auth != null;
-      }
-    }
-    
-    match /SUPERADMIN_CONFIG/settings {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /SYSTEM_METADATA/counters {
-      allow read, write: if request.auth != null;
-    }
+    // TODO: Add proper security rules for new collections
+    // Example secure rules for Products, Addresses, and Product Prices:
+    // 
+    // Products
+    // match /ORGANIZATIONS/{orgId}/PRODUCTS/{productId} {
+    //   allow read: if isAuthenticated() && isOrgMember(orgId);
+    //   allow write: if isAuthenticated() && isOrgAdmin(orgId);
+    // }
+    //
+    // Addresses
+    // match /ORGANIZATIONS/{orgId}/ADDRESSES/{addressId} {
+    //   allow read: if isAuthenticated() && isOrgMember(orgId);
+    //   allow write: if isAuthenticated() && isOrgAdmin(orgId);
+    // }
+    //
+    // Product Prices
+    // match /ORGANIZATIONS/{orgId}/PRODUCT_PRICES/{priceId} {
+    //   allow read: if isAuthenticated() && isOrgMember(orgId);
+    //   allow write: if isAuthenticated() && isOrgAdmin(orgId);
+    // }
   }
 }

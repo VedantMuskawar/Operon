@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import '../models/user.dart';
 import '../models/organization_role.dart';
 import '../constants/app_constants.dart';
@@ -260,9 +260,14 @@ class UserRepository {
     }
   }
 
-  // Upload user profile photo
-  Future<String> uploadUserProfilePhoto(String userId, File photoFile) async {
-    return await StorageUtils.uploadUserProfilePhoto(userId, photoFile);
+  // Upload user profile photo (PNG only, using bytes)
+  Future<String> uploadUserProfilePhoto(String userId, Uint8List photoBytes) async {
+    // Enforce PNG by providing a .png filename; callers should supply PNG bytes
+    return await StorageUtils.uploadUserProfilePhoto(
+      userId,
+      photoBytes,
+      fileName: 'profile.png',
+    );
   }
 
   // Update user profile photo

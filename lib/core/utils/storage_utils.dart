@@ -1,5 +1,5 @@
 import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:io';
+import 'dart:typed_data';
 
 class StorageUtils {
   static final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -46,14 +46,36 @@ class StorageUtils {
     return '${suffix}_$timestamp.$extension';
   }
 
-  // Upload file to specified path
-  static Future<String> uploadFile(String path, File file) async {
+  // Upload file to specified path (always using bytes)
+  static Future<String> uploadFile(String path, Uint8List fileBytes, {String? fileName}) async {
     try {
       final ref = _storage.ref().child(path);
-      final uploadTask = await ref.putFile(file);
-      return await uploadTask.ref.getDownloadURL();
+      final metadata = SettableMetadata(
+        contentType: _getContentType(fileName ?? ''),
+      );
+      final uploadTask = ref.putData(fileBytes, metadata);
+      final snapshot = await uploadTask;
+      return await snapshot.ref.getDownloadURL();
     } catch (e) {
       throw Exception('Failed to upload file: $e');
+    }
+  }
+
+  // Get content type from file name
+  static String _getContentType(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      default:
+        return 'image/jpeg';
     }
   }
 
@@ -88,32 +110,48 @@ class StorageUtils {
     }
   }
 
-  // Upload organization logo
-  static Future<String> uploadOrganizationLogo(String orgId, File logoFile) async {
-    final fileName = generateUniqueFileName(logoFile.path, '${orgId}_logo');
-    final path = getOrganizationLogoPath(orgId, fileName);
-    return await uploadFile(path, logoFile);
+  // Upload organization logo (platform-agnostic)
+  static Future<String> uploadOrganizationLogo(
+    String orgId,
+    Uint8List logoBytes, {
+    String? fileName,
+  }) async {
+    final finalFileName = fileName ?? generateUniqueFileName('logo.jpg', '${orgId}_logo');
+    final path = getOrganizationLogoPath(orgId, finalFileName);
+    return await uploadFile(path, logoBytes, fileName: finalFileName);
   }
 
-  // Upload user profile photo
-  static Future<String> uploadUserProfilePhoto(String userId, File photoFile) async {
-    final fileName = generateUniqueFileName(photoFile.path, '${userId}_profile');
-    final path = getUserProfilePhotoPath(userId, fileName);
-    return await uploadFile(path, photoFile);
+  // Upload user profile photo (platform-agnostic)
+  static Future<String> uploadUserProfilePhoto(
+    String userId,
+    Uint8List photoBytes, {
+    String? fileName,
+  }) async {
+    final finalFileName = fileName ?? generateUniqueFileName('photo.jpg', '${userId}_profile');
+    final path = getUserProfilePhotoPath(userId, finalFileName);
+    return await uploadFile(path, photoBytes, fileName: finalFileName);
   }
 
-  // Upload organization document
-  static Future<String> uploadOrganizationDocument(String orgId, File documentFile) async {
-    final fileName = generateUniqueFileName(documentFile.path, '${orgId}_doc');
-    final path = getOrganizationDocumentPath(orgId, fileName);
-    return await uploadFile(path, documentFile);
+  // Upload organization document (platform-agnostic)
+  static Future<String> uploadOrganizationDocument(
+    String orgId,
+    Uint8List documentBytes, {
+    String? fileName,
+  }) async {
+    final finalFileName = fileName ?? generateUniqueFileName('document.pdf', '${orgId}_doc');
+    final path = getOrganizationDocumentPath(orgId, finalFileName);
+    return await uploadFile(path, documentBytes, fileName: finalFileName);
   }
 
-  // Upload user document
-  static Future<String> uploadUserDocument(String userId, File documentFile) async {
-    final fileName = generateUniqueFileName(documentFile.path, '${userId}_doc');
-    final path = getUserDocumentPath(userId, fileName);
-    return await uploadFile(path, documentFile);
+  // Upload user document (platform-agnostic)
+  static Future<String> uploadUserDocument(
+    String userId,
+    Uint8List documentBytes, {
+    String? fileName,
+  }) async {
+    final finalFileName = fileName ?? generateUniqueFileName('document.pdf', '${userId}_doc');
+    final path = getUserDocumentPath(userId, finalFileName);
+    return await uploadFile(path, documentBytes, fileName: finalFileName);
   }
 
   // Delete organization logo

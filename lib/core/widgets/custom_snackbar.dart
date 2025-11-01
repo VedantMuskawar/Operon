@@ -3,7 +3,13 @@ import '../theme/app_theme.dart';
 
 class CustomSnackBar {
   static void showSuccess(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+    if (scaffoldMessenger == null) {
+      debugPrint('CustomSnackBar: No ScaffoldMessenger found - $message');
+      return;
+    }
+    
+    scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -44,7 +50,13 @@ class CustomSnackBar {
   }
 
   static void showError(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+    if (scaffoldMessenger == null) {
+      debugPrint('CustomSnackBar: No ScaffoldMessenger found - $message');
+      return;
+    }
+    
+    scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -85,7 +97,13 @@ class CustomSnackBar {
   }
 
   static void showWarning(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+    if (scaffoldMessenger == null) {
+      debugPrint('CustomSnackBar: No ScaffoldMessenger found - $message');
+      return;
+    }
+    
+    scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [
@@ -126,7 +144,13 @@ class CustomSnackBar {
   }
 
   static void showInfo(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    final scaffoldMessenger = ScaffoldMessenger.maybeOf(context);
+    if (scaffoldMessenger == null) {
+      debugPrint('CustomSnackBar: No ScaffoldMessenger found - $message');
+      return;
+    }
+    
+    scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Row(
           children: [

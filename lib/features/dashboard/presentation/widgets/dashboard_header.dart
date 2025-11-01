@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:ui';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/bloc/auth_bloc.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
@@ -15,56 +16,77 @@ class DashboardHeader extends StatelessWidget {
     return Container(
       height: 80,
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        // Apple-style glossy transparent background
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.08),
+            Colors.white.withOpacity(0.02),
+          ],
+        ),
         border: Border(
           bottom: BorderSide(
-            color: AppTheme.borderColor,
-            width: 1,
+            color: Colors.white.withOpacity(0.1),
+            width: 0.5,
           ),
         ),
+        // Backdrop blur effect for glassmorphism
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 0),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  BlocBuilder<AuthBloc, AuthState>(
-                    builder: (context, state) {
-                      if (state is AuthAuthenticated) {
-                        return Text(
-                          'Welcome back, Super Admin!',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: AppTheme.textPrimaryColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        );
-                      }
-                      return Text(
-                        'Welcome to OPERON',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppTheme.textPrimaryColor,
-                          fontWeight: FontWeight.w600,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      BlocBuilder<AuthBloc, AuthState>(
+                        builder: (context, state) {
+                          if (state is AuthAuthenticated) {
+                            return Text(
+                              'Welcome back, Super Admin!',
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            );
+                          }
+                          return Text(
+                            'Welcome to OPERON',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Manage your organizations and subscriptions',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withOpacity(0.7),
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Manage your organizations and subscriptions',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+                _buildHeaderActions(context),
+              ],
             ),
-            _buildHeaderActions(context),
-          ],
+          ),
         ),
       ),
     );
@@ -83,20 +105,34 @@ class DashboardHeader extends StatelessWidget {
   Widget _buildNotificationButton() {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(10),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.15),
+            Colors.white.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppTheme.borderColor,
+          color: Colors.white.withOpacity(0.2),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: IconButton(
         iconSize: 20,
         icon: Stack(
           children: [
-            const Icon(
+            Icon(
               Icons.notifications_outlined,
-              color: AppTheme.textPrimaryColor,
+              color: Colors.white.withOpacity(0.9),
               size: 20,
             ),
             Positioned(
@@ -105,9 +141,15 @@ class DashboardHeader extends StatelessWidget {
               child: Container(
                 width: 8,
                 height: 8,
-                decoration: const BoxDecoration(
-                  color: AppTheme.errorColor,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF6B6B),
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFF6B6B).withOpacity(0.5),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -123,17 +165,31 @@ class DashboardHeader extends StatelessWidget {
   Widget _buildProfileButton(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(10),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.15),
+            Colors.white.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppTheme.borderColor,
+          color: Colors.white.withOpacity(0.2),
           width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: PopupMenuButton<String>(
-        icon: const Icon(
+        icon: Icon(
           Icons.account_circle,
-          color: AppTheme.textPrimaryColor,
+          color: Colors.white.withOpacity(0.9),
           size: 20,
         ),
         onSelected: (value) {
@@ -163,35 +219,68 @@ class DashboardHeader extends StatelessWidget {
           }
         },
         itemBuilder: (context) => [
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'profile',
-            child: Row(
-              children: [
-                Icon(Icons.person, size: 20),
-                SizedBox(width: 12),
-                Text('Profile'),
-              ],
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.1),
+                    Colors.white.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.person, size: 20, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Profile', style: TextStyle(color: Colors.white)),
+                ],
+              ),
             ),
           ),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'settings',
-            child: Row(
-              children: [
-                Icon(Icons.settings, size: 20),
-                SizedBox(width: 12),
-                Text('Settings'),
-              ],
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.1),
+                    Colors.white.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.settings, size: 20, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Settings', style: TextStyle(color: Colors.white)),
+                ],
+              ),
             ),
           ),
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'logout',
-            child: Row(
-              children: [
-                Icon(Icons.logout, color: AppTheme.errorColor, size: 20),
-                SizedBox(width: 12),
-                Text('Logout', style: TextStyle(color: AppTheme.errorColor)),
-              ],
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFFF6B6B).withOpacity(0.2),
+                    const Color(0xFFFF6B6B).withOpacity(0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.logout, color: Color(0xFFFF6B6B), size: 20),
+                  SizedBox(width: 12),
+                  Text('Logout', style: TextStyle(color: Color(0xFFFF6B6B))),
+                ],
+              ),
             ),
           ),
         ],

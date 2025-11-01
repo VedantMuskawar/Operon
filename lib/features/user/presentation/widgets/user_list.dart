@@ -312,7 +312,10 @@ class _UserListState extends State<UserList> {
           orElse: () => const OrganizationRole(
             orgId: '',
             role: 0,
+            status: 'inactive',
             joinedDate: null,
+            isPrimary: false,
+            permissions: [],
           ),
         );
 

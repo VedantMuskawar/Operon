@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import '../../bloc/auth_bloc.dart';
-import '../../../../core/constants/app_constants.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../widgets/phone_input_field.dart';
-import '../widgets/otp_input_field.dart';
+import '../../../organization/presentation/pages/organization_select_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -106,6 +104,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                 ),
               ),
             );
+          } else if (state is AuthOrganizationSelectionRequired) {
+            // Navigate to organization selection page
+            HapticFeedback.lightImpact();
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const OrganizationSelectPage(),
+              ),
+            );
           } else if (state is AuthFailure) {
             HapticFeedback.heavyImpact();
             ScaffoldMessenger.of(context).showSnackBar(
@@ -121,13 +127,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           }
         },
         child: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppTheme.backgroundColor,
-                AppTheme.surfaceColor.withOpacity(0.8),
+                Color(0xFF141416), // PaveBoard background
+                Color(0xFF0A0A0B),
               ],
             ),
           ),
@@ -153,11 +159,29 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget _buildLoginCard() {
     return Container(
       constraints: const BoxConstraints(maxWidth: 400),
-      child: Card(
-        elevation: 8,
-        shadowColor: Colors.black.withOpacity(0.3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1F2937), // gray-800/40
+              Color(0xFF374151), // gray-700/30
+              Color(0xFF1F2937), // gray-800/40
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: const Color(0x66FFFFFF), // rgba(255,255,255,0.4)
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 32,
+              offset: const Offset(0, 16),
+            ),
+          ],
         ),
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -179,6 +203,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                   const SizedBox(height: 16),
                   _buildResendOTPButton(),
                 ],
+                const SizedBox(height: 24),
+                _buildFooter(),
               ],
             ),
           ),
@@ -191,32 +217,51 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     return Column(
       children: [
         Container(
-          width: 80,
-          height: 80,
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: AppTheme.buttonShadow,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)], // blue-500 to purple-600
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: const Icon(
-            Icons.admin_panel_settings,
-            size: 40,
+            Icons.business,
+            size: 32,
             color: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
-        Text(
-          'OPERON',
-          style: Theme.of(context).textTheme.displaySmall?.copyWith(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
+        ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [Color(0xFF60A5FA), Color(0xFFA78BFA)], // blue-400 to purple-400
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ).createShader(bounds),
+          child: Text(
+            _isOTPSent ? 'Verify OTP' : 'Welcome to OPERON',
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Super Admin Portal',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: AppTheme.textSecondaryColor,
+          _isOTPSent ? 'Enter the verification code' : 'Sign in with your phone number',
+          style: const TextStyle(
+            color: Color(0xFF9CA3AF), // gray-400
+            fontSize: 16,
           ),
         ),
       ],
@@ -224,10 +269,74 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   }
 
   Widget _buildPhoneInput() {
-    return             PhoneInputField(
-              controller: _phoneController,
-              labelText: 'Phone Number',
-              hintText: 'Enter 10-digit mobile number',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '📱 Phone Number',
+          style: TextStyle(
+            color: Color(0xFFD1D5DB), // gray-300
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF374151).withValues(alpha: 0.5), // gray-700/50
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFF4B5563).withValues(alpha: 0.5), // gray-600/50
+            ),
+          ),
+          child: TextFormField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: const TextStyle(
+              color: Color(0xFFF9FAFB), // gray-50
+              fontSize: 16,
+            ),
+            decoration: const InputDecoration(
+              hintText: '98765 43210',
+              hintStyle: TextStyle(
+                color: Color(0xFF6B7280), // gray-500
+              ),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter your phone number';
+              }
+              if (value.length != 10) {
+                return 'Please enter exactly 10 digits';
+              }
+              if (!RegExp(r'^[6-9]\d{9}$').hasMatch(value)) {
+                return 'Please enter a valid Indian mobile number';
+              }
+              return null;
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Row(
+          children: [
+            Icon(
+              Icons.lightbulb_outline,
+              color: Color(0xFF6B7280), // gray-500
+              size: 16,
+            ),
+            SizedBox(width: 4),
+            Text(
+              "We'll send you a verification code",
+              style: TextStyle(
+                color: Color(0xFF6B7280), // gray-500
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -235,14 +344,71 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Enter OTP sent to $_currentPhoneNumber',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: AppTheme.textSecondaryColor,
+        const Text(
+          '🔢 Verification Code',
+          style: TextStyle(
+            color: Color(0xFFD1D5DB), // gray-300
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF374151).withValues(alpha: 0.5), // gray-700/50
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFF4B5563).withValues(alpha: 0.5), // gray-600/50
+            ),
+          ),
+          child: TextFormField(
+            controller: _otpController,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFFF9FAFB), // gray-50
+              fontSize: 24,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 8,
+            ),
+            decoration: const InputDecoration(
+              hintText: '123456',
+              hintStyle: TextStyle(
+                color: Color(0xFF6B7280), // gray-500
+                letterSpacing: 8,
+              ),
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter OTP';
+              }
+              if (value.length != 6) {
+                return 'Please enter 6-digit OTP';
+              }
+              return null;
+            },
           ),
         ),
         const SizedBox(height: 8),
-        OTPInputField(controller: _otpController),
+        Row(
+          children: [
+            const Icon(
+              Icons.phone_android,
+              color: Color(0xFF6B7280), // gray-500
+              size: 16,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Enter the 6-digit code sent to $_currentPhoneNumber',
+              style: const TextStyle(
+                color: Color(0xFF6B7280), // gray-500
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -250,32 +416,75 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget _buildSendOTPButton() {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
-        return SizedBox(
+        final isLoading = state is AuthLoading;
+        return Container(
           width: double.infinity,
-          child: ElevatedButton(
-            onPressed: state is AuthLoading ? null : _sendOTP,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)], // blue-500 to purple-600
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isLoading ? null : _sendOTP,
+              borderRadius: BorderRadius.circular(12),
+              child: Center(
+                child: isLoading
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Sending...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.send,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Send OTP',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
-            child: state is AuthLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    'Send OTP',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
           ),
         );
       },
@@ -285,32 +494,75 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget _buildVerifyOTPButton() {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
-        return SizedBox(
+        final isLoading = state is AuthLoading;
+        return Container(
           width: double.infinity,
-          child: ElevatedButton(
-            onPressed: state is AuthLoading ? null : _verifyOTP,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF10B981), Color(0xFF059669)], // green-500 to emerald-600
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isLoading ? null : _verifyOTP,
+              borderRadius: BorderRadius.circular(12),
+              child: Center(
+                child: isLoading
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Verifying...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Verify OTP',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
-            child: state is AuthLoading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    'Verify OTP',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
           ),
         );
       },
@@ -320,16 +572,64 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget _buildResendOTPButton() {
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
-        return TextButton(
-          onPressed: state is AuthLoading ? null : () {
-            setState(() {
-              _isOTPSent = false;
-              _otpController.clear();
-            });
-          },
-          child: const Text('Change Phone Number'),
+        final isLoading = state is AuthLoading;
+        return Container(
+          width: double.infinity,
+          height: 48,
+          decoration: BoxDecoration(
+            color: const Color(0xFF374151).withValues(alpha: 0.5), // gray-700/50
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFF4B5563).withValues(alpha: 0.5), // gray-600/50
+            ),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isLoading ? null : () {
+                setState(() {
+                  _isOTPSent = false;
+                  _otpController.clear();
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.arrow_back,
+                      color: Color(0xFFD1D5DB), // gray-300
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Back',
+                      style: TextStyle(
+                        color: isLoading ? const Color(0xFF6B7280) : const Color(0xFFD1D5DB), // gray-500 : gray-300
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildFooter() {
+    return const Center(
+      child: Text(
+        'Secure authentication powered by Firebase',
+        style: TextStyle(
+          color: Color(0xFF6B7280), // gray-500
+          fontSize: 12,
+        ),
+      ),
     );
   }
 }
