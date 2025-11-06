@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/config/android_config.dart';
+import '../../../../core/services/call_detection_service.dart';
 import '../../../auth/android_auth_bloc.dart';
 import '../bloc/android_organization_bloc.dart';
 import 'android_organization_home_page.dart';
@@ -480,7 +481,13 @@ class _AndroidOrganizationSelectPageState extends State<AndroidOrganizationSelec
     );
   }
 
-  void _navigateToOrganizationDashboard(BuildContext context, Map<String, dynamic> organization) {
+  void _navigateToOrganizationDashboard(BuildContext context, Map<String, dynamic> organization) async {
+    // Set organization ID for call detection service
+    final orgId = organization['orgId'] ?? organization['id'];
+    if (orgId != null) {
+      await CallDetectionService.instance.setOrganizationId(orgId.toString());
+    }
+    
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => AndroidOrganizationHomePage(

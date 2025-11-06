@@ -112,5 +112,105 @@ class AndroidLocationPricingRepository {
       throw Exception('Failed to delete location pricing: $e');
     }
   }
+
+  /// Get location pricing by city and region
+  Future<LocationPricing?> getLocationPricingByCity(
+    String organizationId,
+    String city,
+    String region,
+  ) async {
+    try {
+      final snapshot = await _firestore
+          .collection('ORGANIZATIONS')
+          .doc(organizationId)
+          .collection('LOCATION_PRICING')
+          .where('city', isEqualTo: city)
+          .where('locationName', isEqualTo: region)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) return null;
+
+      return LocationPricing.fromFirestore(snapshot.docs.first);
+    } catch (e) {
+      throw Exception('Failed to fetch location pricing by city: $e');
+    }
+  }
+
+  /// Create or update location pricing (upsert)
+  Future<String> createOrUpdateLocationPricing(
+    String organizationId,
+    String region,
+    String city,
+    double unitPrice,
+    String userId,
+  ) async {
+    try {
+      // Try to find existing location pricing
+      final existing = await getLocationPricingByCity(organizationId, city, region);
+
+      if (existing != null) {
+        // Update existing
+        final updated = existing.copyWith(
+          unitPrice: unitPrice,
+          updatedAt: DateTime.now(),
+          updatedBy: userId,
+        );
+
+        await _firestore
+            .collection('ORGANIZATIONS')
+            .doc(organizationId)
+            .collection('LOCATION_PRICING')
+            .doc(existing.id!)
+            .update(updated.toFirestore());
+
+        return existing.id!;
+      } else {
+        // Create new
+        final locationId = '${region}_${city}'.replaceAll(' ', '_').toLowerCase();
+        final newLocation = LocationPricing(
+          locationId: locationId,
+          locationName: region,
+          city: city,
+          unitPrice: unitPrice,
+          status: 'Active',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          createdBy: userId,
+          updatedBy: userId,
+        );
+
+        final docRef = await _firestore
+            .collection('ORGANIZATIONS')
+            .doc(organizationId)
+            .collection('LOCATION_PRICING')
+            .add(newLocation.toFirestore());
+
+        return docRef.id;
+      }
+    } catch (e) {
+      throw Exception('Failed to create or update location pricing: $e');
+    }
+  }
+
+  /// Get all location pricing entries for an organization
+  Future<List<LocationPricing>> getLocationPricings(String organizationId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('ORGANIZATIONS')
+          .doc(organizationId)
+          .collection('LOCATION_PRICING')
+          .get();
+
+      final locations = snapshot.docs
+          .map((doc) => LocationPricing.fromFirestore(doc))
+          .toList();
+
+      locations.sort((a, b) => a.locationName.compareTo(b.locationName));
+      return locations;
+    } catch (e) {
+      throw Exception('Failed to fetch location pricings: $e');
+    }
+  }
 }
 

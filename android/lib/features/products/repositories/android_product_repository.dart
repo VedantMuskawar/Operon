@@ -112,5 +112,26 @@ class AndroidProductRepository {
       throw Exception('Failed to delete product: $e');
     }
   }
+
+  /// Get all products for an organization
+  Future<List<Product>> getProducts(String organizationId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('ORGANIZATIONS')
+          .doc(organizationId)
+          .collection('PRODUCTS')
+          .where('status', isEqualTo: 'Active')
+          .get();
+
+      final products = snapshot.docs
+          .map((doc) => Product.fromFirestore(doc))
+          .toList();
+
+      products.sort((a, b) => a.productName.compareTo(b.productName));
+      return products;
+    } catch (e) {
+      throw Exception('Failed to fetch products: $e');
+    }
+  }
 }
 
