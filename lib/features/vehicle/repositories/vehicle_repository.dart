@@ -60,6 +60,11 @@ class VehicleRepository {
         updatedAt: DateTime.now(),
         createdBy: userId,
         updatedBy: userId,
+        assignedDriverId: vehicle.assignedDriverId,
+        assignedDriverName: vehicle.assignedDriverName,
+        assignedDriverContact: vehicle.assignedDriverContact,
+        assignedDriverAt: vehicle.assignedDriverAt,
+        assignedDriverBy: vehicle.assignedDriverBy,
       );
 
       final docRef = await _firestore
@@ -85,6 +90,8 @@ class VehicleRepository {
       final vehicleWithUser = vehicle.copyWith(
         updatedAt: DateTime.now(),
         updatedBy: userId,
+        assignedDriverAt: vehicle.assignedDriverAt,
+        assignedDriverBy: vehicle.assignedDriverBy,
       );
 
       await _firestore
@@ -95,6 +102,85 @@ class VehicleRepository {
           .update(vehicleWithUser.toFirestore());
     } catch (e) {
       throw Exception('Failed to update vehicle: $e');
+    }
+  }
+
+  Future<Vehicle?> getVehicleAssignedToDriver({
+    required String organizationId,
+    required String driverId,
+  }) async {
+    final snapshot = await _firestore
+        .collection('ORGANIZATIONS')
+        .doc(organizationId)
+        .collection('VEHICLES')
+        .where('assignedDriverId', isEqualTo: driverId)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      return null;
+    }
+
+    return Vehicle.fromFirestore(snapshot.docs.first);
+  }
+
+  Future<void> assignDriver({
+    required String organizationId,
+    required String vehicleId,
+    String? driverId,
+    String? driverName,
+    String? driverContact,
+    required String userId,
+    bool force = false,
+  }) async {
+    try {
+      final docRef = _firestore
+          .collection('ORGANIZATIONS')
+          .doc(organizationId)
+          .collection('VEHICLES')
+          .doc(vehicleId);
+
+      if (driverId != null && !force) {
+        final existing = await getVehicleAssignedToDriver(
+          organizationId: organizationId,
+          driverId: driverId,
+        );
+
+        if (existing != null && existing.id != vehicleId) {
+          throw DriverAssignmentConflictException(existing.vehicleNo);
+        }
+      }
+
+      final now = DateTime.now();
+
+      final updates = <String, dynamic>{
+        'updatedAt': Timestamp.fromDate(now),
+        'updatedBy': userId,
+      };
+
+      if (driverId == null) {
+        updates['assignedDriverId'] = FieldValue.delete();
+        updates['assignedDriverName'] = FieldValue.delete();
+        updates['assignedDriverContact'] = FieldValue.delete();
+        updates['assignedDriverAt'] = FieldValue.delete();
+        updates['assignedDriverBy'] = FieldValue.delete();
+      } else {
+        updates['assignedDriverId'] = driverId;
+        updates['assignedDriverName'] = driverName;
+        if (driverContact != null && driverContact.isNotEmpty) {
+          updates['assignedDriverContact'] = driverContact;
+        } else {
+          updates['assignedDriverContact'] = FieldValue.delete();
+        }
+        updates['assignedDriverAt'] = Timestamp.fromDate(now);
+        updates['assignedDriverBy'] = userId;
+      }
+
+      await docRef.update(updates);
+    } on DriverAssignmentConflictException {
+      rethrow;
+    } catch (e) {
+      throw Exception('Failed to assign driver: $e');
     }
   }
 
@@ -172,4 +258,13 @@ class VehicleRepository {
       throw Exception('Failed to check vehicle ID: $e');
     }
   }
+}
+
+class DriverAssignmentConflictException implements Exception {
+  DriverAssignmentConflictException(this.vehicleNo);
+
+  final String vehicleNo;
+
+  @override
+  String toString() => 'Driver already assigned to vehicle $vehicleNo';
 }

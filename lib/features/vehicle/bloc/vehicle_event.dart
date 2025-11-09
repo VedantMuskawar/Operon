@@ -95,3 +95,56 @@ class RefreshVehicles extends VehicleEvent {
   List<Object?> get props => [organizationId];
 }
 
+class VehiclesStreamUpdated extends VehicleEvent {
+  final List<Vehicle> vehicles;
+  final String? searchQuery;
+
+  const VehiclesStreamUpdated({
+    required this.vehicles,
+    this.searchQuery,
+  });
+
+  @override
+  List<Object?> get props => [vehicles, searchQuery];
+}
+
+class VehiclesStreamError extends VehicleEvent {
+  final String message;
+
+  const VehiclesStreamError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
+class AssignDriverToVehicle extends VehicleEvent {
+  final String organizationId;
+  final String vehicleId;
+  final String? driverId;
+  final String? driverName;
+  final String? driverContact;
+  final String userId;
+  final bool force;
+
+  const AssignDriverToVehicle({
+    required this.organizationId,
+    required this.vehicleId,
+    required this.userId,
+    this.driverId,
+    this.driverName,
+    this.driverContact,
+    this.force = false,
+  });
+
+  @override
+  List<Object?> get props => [
+        organizationId,
+        vehicleId,
+        driverId,
+        driverName,
+        driverContact,
+        userId,
+        force,
+      ];
+}
+

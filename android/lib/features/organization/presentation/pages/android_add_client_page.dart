@@ -17,10 +17,7 @@ import 'android_client_pending_orders_page.dart';
 class AndroidAddClientPage extends StatefulWidget {
   final String organizationId;
 
-  const AndroidAddClientPage({
-    super.key,
-    required this.organizationId,
-  });
+  const AndroidAddClientPage({super.key, required this.organizationId});
 
   @override
   State<AndroidAddClientPage> createState() => _AndroidAddClientPageState();
@@ -34,13 +31,18 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
   Timer? _debounceTimer;
   bool _isSearching = false;
   static const int _minSearchLength = 2;
-  static const Duration _debounceDelay = Duration(milliseconds: 300); // Reduced from 400ms for faster response
-  
+  static const Duration _debounceDelay = Duration(
+    milliseconds: 300,
+  ); // Reduced from 400ms for faster response
+
   // Pagination constants
-  static const int _contactsPerPage = 100; // Increased from 50 for better initial load
+  static const int _contactsPerPage =
+      100; // Increased from 50 for better initial load
   static const int _maxSearchResults = 200;
-  static const String _contactsIndexCacheKey = 'android_add_client_search_index_v1';
-  static const String _contactsIndexHashKey = 'android_add_client_search_index_hash_v1';
+  static const String _contactsIndexCacheKey =
+      'android_add_client_search_index_v1';
+  static const String _contactsIndexHashKey =
+      'android_add_client_search_index_hash_v1';
 
   // Contacts state
   List<Contact> _allContacts = [];
@@ -50,18 +52,22 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
   bool _contactsPermissionGranted = false;
   bool _hasMoreContacts = false;
   int _currentPage = 0;
-  final Map<String, Uint8List?> _thumbnailCache = {}; // Cache for loaded thumbnails
+  final Map<String, Uint8List?> _thumbnailCache =
+      {}; // Cache for loaded thumbnails
   final Set<String> _loadingThumbnails = {}; // Track thumbnails being loaded
-  
+
   // Pre-processed search data for efficiency
-  final Map<String, String> _contactNameLowercase = {}; // Contact ID -> lowercase name
-  final Map<String, List<String>> _contactPhoneDigits = {}; // Contact ID -> normalized phone digits
+  final Map<String, String> _contactNameLowercase =
+      {}; // Contact ID -> lowercase name
+  final Map<String, List<String>> _contactPhoneDigits =
+      {}; // Contact ID -> normalized phone digits
   bool _searchDataPrepared = false;
   Future<void>? _searchPreparationFuture;
-  
+
   // Client state
   final AndroidClientRepository _clientRepository = AndroidClientRepository();
-  Map<String, String> _phoneToClientIdMap = {}; // Map normalized phone to clientId
+  Map<String, String> _phoneToClientIdMap =
+      {}; // Map normalized phone to clientId
   bool _clientsLoaded = false;
   bool _loadingClients = false;
 
@@ -90,38 +96,51 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       }
     }
   }
-  
-  Future<void> _loadClientsIfNeeded() async {
-    if (_clientsLoaded || _loadingClients) return;
-    
+
+  Future<void> _loadClientsIfNeeded({bool forceRefresh = false}) async {
+    if ((_clientsLoaded && !forceRefresh) || _loadingClients) return;
+
+    if (!mounted) return;
     setState(() {
       _loadingClients = true;
     });
-    
+
     try {
-      // Invalidate cache to ensure we get fresh data with country codes
-      await _clientRepository.invalidatePhoneMapCache(widget.organizationId);
-      
-      final phoneToIdMap = await _clientRepository.getClientPhoneToIdMap(widget.organizationId);
-      if (mounted) {
-        setState(() {
-          _phoneToClientIdMap = phoneToIdMap;
-          _clientsLoaded = true;
-          _loadingClients = false;
-        });
-        
+      if (forceRefresh) {
+        await _clientRepository.invalidatePhoneMapCache(widget.organizationId);
+      }
+
+      Map<String, String> phoneToIdMap = await _clientRepository
+          .getClientPhoneToIdMap(widget.organizationId);
+
+      if (!forceRefresh && !_clientsLoaded && phoneToIdMap.isEmpty) {
+        await _clientRepository.invalidatePhoneMapCache(widget.organizationId);
+        phoneToIdMap = await _clientRepository.getClientPhoneToIdMap(
+          widget.organizationId,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _phoneToClientIdMap = phoneToIdMap;
+        _clientsLoaded = true;
+        _loadingClients = false;
+      });
+
+      if (kDebugMode) {
         // Debug: Log phone map contents
-        print('Loaded ${phoneToIdMap.length} client phone numbers');
+        debugPrint('Loaded ${phoneToIdMap.length} client phone numbers');
         if (phoneToIdMap.isNotEmpty) {
-          print('Sample phone map keys: ${phoneToIdMap.keys.take(5).toList()}');
-          // Check if keys have country codes
           final sampleKeys = phoneToIdMap.keys.take(5).toList();
+          debugPrint('Sample phone map keys: $sampleKeys');
           final hasCountryCodes = sampleKeys.any((key) => key.startsWith('+'));
-          print('Phone map keys have country codes: $hasCountryCodes');
+          debugPrint('Phone map keys have country codes: $hasCountryCodes');
         }
       }
     } catch (e) {
-      print('Error loading clients: $e');
+      if (kDebugMode) {
+        debugPrint('Error loading clients: $e');
+      }
       if (mounted) {
         setState(() {
           _loadingClients = false;
@@ -149,7 +168,9 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
           }
         }
       }
-      if (_contactsPermissionGranted && _allContacts.isEmpty && !_contactsLoading) {
+      if (_contactsPermissionGranted &&
+          _allContacts.isEmpty &&
+          !_contactsLoading) {
         _loadContacts();
       }
     }
@@ -157,7 +178,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
 
   Future<void> _loadContacts() async {
     if (_contactsLoading || _allContacts.isNotEmpty) return;
-    
+
     setState(() {
       _contactsLoading = true;
     });
@@ -194,7 +215,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
           _contactPhoneDigits.clear();
           _searchPreparationFuture = null;
         });
-        
+
         // Prepare search data asynchronously
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -210,17 +231,19 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       }
     }
   }
-  
+
   /// Pre-process contact data for efficient searching
   Future<void> _prepareSearchData() async {
     if (_searchDataPrepared || _allContacts.isEmpty) return;
 
     final contactsPayload = _allContacts
-        .map((contact) => {
-              'id': contact.id,
-              'name': contact.displayName,
-              'phones': contact.phones.map((p) => p.number).toList(),
-            })
+        .map(
+          (contact) => {
+            'id': contact.id,
+            'name': contact.displayName,
+            'phones': contact.phones.map((p) => p.number).toList(),
+          },
+        )
         .toList(growable: false);
 
     final signature = _generateContactsSignature(contactsPayload);
@@ -264,7 +287,11 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
 
     _contactPhoneDigits
       ..clear()
-      ..addAll(phones.map((key, value) => MapEntry(key, List<String>.from(value as List))));
+      ..addAll(
+        phones.map(
+          (key, value) => MapEntry(key, List<String>.from(value as List)),
+        ),
+      );
   }
 
   void _buildSearchIndexSync(List<Map<String, dynamic>> contactsPayload) {
@@ -272,7 +299,9 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
     _applySearchIndex(index);
   }
 
-  String _generateContactsSignature(List<Map<String, dynamic>> contactsPayload) {
+  String _generateContactsSignature(
+    List<Map<String, dynamic>> contactsPayload,
+  ) {
     int hash = 17;
     for (final item in contactsPayload) {
       final id = item['id'] as String? ?? '';
@@ -294,53 +323,62 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
     if (_searchPreparationFuture == null) {
       _searchPreparationFuture = _prepareSearchData();
     }
-    _searchPreparationFuture?.then((_) {
-      if (!mounted) return;
-      _searchPreparationFuture = null;
-      if (_searchDataPrepared) {
-        _performSearch(query);
-      }
-    }).catchError((error) {
-      if (mounted) {
-        _searchPreparationFuture = null;
-      }
-    });
+    _searchPreparationFuture
+        ?.then((_) {
+          if (!mounted) return;
+          _searchPreparationFuture = null;
+          if (_searchDataPrepared) {
+            _performSearch(query);
+          }
+        })
+        .catchError((error) {
+          if (mounted) {
+            _searchPreparationFuture = null;
+          }
+        });
   }
-  
+
   void _updateDisplayedContacts() {
     final startIndex = 0;
-    final endIndex = ((_currentPage + 1) * _contactsPerPage).clamp(0, _filteredContacts.length);
+    final endIndex = ((_currentPage + 1) * _contactsPerPage).clamp(
+      0,
+      _filteredContacts.length,
+    );
     _displayedContacts = _filteredContacts.sublist(startIndex, endIndex);
     _hasMoreContacts = endIndex < _filteredContacts.length;
   }
-  
+
   Future<void> _loadMoreContacts() async {
     if (_contactsLoading || !_hasMoreContacts) return;
-    
+
     setState(() {
       _currentPage++;
       _updateDisplayedContacts();
     });
-    
+
     // Load thumbnails for newly visible contacts
     _loadThumbnailsForVisibleContacts();
   }
-  
+
   Future<void> _loadThumbnailForContact(Contact contact) async {
     final contactId = contact.id;
-    
+
     // Skip if already cached or loading
-    if (_thumbnailCache.containsKey(contactId) || _loadingThumbnails.contains(contactId)) {
+    if (_thumbnailCache.containsKey(contactId) ||
+        _loadingThumbnails.contains(contactId)) {
       return;
     }
-    
+
     setState(() {
       _loadingThumbnails.add(contactId);
     });
-    
+
     try {
       // Load thumbnail for this specific contact
-      final updatedContact = await FlutterContacts.getContact(contactId, withThumbnail: true);
+      final updatedContact = await FlutterContacts.getContact(
+        contactId,
+        withThumbnail: true,
+      );
       if (updatedContact != null && updatedContact.photo != null && mounted) {
         setState(() {
           _thumbnailCache[contactId] = updatedContact.photo;
@@ -361,52 +399,62 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       }
     }
   }
-  
+
   void _loadThumbnailsForVisibleContacts() {
     // Load thumbnails for contacts near the end of displayed list
-    final startIndex = (_displayedContacts.length - _contactsPerPage).clamp(0, _displayedContacts.length);
-    final contactsToLoad = _displayedContacts.skip(startIndex).take(_contactsPerPage);
-    
+    final startIndex = (_displayedContacts.length - _contactsPerPage).clamp(
+      0,
+      _displayedContacts.length,
+    );
+    final contactsToLoad = _displayedContacts
+        .skip(startIndex)
+        .take(_contactsPerPage);
+
     for (final contact in contactsToLoad) {
-      if (!_thumbnailCache.containsKey(contact.id) && !_loadingThumbnails.contains(contact.id)) {
+      if (!_thumbnailCache.containsKey(contact.id) &&
+          !_loadingThumbnails.contains(contact.id)) {
         _loadThumbnailForContact(contact);
       }
     }
   }
-  
+
   String _normalizePhoneNumber(String phone) {
     return AndroidClientRepository.normalizePhoneNumber(phone);
   }
-  
+
   /// Check if a contact is an existing client (called on tap)
   Future<String?> _checkContactIsClient(Contact contact) async {
     // Load clients if not already loaded
     if (!_clientsLoaded) {
       await _loadClientsIfNeeded();
     }
-    
+
     if (!_clientsLoaded || _phoneToClientIdMap.isEmpty) {
       return null;
     }
-    
+
     // Check each phone number from the contact
     for (var phone in contact.phones) {
       if (phone.number.isEmpty) continue;
-      
+
       // Normalize the contact phone number
       final normalized = _normalizePhoneNumber(phone.number);
-      
+
       // Debug: Print for troubleshooting (remove in production if needed)
-      print('Checking contact phone: "${phone.number}" -> normalized: "$normalized"');
-      print('Phone map keys sample: ${_phoneToClientIdMap.keys.take(3).toList()}');
-      
+      print(
+        'Checking contact phone: "${phone.number}" -> normalized: "$normalized"',
+      );
+      print(
+        'Phone map keys sample: ${_phoneToClientIdMap.keys.take(3).toList()}',
+      );
+
       // Check if normalized phone exists in the map
       final clientId = _phoneToClientIdMap[normalized];
       if (clientId != null) {
         print('Found matching client: $clientId');
         return clientId;
       }
-      
+
       // Also try checking without the + sign (in case stored format is different)
       if (normalized.startsWith('+')) {
         final withoutPlus = normalized.substring(1);
@@ -416,7 +464,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
           return clientIdWithoutPlus;
         }
       }
-      
+
       // Also try checking if the stored number is the reverse (with + added)
       if (!normalized.startsWith('+')) {
         final withPlus = '+$normalized';
@@ -427,7 +475,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
         }
       }
     }
-    
+
     print('No matching client found for contact: ${contact.displayName}');
     return null;
   }
@@ -469,7 +517,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
   void _onSearchChanged(String query) {
     setState(() {
       _searchQuery = query;
-      
+
       // If query is empty, show all items immediately
       if (query.isEmpty) {
         _filteredContacts = List.from(_allContacts);
@@ -479,7 +527,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
         _debounceTimer?.cancel();
         return;
       }
-      
+
       // If query is less than minimum length, show all items
       if (query.length < _minSearchLength) {
         _filteredContacts = List.from(_allContacts);
@@ -489,14 +537,14 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
         _debounceTimer?.cancel();
         return;
       }
-      
+
       // Set searching state
       _isSearching = true;
     });
-    
+
     // Cancel previous timer
     _debounceTimer?.cancel();
-    
+
     // Start new debounce timer
     _debounceTimer = Timer(_debounceDelay, () {
       if (mounted && query.length >= _minSearchLength) {
@@ -507,12 +555,12 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
 
   void _performSearch(String query) {
     final queryLower = query.trim().toLowerCase();
-    
+
     if (!_searchDataPrepared) {
       _scheduleSearchAfterPreparation(query);
       return;
     }
-    
+
     // Filter contacts - use pre-processed data for efficiency
     List<Contact> filteredResults;
     if (queryLower.isEmpty) {
@@ -520,24 +568,26 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
     } else {
       final results = <Contact>[];
       int count = 0;
-      
+
       // Pre-compile regex once
       final queryDigits = queryLower.replaceAll(RegExp(r'[^\d]'), '');
       final queryLowerName = queryLower;
-      
+
       for (final contact in _allContacts) {
         if (count >= _maxSearchResults) break;
-        
+
         final contactId = contact.id;
-        
+
         // Use pre-processed lowercase name (much faster)
-        final nameLower = _contactNameLowercase[contactId] ?? contact.displayName.toLowerCase();
+        final nameLower =
+            _contactNameLowercase[contactId] ??
+            contact.displayName.toLowerCase();
         if (nameLower.contains(queryLowerName)) {
           results.add(contact);
           count++;
           continue;
         }
-        
+
         // Use pre-processed phone digits (much faster)
         if (queryDigits.isNotEmpty) {
           final phoneDigits = _contactPhoneDigits[contactId] ?? [];
@@ -552,7 +602,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       }
       filteredResults = results;
     }
-    
+
     // Filter calls
     List<CallLogEntry> filteredCalls;
     if (queryLower.isEmpty) {
@@ -560,17 +610,17 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
     } else {
       final results = <CallLogEntry>[];
       final queryDigits = queryLower.replaceAll(RegExp(r'[^\d]'), '');
-      
+
       for (final call in _allCalls) {
         final number = call.number ?? '';
         final name = call.name ?? '';
-        
+
         // Check name match
         if (name.toLowerCase().contains(queryLower)) {
           results.add(call);
           continue;
         }
-        
+
         // Check number match (remove non-digits for comparison)
         if (queryDigits.isNotEmpty) {
           final numberDigits = number.replaceAll(RegExp(r'[^\d]'), '');
@@ -581,7 +631,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       }
       filteredCalls = results;
     }
-    
+
     // Update state with filtered results and reset pagination
     setState(() {
       _filteredContacts = filteredResults;
@@ -590,13 +640,12 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       _isSearching = false;
       _updateDisplayedContacts(); // Update displayed contacts
     });
-    
+
     // Load thumbnails for visible contacts (async, non-blocking)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadThumbnailsForVisibleContacts();
     });
   }
-
 
   @override
   void dispose() {
@@ -615,9 +664,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       appBar: AppBar(
         title: const Text(
           'Add Client',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
         backgroundColor: AppTheme.surfaceColor,
@@ -635,116 +682,120 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
         child: Column(
-        children: [
-          // Search Bar
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: AppTheme.surfaceColor,
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: _searchQuery.length < _minSearchLength && _searchQuery.isNotEmpty
-                    ? 'Type at least $_minSearchLength characters to search...'
-                    : _tabController.index == 0
-                        ? 'Search recent calls...'
-                        : 'Search contacts by name or phone...',
-                hintStyle: const TextStyle(color: AppTheme.textSecondaryColor),
-                prefixIcon: _isSearching
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: Padding(
-                          padding: EdgeInsets.all(12.0),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+          children: [
+            // Search Bar
+            Container(
+              padding: const EdgeInsets.all(16),
+              color: AppTheme.surfaceColor,
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText:
+                      _searchQuery.length < _minSearchLength &&
+                          _searchQuery.isNotEmpty
+                      ? 'Type at least $_minSearchLength characters to search...'
+                      : _tabController.index == 0
+                      ? 'Search recent calls...'
+                      : 'Search contacts by name or phone...',
+                  hintStyle: const TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                  prefixIcon: _isSearching
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppTheme.primaryColor,
+                              ),
+                            ),
                           ),
+                        )
+                      : const Icon(
+                          Icons.search,
+                          color: AppTheme.textSecondaryColor,
                         ),
-                      )
-                    : const Icon(
-                        Icons.search,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        color: AppTheme.textSecondaryColor,
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            _searchQuery = '';
-                            _filteredContacts = List.from(_allContacts);
-                            _currentPage = 0;
-                            _updateDisplayedContacts();
-                            _filteredCalls = List.from(_allCalls);
-                          });
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: AppTheme.cardColor,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppTheme.borderColor,
-                    width: 1,
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          color: AppTheme.textSecondaryColor,
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = '';
+                              _filteredContacts = List.from(_allContacts);
+                              _currentPage = 0;
+                              _updateDisplayedContacts();
+                              _filteredCalls = List.from(_allCalls);
+                            });
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppTheme.cardColor,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppTheme.borderColor,
+                      width: 1,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppTheme.borderColor,
+                      width: 1,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppTheme.borderColor,
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppTheme.primaryColor,
-                    width: 2,
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                style: const TextStyle(color: AppTheme.textPrimaryColor),
+                onChanged: (value) {
+                  // Load contacts when search is performed (if not already loaded)
+                  if (_tabController.index == 1 &&
+                      value.isNotEmpty &&
+                      _allContacts.isEmpty &&
+                      !_contactsLoading) {
+                    _loadContacts().then((_) {
+                      if (mounted) {
+                        _onSearchChanged(value);
+                      }
+                    });
+                  } else {
+                    _onSearchChanged(value);
+                  }
+                },
               ),
-              style: const TextStyle(color: AppTheme.textPrimaryColor),
-              onChanged: (value) {
-                // Load contacts when search is performed (if not already loaded)
-                if (_tabController.index == 1 && value.isNotEmpty && _allContacts.isEmpty && !_contactsLoading) {
-                  _loadContacts().then((_) {
-                    if (mounted) {
-                      _onSearchChanged(value);
-                    }
-                  });
-                } else {
-                  _onSearchChanged(value);
-                }
-              },
             ),
-          ),
-          // Tab Content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildRecentCallsTab(),
-                _buildContactsTab(),
-              ],
+            // Tab Content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [_buildRecentCallsTab(), _buildContactsTab()],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildRecentCallsTab() {
     if (_callsLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (!_callsPermissionGranted) {
@@ -830,17 +881,13 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _searchQuery.isEmpty
-                  ? Icons.call
-                  : Icons.search_off,
+              _searchQuery.isEmpty ? Icons.call : Icons.search_off,
               size: 64,
               color: AppTheme.textSecondaryColor,
             ),
             const SizedBox(height: 16),
             Text(
-              _searchQuery.isEmpty
-                  ? 'No Recent Calls'
-                  : 'No Matching Calls',
+              _searchQuery.isEmpty ? 'No Recent Calls' : 'No Matching Calls',
               style: const TextStyle(
                 color: AppTheme.textPrimaryColor,
                 fontSize: 20,
@@ -875,11 +922,11 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
     final number = call.number ?? 'Unknown';
     final name = call.name ?? number;
     final callType = call.callType;
-    
+
     IconData callIcon;
     Color callColor;
     String callTypeText;
-    
+
     switch (callType) {
       case CallType.incoming:
         callIcon = Icons.call_received;
@@ -908,18 +955,12 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppTheme.borderColor,
-          width: 1,
-        ),
+        border: Border.all(color: AppTheme.borderColor, width: 1),
       ),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-          child: Icon(
-            callIcon,
-            color: callColor,
-          ),
+          child: Icon(callIcon, color: callColor),
         ),
         title: Text(
           name,
@@ -945,10 +986,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
                 Flexible(
                   child: Text(
                     callTypeText,
-                    style: TextStyle(
-                      color: callColor,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: callColor, fontSize: 11),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -975,30 +1013,31 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
             showDialog(
               context: context,
               barrierDismissible: false,
-              builder: (context) => const Center(
-                child: CircularProgressIndicator(),
-              ),
+              builder: (context) =>
+                  const Center(child: CircularProgressIndicator()),
             );
           }
-          
+
           // Check if phone number is an existing client
           if (!_clientsLoaded) {
             await _loadClientsIfNeeded();
           }
-          
+
           if (!mounted) return;
-          
+
           // Dismiss loading indicator
           Navigator.of(context).pop();
-          
+
           String? clientId;
           if (_clientsLoaded) {
             final normalized = _normalizePhoneNumber(number);
-            print('Checking call log phone: "$number" -> normalized: "$normalized"');
-            
+            print(
+              'Checking call log phone: "$number" -> normalized: "$normalized"',
+            );
+
             // Check with normalized phone
             clientId = _phoneToClientIdMap[normalized];
-            
+
             // Also try variations if not found
             if (clientId == null && normalized.startsWith('+')) {
               clientId = _phoneToClientIdMap[normalized.substring(1)];
@@ -1006,15 +1045,16 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
             if (clientId == null && !normalized.startsWith('+')) {
               clientId = _phoneToClientIdMap['+$normalized'];
             }
-            
+
             if (clientId != null) {
               print('Found matching client from call: $clientId');
             } else {
               print('No matching client found for call: $number');
             }
           }
-          
-          final foundClientId = clientId; // Store in non-nullable variable for null check
+
+          final foundClientId =
+              clientId; // Store in non-nullable variable for null check
           if (foundClientId != null) {
             // Existing client - navigate to pending orders
             Navigator.push(
@@ -1030,8 +1070,9 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
             );
           } else {
             // Non-existing client - show dialog asking if new or existing customer
-            final validName = (name != 'Unknown' && name != number && name.trim().isNotEmpty) 
-                ? name 
+            final validName =
+                (name != 'Unknown' && name != number && name.trim().isNotEmpty)
+                ? name
                 : null;
             await _showNewOrExistingDialogForCall(number, validName ?? number);
           }
@@ -1045,11 +1086,9 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
     if (!_clientsLoaded && !_loadingClients) {
       _loadClientsIfNeeded();
     }
-    
+
     if (_contactsLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (!_contactsPermissionGranted) {
@@ -1205,10 +1244,13 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
     }
 
     return ListView.builder(
-      itemCount: _hasMoreContacts ? _displayedContacts.length + 1 : _displayedContacts.length,
+      itemCount: _hasMoreContacts
+          ? _displayedContacts.length + 1
+          : _displayedContacts.length,
       cacheExtent: 500, // Cache 500 pixels worth of items
       addAutomaticKeepAlives: false, // Don't keep all items alive
-      addRepaintBoundaries: true, // Add repaint boundaries for better performance
+      addRepaintBoundaries:
+          true, // Add repaint boundaries for better performance
       itemBuilder: (context, index) {
         // Load more indicator
         if (index == _displayedContacts.length) {
@@ -1226,29 +1268,30 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
             ),
           );
         }
-        
+
         final contact = _displayedContacts[index];
-        
+
         // Load thumbnail when item becomes visible
-        if (!_thumbnailCache.containsKey(contact.id) && !_loadingThumbnails.contains(contact.id)) {
+        if (!_thumbnailCache.containsKey(contact.id) &&
+            !_loadingThumbnails.contains(contact.id)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _loadThumbnailForContact(contact);
           });
         }
-        
+
         return _buildContactListItem(contact);
       },
     );
   }
 
   Widget _buildContactListItem(Contact contact) {
-    final name = contact.displayName.isNotEmpty 
-        ? contact.displayName 
+    final name = contact.displayName.isNotEmpty
+        ? contact.displayName
         : 'Unknown';
     final phones = contact.phones;
     final primaryPhone = phones.isNotEmpty ? phones.first.number : 'No number';
     final contactId = contact.id;
-    
+
     // Get thumbnail from cache
     final thumbnail = _thumbnailCache[contactId];
     final isLoadingThumbnail = _loadingThumbnails.contains(contactId);
@@ -1258,10 +1301,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppTheme.borderColor,
-          width: 1,
-        ),
+        border: Border.all(color: AppTheme.borderColor, width: 1),
       ),
       child: ListTile(
         leading: CircleAvatar(
@@ -1285,21 +1325,23 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
                   ),
                 )
               : isLoadingThumbnail
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                      ),
-                    )
-                  : Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        color: AppTheme.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppTheme.primaryColor,
                     ),
+                  ),
+                )
+              : Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
         title: Text(
           name,
@@ -1329,9 +1371,12 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
   }
 
   /// Show dialog asking if new or existing customer (for call log entries)
-  Future<void> _showNewOrExistingDialogForCall(String phoneNumber, String name) async {
+  Future<void> _showNewOrExistingDialogForCall(
+    String phoneNumber,
+    String name,
+  ) async {
     if (!mounted) return;
-    
+
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1364,10 +1409,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
             const SizedBox(height: 20),
             const Text(
               'Is this a new or existing customer?',
-              style: TextStyle(
-                color: AppTheme.textPrimaryColor,
-                fontSize: 16,
-              ),
+              style: TextStyle(color: AppTheme.textPrimaryColor, fontSize: 16),
             ),
           ],
         ),
@@ -1389,15 +1431,16 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
         ],
       ),
     );
-    
+
     if (!mounted) return;
-    
+
     if (result == 'new') {
       // Navigate to add new client form
-      final validName = (name != 'Unknown' && name != phoneNumber && name.trim().isNotEmpty) 
-          ? name 
+      final validName =
+          (name != 'Unknown' && name != phoneNumber && name.trim().isNotEmpty)
+          ? name
           : null;
-      
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -1422,9 +1465,13 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
   }
 
   /// Show dialog asking if new or existing customer
-  Future<void> _showNewOrExistingDialog(Contact contact, String name, String primaryPhone) async {
+  Future<void> _showNewOrExistingDialog(
+    Contact contact,
+    String name,
+    String primaryPhone,
+  ) async {
     if (!mounted) return;
-    
+
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1457,10 +1504,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
             const SizedBox(height: 20),
             const Text(
               'Is this a new or existing customer?',
-              style: TextStyle(
-                color: AppTheme.textPrimaryColor,
-                fontSize: 16,
-              ),
+              style: TextStyle(color: AppTheme.textPrimaryColor, fontSize: 16),
             ),
           ],
         ),
@@ -1482,9 +1526,9 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
         ],
       ),
     );
-    
+
     if (!mounted) return;
-    
+
     if (result == 'new') {
       // Navigate to add new client form
       Navigator.push(
@@ -1511,42 +1555,41 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
   }
 
   /// Show dialog with list of existing clients for selection
-  Future<void> _showExistingClientsDialog(Contact? contact, String phoneNumber) async {
+  Future<void> _showExistingClientsDialog(
+    Contact? contact,
+    String phoneNumber,
+  ) async {
     if (!mounted) return;
-    
+
     // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
-    
+
     try {
       // Load all clients
       final clients = await _clientRepository.getClients(widget.organizationId);
-      
+
       if (!mounted) return;
-      
+
       // Dismiss loading indicator
       Navigator.of(context).pop();
-      
+
       if (clients.isEmpty) {
         // Show message if no clients found
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No existing clients found'),
-            ),
+            const SnackBar(content: Text('No existing clients found')),
           );
         }
         return;
       }
-      
+
       // Show client selection dialog
       if (!mounted) return;
-      
+
       final selectedClient = await showDialog<Client>(
         context: context,
         builder: (context) => Dialog(
@@ -1563,10 +1606,7 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(
-                        color: AppTheme.borderColor,
-                        width: 1,
-                      ),
+                      bottom: BorderSide(color: AppTheme.borderColor, width: 1),
                     ),
                   ),
                   child: Row(
@@ -1602,16 +1642,22 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
                         decoration: BoxDecoration(
                           border: Border(
                             bottom: BorderSide(
-                              color: AppTheme.borderColor.withValues(alpha: 0.5),
+                              color: AppTheme.borderColor.withValues(
+                                alpha: 0.5,
+                              ),
                               width: 0.5,
                             ),
                           ),
                         ),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
+                            backgroundColor: AppTheme.primaryColor.withValues(
+                              alpha: 0.2,
+                            ),
                             child: Text(
-                              client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
+                              client.name.isNotEmpty
+                                  ? client.name[0].toUpperCase()
+                                  : '?',
                               style: TextStyle(
                                 color: AppTheme.primaryColor,
                                 fontWeight: FontWeight.bold,
@@ -1648,38 +1694,34 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
           ),
         ),
       );
-      
+
       if (!mounted || selectedClient == null) return;
-      
+
       // Add phone number to selected client's phoneList
       await _addPhoneToClient(selectedClient, phoneNumber);
     } catch (e) {
       if (!mounted) return;
-      
+
       // Dismiss loading indicator if still showing
       Navigator.of(context).pop();
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading clients: $e'),
-        ),
-      );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error loading clients: $e')));
     }
   }
 
   /// Add phone number to client's phoneList
   Future<void> _addPhoneToClient(Client client, String phoneNumber) async {
     if (!mounted) return;
-    
+
     // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (context) => const Center(child: CircularProgressIndicator()),
     );
-    
+
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
       await _clientRepository.addPhoneToClient(
@@ -1688,12 +1730,12 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
         phoneNumber,
         userId,
       );
-      
+
       if (!mounted) return;
-      
+
       // Dismiss loading indicator
       Navigator.of(context).pop();
-      
+
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1701,17 +1743,17 @@ class _AndroidAddClientPageState extends State<AndroidAddClientPage>
           backgroundColor: Colors.green,
         ),
       );
-      
+
       // Refresh client list
       setState(() {
         _clientsLoaded = false;
       });
     } catch (e) {
       if (!mounted) return;
-      
+
       // Dismiss loading indicator
       Navigator.of(context).pop();
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error adding phone number: $e'),
@@ -1754,8 +1796,5 @@ Map<String, dynamic> _buildSearchIndex(List<dynamic> contactsPayload) {
     phones[id] = phoneValues;
   }
 
-  return {
-    'names': names,
-    'phones': phones,
-  };
+  return {'names': names, 'phones': phones};
 }

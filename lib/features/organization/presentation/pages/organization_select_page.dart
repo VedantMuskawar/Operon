@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -6,6 +7,7 @@ import '../../../auth/bloc/auth_bloc.dart';
 import '../../../dashboard/presentation/pages/super_admin_dashboard.dart';
 import '../../bloc/organization_bloc.dart';
 import 'organization_home_page.dart';
+import 'web_organization_home_page.dart';
 import '../../../../contexts/organization_context.dart';
 
 class OrganizationSelectPage extends StatelessWidget {
@@ -142,14 +144,19 @@ class OrganizationSelectPage extends StatelessWidget {
     );
   }
 
-  Widget _buildOrganizationSelection(BuildContext context, AuthOrganizationSelectionRequired state) {
+  Widget _buildOrganizationSelection(
+    BuildContext context,
+    AuthOrganizationSelectionRequired state,
+  ) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(
           maxWidth: 896, // max-w-4xl = 56rem = 896px (PaveBoard exact)
         ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0), // px-6 py-12 = 24px horizontal, 48px vertical
+          padding: const EdgeInsets.all(
+            24.0,
+          ), // px-6 py-12 = 24px horizontal, 48px vertical
           child: Column(
             children: [
               _buildHeader(context, state),
@@ -166,7 +173,10 @@ class OrganizationSelectPage extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, AuthOrganizationSelectionRequired state) {
+  Widget _buildHeader(
+    BuildContext context,
+    AuthOrganizationSelectionRequired state,
+  ) {
     return Column(
       children: [
         Container(
@@ -174,7 +184,10 @@ class OrganizationSelectPage extends StatelessWidget {
           height: 80,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF8B5CF6), Color(0xFFEC4899)], // purple-500 to pink-600
+              colors: [
+                Color(0xFF8B5CF6),
+                Color(0xFFEC4899),
+              ], // purple-500 to pink-600
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -188,16 +201,16 @@ class OrganizationSelectPage extends StatelessWidget {
             ],
           ),
           child: const Center(
-            child: Text(
-              '🏢',
-              style: TextStyle(fontSize: 32),
-            ),
+            child: Text('🏢', style: TextStyle(fontSize: 32)),
           ),
         ),
         const SizedBox(height: 24), // mb-6 = 24px
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFFA78BFA), Color(0xFFF472B6)], // purple-400 to pink-400
+            colors: [
+              Color(0xFFA78BFA),
+              Color(0xFFF472B6),
+            ], // purple-400 to pink-400
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ).createShader(bounds),
@@ -222,10 +235,14 @@ class OrganizationSelectPage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF1F2937).withValues(alpha: 0.5), // gray-800/50
+            color: const Color(
+              0xFF1F2937,
+            ).withValues(alpha: 0.5), // gray-800/50
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: const Color(0xFF4B5563).withValues(alpha: 0.3), // gray-600/30
+              color: const Color(
+                0xFF4B5563,
+              ).withValues(alpha: 0.3), // gray-600/30
             ),
           ),
           child: Row(
@@ -251,13 +268,20 @@ class OrganizationSelectPage extends StatelessWidget {
     );
   }
 
-  Widget _buildOrganizationsList(BuildContext context, AuthOrganizationSelectionRequired state) {
+  Widget _buildOrganizationsList(
+    BuildContext context,
+    AuthOrganizationSelectionRequired state,
+  ) {
     List<Widget> cards = [];
-    
+
     // Debug: Print all organizations
-    print('🔍 DEBUG: Total organizations loaded: ${state.organizations.length}');
+    print(
+      '🔍 DEBUG: Total organizations loaded: ${state.organizations.length}',
+    );
     for (var org in state.organizations) {
-      print('🔍 DEBUG: Organization - ID: ${org['orgId']}, Name: ${org['orgName']}, Role: ${org['role']}');
+      print(
+        '🔍 DEBUG: Organization - ID: ${org['orgId']}, Name: ${org['orgName']}, Role: ${org['role']}',
+      );
     }
     print('🔍 DEBUG: User is SuperAdmin: ${state.isSuperAdmin}');
 
@@ -269,15 +293,19 @@ class OrganizationSelectPage extends StatelessWidget {
     // Add organization cards (excluding SuperAdmin organization)
     print('🔍 DEBUG: Processing organizations for regular cards...');
     for (var org in state.organizations) {
-      print('🔍 DEBUG: Checking organization: ${org['orgId']} (${org['orgName']})');
-      
+      print(
+        '🔍 DEBUG: Checking organization: ${org['orgId']} (${org['orgName']})',
+      );
+
       // Skip SuperAdmin organization as it has its own special card
       if (org['orgId'] == AppConstants.superAdminOrgId) {
         print('🔍 DEBUG: Skipping SuperAdmin organization (${org['orgName']})');
         continue;
       }
-      
-      print('🔍 DEBUG: Adding regular organization card for: ${org['orgName']}');
+
+      print(
+        '🔍 DEBUG: Adding regular organization card for: ${org['orgName']}',
+      );
       cards.add(_buildOrganizationCard(context, org));
     }
     print('🔍 DEBUG: Total cards created: ${cards.length}');
@@ -286,9 +314,7 @@ class OrganizationSelectPage extends StatelessWidget {
       return _buildEmptyState();
     }
 
-    return Column(
-      children: cards,
-    );
+    return Column(children: cards);
   }
 
   Widget _buildSuperAdminCard(BuildContext context) {
@@ -298,7 +324,9 @@ class OrganizationSelectPage extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            print('🔍 DEBUG: SuperAdmin card tapped - calling _navigateToSuperAdminDashboard');
+            print(
+              '🔍 DEBUG: SuperAdmin card tapped - calling _navigateToSuperAdminDashboard',
+            );
             _navigateToSuperAdminDashboard(context);
           },
           borderRadius: BorderRadius.circular(16), // rounded-2xl
@@ -316,7 +344,12 @@ class OrganizationSelectPage extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(16), // rounded-2xl
               border: Border.all(
-                color: const Color.fromRGBO(75, 85, 99, 0.4), // border-gray-600/40
+                color: const Color.fromRGBO(
+                  75,
+                  85,
+                  99,
+                  0.4,
+                ), // border-gray-600/40
                 width: 1,
               ),
               boxShadow: [
@@ -343,7 +376,12 @@ class OrganizationSelectPage extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(12), // rounded-xl
                     border: Border.all(
-                      color: const Color.fromRGBO(59, 130, 246, 0.3), // border-blue-500/30
+                      color: const Color.fromRGBO(
+                        59,
+                        130,
+                        246,
+                        0.3,
+                      ), // border-blue-500/30
                     ),
                   ),
                   child: const Icon(
@@ -376,12 +414,19 @@ class OrganizationSelectPage extends StatelessWidget {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                              color: const Color(
+                                0xFF8B5CF6,
+                              ).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                                color: const Color(
+                                  0xFF8B5CF6,
+                                ).withValues(alpha: 0.3),
                               ),
                             ),
                             child: const Text(
@@ -411,14 +456,19 @@ class OrganizationSelectPage extends StatelessWidget {
     );
   }
 
-  Widget _buildOrganizationCard(BuildContext context, Map<String, dynamic> org) {
+  Widget _buildOrganizationCard(
+    BuildContext context,
+    Map<String, dynamic> org,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16), // space-y-4 = 16px
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            print('🔍 DEBUG: Organization card tapped - calling _navigateToOrganizationDashboard');
+            print(
+              '🔍 DEBUG: Organization card tapped - calling _navigateToOrganizationDashboard',
+            );
             print('🔍 DEBUG: Organization: ${org['orgName']}');
             _navigateToOrganizationDashboard(context, org);
           },
@@ -437,7 +487,12 @@ class OrganizationSelectPage extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(16), // rounded-2xl
               border: Border.all(
-                color: const Color.fromRGBO(75, 85, 99, 0.4), // border-gray-600/40
+                color: const Color.fromRGBO(
+                  75,
+                  85,
+                  99,
+                  0.4,
+                ), // border-gray-600/40
                 width: 1,
               ),
               boxShadow: [
@@ -464,7 +519,12 @@ class OrganizationSelectPage extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(12), // rounded-xl
                     border: Border.all(
-                      color: const Color.fromRGBO(59, 130, 246, 0.3), // border-blue-500/30
+                      color: const Color.fromRGBO(
+                        59,
+                        130,
+                        246,
+                        0.3,
+                      ), // border-blue-500/30
                     ),
                   ),
                   child: const Center(
@@ -576,7 +636,9 @@ class OrganizationSelectPage extends StatelessWidget {
           color: const Color(0xFF1F2937).withValues(alpha: 0.5), // gray-800/50
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: const Color(0xFF4B5563).withValues(alpha: 0.3), // gray-600/30
+            color: const Color(
+              0xFF4B5563,
+            ).withValues(alpha: 0.3), // gray-600/30
           ),
         ),
         child: Row(
@@ -624,23 +686,28 @@ class OrganizationSelectPage extends StatelessWidget {
   }
 
   void _navigateToSuperAdminDashboard(BuildContext context) {
-    print('🔍 DEBUG: _navigateToSuperAdminDashboard called - routing to SuperAdminDashboard');
+    print(
+      '🔍 DEBUG: _navigateToSuperAdminDashboard called - routing to SuperAdminDashboard',
+    );
     // Redirect to SuperAdmin management dashboard
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const SuperAdminDashboard(),
-                  ),
-                );
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const SuperAdminDashboard()),
+    );
   }
 
-  void _navigateToOrganizationDashboard(BuildContext context, Map<String, dynamic> organization) {
-    print('🔍 DEBUG: _navigateToOrganizationDashboard called - routing to OrganizationHomePage');
+  void _navigateToOrganizationDashboard(
+    BuildContext context,
+    Map<String, dynamic> organization,
+  ) {
+    print(
+      '🔍 DEBUG: _navigateToOrganizationDashboard called - routing to OrganizationHomePage',
+    );
     print('🔍 DEBUG: Organization data: ${organization.toString()}');
-    
+
     // Initialize organization context
     final orgContext = context.organizationContext;
     orgContext.initializeOrganization(organization);
-    
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => MultiRepositoryProvider(
@@ -654,7 +721,8 @@ class OrganizationSelectPage extends StatelessWidget {
               BlocProvider<OrganizationBloc>(
                 create: (context) {
                   final bloc = OrganizationBloc(
-                    organizationRepository: context.read<OrganizationRepository>(),
+                    organizationRepository: context
+                        .read<OrganizationRepository>(),
                   );
                   // Set repository and bloc in organization context
                   orgContext.setRepositoryAndBloc(
@@ -665,7 +733,9 @@ class OrganizationSelectPage extends StatelessWidget {
                 },
               ),
             ],
-            child: OrganizationHomePage(),
+            child: kIsWeb
+                ? const WebOrganizationHomePage()
+                : const OrganizationHomePage(),
           ),
         ),
       ),

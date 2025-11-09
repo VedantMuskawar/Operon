@@ -9,6 +9,9 @@ import '../../../../core/widgets/form_container.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
+import '../../../../core/widgets/realtime_list_cache_mixin.dart';
+import '../../../../core/repositories/employee_repository.dart';
+import '../../../../core/models/employee.dart';
 import '../../bloc/vehicle_bloc.dart';
 import '../../bloc/vehicle_event.dart';
 import '../../bloc/vehicle_state.dart';
@@ -58,11 +61,7 @@ class VehicleManagementPage extends StatelessWidget {
   }
 }
 
-class VehicleManagementView extends StatelessWidget {
-  final String organizationId;
-  final int userRole;
-  final VoidCallback? onBack;
-
+class VehicleManagementView extends StatefulWidget {
   const VehicleManagementView({
     super.key,
     required this.organizationId,
@@ -70,12 +69,99 @@ class VehicleManagementView extends StatelessWidget {
     this.onBack,
   });
 
+  final String organizationId;
+  final int userRole;
+  final VoidCallback? onBack;
+
+  @override
+  State<VehicleManagementView> createState() => _VehicleManagementViewState();
+}
+
+class _VehicleManagementViewState
+    extends RealtimeListCacheState<VehicleManagementView, Vehicle> {
+  final EmployeeRepository _employeeRepository = EmployeeRepository();
+
+  List<Employee>? _driverCache;
+  DateTime? _driverCacheAt;
+  Future<List<Employee>>? _driversFuture;
+  bool _showUnassignedOnly = false;
+  String _driverSearchQuery = '';
+
+  static const _driverCacheTtl = Duration(minutes: 5);
+
+  Future<List<Employee>> _loadDrivers({bool forceRefresh = false}) async {
+    if (!forceRefresh &&
+        _driverCache != null &&
+        _driverCacheAt != null &&
+        DateTime.now().difference(_driverCacheAt!) < _driverCacheTtl) {
+      return _applyDriverSearch(_driverCache!);
+    }
+
+    final drivers =
+        await _employeeRepository.fetchDriverEmployees(widget.organizationId);
+    _driverCache = drivers;
+    _driverCacheAt = DateTime.now();
+    return _applyDriverSearch(drivers);
+  }
+
+  Future<List<Employee>> _getDriversFuture({bool forceRefresh = false}) {
+    final cacheExpired = _driverCacheAt == null ||
+        DateTime.now().difference(_driverCacheAt!) >= _driverCacheTtl;
+
+    if (forceRefresh) {
+      _driverCache = null;
+      _driverCacheAt = null;
+    }
+
+    if (forceRefresh ||
+        _driversFuture == null ||
+        _driverCache == null ||
+        cacheExpired) {
+      _driversFuture = _loadDrivers(forceRefresh: forceRefresh || cacheExpired);
+    }
+
+    return _driversFuture!;
+  }
+
+  void _refreshDrivers() {
+    if (!mounted) return;
+    setState(() {
+      _driversFuture = _loadDrivers(forceRefresh: true);
+    });
+  }
+
+  List<Employee> _applyDriverSearch(List<Employee> drivers) {
+    final query = _driverSearchQuery.trim().toLowerCase();
+    if (query.isEmpty) return List<Employee>.from(drivers);
+    return drivers
+        .where((driver) =>
+            driver.nameLowercase.contains(query) ||
+            (driver.contactPhone?.toLowerCase().contains(query) ?? false) ||
+            (driver.contactEmail?.toLowerCase().contains(query) ?? false))
+        .toList(growable: false);
+  }
+
+  void _invalidateDriverCache() {
+    _driverCache = null;
+    _driverCacheAt = null;
+    _driversFuture = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<VehicleBloc, VehicleState>(
       listener: (context, state) {
-        if (state is VehicleOperationSuccess) {
+        if (state is VehicleLoaded) {
+          applyRealtimeItems(state.vehicles, searchQuery: state.searchQuery);
+        } else if (state is VehicleEmpty) {
+          applyRealtimeEmpty(searchQuery: state.searchQuery);
+        } else if (state is VehicleInitial) {
+          resetRealtimeSnapshot();
+        } else if (state is VehicleOperationSuccess) {
+          _invalidateDriverCache();
           CustomSnackBar.showSuccess(context, state.message);
+        } else if (state is VehicleAssignmentConflict) {
+          _handleAssignmentConflict(context, state);
         } else if (state is VehicleError) {
           CustomSnackBar.showError(context, state.message);
         }
@@ -87,8 +173,8 @@ class VehicleManagementView extends StatelessWidget {
           children: [
             PageHeader(
               title: 'Vehicle Management',
-              onBack: onBack,
-              role: _getRoleString(userRole),
+              onBack: widget.onBack,
+              role: _getRoleString(widget.userRole),
             ),
             Center(
               child: ConstrainedBox(
@@ -198,8 +284,10 @@ class VehicleManagementView extends StatelessWidget {
               const SizedBox(height: AppTheme.spacingLg),
               BlocBuilder<VehicleBloc, VehicleState>(
             builder: (context, state) {
-              // Show loading on initial state or loading state
-              if (state is VehicleInitial || state is VehicleLoading) {
+              final bool waitingForFirstLoad = !hasRealtimeData &&
+                  (state is VehicleInitial || state is VehicleLoading);
+
+              if (waitingForFirstLoad) {
                 return const Center(
                   child: Padding(
                     padding: EdgeInsets.all(AppTheme.spacing2xl),
@@ -209,7 +297,7 @@ class VehicleManagementView extends StatelessWidget {
                   ),
                 );
               }
-              
+
               if (state is VehicleError) {
                 return Center(
                   child: Padding(
@@ -237,7 +325,7 @@ class VehicleManagementView extends StatelessWidget {
                           variant: CustomButtonVariant.primary,
                           onPressed: () {
                             context.read<VehicleBloc>().add(
-                              LoadVehicles(organizationId),
+                              LoadVehicles(widget.organizationId),
                             );
                           },
                         ),
@@ -246,63 +334,32 @@ class VehicleManagementView extends StatelessWidget {
                   ),
                 );
               }
-              
-              if (state is VehicleEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppTheme.spacing2xl),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          '🚜',
-                          style: TextStyle(fontSize: 64),
-                        ),
-                        const SizedBox(height: AppTheme.spacingMd),
-                        Text(
-                          state.searchQuery != null
-                              ? 'No Vehicles Found'
-                              : 'No Vehicles',
-                          style: const TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: AppTheme.spacingSm),
-                        Text(
-                          state.searchQuery != null
-                              ? 'No vehicles match your search criteria'
-                              : 'Add your first vehicle to get started',
-                          style: const TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: AppTheme.spacingLg),
-                        if (state.searchQuery != null)
-                          CustomButton(
-                            text: 'Clear Search',
-                            variant: CustomButtonVariant.outline,
-                            onPressed: () {
-                              context.read<VehicleBloc>().add(const ResetSearch());
-                              context.read<VehicleBloc>().add(
-                                LoadVehicles(organizationId),
-                              );
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
-                );
+
+              if (state is VehicleEmpty || (hasRealtimeData && realtimeItems.isEmpty)) {
+                final String? searchQuery =
+                    state is VehicleEmpty ? state.searchQuery : realtimeSearchQuery;
+                return _buildEmptyVehiclesView(context, searchQuery);
               }
-              
-              if (state is VehicleLoaded) {
-                return _buildVehiclesTable(context, state.vehicles);
+
+              final vehicles = state is VehicleLoaded ? state.vehicles : realtimeItems;
+
+              if (vehicles.isEmpty) {
+                return _buildEmptyVehiclesView(context, realtimeSearchQuery);
               }
-              
-              return const SizedBox.shrink();
+
+              final table = _buildVehiclesTable(context, vehicles);
+              final bool showBusyOverlay = hasRealtimeData &&
+                  (state is VehicleLoading || state is VehicleOperating);
+
+              return withRealtimeBusyOverlay(
+                child: table,
+                showOverlay: showBusyOverlay,
+                overlayColor: Colors.black.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(16),
+                progressIndicator: const CircularProgressIndicator(
+                  color: AppTheme.primaryColor,
+                ),
+              );
             },
                 ),
               ],
@@ -318,14 +375,20 @@ class VehicleManagementView extends StatelessWidget {
   Widget _buildFilterBar(BuildContext context) {
     return Row(
       children: [
-        // Add Vehicle button on the left (matching PaveBoard layout)
         CustomButton(
           text: '➕ Add Vehicle',
           variant: CustomButtonVariant.primary,
           onPressed: () => _showAddVehicleDialog(context),
         ),
+        const SizedBox(width: AppTheme.spacingLg),
+        FilterChip(
+          label: const Text('Unassigned only'),
+          selected: _showUnassignedOnly,
+          onSelected: (selected) {
+            setState(() => _showUnassignedOnly = selected);
+          },
+        ),
         const Spacer(),
-        // Search field on the right (matching PaveBoard layout)
         SizedBox(
           width: 300,
           child: BlocBuilder<VehicleBloc, VehicleState>(
@@ -338,26 +401,26 @@ class VehicleManagementView extends StatelessWidget {
                   if (query.isEmpty) {
                     context.read<VehicleBloc>().add(const ResetSearch());
                     context.read<VehicleBloc>().add(
-                      LoadVehicles(organizationId),
+                      LoadVehicles(widget.organizationId),
                     );
                   } else {
                     context.read<VehicleBloc>().add(
                       SearchVehicles(
-                        organizationId: organizationId,
+                        organizationId: widget.organizationId,
                         query: query,
                       ),
                     );
                   }
                 },
-                suffixIcon: state is VehicleLoaded && 
-                            state.searchQuery != null &&
-                            state.searchQuery!.isNotEmpty
+                suffixIcon: state is VehicleLoaded &&
+                        state.searchQuery != null &&
+                        state.searchQuery!.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 18),
                         onPressed: () {
                           context.read<VehicleBloc>().add(const ResetSearch());
                           context.read<VehicleBloc>().add(
-                            LoadVehicles(organizationId),
+                            LoadVehicles(widget.organizationId),
                           );
                         },
                       )
@@ -370,17 +433,89 @@ class VehicleManagementView extends StatelessWidget {
     );
   }
 
+  Widget _buildEmptyVehiclesView(BuildContext context, String? searchQuery) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing2xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '🚜',
+              style: TextStyle(fontSize: 64),
+            ),
+            const SizedBox(height: AppTheme.spacingMd),
+            Text(
+              searchQuery != null && searchQuery.isNotEmpty
+                  ? 'No Vehicles Found'
+                  : 'No Vehicles',
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingSm),
+            Text(
+              searchQuery != null && searchQuery.isNotEmpty
+                  ? 'No vehicles match your search criteria'
+                  : 'Add your first vehicle to get started',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (searchQuery != null && searchQuery.isNotEmpty) ...[
+              const SizedBox(height: AppTheme.spacingLg),
+              CustomButton(
+                text: 'Clear Search',
+                variant: CustomButtonVariant.outline,
+                onPressed: () {
+                  context.read<VehicleBloc>().add(const ResetSearch());
+                  context.read<VehicleBloc>().add(
+                        LoadVehicles(widget.organizationId),
+                      );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildVehiclesTable(BuildContext context, List<Vehicle> vehicles) {
-    // Calculate minimum table width based on columns
-    const double minTableWidth = 1400; // Approximate minimum for all columns
-    
+    final filteredVehicles = _showUnassignedOnly
+        ? vehicles.where((vehicle) => vehicle.assignedDriverId == null).toList()
+        : vehicles;
+
+    if (filteredVehicles.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.spacingXl),
+        child: Center(
+          child: Text(
+            _showUnassignedOnly
+                ? 'All vehicles have drivers assigned.'
+                : 'No vehicles to display.',
+            style: const TextStyle(
+              color: AppTheme.textSecondaryColor,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }
+
+    const double minTableWidth = 1350;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
-        final tableWidth = availableWidth > minTableWidth 
-            ? availableWidth 
+        final tableWidth = availableWidth > minTableWidth
+            ? availableWidth
             : minTableWidth;
-            
+
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SizedBox(
@@ -400,7 +535,7 @@ class VehicleManagementView extends StatelessWidget {
                   const Color(0xFF1F2937).withValues(alpha: 0.8),
                 ),
                 dataRowColor: MaterialStateProperty.resolveWith<Color?>(
-                  (Set<MaterialState> states) {
+                  (states) {
                     if (states.contains(MaterialState.selected)) {
                       return const Color(0xFF374151).withValues(alpha: 0.5);
                     }
@@ -412,134 +547,122 @@ class VehicleManagementView extends StatelessWidget {
                 ),
                 dividerThickness: 1,
                 columns: [
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'VEHICLE ID',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'VEHICLE NO',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'TYPE',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'METER TYPE',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'CAPACITY',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'STATUS',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'WEEKLY CAPACITY',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'ACTIONS',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              rows: vehicles.map((vehicle) {
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                        child: Text(
-                          vehicle.vehicleID,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 14,
-                          ),
+                  DataColumn(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'VEHICLE NO',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
+                  ),
+                  DataColumn(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'TYPE',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'METER TYPE',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'CAPACITY',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'STATUS',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'WEEKLY CAPACITY',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'DRIVER',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        'ACTIONS',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                rows: filteredVehicles.map((vehicle) {
+                  return DataRow(
+                    cells: [
                     DataCell(
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -600,12 +723,31 @@ class VehicleManagementView extends StatelessWidget {
                         child: _buildWeeklyCapacity(vehicle.weeklyCapacity),
                       ),
                     ),
+                  DataCell(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                      child: _buildDriverInfo(vehicle),
+                    ),
+                  ),
                     DataCell(
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                          IconButton(
+                            icon: const Icon(Icons.person_pin_circle_outlined, size: 18),
+                            color: AppTheme.primaryColor,
+                            onPressed: () => _showAssignDriverDialog(context, vehicle),
+                            style: IconButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
+                              padding: const EdgeInsets.all(8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: AppTheme.spacingXs),
                             IconButton(
                               icon: const Icon(Icons.edit, size: 18),
                               color: AppTheme.warningColor,
@@ -697,6 +839,44 @@ class VehicleManagementView extends StatelessWidget {
     );
   }
 
+  Widget _buildDriverInfo(Vehicle vehicle) {
+    final name = vehicle.assignedDriverName;
+    final contact = vehicle.assignedDriverContact;
+
+    if (name == null || name.isEmpty) {
+      return Tooltip(
+        message: 'No driver assigned',
+        child: Chip(
+          label: const Text('Unassigned'),
+          backgroundColor: AppTheme.textSecondaryColor.withValues(alpha: 0.12),
+          labelStyle: const TextStyle(color: AppTheme.textSecondaryColor),
+        ),
+      );
+    }
+
+    String assignedInfo = 'Assigned driver';
+    final assignedAt = vehicle.assignedDriverAt?.toLocal();
+    if (assignedAt != null) {
+      final formatted = assignedAt.toString().split('.').first;
+      assignedInfo = 'Assigned on $formatted\nby ${vehicle.assignedDriverBy ?? 'unknown'}';
+    }
+
+    return Tooltip(
+      message: contact != null && contact.isNotEmpty
+          ? '$assignedInfo\nContact: $contact'
+          : assignedInfo,
+      child: Chip(
+        label: Text(name),
+        avatar: const Icon(Icons.person, size: 16, color: AppTheme.textPrimaryColor),
+        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+        labelStyle: const TextStyle(
+          color: AppTheme.textPrimaryColor,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   void _showAddVehicleDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -767,6 +947,284 @@ class VehicleManagementView extends StatelessWidget {
     );
   }
 
+  void _showAssignDriverDialog(BuildContext context, Vehicle vehicle) {
+    final vehicleBloc = context.read<VehicleBloc>();
+    final authBloc = context.read<AuthBloc>();
+
+    final blocState = vehicleBloc.state;
+    final Map<String, Vehicle> activeAssignments = {};
+    if (blocState is VehicleLoaded) {
+      for (final v in blocState.vehicles) {
+        if (v.assignedDriverId != null) {
+          activeAssignments[v.assignedDriverId!] = v;
+        }
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return FutureBuilder<List<Employee>>(
+          future: _getDriversFuture(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return const AlertDialog(
+                backgroundColor: AppTheme.surfaceColor,
+                content: SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return AlertDialog(
+                backgroundColor: AppTheme.surfaceColor,
+                title: const Text(
+                  'Unable to load drivers',
+                  style: TextStyle(color: AppTheme.errorColor),
+                ),
+                content: Text(
+                  snapshot.error.toString(),
+                  style: const TextStyle(color: AppTheme.textPrimaryColor),
+                ),
+                actions: [
+                  CustomButton(
+                    text: 'Close',
+                    variant: CustomButtonVariant.primary,
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ],
+              );
+            }
+
+            final initialDrivers = snapshot.data ?? [];
+            bool ascending = true;
+
+            return StatefulBuilder(
+              builder: (context, setInnerState) {
+                List<Employee> visibleDrivers = _applyDriverSearch(initialDrivers);
+                visibleDrivers.sort((a, b) => ascending
+                    ? a.nameLowercase.compareTo(b.nameLowercase)
+                    : b.nameLowercase.compareTo(a.nameLowercase));
+
+                return AlertDialog(
+                  backgroundColor: AppTheme.surfaceColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                    side: BorderSide(color: AppTheme.borderColor, width: 1),
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Assign Driver',
+                              style: TextStyle(
+                                color: AppTheme.textPrimaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '${visibleDrivers.length} available driver${visibleDrivers.length == 1 ? '' : 's'}',
+                              style: const TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          ascending ? Icons.sort_by_alpha : Icons.sort,
+                          size: 18,
+                        ),
+                        tooltip: ascending
+                            ? 'Sort Z-A'
+                            : 'Sort A-Z',
+                        onPressed: () {
+                          setInnerState(() {
+                            ascending = !ascending;
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, size: 18),
+                        tooltip: 'Refresh drivers',
+                        onPressed: () {
+                          setInnerState(() {
+                            _driverSearchQuery = '';
+                          });
+                          _refreshDrivers();
+                        },
+                      ),
+                    ],
+                  ),
+                  content: SizedBox(
+                    width: 480,
+                    height: visibleDrivers.isEmpty ? 160 : 360,
+                    child: Column(
+                      children: [
+                        CustomTextField(
+                          hintText: 'Search drivers...',
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          onChanged: (value) {
+                            setInnerState(() {
+                              _driverSearchQuery = value;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: AppTheme.spacingMd),
+                        if (visibleDrivers.isEmpty)
+                          const Expanded(
+                            child: Center(
+                              child: Text(
+                                'No active drivers available. Add or activate driver employees first.',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 13,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          )
+                        else
+                          Expanded(
+                            child: ListView.separated(
+                              itemCount: visibleDrivers.length,
+                              separatorBuilder: (_, __) => const Divider(
+                                height: 1,
+                                color: Color(0x112E3440),
+                              ),
+                              itemBuilder: (context, index) {
+                                final driver = visibleDrivers[index];
+                                final subtitle = driver.contactPhone ?? driver.contactEmail;
+                                final assignedVehicle = activeAssignments[driver.id];
+                                final bool isAssignedElsewhere = assignedVehicle != null &&
+                                    assignedVehicle.id != vehicle.id;
+
+                                return ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 2,
+                                  ),
+                                  title: Text(
+                                    driver.name,
+                                    style: const TextStyle(
+                                      color: AppTheme.textPrimaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (subtitle != null)
+                                        Text(
+                                          subtitle,
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondaryColor,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      Text(
+                                        'Start: ${driver.startDate.toLocal().toString().split(' ').first}',
+                                        style: const TextStyle(
+                                          color: AppTheme.textTertiaryColor,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      if (isAssignedElsewhere)
+                                        Text(
+                                          'Currently assigned to ${assignedVehicle!.vehicleNo}',
+                                          style: const TextStyle(
+                                            color: AppTheme.warningColor,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  trailing: vehicle.assignedDriverId == driver.id
+                                      ? const Icon(Icons.check_circle, color: AppTheme.successColor)
+                                      : isAssignedElsewhere
+                                          ? const Icon(Icons.warning_amber_rounded,
+                                              color: AppTheme.warningColor)
+                                          : null,
+                                  onTap: () {
+                                    final authState = authBloc.state;
+                                    final userId = authState is AuthAuthenticated
+                                        ? authState.firebaseUser.uid
+                                        : const Uuid().v4();
+
+                                    vehicleBloc.add(
+                                      AssignDriverToVehicle(
+                                        organizationId: widget.organizationId,
+                                        vehicleId: vehicle.id!,
+                                        driverId: driver.id,
+                                        driverName: driver.name,
+                                        driverContact: subtitle,
+                                        userId: userId,
+                                        force: isAssignedElsewhere,
+                                      ),
+                                    );
+
+                                    Navigator.of(dialogContext).pop();
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    if (vehicle.assignedDriverId != null)
+                      CustomButton(
+                        text: 'Unassign Driver',
+                        variant: CustomButtonVariant.outline,
+                        onPressed: () {
+                          final authState = authBloc.state;
+                          final userId = authState is AuthAuthenticated
+                              ? authState.firebaseUser.uid
+                              : const Uuid().v4();
+
+                          vehicleBloc.add(
+                            AssignDriverToVehicle(
+                              organizationId: widget.organizationId,
+                              vehicleId: vehicle.id!,
+                              driverId: null,
+                              driverName: null,
+                              driverContact: null,
+                              userId: userId,
+                            ),
+                          );
+
+                          Navigator.of(dialogContext).pop();
+                        },
+                      ),
+                    CustomButton(
+                      text: 'Close',
+                      variant: CustomButtonVariant.ghost,
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _submitVehicle(BuildContext context, Vehicle vehicle) {
     final authState = context.read<AuthBloc>().state;
     final userId = authState is AuthAuthenticated
@@ -775,7 +1233,7 @@ class VehicleManagementView extends StatelessWidget {
 
     context.read<VehicleBloc>().add(
       AddVehicle(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         vehicle: vehicle,
         userId: userId,
       ),
@@ -790,7 +1248,7 @@ class VehicleManagementView extends StatelessWidget {
 
     context.read<VehicleBloc>().add(
       UpdateVehicle(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         vehicleId: oldVehicle.id!,
         vehicle: newVehicle,
         userId: userId,
@@ -801,8 +1259,70 @@ class VehicleManagementView extends StatelessWidget {
   void _deleteVehicle(BuildContext context, Vehicle vehicle) {
     context.read<VehicleBloc>().add(
       DeleteVehicle(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         vehicleId: vehicle.id!,
+      ),
+    );
+  }
+
+  void _handleAssignmentConflict(
+    BuildContext context,
+    VehicleAssignmentConflict conflict,
+  ) {
+    CustomSnackBar.showWarning(
+      context,
+      'Driver already assigned to vehicle ${conflict.conflictingVehicleNo}.',
+    );
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+          side: BorderSide(color: AppTheme.borderColor, width: 1),
+        ),
+        title: const Text(
+          'Driver Assignment Conflict',
+          style: TextStyle(
+            color: AppTheme.warningColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Assigning ${conflict.driverName ?? 'this driver'} will unassign them from vehicle ${conflict.conflictingVehicleNo}. Continue?',
+          style: const TextStyle(color: AppTheme.textPrimaryColor),
+        ),
+        actions: [
+          CustomButton(
+            text: 'Cancel',
+            variant: CustomButtonVariant.outline,
+            onPressed: () => Navigator.of(dialogContext).pop(),
+          ),
+          CustomButton(
+            text: 'Override',
+            variant: CustomButtonVariant.primary,
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              final authState = context.read<AuthBloc>().state;
+              final userId = authState is AuthAuthenticated
+                  ? authState.firebaseUser.uid
+                  : const Uuid().v4();
+
+              context.read<VehicleBloc>().add(
+                    AssignDriverToVehicle(
+                      organizationId: conflict.organizationId,
+                      vehicleId: conflict.vehicleId,
+                      driverId: conflict.driverId,
+                      driverName: conflict.driverName,
+                      driverContact: conflict.driverContact,
+                      userId: userId,
+                      force: true,
+                    ),
+                  );
+            },
+          ),
+        ],
       ),
     );
   }

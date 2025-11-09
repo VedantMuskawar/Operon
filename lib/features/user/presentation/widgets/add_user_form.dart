@@ -1,15 +1,21 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/models/organization.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/repositories/user_repository.dart';
 
 class AddUserForm extends StatefulWidget {
   final Organization organization;
+  final ValueNotifier<int>? refreshNotifier;
+  final VoidCallback? onUserAdded;
 
   const AddUserForm({
     super.key,
     required this.organization,
+    this.refreshNotifier,
+    this.onUserAdded,
   });
 
   @override
@@ -21,6 +27,7 @@ class _AddUserFormState extends State<AddUserForm> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final UserRepository _userRepository = UserRepository();
   
   int _selectedRole = AppConstants.adminRole;
   String _selectedStatus = AppConstants.userStatusActive;
@@ -332,8 +339,20 @@ class _AddUserFormState extends State<AddUserForm> {
       });
 
       try {
-        // TODO: Implement user creation
-        await Future.delayed(const Duration(seconds: 2)); // Simulate API call
+        await _userRepository.createUser(
+          name: _nameController.text,
+          email: _emailController.text,
+          phoneNo: _phoneController.text,
+          role: _selectedRole,
+          status: _selectedStatus,
+          organization: widget.organization,
+          addedBy: FirebaseAuth.instance.currentUser?.uid ?? 'system',
+        );
+        if (!mounted) return;
+        if (widget.refreshNotifier != null) {
+          widget.refreshNotifier!.value = widget.refreshNotifier!.value + 1;
+        }
+        widget.onUserAdded?.call();
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -345,6 +364,7 @@ class _AddUserFormState extends State<AddUserForm> {
         
         _clearForm();
       } catch (e) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error adding user: $e'),

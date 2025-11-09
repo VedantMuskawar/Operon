@@ -6,6 +6,7 @@ import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/realtime_list_cache_mixin.dart';
 import '../../../../contexts/organization_context.dart';
 import '../../bloc/payment_account_bloc.dart';
 import '../../bloc/payment_account_event.dart';
@@ -56,7 +57,7 @@ class PaymentAccountManagementPage extends StatelessWidget {
   }
 }
 
-class PaymentAccountManagementView extends StatelessWidget {
+class PaymentAccountManagementView extends StatefulWidget {
   final String organizationId;
   final int userRole;
   final VoidCallback? onBack;
@@ -69,10 +70,26 @@ class PaymentAccountManagementView extends StatelessWidget {
   });
 
   @override
+  State<PaymentAccountManagementView> createState() =>
+      _PaymentAccountManagementViewState();
+}
+
+class _PaymentAccountManagementViewState extends RealtimeListCacheState<
+    PaymentAccountManagementView, PaymentAccount> {
+  @override
   Widget build(BuildContext context) {
     return BlocListener<PaymentAccountBloc, PaymentAccountState>(
       listener: (context, state) {
-        if (state is PaymentAccountOperationSuccess) {
+        if (state is PaymentAccountLoaded) {
+          applyRealtimeItems(
+            state.accounts,
+            searchQuery: state.searchQuery,
+          );
+        } else if (state is PaymentAccountEmpty) {
+          applyRealtimeEmpty(searchQuery: state.searchQuery);
+        } else if (state is PaymentAccountInitial) {
+          resetRealtimeSnapshot();
+        } else if (state is PaymentAccountOperationSuccess) {
           CustomSnackBar.showSuccess(context, state.message);
         } else if (state is PaymentAccountError) {
           CustomSnackBar.showError(context, state.message);
@@ -85,8 +102,8 @@ class PaymentAccountManagementView extends StatelessWidget {
           children: [
             PageHeader(
               title: 'Payment Accounts',
-              onBack: onBack,
-              role: _getRoleString(userRole),
+              onBack: widget.onBack,
+              role: _getRoleString(widget.userRole),
             ),
             Center(
               child: ConstrainedBox(
@@ -196,9 +213,11 @@ class PaymentAccountManagementView extends StatelessWidget {
                   const SizedBox(height: AppTheme.spacingLg),
                   BlocBuilder<PaymentAccountBloc, PaymentAccountState>(
                     builder: (context, state) {
-                      // Show loading on initial state or loading state
-                      if (state is PaymentAccountInitial || 
-                          state is PaymentAccountLoading) {
+                      final bool waitingForFirstLoad = !hasRealtimeData &&
+                          (state is PaymentAccountInitial ||
+                              state is PaymentAccountLoading);
+
+                      if (waitingForFirstLoad) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(AppTheme.spacing2xl),
@@ -236,7 +255,7 @@ class PaymentAccountManagementView extends StatelessWidget {
                                   variant: CustomButtonVariant.primary,
                                   onPressed: () {
                                     context.read<PaymentAccountBloc>().add(
-                                      LoadPaymentAccounts(organizationId),
+                                          LoadPaymentAccounts(widget.organizationId),
                                     );
                                   },
                                 ),
@@ -246,64 +265,33 @@ class PaymentAccountManagementView extends StatelessWidget {
                         );
                       }
                       
-                      if (state is PaymentAccountEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppTheme.spacing2xl),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '💳',
-                                  style: TextStyle(fontSize: 64),
-                                ),
-                                const SizedBox(height: AppTheme.spacingMd),
-                                Text(
-                                  state.searchQuery != null
-                                      ? 'No Payment Accounts Found'
-                                      : 'No Payment Accounts',
-                                  style: const TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: AppTheme.spacingSm),
-                                Text(
-                                  state.searchQuery != null
-                                      ? 'No accounts match your search criteria'
-                                      : 'Add your first payment account to get started',
-                                  style: const TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: AppTheme.spacingLg),
-                                if (state.searchQuery != null)
-                                  CustomButton(
-                                    text: 'Clear Search',
-                                    variant: CustomButtonVariant.outline,
-                                    onPressed: () {
-                                      context.read<PaymentAccountBloc>().add(
-                                        const ResetSearch(),
-                                      );
-                                      context.read<PaymentAccountBloc>().add(
-                                        LoadPaymentAccounts(organizationId),
-                                      );
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
+                      if (state is PaymentAccountEmpty ||
+                          (hasRealtimeData && realtimeItems.isEmpty)) {
+                        final String? searchQuery =
+                            state is PaymentAccountEmpty ? state.searchQuery : realtimeSearchQuery;
+                        return _buildEmptyAccountsView(context, searchQuery);
                       }
                       
-                      if (state is PaymentAccountLoaded) {
-                        return _buildAccountsTable(context, state.accounts);
+                      final accounts =
+                          state is PaymentAccountLoaded ? state.accounts : realtimeItems;
+
+                      if (accounts.isEmpty) {
+                        return _buildEmptyAccountsView(context, realtimeSearchQuery);
                       }
                       
-                      return const SizedBox.shrink();
+                      final table = _buildAccountsTable(context, accounts);
+                      final bool showOverlay = hasRealtimeData &&
+                          (state is PaymentAccountLoading || state is PaymentAccountOperating);
+
+                      return withRealtimeBusyOverlay(
+                        child: table,
+                        showOverlay: showOverlay,
+                        overlayColor: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(16),
+                        progressIndicator: const CircularProgressIndicator(
+                          color: AppTheme.primaryColor,
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -329,46 +317,40 @@ class PaymentAccountManagementView extends StatelessWidget {
         // Search field on the right
         SizedBox(
           width: 300,
-          child: BlocBuilder<PaymentAccountBloc, PaymentAccountState>(
-            builder: (context, state) {
-              return CustomTextField(
-                hintText: 'Search accounts...',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                variant: CustomTextFieldVariant.search,
-                onChanged: (query) {
-                  if (query.isEmpty) {
-                    context.read<PaymentAccountBloc>().add(
+          child: CustomTextField(
+            hintText: 'Search accounts...',
+            prefixIcon: const Icon(Icons.search, size: 18),
+            variant: CustomTextFieldVariant.search,
+            onChanged: (query) {
+              if (query.isEmpty) {
+                context.read<PaymentAccountBloc>().add(
                       const ResetSearch(),
                     );
-                    context.read<PaymentAccountBloc>().add(
-                      LoadPaymentAccounts(organizationId),
+                context.read<PaymentAccountBloc>().add(
+                      LoadPaymentAccounts(widget.organizationId),
                     );
-                  } else {
-                    context.read<PaymentAccountBloc>().add(
+              } else {
+                context.read<PaymentAccountBloc>().add(
                       SearchPaymentAccounts(
-                        organizationId: organizationId,
+                        organizationId: widget.organizationId,
                         query: query,
                       ),
                     );
-                  }
-                },
-                suffixIcon: state is PaymentAccountLoaded && 
-                            state.searchQuery != null &&
-                            state.searchQuery!.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          context.read<PaymentAccountBloc>().add(
+              }
+            },
+            suffixIcon: realtimeSearchQuery != null && realtimeSearchQuery!.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      context.read<PaymentAccountBloc>().add(
                             const ResetSearch(),
                           );
-                          context.read<PaymentAccountBloc>().add(
-                            LoadPaymentAccounts(organizationId),
+                      context.read<PaymentAccountBloc>().add(
+                            LoadPaymentAccounts(widget.organizationId),
                           );
-                        },
-                      )
-                    : null,
-              );
-            },
+                    },
+                  )
+                : null,
           ),
         ),
       ],
@@ -380,7 +362,7 @@ class PaymentAccountManagementView extends StatelessWidget {
     List<PaymentAccount> accounts,
   ) {
     // Calculate minimum table width based on columns
-    const double minTableWidth = 1200;
+    const double minTableWidth = 1050;
     
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -420,20 +402,6 @@ class PaymentAccountManagementView extends StatelessWidget {
                 ),
                 dividerThickness: 1,
                 columns: [
-                  DataColumn(
-                    label: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        'ACCOUNT ID',
-                        style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ),
                   DataColumn(
                     label: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -550,21 +518,6 @@ class PaymentAccountManagementView extends StatelessWidget {
                 rows: accounts.map((account) {
                   return DataRow(
                     cells: [
-                      DataCell(
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 12,
-                          ),
-                          child: Text(
-                            account.accountId,
-                            style: const TextStyle(
-                              color: AppTheme.textPrimaryColor,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
                       DataCell(
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -712,6 +665,58 @@ class PaymentAccountManagementView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyAccountsView(BuildContext context, String? searchQuery) {
+    final bool hasSearch = searchQuery != null && searchQuery.isNotEmpty;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing2xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '💳',
+              style: TextStyle(fontSize: 64),
+            ),
+            const SizedBox(height: AppTheme.spacingMd),
+            Text(
+              hasSearch ? 'No Payment Accounts Found' : 'No Payment Accounts',
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingSm),
+            Text(
+              hasSearch
+                  ? 'No accounts match your search criteria'
+                  : 'Add your first payment account to get started',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (hasSearch) ...[
+              const SizedBox(height: AppTheme.spacingLg),
+              CustomButton(
+                text: 'Clear Search',
+                variant: CustomButtonVariant.outline,
+                onPressed: () {
+                  context.read<PaymentAccountBloc>().add(const ResetSearch());
+                  context
+                      .read<PaymentAccountBloc>()
+                      .add(LoadPaymentAccounts(widget.organizationId));
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -869,7 +874,7 @@ class PaymentAccountManagementView extends StatelessWidget {
 
     context.read<PaymentAccountBloc>().add(
       AddPaymentAccount(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         account: account,
         userId: userId,
       ),
@@ -888,7 +893,7 @@ class PaymentAccountManagementView extends StatelessWidget {
 
     context.read<PaymentAccountBloc>().add(
       UpdatePaymentAccount(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         accountId: oldAccount.id!,
         account: newAccount,
         userId: userId,
@@ -902,7 +907,7 @@ class PaymentAccountManagementView extends StatelessWidget {
   ) {
     context.read<PaymentAccountBloc>().add(
       DeletePaymentAccount(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         accountId: account.id!,
       ),
     );

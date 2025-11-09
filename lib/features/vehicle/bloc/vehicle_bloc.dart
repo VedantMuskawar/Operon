@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'vehicle_event.dart';
@@ -7,6 +9,7 @@ import '../models/vehicle.dart';
 
 class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
   final VehicleRepository _vehicleRepository;
+  StreamSubscription<List<Vehicle>>? _vehiclesSubscription;
 
   VehicleBloc({required VehicleRepository vehicleRepository})
       : _vehicleRepository = vehicleRepository,
@@ -18,30 +21,34 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     on<SearchVehicles>(_onSearchVehicles);
     on<ResetSearch>(_onResetSearch);
     on<RefreshVehicles>(_onRefreshVehicles);
+    on<AssignDriverToVehicle>(_onAssignDriverToVehicle);
+    on<VehiclesStreamUpdated>(_onVehiclesStreamUpdated);
+    on<VehiclesStreamError>(_onVehiclesStreamError);
   }
 
   Future<void> _onLoadVehicles(
     LoadVehicles event,
     Emitter<VehicleState> emit,
   ) async {
-    try {
-      emit(const VehicleLoading());
+    await _vehiclesSubscription?.cancel();
+    emit(const VehicleLoading());
 
-      await emit.forEach(
-        _vehicleRepository.getVehiclesStream(event.organizationId),
-        onData: (List<Vehicle> vehicles) {
-          if (vehicles.isEmpty) {
-            return const VehicleEmpty();
-          }
-          return VehicleLoaded(vehicles: vehicles);
-        },
-        onError: (error, stackTrace) {
-          return VehicleError('Failed to load vehicles: $error');
-        },
-      );
-    } catch (e) {
-      emit(VehicleError('Failed to load vehicles: $e'));
-    }
+    _vehiclesSubscription = _vehicleRepository
+        .getVehiclesStream(event.organizationId)
+        .listen(
+      (vehicles) {
+        add(
+          VehiclesStreamUpdated(
+            vehicles: vehicles,
+          ),
+        );
+      },
+      onError: (error, stackTrace) {
+        add(
+          VehiclesStreamError('Failed to load vehicles: $error'),
+        );
+      },
+    );
   }
 
   Future<void> _onAddVehicle(
@@ -105,36 +112,36 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     SearchVehicles event,
     Emitter<VehicleState> emit,
   ) async {
-    try {
-      emit(const VehicleLoading());
+    await _vehiclesSubscription?.cancel();
+    emit(const VehicleLoading());
 
-      await emit.forEach(
-        _vehicleRepository.searchVehicles(
-          event.organizationId,
-          event.query,
-        ),
-        onData: (List<Vehicle> vehicles) {
-          if (vehicles.isEmpty && event.query.isNotEmpty) {
-            return VehicleEmpty(searchQuery: event.query);
-          } else if (vehicles.isEmpty) {
-            return const VehicleEmpty();
-          }
-          return VehicleLoaded(vehicles: vehicles, searchQuery: event.query);
-        },
-        onError: (error, stackTrace) {
-          return VehicleError('Failed to search vehicles: $error');
-        },
-      );
-    } catch (e) {
-      emit(VehicleError('Failed to search vehicles: $e'));
-    }
+    _vehiclesSubscription = _vehicleRepository
+        .searchVehicles(
+      event.organizationId,
+      event.query,
+    )
+        .listen(
+      (vehicles) {
+        add(
+          VehiclesStreamUpdated(
+            vehicles: vehicles,
+            searchQuery: event.query,
+          ),
+        );
+      },
+      onError: (error, stackTrace) {
+        add(
+          VehiclesStreamError('Failed to search vehicles: $error'),
+        );
+      },
+    );
   }
 
   Future<void> _onResetSearch(
     ResetSearch event,
     Emitter<VehicleState> emit,
   ) async {
-    // Reset to initial state - this will be handled by the page to reload
+    await _vehiclesSubscription?.cancel();
     emit(const VehicleInitial());
   }
 
@@ -143,6 +150,132 @@ class VehicleBloc extends Bloc<VehicleEvent, VehicleState> {
     Emitter<VehicleState> emit,
   ) async {
     add(LoadVehicles(event.organizationId));
+  }
+
+  Future<void> _onAssignDriverToVehicle(
+    AssignDriverToVehicle event,
+    Emitter<VehicleState> emit,
+  ) async {
+    final previousState = state;
+    VehicleLoaded? previousLoaded;
+    Vehicle? originalVehicle;
+    VehicleLoaded? optimisticState;
+    final now = DateTime.now();
+
+    if (state is VehicleLoaded) {
+      previousLoaded = state as VehicleLoaded;
+      final vehicles = List<Vehicle>.from(previousLoaded.vehicles);
+      final index = vehicles.indexWhere((vehicle) => vehicle.id == event.vehicleId);
+      if (index != -1) {
+        originalVehicle = vehicles[index];
+        vehicles[index] = vehicles[index].copyWith(
+          assignedDriverId: event.driverId,
+          assignedDriverName: event.driverName,
+          assignedDriverContact: event.driverContact,
+          assignedDriverAt: event.driverId != null ? now : null,
+          assignedDriverBy: event.driverId != null ? event.userId : null,
+        );
+        optimisticState = VehicleLoaded(
+          vehicles: vehicles,
+          searchQuery: previousLoaded.searchQuery,
+        );
+        emit(optimisticState);
+      }
+    } else {
+      emit(const VehicleOperating());
+    }
+
+    try {
+      await _vehicleRepository.assignDriver(
+        organizationId: event.organizationId,
+        vehicleId: event.vehicleId,
+        driverId: event.driverId,
+        driverName: event.driverName,
+        driverContact: event.driverContact,
+        userId: event.userId,
+        force: event.force,
+      );
+
+      final message = event.driverId == null
+          ? 'Driver unassigned successfully'
+          : 'Driver assigned successfully';
+
+      emit(VehicleOperationSuccess(message));
+      if (optimisticState != null) {
+        emit(optimisticState);
+      } else if (previousState is VehicleLoaded) {
+        emit(previousState);
+      }
+    } on DriverAssignmentConflictException catch (conflict) {
+      if (previousLoaded != null && originalVehicle != null) {
+        final vehicles = List<Vehicle>.from(previousLoaded.vehicles);
+        final index = vehicles.indexWhere((vehicle) => vehicle.id == originalVehicle!.id);
+        if (index != -1) {
+          vehicles[index] = originalVehicle!;
+        }
+        emit(VehicleLoaded(vehicles: vehicles, searchQuery: previousLoaded.searchQuery));
+      } else if (previousState is VehicleLoaded) {
+        emit(previousState);
+      }
+
+      emit(
+        VehicleAssignmentConflict(
+          organizationId: event.organizationId,
+          vehicleId: event.vehicleId,
+          driverId: event.driverId,
+          driverName: event.driverName,
+          driverContact: event.driverContact,
+          conflictingVehicleNo: conflict.vehicleNo,
+        ),
+      );
+    } catch (e) {
+      if (previousLoaded != null && originalVehicle != null) {
+        final vehicles = List<Vehicle>.from(previousLoaded.vehicles);
+        final index = vehicles.indexWhere((vehicle) => vehicle.id == originalVehicle!.id);
+        if (index != -1) {
+          vehicles[index] = originalVehicle!;
+        }
+        emit(VehicleLoaded(vehicles: vehicles, searchQuery: previousLoaded.searchQuery));
+      } else if (previousState is VehicleLoaded) {
+        emit(previousState);
+      }
+
+      emit(VehicleError('Failed to update driver assignment: $e'));
+    }
+  }
+
+  void _onVehiclesStreamUpdated(
+    VehiclesStreamUpdated event,
+    Emitter<VehicleState> emit,
+  ) {
+    if (event.vehicles.isEmpty) {
+      if (event.searchQuery != null && event.searchQuery!.isNotEmpty) {
+        emit(VehicleEmpty(searchQuery: event.searchQuery));
+      } else {
+        emit(const VehicleEmpty());
+      }
+      return;
+    }
+
+    emit(
+      VehicleLoaded(
+        vehicles: event.vehicles,
+        searchQuery: event.searchQuery,
+      ),
+    );
+  }
+
+  void _onVehiclesStreamError(
+    VehiclesStreamError event,
+    Emitter<VehicleState> emit,
+  ) {
+    emit(VehicleError(event.message));
+  }
+
+  @override
+  Future<void> close() async {
+    await _vehiclesSubscription?.cancel();
+    return super.close();
   }
 }
 

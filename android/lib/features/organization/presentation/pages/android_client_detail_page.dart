@@ -20,7 +20,8 @@ class AndroidClientDetailPage extends StatefulWidget {
   });
 
   @override
-  State<AndroidClientDetailPage> createState() => _AndroidClientDetailPageState();
+  State<AndroidClientDetailPage> createState() =>
+      _AndroidClientDetailPageState();
 }
 
 class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
@@ -46,7 +47,9 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
     if (_isEditing) {
       final client = widget.existingClient!;
       _nameController.text = client.name;
-      _phoneController.text = AndroidClientRepository.normalizePhoneNumber(client.phoneNumber);
+      _phoneController.text = AndroidClientRepository.normalizePhoneNumber(
+        client.phoneNumber,
+      );
       _emailController.text = client.email ?? '';
       _notesController.text = client.notes ?? '';
 
@@ -62,7 +65,9 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
       _nameController.text = widget.initialName ?? '';
       // Normalize phone number with country code if provided
       if (widget.initialPhone != null && widget.initialPhone!.isNotEmpty) {
-        _phoneController.text = AndroidClientRepository.normalizePhoneNumber(widget.initialPhone!);
+        _phoneController.text = AndroidClientRepository.normalizePhoneNumber(
+          widget.initialPhone!,
+        );
       }
     }
   }
@@ -80,7 +85,6 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
     _notesController.dispose();
     super.dispose();
   }
-
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -106,21 +110,29 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
         organizationId: widget.organizationId,
         name: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
-        email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        email: _emailController.text.trim().isNotEmpty
+            ? _emailController.text.trim()
+            : null,
         address: address,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
         createdBy: userId,
         updatedBy: userId,
         status: ClientStatus.active,
-        notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+        notes: _notesController.text.trim().isNotEmpty
+            ? _notesController.text.trim()
+            : null,
       );
 
-      await _repository.createClient(widget.organizationId, client, userId);
-
-      final createdClient = await _repository.getClientByPhoneNumber(
+      final newClientId = await _repository.createClient(
         widget.organizationId,
-        client.phoneNumber,
+        client,
+        userId,
+      );
+
+      final createdClient = await _repository.getClient(
+        widget.organizationId,
+        newClientId,
       );
 
       if (!mounted) return;
@@ -138,10 +150,6 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
           ),
         );
       } else {
-        setState(() {
-          _isLoading = false;
-        });
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Client created successfully')),
         );
@@ -150,12 +158,15 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating client: $e')),
-      );
-      setState(() {
-        _isLoading = false;
-      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error creating client: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -168,9 +179,13 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
       final updatedClient = existingClient.copyWith(
         name: _nameController.text.trim(),
         phoneNumber: _phoneController.text.trim(),
-        email: _emailController.text.trim().isNotEmpty ? _emailController.text.trim() : null,
+        email: _emailController.text.trim().isNotEmpty
+            ? _emailController.text.trim()
+            : null,
         address: address,
-        notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+        notes: _notesController.text.trim().isNotEmpty
+            ? _notesController.text.trim()
+            : null,
       );
 
       await _repository.updateClient(
@@ -190,9 +205,9 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating client: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error updating client: $e')));
       setState(() {
         _isLoading = false;
       });
@@ -212,8 +227,12 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
       street: _streetController.text.isNotEmpty ? _streetController.text : null,
       city: _cityController.text.isNotEmpty ? _cityController.text : null,
       state: _stateController.text.isNotEmpty ? _stateController.text : null,
-      zipCode: _zipCodeController.text.isNotEmpty ? _zipCodeController.text : null,
-      country: _countryController.text.isNotEmpty ? _countryController.text : null,
+      zipCode: _zipCodeController.text.isNotEmpty
+          ? _zipCodeController.text
+          : null,
+      country: _countryController.text.isNotEmpty
+          ? _countryController.text
+          : null,
     );
   }
 
@@ -278,7 +297,9 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
         keyboardType: TextInputType.phone,
         decoration: InputDecoration(
           labelText: label,
-          hintText: hint ?? 'Enter phone number with country code (e.g., +919876543210)',
+          hintText:
+              hint ??
+              'Enter phone number with country code (e.g., +919876543210)',
           filled: true,
           fillColor: Colors.transparent,
           border: OutlineInputBorder(
@@ -299,23 +320,27 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
           ),
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppTheme.errorColor, width: 1.5),
+            borderSide: const BorderSide(
+              color: AppTheme.errorColor,
+              width: 1.5,
+            ),
           ),
-          prefixIcon: const Icon(Icons.phone_outlined, color: AppTheme.textSecondaryColor, size: 22),
+          prefixIcon: const Icon(
+            Icons.phone_outlined,
+            color: AppTheme.textSecondaryColor,
+            size: 22,
+          ),
           labelStyle: const TextStyle(
             color: AppTheme.textSecondaryColor,
             fontSize: 14,
           ),
-          hintStyle: TextStyle(
-            color: AppTheme.textTertiaryColor,
-            fontSize: 14,
+          hintStyle: TextStyle(color: AppTheme.textTertiaryColor, fontSize: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
-        style: const TextStyle(
-          color: AppTheme.textPrimaryColor,
-          fontSize: 16,
-        ),
+        style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 16),
         validator: validator,
         onChanged: (value) {
           // Only normalize if user is actively typing (not when programmatically set)
@@ -326,7 +351,9 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
             if (digitsOnly.length == 10) {
               controller.value = TextEditingValue(
                 text: '+91$digitsOnly',
-                selection: TextSelection.collapsed(offset: '+91$digitsOnly'.length),
+                selection: TextSelection.collapsed(
+                  offset: '+91$digitsOnly'.length,
+                ),
               );
             }
           }
@@ -381,7 +408,10 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
           ),
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppTheme.errorColor, width: 1.5),
+            borderSide: const BorderSide(
+              color: AppTheme.errorColor,
+              width: 1.5,
+            ),
           ),
           prefixIcon: prefixIcon != null
               ? Icon(prefixIcon, color: AppTheme.textSecondaryColor, size: 22)
@@ -390,16 +420,13 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
             color: AppTheme.textSecondaryColor,
             fontSize: 14,
           ),
-          hintStyle: TextStyle(
-            color: AppTheme.textTertiaryColor,
-            fontSize: 14,
+          hintStyle: TextStyle(color: AppTheme.textTertiaryColor, fontSize: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         ),
-        style: const TextStyle(
-          color: AppTheme.textPrimaryColor,
-          fontSize: 16,
-        ),
+        style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 16),
         validator: validator,
       ),
     );
@@ -408,7 +435,9 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
   @override
   Widget build(BuildContext context) {
     final actionLabel = _isEditing ? 'Update Client' : 'Create Client';
-    final loadingMessage = _isEditing ? 'Updating client...' : 'Creating client...';
+    final loadingMessage = _isEditing
+        ? 'Updating client...'
+        : 'Creating client...';
     final actionIcon = _isEditing ? Icons.save : Icons.add;
 
     return Scaffold(
@@ -430,7 +459,9 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppTheme.primaryColor,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Text(
@@ -475,7 +506,10 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
                               return 'Phone number is required';
                             }
                             // Validate that it's a valid phone number format
-                            final normalized = AndroidClientRepository.normalizePhoneNumber(value.trim());
+                            final normalized =
+                                AndroidClientRepository.normalizePhoneNumber(
+                                  value.trim(),
+                                );
                             if (normalized.length < 10) {
                               return 'Please enter a valid phone number';
                             }
@@ -594,4 +628,3 @@ class _AndroidClientDetailPageState extends State<AndroidClientDetailPage> {
     );
   }
 }
-

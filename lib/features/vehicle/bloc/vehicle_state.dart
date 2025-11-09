@@ -58,6 +58,34 @@ class VehicleOperationSuccess extends VehicleState {
   List<Object?> get props => [message];
 }
 
+class VehicleAssignmentConflict extends VehicleState {
+  final String organizationId;
+  final String vehicleId;
+  final String? driverId;
+  final String? driverName;
+  final String? driverContact;
+  final String conflictingVehicleNo;
+
+  const VehicleAssignmentConflict({
+    required this.organizationId,
+    required this.vehicleId,
+    required this.driverId,
+    required this.driverName,
+    required this.driverContact,
+    required this.conflictingVehicleNo,
+  });
+
+  @override
+  List<Object?> get props => [
+        organizationId,
+        vehicleId,
+        driverId,
+        driverName,
+        driverContact,
+        conflictingVehicleNo,
+      ];
+}
+
 // Error state
 class VehicleError extends VehicleState {
   final String message;

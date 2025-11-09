@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -21,6 +22,13 @@ class UserManagementPage extends StatefulWidget {
 
 class _UserManagementPageState extends State<UserManagementPage> {
   int _selectedTabIndex = 0;
+  final ValueNotifier<int> _userListRefresh = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _userListRefresh.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,8 +58,19 @@ class _UserManagementPageState extends State<UserManagementPage> {
             child: IndexedStack(
               index: _selectedTabIndex,
               children: [
-                UserList(organization: widget.organization),
-                AddUserForm(organization: widget.organization),
+                UserList(
+                  organization: widget.organization,
+                  refreshNotifier: _userListRefresh,
+                ),
+                AddUserForm(
+                  organization: widget.organization,
+                  refreshNotifier: _userListRefresh,
+                  onUserAdded: () {
+                    setState(() {
+                      _selectedTabIndex = 0;
+                    });
+                  },
+                ),
               ],
             ),
           ),

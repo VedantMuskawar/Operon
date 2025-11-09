@@ -106,17 +106,15 @@ class AndroidPaymentAccountBloc extends Bloc<AndroidPaymentAccountEvent, Android
         _repository.getPaymentAccountsStream(event.organizationId),
         onData: (List<PaymentAccount> accounts) {
           print('Payment accounts stream received ${accounts.length} accounts');
-          final state = accounts.isEmpty 
-              ? AndroidPaymentAccountEmpty() 
+          final state = accounts.isEmpty
+              ? AndroidPaymentAccountEmpty()
               : AndroidPaymentAccountLoaded(accounts: accounts);
           print('Emitting payment account state: ${state.runtimeType}');
-          emit(state);
           return state;
         },
         onError: (error, stackTrace) {
           print('Error in payment accounts stream: $error');
           final errorState = AndroidPaymentAccountError('Failed to load accounts: $error');
-          emit(errorState);
           return errorState;
         },
       );

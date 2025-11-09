@@ -6,6 +6,7 @@ import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/realtime_list_cache_mixin.dart';
 import '../../../../contexts/organization_context.dart';
 import '../../bloc/product_price_bloc.dart';
 import '../../bloc/product_price_event.dart';
@@ -60,7 +61,7 @@ class ProductPriceManagementPage extends StatelessWidget {
   }
 }
 
-class ProductPriceManagementView extends StatelessWidget {
+class ProductPriceManagementView extends StatefulWidget {
   final String organizationId;
   final int userRole;
   final VoidCallback? onBack;
@@ -73,10 +74,26 @@ class ProductPriceManagementView extends StatelessWidget {
   });
 
   @override
+  State<ProductPriceManagementView> createState() =>
+      _ProductPriceManagementViewState();
+}
+
+class _ProductPriceManagementViewState extends RealtimeListCacheState<
+    ProductPriceManagementView, ProductPrice> {
+  @override
   Widget build(BuildContext context) {
     return BlocListener<ProductPriceBloc, ProductPriceState>(
       listener: (context, state) {
-        if (state is ProductPriceOperationSuccess) {
+        if (state is ProductPriceLoaded) {
+          applyRealtimeItems(
+            state.prices,
+            searchQuery: state.searchQuery,
+          );
+        } else if (state is ProductPriceEmpty) {
+          applyRealtimeEmpty(searchQuery: state.searchQuery);
+        } else if (state is ProductPriceInitial) {
+          resetRealtimeSnapshot();
+        } else if (state is ProductPriceOperationSuccess) {
           CustomSnackBar.showSuccess(context, state.message);
         } else if (state is ProductPriceError) {
           CustomSnackBar.showError(context, state.message);
@@ -89,8 +106,8 @@ class ProductPriceManagementView extends StatelessWidget {
           children: [
             PageHeader(
               title: 'Product Pricing',
-              onBack: onBack,
-              role: _getRoleString(userRole),
+              onBack: widget.onBack,
+              role: _getRoleString(widget.userRole),
             ),
             Center(
               child: ConstrainedBox(
@@ -197,7 +214,11 @@ class ProductPriceManagementView extends StatelessWidget {
                   const SizedBox(height: AppTheme.spacingLg),
                   BlocBuilder<ProductPriceBloc, ProductPriceState>(
                     builder: (context, state) {
-                      if (state is ProductPriceInitial || state is ProductPriceLoading) {
+                      final bool waitingForFirstLoad = !hasRealtimeData &&
+                          (state is ProductPriceInitial ||
+                              state is ProductPriceLoading);
+
+                      if (waitingForFirstLoad) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(AppTheme.spacing2xl),
@@ -235,7 +256,7 @@ class ProductPriceManagementView extends StatelessWidget {
                                   variant: CustomButtonVariant.primary,
                                   onPressed: () {
                                     context.read<ProductPriceBloc>().add(
-                                      LoadProductPrices(organizationId),
+                                          LoadProductPrices(widget.organizationId),
                                     );
                                   },
                                 ),
@@ -245,75 +266,87 @@ class ProductPriceManagementView extends StatelessWidget {
                         );
                       }
                       
-                      if (state is ProductPriceEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppTheme.spacing2xl),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '💰',
-                                  style: TextStyle(fontSize: 64),
+                      if (state is ProductPriceEmpty ||
+                          (hasRealtimeData && realtimeItems.isEmpty)) {
+                        final String? searchQuery =
+                            state is ProductPriceEmpty ? state.searchQuery : realtimeSearchQuery;
+                        return _buildEmptyPricesView(context, searchQuery);
+                      }
+                      
+                      final prices =
+                          state is ProductPriceLoaded ? state.prices : realtimeItems;
+
+                      if (prices.isEmpty) {
+                        return _buildEmptyPricesView(context, realtimeSearchQuery);
+                      }
+
+                      final tableFuture = _loadPriceDetails(prices);
+
+                      final tableFutureBuilder = FutureBuilder<Map<String, dynamic>>(
+                        future: tableFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(AppTheme.spacing2xl),
+                                child: CircularProgressIndicator(
+                                  color: AppTheme.primaryColor,
                                 ),
-                                const SizedBox(height: AppTheme.spacingMd),
-                                const Text(
-                                  'No Product Prices',
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: AppTheme.spacingSm),
-                                const Text(
-                                  'Add your first product price to get started',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                              ),
+                            );
+                          }
+
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text(
+                                'Error loading price details: ${snapshot.error}',
+                                style: const TextStyle(color: AppTheme.errorColor),
+                              ),
+                            );
+                          }
+
+                          final data = snapshot.data ?? const <String, dynamic>{};
+                          final products =
+                              (data['products'] as Map<String, Product>?) ?? const {};
+                          final addresses =
+                              (data['addresses'] as Map<String, Address>?) ?? const {};
+
+                          final table =
+                              _buildPricesTable(context, prices, products, addresses);
+
+                          final bool showOverlay = hasRealtimeData &&
+                              (state is ProductPriceLoading ||
+                                  state is ProductPriceOperating);
+
+                          if (!showOverlay) {
+                            return table;
+                          }
+
+                          return withRealtimeBusyOverlay(
+                            child: table,
+                            showOverlay: true,
+                            overlayColor: Colors.black.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(16),
+                            progressIndicator: const CircularProgressIndicator(
+                              color: AppTheme.primaryColor,
                             ),
+                          );
+                        },
+                      );
+
+                      if (state is ProductPriceLoading || state is ProductPriceOperating) {
+                        return withRealtimeBusyOverlay(
+                          child: tableFutureBuilder,
+                          showOverlay: hasRealtimeData,
+                          overlayColor: Colors.black.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(16),
+                          progressIndicator: const CircularProgressIndicator(
+                            color: AppTheme.primaryColor,
                           ),
                         );
                       }
-                      
-                      if (state is ProductPriceLoaded) {
-                        return FutureBuilder<Map<String, dynamic>>(
-                          future: _loadPriceDetails(state.prices),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(AppTheme.spacing2xl),
-                                  child: CircularProgressIndicator(
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                ),
-                              );
-                            }
-                            
-                            if (snapshot.hasError) {
-                              return Center(
-                                child: Text(
-                                  'Error loading price details: ${snapshot.error}',
-                                  style: const TextStyle(color: AppTheme.errorColor),
-                                ),
-                              );
-                            }
-                            
-                            final data = snapshot.data!;
-                            final products = data['products'] as Map<String, Product>;
-                            final addresses = data['addresses'] as Map<String, Address>;
-                            
-                            return _buildPricesTable(context, state.prices, products, addresses);
-                          },
-                        );
-                      }
-                      
-                      return const SizedBox.shrink();
+
+                      return tableFutureBuilder;
                     },
                   ),
                 ],
@@ -337,14 +370,15 @@ class ProductPriceManagementView extends StatelessWidget {
     final addresses = <String, Address>{};
     
     for (final productId in productIds) {
-      final product = await productRepo.getProductByCustomId(organizationId, productId);
+      final product = await productRepo.getProductByCustomId(widget.organizationId, productId);
       if (product != null) {
         products[productId] = product;
       }
     }
     
     for (final addressId in addressIds) {
-      final address = await addressRepo.getAddressByCustomId(organizationId, addressId);
+      final address =
+          await addressRepo.getAddressByCustomId(widget.organizationId, addressId);
       if (address != null) {
         addresses[addressId] = address;
       }
@@ -362,6 +396,58 @@ class ProductPriceManagementView extends StatelessWidget {
           onPressed: () => _showAddPriceDialog(context),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyPricesView(BuildContext context, String? searchQuery) {
+    final bool hasSearch = searchQuery != null && searchQuery.isNotEmpty;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing2xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '💰',
+              style: TextStyle(fontSize: 64),
+            ),
+            const SizedBox(height: AppTheme.spacingMd),
+            Text(
+              hasSearch ? 'No Product Prices Found' : 'No Product Prices',
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingSm),
+            Text(
+              hasSearch
+                  ? 'No prices match your search criteria'
+                  : 'Add your first product price to get started',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (hasSearch) ...[
+              const SizedBox(height: AppTheme.spacingLg),
+              CustomButton(
+                text: 'Clear Search',
+                variant: CustomButtonVariant.outline,
+                onPressed: () {
+                  context.read<ProductPriceBloc>().add(const ResetProductPriceSearch());
+                  context
+                      .read<ProductPriceBloc>()
+                      .add(LoadProductPrices(widget.organizationId));
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -605,7 +691,7 @@ class ProductPriceManagementView extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => ProductPriceFormDialog(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         onSubmit: (price) {
           Navigator.of(dialogContext).pop();
           _submitPrice(context, price);
@@ -622,7 +708,7 @@ class ProductPriceManagementView extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => ProductPriceFormDialog(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         price: price,
         onSubmit: (updatedPrice) {
           Navigator.of(dialogContext).pop();
@@ -692,7 +778,7 @@ class ProductPriceManagementView extends StatelessWidget {
 
     context.read<ProductPriceBloc>().add(
       AddProductPrice(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         price: price,
         userId: userId,
       ),
@@ -711,7 +797,7 @@ class ProductPriceManagementView extends StatelessWidget {
 
     context.read<ProductPriceBloc>().add(
       UpdateProductPrice(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         priceId: oldPrice.id!,
         price: newPrice,
         userId: userId,
@@ -725,7 +811,7 @@ class ProductPriceManagementView extends StatelessWidget {
   ) {
     context.read<ProductPriceBloc>().add(
       DeleteProductPrice(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         priceId: price.id!,
       ),
     );

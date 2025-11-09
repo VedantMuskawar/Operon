@@ -13,6 +13,11 @@ class Vehicle {
   final DateTime updatedAt;
   final String? createdBy;
   final String? updatedBy;
+  final String? assignedDriverId;
+  final String? assignedDriverName;
+  final String? assignedDriverContact;
+  final DateTime? assignedDriverAt;
+  final String? assignedDriverBy;
 
   Vehicle({
     this.id,
@@ -27,6 +32,11 @@ class Vehicle {
     required this.updatedAt,
     this.createdBy,
     this.updatedBy,
+    this.assignedDriverId,
+    this.assignedDriverName,
+    this.assignedDriverContact,
+    this.assignedDriverAt,
+    this.assignedDriverBy,
   });
 
   // Create Vehicle from Firestore document
@@ -57,6 +67,11 @@ class Vehicle {
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdBy: data['createdBy'],
       updatedBy: data['updatedBy'],
+      assignedDriverId: data['assignedDriverId'],
+      assignedDriverName: data['assignedDriverName'],
+      assignedDriverContact: data['assignedDriverContact'],
+      assignedDriverAt: (data['assignedDriverAt'] as Timestamp?)?.toDate(),
+      assignedDriverBy: data['assignedDriverBy'],
     );
   }
 
@@ -74,6 +89,13 @@ class Vehicle {
       'updatedAt': Timestamp.fromDate(updatedAt),
       if (createdBy != null) 'createdBy': createdBy,
       if (updatedBy != null) 'updatedBy': updatedBy,
+      if (assignedDriverId != null) 'assignedDriverId': assignedDriverId,
+      if (assignedDriverName != null) 'assignedDriverName': assignedDriverName,
+      if (assignedDriverContact != null)
+        'assignedDriverContact': assignedDriverContact,
+      if (assignedDriverAt != null)
+        'assignedDriverAt': Timestamp.fromDate(assignedDriverAt!),
+      if (assignedDriverBy != null) 'assignedDriverBy': assignedDriverBy,
     };
   }
 
@@ -88,6 +110,11 @@ class Vehicle {
     Map<String, int>? weeklyCapacity,
     DateTime? updatedAt,
     String? updatedBy,
+    String? assignedDriverId,
+    String? assignedDriverName,
+    String? assignedDriverContact,
+    DateTime? assignedDriverAt,
+    String? assignedDriverBy,
   }) {
     return Vehicle(
       id: id,
@@ -98,10 +125,15 @@ class Vehicle {
       vehicleQuantity: vehicleQuantity ?? this.vehicleQuantity,
       status: status ?? this.status,
       weeklyCapacity: weeklyCapacity ?? this.weeklyCapacity,
-      createdAt: createdAt,
+      createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       createdBy: createdBy,
       updatedBy: updatedBy ?? this.updatedBy,
+      assignedDriverId: assignedDriverId ?? this.assignedDriverId,
+      assignedDriverName: assignedDriverName ?? this.assignedDriverName,
+      assignedDriverContact: assignedDriverContact ?? this.assignedDriverContact,
+      assignedDriverAt: assignedDriverAt ?? this.assignedDriverAt,
+      assignedDriverBy: assignedDriverBy ?? this.assignedDriverBy,
     );
   }
 

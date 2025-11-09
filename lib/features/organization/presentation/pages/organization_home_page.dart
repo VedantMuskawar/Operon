@@ -1,6 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/navigation/organization_navigation_scope.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/models/organization.dart';
 import '../../../../core/widgets/animated_background.dart';
 import '../../../../core/widgets/navigation_pills.dart';
 import '../../../../core/widgets/profile_dropdown.dart';
@@ -21,21 +24,68 @@ import '../../../products/presentation/pages/product_management_page.dart';
 import '../../../products/bloc/product_bloc.dart';
 import '../../../products/bloc/product_event.dart';
 import '../../../products/repositories/product_repository.dart';
-import '../../../addresses/presentation/pages/address_management_page.dart';
-import '../../../addresses/bloc/address_bloc.dart';
-import '../../../addresses/bloc/address_event.dart';
-import '../../../addresses/repositories/address_repository.dart';
-import '../../../product_prices/presentation/pages/product_price_management_page.dart';
-import '../../../product_prices/bloc/product_price_bloc.dart';
-import '../../../product_prices/bloc/product_price_event.dart';
-import '../../../product_prices/repositories/product_price_repository.dart';
+import '../../../user/presentation/widgets/organization_users_view.dart';
 import '../../../location_pricing/presentation/pages/location_pricing_management_page.dart';
 import '../../../location_pricing/bloc/location_pricing_bloc.dart';
 import '../../../location_pricing/bloc/location_pricing_event.dart';
 import '../../../location_pricing/repositories/location_pricing_repository.dart';
 
 class OrganizationHomePage extends StatefulWidget {
-  const OrganizationHomePage({super.key});
+  const OrganizationHomePage({
+    super.key,
+    this.sections,
+    this.customViewBuilders = const {},
+  });
+
+  final List<SectionData>? sections;
+  final Map<String, WidgetBuilder> customViewBuilders;
+
+  static List<SectionData> defaultSections() {
+    return [
+      SectionData(
+        label: "Organization Management",
+        emoji: "🏢",
+        items: [
+          SectionItem(
+            emoji: "⚙️",
+            title: "Organization Settings",
+            description: "Configure organization preferences and settings",
+            viewId: 'organization-settings',
+          ),
+          SectionItem(
+            emoji: "🚛",
+            title: "Vehicle Management",
+            description: "Manage fleet vehicles, maintenance, and operations",
+            viewId: 'vehicle-management',
+          ),
+          SectionItem(
+            emoji: "💳",
+            title: "Payment Account Settings",
+            description: "Manage payment methods and billing accounts",
+            viewId: 'payment-account-management',
+          ),
+          SectionItem(
+            emoji: "👥",
+            title: "Users",
+            description: "Manage organization members and roles",
+            viewId: 'organization-users',
+          ),
+          SectionItem(
+            emoji: "📋",
+            title: "Products",
+            description: "Manage product catalog and inventory",
+            viewId: 'products',
+          ),
+          SectionItem(
+            emoji: "📍",
+            title: "Location Pricing",
+            description: "Manage location-based pricing for orders",
+            viewId: 'location-pricing',
+          ),
+        ],
+      ),
+    ];
+  }
 
   @override
   State<OrganizationHomePage> createState() => _OrganizationHomePageState();
@@ -43,9 +93,11 @@ class OrganizationHomePage extends StatefulWidget {
 
 class _OrganizationHomePageState extends State<OrganizationHomePage>
     with TickerProviderStateMixin {
+  static const double _dashboardTileAspectRatio = 4 / 3;
   int _selectedNavigationIndex = 0;
   bool _showProfileDropdown = false;
-  String _currentView = 'home'; // 'home', 'organization-settings', 'vehicle-management', 'payment-account-management', 'products', 'addresses', 'product-pricing'
+  String _currentView =
+      'home'; // 'home', 'organization-settings', 'vehicle-management', 'payment-account-management', 'products'
   late AnimationController _headerAnimationController;
   late Animation<double> _headerSlideAnimation;
 
@@ -55,14 +107,17 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     final items = [
       const NavigationPillItem(id: 'home', label: 'Home'),
       const NavigationPillItem(id: 'orders-map', label: 'Orders Map'),
-      const NavigationPillItem(id: 'scheduled-orders', label: 'Scheduled Orders'),
+      const NavigationPillItem(
+        id: 'scheduled-orders',
+        label: 'Scheduled Orders',
+      ),
     ];
-    
+
     // Add Dashboard only for admin users (like PaveBoard)
     if (isAdmin) {
       items.add(const NavigationPillItem(id: 'dashboard', label: 'Dashboard'));
     }
-    
+
     return items;
   }
 
@@ -77,14 +132,13 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
       duration: AppTheme.animationSlow,
       vsync: this,
     );
-    
-    _headerSlideAnimation = Tween<double>(
-      begin: -100.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _headerAnimationController,
-      curve: AppTheme.animationCurve,
-    ));
+
+    _headerSlideAnimation = Tween<double>(begin: -100.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _headerAnimationController,
+        curve: AppTheme.animationCurve,
+      ),
+    );
 
     // Start header animation
     _headerAnimationController.forward();
@@ -99,7 +153,7 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
   @override
   Widget build(BuildContext context) {
     final isMobile = false; // Desktop only app
-    
+
     return OrganizationAwareWidget(
       builder: (context, orgContext) {
         return BlocListener<AuthBloc, AuthState>(
@@ -119,10 +173,15 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
                   children: [
                     // Header with Navigation and Profile
                     _buildHeader(isMobile, orgContext),
-                    
+
                     // Main Content
                     Expanded(
-                      child: _buildMainContent(orgContext),
+                      child: OrganizationNavigationScope(
+                        goHome: () => setState(() => _currentView = 'home'),
+                        goToView: (viewId) => setState(() => _currentView = viewId),
+                        currentView: _currentView,
+                        child: _buildMainContent(orgContext),
+                      ),
                     ),
                   ],
                 ),
@@ -167,22 +226,13 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
           child: Row(
             children: [
               // Left - Operon Title with gradient
-              Expanded(
-                flex: 1,
-                child: _buildPaveHomeTitle(orgContext),
-              ),
-              
+              Expanded(flex: 1, child: _buildPaveHomeTitle(orgContext)),
+
               // Center - Navigation Pills
-              Expanded(
-                flex: 2,
-                child: _buildNavigationPills(),
-              ),
-              
+              Expanded(flex: 2, child: _buildNavigationPills()),
+
               // Right - Organization and Profile
-              Expanded(
-                flex: 1,
-                child: _buildRightSection(orgContext),
-              ),
+              Expanded(flex: 1, child: _buildRightSection(orgContext)),
             ],
           ),
         ),
@@ -194,10 +244,10 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     // Calculate width based on current selected item's text content + padding
     // PaveBoard exact: padding: 1rem 1.5rem = 16px 24px
     const double horizontalPadding = 48; // 24px * 2
-    
+
     // Get the current selected item's label
     String currentLabel = _navigationItems[_selectedNavigationIndex].label;
-    
+
     // Calculate text width using TextPainter (active pill uses 1.05rem)
     final textPainter = TextPainter(
       text: TextSpan(
@@ -210,7 +260,7 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
       textDirection: TextDirection.ltr,
     );
     textPainter.layout();
-    
+
     return horizontalPadding + textPainter.width;
   }
 
@@ -228,22 +278,24 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     // Calculate width for a specific pill index
     // PaveBoard exact: padding: 1rem 1.5rem = 16px 24px
     const double horizontalPadding = 48; // 24px * 2
-    
+
     String label = _navigationItems[index].label;
     bool isActive = index == _selectedNavigationIndex;
-    
+
     final textPainter = TextPainter(
       text: TextSpan(
         text: label,
         style: TextStyle(
-          fontSize: isActive ? 16.8 : 16, // 1.05rem for active, 1rem for inactive
+          fontSize: isActive
+              ? 16.8
+              : 16, // 1.05rem for active, 1rem for inactive
           fontWeight: FontWeight.w600, // var(--font-weight-semibold)
         ),
       ),
       textDirection: TextDirection.ltr,
     );
     textPainter.layout();
-    
+
     return horizontalPadding + textPainter.width;
   }
 
@@ -303,7 +355,9 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(8), // var(--radius-md) = 0.5rem = 8px
+                  borderRadius: BorderRadius.circular(
+                    8,
+                  ), // var(--radius-md) = 0.5rem = 8px
                 ),
               ),
             ),
@@ -314,22 +368,32 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
                 final index = entry.key;
                 final item = entry.value;
                 final isSelected = index == _selectedNavigationIndex;
-                
+
                 return GestureDetector(
                   onTap: () => _onNavigationItemSelected(index),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16), // 1rem 1.5rem (16px 24px)
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ), // 1rem 1.5rem (16px 24px)
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8), // var(--radius-md) = 0.5rem = 8px
+                      borderRadius: BorderRadius.circular(
+                        8,
+                      ), // var(--radius-md) = 0.5rem = 8px
                     ),
                     child: Text(
                       item.label,
                       style: TextStyle(
-                        fontSize: isSelected ? 16.8 : 16, // 1.05rem for active, 1rem for inactive
-                        fontWeight: FontWeight.w600, // var(--font-weight-semibold)
-                        color: isSelected 
-                            ? Colors.white 
-                            : const Color(0xFF94A3B8), // Light gray for inactive
+                        fontSize: isSelected
+                            ? 16.8
+                            : 16, // 1.05rem for active, 1rem for inactive
+                        fontWeight:
+                            FontWeight.w600, // var(--font-weight-semibold)
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(
+                                0xFF94A3B8,
+                              ), // Light gray for inactive
                       ),
                     ),
                   ),
@@ -353,7 +417,10 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
             GestureDetector(
               onTap: () => _navigateToOrganizationSelector(),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(8), // var(--radius-md)
@@ -373,7 +440,10 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
                       height: 20,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)], // blue-500 to purple-500
+                          colors: [
+                            Color(0xFF3B82F6),
+                            Color(0xFF8B5CF6),
+                          ], // blue-500 to purple-500
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -399,10 +469,11 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
               ),
             ),
             const SizedBox(width: 12),
-            
+
             // Profile icon with dropdown
             GestureDetector(
-              onTap: () => setState(() => _showProfileDropdown = !_showProfileDropdown),
+              onTap: () =>
+                  setState(() => _showProfileDropdown = !_showProfileDropdown),
               child: Container(
                 width: 40,
                 height: 40,
@@ -453,7 +524,7 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
             ),
           ],
         ),
-        
+
         // Profile Dropdown
         if (_showProfileDropdown)
           Positioned(
@@ -473,8 +544,11 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     );
   }
 
-
   Widget _buildMainContent(OrganizationContext orgContext) {
+    if (widget.customViewBuilders.containsKey(_currentView)) {
+      return widget.customViewBuilders[_currentView]!(context);
+    }
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
       child: Column(
@@ -497,9 +571,9 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
             // Vehicle Management View
             orgContext.organizationId != null
                 ? BlocProvider(
-                    create: (context) => VehicleBloc(
-                      vehicleRepository: VehicleRepository(),
-                    )..add(LoadVehicles(orgContext.organizationId!)),
+                    create: (context) =>
+                        VehicleBloc(vehicleRepository: VehicleRepository())
+                          ..add(LoadVehicles(orgContext.organizationId!)),
                     child: VehicleManagementView(
                       organizationId: orgContext.organizationId!,
                       userRole: orgContext.userRole ?? 0,
@@ -541,9 +615,9 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
             // Products Management View
             orgContext.organizationId != null
                 ? BlocProvider(
-                    create: (context) => ProductBloc(
-                      productRepository: ProductRepository(),
-                    )..add(LoadProducts(orgContext.organizationId!)),
+                    create: (context) =>
+                        ProductBloc(productRepository: ProductRepository())
+                          ..add(LoadProducts(orgContext.organizationId!)),
                     child: ProductManagementView(
                       organizationId: orgContext.organizationId!,
                       userRole: orgContext.userRole ?? 0,
@@ -581,50 +655,8 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
                       ),
                     ),
                   ),
-          ] else if (_currentView == 'addresses') ...[
-            // Addresses Management View
-            orgContext.organizationId != null
-                ? BlocProvider(
-                    create: (context) => AddressBloc(
-                      addressRepository: AddressRepository(),
-                    )..add(LoadAddresses(orgContext.organizationId!)),
-                    child: AddressManagementView(
-                      organizationId: orgContext.organizationId!,
-                      userRole: orgContext.userRole ?? 0,
-                      onBack: () => setState(() => _currentView = 'home'),
-                    ),
-                  )
-                : const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Text(
-                        'Organization not found',
-                        style: TextStyle(color: Color(0xFFF5F5F7)),
-                      ),
-                    ),
-                  ),
-          ] else if (_currentView == 'product-pricing') ...[
-            // Product Pricing Management View
-            orgContext.organizationId != null
-                ? BlocProvider(
-                    create: (context) => ProductPriceBloc(
-                      productPriceRepository: ProductPriceRepository(),
-                    )..add(LoadProductPrices(orgContext.organizationId!)),
-                    child: ProductPriceManagementView(
-                      organizationId: orgContext.organizationId!,
-                      userRole: orgContext.userRole ?? 0,
-                      onBack: () => setState(() => _currentView = 'home'),
-                    ),
-                  )
-                : const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: Text(
-                        'Organization not found',
-                        style: TextStyle(color: Color(0xFFF5F5F7)),
-                      ),
-                    ),
-                  ),
+          ] else if (_currentView == 'organization-users') ...[
+            _buildUsersManagementView(orgContext),
           ],
         ],
       ),
@@ -646,11 +678,11 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
   Widget _buildDashboardGrid() {
     final sections = _getSections();
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Responsive grid matching PaveBoard: grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4
     int crossAxisCount;
     double spacing;
-    
+
     if (screenWidth >= 1280) {
       // xl:grid-cols-4
       crossAxisCount = 4;
@@ -668,22 +700,29 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
       crossAxisCount = 1;
       spacing = 24; // gap-6
     }
-    
+
     return _buildResponsiveGrid(sections, crossAxisCount, spacing);
   }
-  
-  Widget _buildResponsiveGrid(List<SectionData> sections, int crossAxisCount, double spacing) {
+
+  Widget _buildResponsiveGrid(
+    List<SectionData> sections,
+    int crossAxisCount,
+    double spacing,
+  ) {
     final rows = <Widget>[];
-    final sectionWidgets = sections.map((section) => _buildSectionCard(section)).toList();
-    
+    final sectionWidgets = sections
+        .map((section) => _buildSectionCard(section))
+        .toList();
+
     for (int i = 0; i < sectionWidgets.length; i += crossAxisCount) {
       if (i > 0) {
         rows.add(SizedBox(height: spacing));
       }
-      
+
       final rowItems = sectionWidgets.skip(i).take(crossAxisCount).toList();
       rows.add(
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (int j = 0; j < rowItems.length; j++) ...[
               Expanded(child: rowItems[j]),
@@ -698,44 +737,59 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
         ),
       );
     }
-    
+
     return Column(children: rows);
   }
 
+  Widget _buildUsersManagementView(OrganizationContext orgContext) {
+    final organization = _mapOrganizationFromContext(orgContext);
+
+    if (organization == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: Text(
+            'Organization not found',
+            style: TextStyle(color: Color(0xFFF5F5F7)),
+          ),
+        ),
+      );
+    }
+
+    return OrganizationUsersView(
+      organization: organization,
+      userRole: orgContext.userRole ?? 0,
+      onBack: () => setState(() => _currentView = 'home'),
+    );
+  }
+
+  Organization? _mapOrganizationFromContext(OrganizationContext orgContext) {
+    final data = orgContext.currentOrganization;
+    if (data == null) {
+      return null;
+    }
+
+    final sanitized = Map<String, dynamic>.from(data);
+
+    final createdDate = sanitized['createdDate'];
+    if (createdDate is DateTime) {
+      sanitized['createdDate'] = Timestamp.fromDate(createdDate);
+    }
+
+    final updatedDate = sanitized['updatedDate'];
+    if (updatedDate is DateTime) {
+      sanitized['updatedDate'] = Timestamp.fromDate(updatedDate);
+    }
+
+    try {
+      return Organization.fromMap(sanitized);
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<SectionData> _getSections() {
-    return [
-      SectionData(
-        label: "Organization Management",
-        emoji: "🏢",
-        items: [
-          SectionItem(
-            emoji: "⚙️",
-            title: "Organization Settings",
-            description: "Configure organization preferences and settings",
-          ),
-          SectionItem(
-            emoji: "🚛",
-            title: "Vehicle Management",
-            description: "Manage fleet vehicles, maintenance, and operations",
-          ),
-          SectionItem(
-            emoji: "💳",
-            title: "Payment Account Settings",
-            description: "Manage payment methods and billing accounts",
-          ),
-          SectionItem(
-            emoji: "📋",
-            title: "Products",
-            description: "Manage product catalog and inventory",
-          ),
-          SectionItem(
-            emoji: "📍",
-            title: "Location Pricing",
-            description: "Manage location-based pricing for orders",
-          ),
-        ],
-      ),
-    ];
+    return widget.sections ?? OrganizationHomePage.defaultSections();
   }
 
   Widget _buildSectionCard(SectionData section) {
@@ -807,11 +861,9 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
               ],
             ),
           ),
-          
+
           // Section Content - Exact 2 columns like PaveBoard: grid grid-cols-2
-          Column(
-            children: _buildItemRows(section.items),
-          ),
+          Column(children: _buildItemRows(section.items)),
         ],
       ),
     );
@@ -820,16 +872,17 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
   List<Widget> _buildItemRows(List<SectionItem> items) {
     final rows = <Widget>[];
     const int itemsPerRow = 2;
-    
+
     for (int i = 0; i < items.length; i += itemsPerRow) {
       if (i > 0) {
         rows.add(const SizedBox(height: 24)); // gap between rows
       }
-      
+
       final rowItems = items.skip(i).take(itemsPerRow).toList();
       rows.add(
         IntrinsicHeight(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _buildDashboardTile(rowItems[0])),
               if (rowItems.length > 1) ...[
@@ -844,107 +897,109 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
         ),
       );
     }
-    
+
     return rows;
   }
 
   Widget _buildDashboardTile(SectionItem item) {
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     // Responsive sizing based on screen size
     final padding = screenWidth >= 640 ? 16.0 : 12.0;
     final emojiSize = screenWidth >= 640 ? 36.0 : 28.0;
     final fontSize = screenWidth >= 640 ? 13.0 : 12.0;
     final marginBottom = screenWidth >= 640 ? 12.0 : 8.0;
-    
+
     return GestureDetector(
-      onTap: () => _onTileTapped(item.title),
-      child: Container(
-        padding: EdgeInsets.all(padding),
-        constraints: const BoxConstraints(
-          minHeight: 100,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1F2937), // card background
-          border: Border.all(
-            color: const Color(0xFF374151), // border color
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(16), // rounded-xl
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      onTap: () => _onTileTapped(item),
+      child: AspectRatio(
+        aspectRatio: _dashboardTileAspectRatio,
+        child: Container(
+          padding: EdgeInsets.all(padding),
+          constraints: const BoxConstraints(minHeight: 100),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1F2937), // card background
+            border: Border.all(
+              color: const Color(0xFF374151), // border color
+              width: 1,
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Tile Icon - Responsive sizing
-            Container(
-              margin: EdgeInsets.only(bottom: marginBottom),
-              child: Text(
-                item.emoji,
-                style: TextStyle(
-                  fontSize: emojiSize,
-                  shadows: const [
-                    Shadow(
-                      color: Colors.black54,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+            borderRadius: BorderRadius.circular(16), // rounded-xl
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              // Tile Icon - Responsive sizing
+              Container(
+                margin: EdgeInsets.only(bottom: marginBottom),
+                child: Text(
+                  item.emoji,
+                  style: TextStyle(
+                    fontSize: emojiSize,
+                    shadows: const [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // Tile Title - Responsive sizing
-            Text(
-              item.title,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFFF3F4F6), // text-gray-100
-                height: 1.2, // leading-tight
-                letterSpacing: 0.025, // tracking-wide
+              // Tile Title - Responsive sizing
+              Text(
+                item.title,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFF3F4F6), // text-gray-100
+                  height: 1.2, // leading-tight
+                  letterSpacing: 0.025, // tracking-wide
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _onTileTapped(String title) {
-    switch (title) {
-      case 'Organization Settings':
+  void _onTileTapped(SectionItem item) {
+    switch (item.viewId) {
+      case 'organization-settings':
         setState(() => _currentView = 'organization-settings');
         break;
-      case 'Vehicle Management':
+      case 'vehicle-management':
         setState(() => _currentView = 'vehicle-management');
         break;
-      case 'Payment Account Settings':
+      case 'payment-account-management':
         setState(() => _currentView = 'payment-account-management');
         break;
-      case 'Products':
+      case 'organization-users':
+        setState(() => _currentView = 'organization-users');
+        break;
+      case 'products':
         setState(() => _currentView = 'products');
         break;
-      case 'Location Pricing':
+      case 'location-pricing':
         setState(() => _currentView = 'location-pricing');
         break;
-      case 'Addresses':
-        setState(() => _currentView = 'addresses');
-        break;
-      case 'Product Pricing':
-        setState(() => _currentView = 'product-pricing');
-        break;
       default:
-        _showPlaceholderDialog(title);
+        if (widget.customViewBuilders.containsKey(item.viewId)) {
+          setState(() => _currentView = item.viewId);
+        } else {
+          _showPlaceholderDialog(item.title);
+        }
     }
   }
 
@@ -953,9 +1008,7 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
             Container(
@@ -963,10 +1016,7 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
               height: 32,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF3B82F6),
-                    Color(0xFF8B5CF6),
-                  ],
+                  colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -994,11 +1044,7 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.construction,
-              size: 48,
-              color: Colors.orange,
-            ),
+            const Icon(Icons.construction, size: 48, color: Colors.orange),
             const SizedBox(height: 16),
             Text(
               'Coming Soon!',
@@ -1035,7 +1081,6 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     );
   }
 
-
   Widget _buildPlaceholderView() {
     return Center(
       child: Column(
@@ -1065,7 +1110,6 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     );
   }
 
-
   void _onNavigationItemSelected(int index) {
     setState(() {
       _selectedNavigationIndex = index;
@@ -1090,16 +1134,13 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
 
   void _navigateToOrganizationSelector() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const OrganizationSelectPage(),
-      ),
+      MaterialPageRoute(builder: (context) => const OrganizationSelectPage()),
     );
   }
 
-
   String _getCurrentViewTitle(OrganizationContext orgContext) {
     final isAdmin = orgContext.isAdmin;
-    
+
     switch (_selectedNavigationIndex) {
       case 0:
         return 'PaveHome';
@@ -1115,16 +1156,15 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
   }
 
   String _getUserName(OrganizationContext orgContext) {
-    return orgContext.userInfo?['name'] ?? 
-           orgContext.currentOrganization?['name'] ?? 
-           'User';
+    return orgContext.userInfo?['name'] ??
+        orgContext.currentOrganization?['name'] ??
+        'User';
   }
 
   String _getUserInitial(OrganizationContext orgContext) {
     final name = _getUserName(orgContext);
     return name.isNotEmpty ? name[0].toUpperCase() : 'U';
   }
-
 }
 
 // Data classes for sections
@@ -1133,22 +1173,19 @@ class SectionData {
   final String emoji;
   final List<SectionItem> items;
 
-  SectionData({
-    required this.label,
-    required this.emoji,
-    required this.items,
-  });
+  SectionData({required this.label, required this.emoji, required this.items});
 }
 
 class SectionItem {
   final String emoji;
   final String title;
   final String description;
+  final String viewId;
 
   SectionItem({
     required this.emoji,
     required this.title,
     required this.description,
-  });
+    String? viewId,
+  }) : viewId = viewId ?? title;
 }
-

@@ -32,6 +32,9 @@ class AndroidPaymentAccountManagementPage extends StatelessWidget {
         body: BlocListener<AndroidPaymentAccountBloc, AndroidPaymentAccountState>(
           listener: (context, state) {
             if (state is AndroidPaymentAccountOperationSuccess) {
+              context.read<AndroidPaymentAccountBloc>().add(
+                    AndroidLoadPaymentAccounts(organizationId),
+                  );
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message),

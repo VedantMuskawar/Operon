@@ -3,6 +3,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:typed_data';
 import '../models/user.dart';
 import '../models/organization_role.dart';
+import '../models/organization.dart';
 import '../constants/app_constants.dart';
 import '../utils/storage_utils.dart';
 
@@ -42,6 +43,216 @@ class UserRepository {
       return null;
     } catch (e) {
       throw Exception('Failed to fetch user by phone: $e');
+    }
+  }
+
+  // Create or invite user and attach to organization
+  Future<String> createUser({
+    required String name,
+    required String email,
+    required String phoneNo,
+    required int role,
+    required String status,
+    required Organization organization,
+    required String addedBy,
+  }) async {
+    try {
+      final usersCollection = _firestore.collection(AppConstants.usersCollection);
+      final normalizedPhone = phoneNo.trim();
+      DocumentSnapshot<Map<String, dynamic>>? existingUserDoc;
+
+      // Look for existing user by phone
+      final phoneQuery = await usersCollection
+          .where('phoneNo', isEqualTo: normalizedPhone)
+          .limit(1)
+          .get();
+
+      if (phoneQuery.docs.isNotEmpty) {
+        existingUserDoc = phoneQuery.docs.first;
+      } else if (email.trim().isNotEmpty) {
+        // Fallback to email lookup if provided
+        final emailQuery = await usersCollection
+            .where('email', isEqualTo: email.trim())
+            .limit(1)
+            .get();
+        if (emailQuery.docs.isNotEmpty) {
+          existingUserDoc = emailQuery.docs.first;
+        }
+      }
+
+      final now = DateTime.now();
+      final orgRef = _firestore
+          .collection(AppConstants.organizationsCollection)
+          .doc(organization.orgId);
+      final orgUsersRef = orgRef
+          .collection(AppConstants.usersSubcollection);
+
+      if (existingUserDoc != null) {
+        final existingData = existingUserDoc.data();
+        if (existingData == null) {
+          throw Exception('Existing user data is empty');
+        }
+
+        final existingUser = User.fromMap(existingData);
+        final alreadyMember = existingUser.organizations.any(
+          (orgRole) => orgRole.orgId == organization.orgId,
+        );
+
+        if (alreadyMember) {
+          throw Exception('User is already part of this organization');
+        }
+
+        final batch = _firestore.batch();
+        final userRef = usersCollection.doc(existingUserDoc.id);
+
+        final newOrgRole = OrganizationRole(
+          orgId: organization.orgId,
+          role: role,
+          status: status,
+          joinedDate: now,
+          isPrimary: existingUser.metadata.primaryOrgId == null,
+          permissions: const [],
+        );
+
+        final updatedOrganizations = existingUser.organizations
+            .map((orgRole) => orgRole.toMap())
+            .toList()
+          ..add(newOrgRole.toMap());
+
+        batch.update(userRef, {
+          'name': name.trim(),
+          'email': email.trim(),
+          'phoneNo': normalizedPhone,
+          'status': status,
+          'organizations': updatedOrganizations,
+          'metadata.totalOrganizations': FieldValue.increment(1),
+          if (existingUser.metadata.primaryOrgId == null)
+            'metadata.primaryOrgId': organization.orgId,
+          'updatedDate': Timestamp.fromDate(now),
+        });
+
+        final userOrgRef = userRef
+            .collection(AppConstants.organizationsSubcollection)
+            .doc(organization.orgId);
+        final userOrg = UserOrganization(
+          orgId: organization.orgId,
+          orgName: organization.orgName,
+          orgLogoUrl: organization.orgLogoUrl,
+          role: role,
+          status: status,
+          joinedDate: now,
+          isPrimary: existingUser.metadata.primaryOrgId == null,
+          permissions: const [],
+        );
+        batch.set(userOrgRef, userOrg.toMap());
+
+        final orgUserRef = orgUsersRef.doc(existingUserDoc.id);
+        final orgUser = OrganizationUser(
+          userId: existingUserDoc.id,
+          role: role,
+          name: name.trim(),
+          phoneNo: normalizedPhone,
+          email: email.trim(),
+          status: status,
+          addedDate: now,
+          updatedDate: now,
+          addedBy: addedBy,
+          permissions: const [],
+        );
+        batch.set(orgUserRef, orgUser.toMap());
+
+        final orgUpdates = {
+          'metadata.totalUsers': FieldValue.increment(1),
+          'updatedDate': Timestamp.fromDate(now),
+        };
+        if (status == AppConstants.userStatusActive) {
+          orgUpdates['metadata.activeUsers'] = FieldValue.increment(1);
+        }
+        batch.update(orgRef, orgUpdates);
+
+        await batch.commit();
+        return existingUserDoc.id;
+      } else {
+        final batch = _firestore.batch();
+        final userRef = usersCollection.doc();
+
+        final user = User(
+          userId: userRef.id,
+          name: name.trim(),
+          phoneNo: normalizedPhone,
+          email: email.trim(),
+          profilePhotoUrl: null,
+          status: status,
+          createdDate: now,
+          updatedDate: now,
+          lastLoginDate: null,
+          metadata: UserMetadata(
+            totalOrganizations: 1,
+            primaryOrgId: organization.orgId,
+            notificationPreferences: {
+              'sms': true,
+              'email': email.trim().isNotEmpty,
+              'push': true,
+            },
+          ),
+          organizations: [
+            OrganizationRole(
+              orgId: organization.orgId,
+              role: role,
+              status: status,
+              joinedDate: now,
+              isPrimary: true,
+              permissions: const [],
+            ),
+          ],
+        );
+
+        batch.set(userRef, user.toMap());
+
+        final userOrgRef = userRef
+            .collection(AppConstants.organizationsSubcollection)
+            .doc(organization.orgId);
+        final userOrg = UserOrganization(
+          orgId: organization.orgId,
+          orgName: organization.orgName,
+          orgLogoUrl: organization.orgLogoUrl,
+          role: role,
+          status: status,
+          joinedDate: now,
+          isPrimary: true,
+          permissions: const [],
+        );
+        batch.set(userOrgRef, userOrg.toMap());
+
+        final orgUserRef = orgUsersRef.doc(userRef.id);
+        final orgUser = OrganizationUser(
+          userId: userRef.id,
+          role: role,
+          name: name.trim(),
+          phoneNo: normalizedPhone,
+          email: email.trim(),
+          status: status,
+          addedDate: now,
+          updatedDate: now,
+          addedBy: addedBy,
+          permissions: const [],
+        );
+        batch.set(orgUserRef, orgUser.toMap());
+
+        final orgUpdates = {
+          'metadata.totalUsers': FieldValue.increment(1),
+          'updatedDate': Timestamp.fromDate(now),
+        };
+        if (status == AppConstants.userStatusActive) {
+          orgUpdates['metadata.activeUsers'] = FieldValue.increment(1);
+        }
+        batch.update(orgRef, orgUpdates);
+
+        await batch.commit();
+        return userRef.id;
+      }
+    } catch (e) {
+      throw Exception('Failed to create user: $e');
     }
   }
 

@@ -6,6 +6,7 @@ import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/realtime_list_cache_mixin.dart';
 import '../../../../contexts/organization_context.dart';
 import '../../bloc/address_bloc.dart';
 import '../../bloc/address_event.dart';
@@ -56,7 +57,7 @@ class AddressManagementPage extends StatelessWidget {
   }
 }
 
-class AddressManagementView extends StatelessWidget {
+class AddressManagementView extends StatefulWidget {
   final String organizationId;
   final int userRole;
   final VoidCallback? onBack;
@@ -69,10 +70,25 @@ class AddressManagementView extends StatelessWidget {
   });
 
   @override
+  State<AddressManagementView> createState() => _AddressManagementViewState();
+}
+
+class _AddressManagementViewState
+    extends RealtimeListCacheState<AddressManagementView, Address> {
+  @override
   Widget build(BuildContext context) {
     return BlocListener<AddressBloc, AddressState>(
       listener: (context, state) {
-        if (state is AddressOperationSuccess) {
+        if (state is AddressLoaded) {
+          applyRealtimeItems(
+            state.addresses,
+            searchQuery: state.searchQuery,
+          );
+        } else if (state is AddressEmpty) {
+          applyRealtimeEmpty(searchQuery: state.searchQuery);
+        } else if (state is AddressInitial) {
+          resetRealtimeSnapshot();
+        } else if (state is AddressOperationSuccess) {
           CustomSnackBar.showSuccess(context, state.message);
         } else if (state is AddressError) {
           CustomSnackBar.showError(context, state.message);
@@ -85,8 +101,8 @@ class AddressManagementView extends StatelessWidget {
           children: [
             PageHeader(
               title: 'Addresses',
-              onBack: onBack,
-              role: _getRoleString(userRole),
+              onBack: widget.onBack,
+              role: _getRoleString(widget.userRole),
             ),
             Center(
               child: ConstrainedBox(
@@ -193,7 +209,10 @@ class AddressManagementView extends StatelessWidget {
                   const SizedBox(height: AppTheme.spacingLg),
                   BlocBuilder<AddressBloc, AddressState>(
                     builder: (context, state) {
-                      if (state is AddressInitial || state is AddressLoading) {
+                      final bool waitingForFirstLoad = !hasRealtimeData &&
+                          (state is AddressInitial || state is AddressLoading);
+
+                      if (waitingForFirstLoad) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(AppTheme.spacing2xl),
@@ -231,7 +250,7 @@ class AddressManagementView extends StatelessWidget {
                                   variant: CustomButtonVariant.primary,
                                   onPressed: () {
                                     context.read<AddressBloc>().add(
-                                      LoadAddresses(organizationId),
+                                          LoadAddresses(widget.organizationId),
                                     );
                                   },
                                 ),
@@ -241,64 +260,33 @@ class AddressManagementView extends StatelessWidget {
                         );
                       }
                       
-                      if (state is AddressEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppTheme.spacing2xl),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '📍',
-                                  style: TextStyle(fontSize: 64),
-                                ),
-                                const SizedBox(height: AppTheme.spacingMd),
-                                Text(
-                                  state.searchQuery != null
-                                      ? 'No Addresses Found'
-                                      : 'No Addresses',
-                                  style: const TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: AppTheme.spacingSm),
-                                Text(
-                                  state.searchQuery != null
-                                      ? 'No addresses match your search criteria'
-                                      : 'Add your first address to get started',
-                                  style: const TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: AppTheme.spacingLg),
-                                if (state.searchQuery != null)
-                                  CustomButton(
-                                    text: 'Clear Search',
-                                    variant: CustomButtonVariant.outline,
-                                    onPressed: () {
-                                      context.read<AddressBloc>().add(
-                                        const ResetAddressSearch(),
-                                      );
-                                      context.read<AddressBloc>().add(
-                                        LoadAddresses(organizationId),
-                                      );
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
+                      if (state is AddressEmpty ||
+                          (hasRealtimeData && realtimeItems.isEmpty)) {
+                        final String? searchQuery =
+                            state is AddressEmpty ? state.searchQuery : realtimeSearchQuery;
+                        return _buildEmptyAddressesView(context, searchQuery);
                       }
                       
-                      if (state is AddressLoaded) {
-                        return _buildAddressesTable(context, state.addresses);
+                      final addresses =
+                          state is AddressLoaded ? state.addresses : realtimeItems;
+
+                      if (addresses.isEmpty) {
+                        return _buildEmptyAddressesView(context, realtimeSearchQuery);
                       }
                       
-                      return const SizedBox.shrink();
+                      final table = _buildAddressesTable(context, addresses);
+                      final bool showOverlay = hasRealtimeData &&
+                          (state is AddressLoading || state is AddressOperating);
+
+                      return withRealtimeBusyOverlay(
+                        child: table,
+                        showOverlay: showOverlay,
+                        overlayColor: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(16),
+                        progressIndicator: const CircularProgressIndicator(
+                          color: AppTheme.primaryColor,
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -322,49 +310,89 @@ class AddressManagementView extends StatelessWidget {
         const Spacer(),
         SizedBox(
           width: 300,
-          child: BlocBuilder<AddressBloc, AddressState>(
-            builder: (context, state) {
-              return CustomTextField(
-                hintText: 'Search addresses...',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                variant: CustomTextFieldVariant.search,
-                onChanged: (query) {
-                  if (query.isEmpty) {
-                    context.read<AddressBloc>().add(
-                      const ResetAddressSearch(),
-                    );
-                    context.read<AddressBloc>().add(
-                      LoadAddresses(organizationId),
-                    );
-                  } else {
-                    context.read<AddressBloc>().add(
+          child: CustomTextField(
+            hintText: 'Search addresses...',
+            prefixIcon: const Icon(Icons.search, size: 18),
+            variant: CustomTextFieldVariant.search,
+            onChanged: (query) {
+              if (query.isEmpty) {
+                context.read<AddressBloc>().add(const ResetAddressSearch());
+                context
+                    .read<AddressBloc>()
+                    .add(LoadAddresses(widget.organizationId));
+              } else {
+                context.read<AddressBloc>().add(
                       SearchAddresses(
-                        organizationId: organizationId,
+                        organizationId: widget.organizationId,
                         query: query,
                       ),
                     );
-                  }
-                },
-                suffixIcon: state is AddressLoaded && 
-                            state.searchQuery != null &&
-                            state.searchQuery!.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          context.read<AddressBloc>().add(
-                            const ResetAddressSearch(),
-                          );
-                          context.read<AddressBloc>().add(
-                            LoadAddresses(organizationId),
-                          );
-                        },
-                      )
-                    : null,
-              );
+              }
             },
+            suffixIcon: realtimeSearchQuery != null && realtimeSearchQuery!.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      context.read<AddressBloc>().add(const ResetAddressSearch());
+                      context
+                          .read<AddressBloc>()
+                          .add(LoadAddresses(widget.organizationId));
+                    },
+                  )
+                : null,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyAddressesView(BuildContext context, String? searchQuery) {
+    final bool hasSearch = searchQuery != null && searchQuery.isNotEmpty;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing2xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '📍',
+              style: TextStyle(fontSize: 64),
+            ),
+            const SizedBox(height: AppTheme.spacingMd),
+            Text(
+              hasSearch ? 'No Addresses Found' : 'No Addresses',
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingSm),
+            Text(
+              hasSearch
+                  ? 'No addresses match your search criteria'
+                  : 'Add your first address to get started',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (hasSearch) ...[
+              const SizedBox(height: AppTheme.spacingLg),
+              CustomButton(
+                text: 'Clear Search',
+                variant: CustomButtonVariant.outline,
+                onPressed: () {
+                  context.read<AddressBloc>().add(const ResetAddressSearch());
+                  context.read<AddressBloc>().add(LoadAddresses(widget.organizationId));
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -772,7 +800,7 @@ class AddressManagementView extends StatelessWidget {
 
     context.read<AddressBloc>().add(
       AddAddress(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         address: address,
         userId: userId,
       ),
@@ -791,7 +819,7 @@ class AddressManagementView extends StatelessWidget {
 
     context.read<AddressBloc>().add(
       UpdateAddress(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         addressId: oldAddress.id!,
         address: newAddress,
         userId: userId,
@@ -805,7 +833,7 @@ class AddressManagementView extends StatelessWidget {
   ) {
     context.read<AddressBloc>().add(
       DeleteAddress(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         addressId: address.id!,
       ),
     );

@@ -44,6 +44,7 @@ class AppConstants {
   // Firestore Collections (CAPITAL LETTERS)
   static const String organizationsCollection = 'ORGANIZATIONS';
   static const String usersCollection = 'USERS';
+  static const String employeesCollection = 'EMPLOYEES';
   static const String superadminConfigCollection = 'SUPERADMIN_CONFIG';
   static const String systemMetadataCollection = 'SYSTEM_METADATA';
 
@@ -51,7 +52,25 @@ class AppConstants {
   static const String subscriptionSubcollection = 'SUBSCRIPTION';
   static const String usersSubcollection = 'USERS';
   static const String organizationsSubcollection = 'ORGANIZATIONS';
+  static const String rolesSubcollection = 'ROLES';
+  static const String employeeLedgerSubcollection = 'LEDGER';
   static const String activitySubcollection = 'ACTIVITY';
+
+  // Employee Status
+  static const String employeeStatusActive = 'active';
+  static const String employeeStatusInactive = 'inactive';
+  static const String employeeStatusInvited = 'invited';
+
+  // Employee Wage Types
+  static const String employeeWageTypeHourly = 'hourly';
+  static const String employeeWageTypeQuantity = 'quantity';
+  static const String employeeWageTypeMonthly = 'monthly';
+
+  // Employee Compensation Frequency
+  static const String employeeCompFrequencyMonthly = 'monthly';
+  static const String employeeCompFrequencyBiweekly = 'biweekly';
+  static const String employeeCompFrequencyWeekly = 'weekly';
+  static const String employeeCompFrequencyPerShift = 'per_shift';
 
   // Storage Paths - Organized Folder Structure
   // Organizations

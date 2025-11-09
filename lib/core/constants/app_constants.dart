@@ -1,7 +1,8 @@
 class AppConstants {
   // Super Admin Configuration
-  static const String superAdminPhoneNumber = '+919876543210'; // Test Super Admin phone number
-  
+  static const String superAdminPhoneNumber =
+      '+919876543210'; // Test Super Admin phone number
+
   // User Roles
   static const int superAdminRole = 0;
   static const int adminRole = 1;
@@ -44,6 +45,8 @@ class AppConstants {
   // Firestore Collections (CAPITAL LETTERS)
   static const String organizationsCollection = 'ORGANIZATIONS';
   static const String usersCollection = 'USERS';
+  static const String clientsCollection = 'CLIENTS';
+  static const String employeesCollection = 'EMPLOYEES';
   static const String superadminConfigCollection = 'SUPERADMIN_CONFIG';
   static const String systemMetadataCollection = 'SYSTEM_METADATA';
 
@@ -51,6 +54,24 @@ class AppConstants {
   static const String subscriptionSubcollection = 'SUBSCRIPTION';
   static const String usersSubcollection = 'USERS';
   static const String organizationsSubcollection = 'ORGANIZATIONS';
+  static const String rolesSubcollection = 'ROLES';
+  static const String employeeLedgerSubcollection = 'LEDGER';
+
+  // Employee Status
+  static const String employeeStatusActive = 'active';
+  static const String employeeStatusInactive = 'inactive';
+  static const String employeeStatusInvited = 'invited';
+
+  // Employee Wage Types
+  static const String employeeWageTypeHourly = 'hourly';
+  static const String employeeWageTypeQuantity = 'quantity';
+  static const String employeeWageTypeMonthly = 'monthly';
+
+  // Employee Compensation Frequency
+  static const String employeeCompFrequencyMonthly = 'monthly';
+  static const String employeeCompFrequencyBiweekly = 'biweekly';
+  static const String employeeCompFrequencyWeekly = 'weekly';
+  static const String employeeCompFrequencyPerShift = 'per_shift';
 
   // SuperAdmin Configuration
   static const String superAdminOrgId = 'superadmin_org';
@@ -62,14 +83,18 @@ class AppConstants {
   static const String organizationsPath = 'organizations';
   static const String orgLogosPath = '$organizationsPath/{orgId}/logos';
   static const String orgDocumentsPath = '$organizationsPath/{orgId}/documents';
-  static const String orgAttachmentsPath = '$organizationsPath/{orgId}/attachments';
-  
+  static const String orgAttachmentsPath =
+      '$organizationsPath/{orgId}/attachments';
+
   // Users
   static const String usersStoragePath = 'users';
-  static const String userProfilePhotosPath = '$usersStoragePath/{userId}/profile_photos';
-  static const String userDocumentsPath = '$usersStoragePath/{userId}/documents';
-  static const String userAttachmentsPath = '$usersStoragePath/{userId}/attachments';
-  
+  static const String userProfilePhotosPath =
+      '$usersStoragePath/{userId}/profile_photos';
+  static const String userDocumentsPath =
+      '$usersStoragePath/{userId}/documents';
+  static const String userAttachmentsPath =
+      '$usersStoragePath/{userId}/attachments';
+
   // System
   static const String systemPath = 'system';
   static const String systemTemplatesPath = '$systemPath/templates';
@@ -99,23 +124,30 @@ class AppConstants {
   static const String activityTypeOrgCreated = 'org_created';
 
   // Notification Types
-  static const String notificationTypeSubscriptionExpiring = 'subscription_expiring';
+  static const String notificationTypeSubscriptionExpiring =
+      'subscription_expiring';
   static const String notificationTypeUserInvited = 'user_invited';
   static const String notificationTypeOrgSuspended = 'org_suspended';
 
   // Error Messages
   static const String errorGeneric = 'Something went wrong. Please try again.';
-  static const String errorNetwork = 'Network error. Please check your connection.';
-  static const String errorUnauthorized = 'You are not authorized to perform this action.';
+  static const String errorNetwork =
+      'Network error. Please check your connection.';
+  static const String errorUnauthorized =
+      'You are not authorized to perform this action.';
   static const String errorNotFound = 'The requested resource was not found.';
-  static const String errorValidation = 'Please check your input and try again.';
+  static const String errorValidation =
+      'Please check your input and try again.';
 
   // Success Messages
-  static const String successOrganizationCreated = 'Organization created successfully!';
-  static const String successOrganizationUpdated = 'Organization updated successfully!';
+  static const String successOrganizationCreated =
+      'Organization created successfully!';
+  static const String successOrganizationUpdated =
+      'Organization updated successfully!';
   static const String successUserAdded = 'User added successfully!';
   static const String successUserUpdated = 'User updated successfully!';
-  static const String successSubscriptionUpdated = 'Subscription updated successfully!';
+  static const String successSubscriptionUpdated =
+      'Subscription updated successfully!';
 
   // App Info
   static const String appName = 'OPERON';

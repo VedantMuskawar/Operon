@@ -6,6 +6,7 @@ import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/realtime_list_cache_mixin.dart';
 import '../../../../contexts/organization_context.dart';
 import '../../bloc/location_pricing_bloc.dart';
 import '../../bloc/location_pricing_event.dart';
@@ -56,7 +57,7 @@ class LocationPricingManagementPage extends StatelessWidget {
   }
 }
 
-class LocationPricingManagementView extends StatelessWidget {
+class LocationPricingManagementView extends StatefulWidget {
   final String organizationId;
   final int userRole;
   final VoidCallback? onBack;
@@ -69,10 +70,26 @@ class LocationPricingManagementView extends StatelessWidget {
   });
 
   @override
+  State<LocationPricingManagementView> createState() =>
+      _LocationPricingManagementViewState();
+}
+
+class _LocationPricingManagementViewState extends RealtimeListCacheState<
+    LocationPricingManagementView, LocationPricing> {
+  @override
   Widget build(BuildContext context) {
     return BlocListener<LocationPricingBloc, LocationPricingState>(
       listener: (context, state) {
-        if (state is LocationPricingOperationSuccess) {
+        if (state is LocationPricingLoaded) {
+          applyRealtimeItems(
+            state.locations,
+            searchQuery: state.searchQuery,
+          );
+        } else if (state is LocationPricingEmpty) {
+          applyRealtimeEmpty(searchQuery: state.searchQuery);
+        } else if (state is LocationPricingInitial) {
+          resetRealtimeSnapshot();
+        } else if (state is LocationPricingOperationSuccess) {
           CustomSnackBar.showSuccess(context, state.message);
         } else if (state is LocationPricingError) {
           CustomSnackBar.showError(context, state.message);
@@ -85,8 +102,8 @@ class LocationPricingManagementView extends StatelessWidget {
           children: [
             PageHeader(
               title: 'Location Pricing',
-              onBack: onBack,
-              role: _getRoleString(userRole),
+              onBack: widget.onBack,
+              role: _getRoleString(widget.userRole),
             ),
             Center(
               child: ConstrainedBox(
@@ -193,7 +210,11 @@ class LocationPricingManagementView extends StatelessWidget {
                   const SizedBox(height: AppTheme.spacingLg),
                   BlocBuilder<LocationPricingBloc, LocationPricingState>(
                     builder: (context, state) {
-                      if (state is LocationPricingInitial || state is LocationPricingLoading) {
+                      final bool waitingForFirstLoad = !hasRealtimeData &&
+                          (state is LocationPricingInitial ||
+                              state is LocationPricingLoading);
+
+                      if (waitingForFirstLoad) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(AppTheme.spacing2xl),
@@ -203,7 +224,7 @@ class LocationPricingManagementView extends StatelessWidget {
                           ),
                         );
                       }
-                      
+
                       if (state is LocationPricingError) {
                         return Center(
                           child: Padding(
@@ -231,8 +252,8 @@ class LocationPricingManagementView extends StatelessWidget {
                                   variant: CustomButtonVariant.primary,
                                   onPressed: () {
                                     context.read<LocationPricingBloc>().add(
-                                      LoadLocationPricing(organizationId),
-                                    );
+                                          LoadLocationPricing(widget.organizationId),
+                                        );
                                   },
                                 ),
                               ],
@@ -240,47 +261,34 @@ class LocationPricingManagementView extends StatelessWidget {
                           ),
                         );
                       }
-                      
-                      if (state is LocationPricingEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppTheme.spacing2xl),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '📍',
-                                  style: TextStyle(fontSize: 64),
-                                ),
-                                const SizedBox(height: AppTheme.spacingMd),
-                                const Text(
-                                  'No Location Pricing',
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: AppTheme.spacingSm),
-                                const Text(
-                                  'Add your first location pricing to get started',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
+
+                      if (state is LocationPricingEmpty ||
+                          (hasRealtimeData && realtimeItems.isEmpty)) {
+                        final String? searchQuery =
+                            state is LocationPricingEmpty ? state.searchQuery : realtimeSearchQuery;
+                        return _buildEmptyLocationsView(context, searchQuery);
                       }
-                      
-                      if (state is LocationPricingLoaded) {
-                        return _buildLocationPricingTable(context, state.locations);
+
+                      final locations =
+                          state is LocationPricingLoaded ? state.locations : realtimeItems;
+
+                      if (locations.isEmpty) {
+                        return _buildEmptyLocationsView(context, realtimeSearchQuery);
                       }
-                      
-                      return const SizedBox.shrink();
+
+                      final table = _buildLocationPricingTable(context, locations);
+                      final bool showOverlay = hasRealtimeData &&
+                          (state is LocationPricingLoading || state is LocationPricingOperating);
+
+                      return withRealtimeBusyOverlay(
+                        child: table,
+                        showOverlay: showOverlay,
+                        overlayColor: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(16),
+                        progressIndicator: const CircularProgressIndicator(
+                          color: AppTheme.primaryColor,
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -304,49 +312,97 @@ class LocationPricingManagementView extends StatelessWidget {
         const Spacer(),
         SizedBox(
           width: 300,
-          child: BlocBuilder<LocationPricingBloc, LocationPricingState>(
-            builder: (context, state) {
-              return CustomTextField(
-                hintText: 'Search locations...',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                variant: CustomTextFieldVariant.search,
-                onChanged: (query) {
-                  if (query.isEmpty) {
-                    context.read<LocationPricingBloc>().add(
+          child: CustomTextField(
+            hintText: 'Search locations...',
+            prefixIcon: const Icon(Icons.search, size: 18),
+            variant: CustomTextFieldVariant.search,
+            onChanged: (query) {
+              if (query.isEmpty) {
+                context.read<LocationPricingBloc>().add(
                       const ResetLocationPricingSearch(),
                     );
-                    context.read<LocationPricingBloc>().add(
-                      LoadLocationPricing(organizationId),
+                context.read<LocationPricingBloc>().add(
+                      LoadLocationPricing(widget.organizationId),
                     );
-                  } else {
-                    context.read<LocationPricingBloc>().add(
+              } else {
+                context.read<LocationPricingBloc>().add(
                       SearchLocationPricing(
-                        organizationId: organizationId,
+                        organizationId: widget.organizationId,
                         query: query,
                       ),
                     );
-                  }
-                },
-                suffixIcon: state is LocationPricingLoaded && 
-                            state.searchQuery != null &&
-                            state.searchQuery!.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          context.read<LocationPricingBloc>().add(
+              }
+            },
+            suffixIcon: realtimeSearchQuery != null && realtimeSearchQuery!.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      context.read<LocationPricingBloc>().add(
                             const ResetLocationPricingSearch(),
                           );
-                          context.read<LocationPricingBloc>().add(
-                            LoadLocationPricing(organizationId),
+                      context.read<LocationPricingBloc>().add(
+                            LoadLocationPricing(widget.organizationId),
                           );
-                        },
-                      )
-                    : null,
-              );
-            },
+                    },
+                  )
+                : null,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyLocationsView(BuildContext context, String? searchQuery) {
+    final bool hasSearch = searchQuery != null && searchQuery.isNotEmpty;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing2xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '📍',
+              style: TextStyle(fontSize: 64),
+            ),
+            const SizedBox(height: AppTheme.spacingMd),
+            Text(
+              hasSearch ? 'No Locations Found' : 'No Location Pricing',
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingSm),
+            Text(
+              hasSearch
+                  ? 'No locations match your search criteria'
+                  : 'Add your first location pricing to get started',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (hasSearch) ...[
+              const SizedBox(height: AppTheme.spacingLg),
+              CustomButton(
+                text: 'Clear Search',
+                variant: CustomButtonVariant.outline,
+                onPressed: () {
+                  context.read<LocationPricingBloc>().add(
+                        const ResetLocationPricingSearch(),
+                      );
+                  context.read<LocationPricingBloc>().add(
+                        LoadLocationPricing(widget.organizationId),
+                      );
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -354,7 +410,7 @@ class LocationPricingManagementView extends StatelessWidget {
     BuildContext context,
     List<LocationPricing> locations,
   ) {
-    const double minTableWidth = 900;
+    const double minTableWidth = 780;
     
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -389,20 +445,6 @@ class LocationPricingManagementView extends StatelessWidget {
               ),
               dividerThickness: 1,
               columns: [
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'LOCATION ID',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
                 DataColumn(
                   label: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -477,21 +519,6 @@ class LocationPricingManagementView extends StatelessWidget {
               rows: locations.map((location) {
                 return DataRow(
                   cells: [
-                    DataCell(
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          location.locationId,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
                     DataCell(
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -721,7 +748,7 @@ class LocationPricingManagementView extends StatelessWidget {
 
     context.read<LocationPricingBloc>().add(
       AddLocationPricing(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         locationPricing: location,
         userId: userId,
       ),
@@ -740,7 +767,7 @@ class LocationPricingManagementView extends StatelessWidget {
 
     context.read<LocationPricingBloc>().add(
       UpdateLocationPricing(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         locationPricingId: oldLocation.id!,
         locationPricing: newLocation,
         userId: userId,
@@ -754,7 +781,7 @@ class LocationPricingManagementView extends StatelessWidget {
   ) {
     context.read<LocationPricingBloc>().add(
       DeleteLocationPricing(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         locationPricingId: location.id!,
       ),
     );

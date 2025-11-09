@@ -50,7 +50,7 @@ class PageHeader extends StatelessWidget {
           children: [
             // Left side - Back button
             if (showBackButton) ...[
-              _buildBackButton(),
+              _buildBackButton(context),
               const SizedBox(width: AppTheme.spacingMd),
             ],
             
@@ -87,9 +87,13 @@ class PageHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildBackButton() {
+  Widget _buildBackButton(BuildContext context) {
     return GestureDetector(
-      onTap: onBack,
+      onTap: onBack ?? () {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: 10,

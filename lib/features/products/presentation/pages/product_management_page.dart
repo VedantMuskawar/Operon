@@ -6,6 +6,7 @@ import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/realtime_list_cache_mixin.dart';
 import '../../../../contexts/organization_context.dart';
 import '../../bloc/product_bloc.dart';
 import '../../bloc/product_event.dart';
@@ -56,7 +57,7 @@ class ProductManagementPage extends StatelessWidget {
   }
 }
 
-class ProductManagementView extends StatelessWidget {
+class ProductManagementView extends StatefulWidget {
   final String organizationId;
   final int userRole;
   final VoidCallback? onBack;
@@ -69,10 +70,22 @@ class ProductManagementView extends StatelessWidget {
   });
 
   @override
+  State<ProductManagementView> createState() => _ProductManagementViewState();
+}
+
+class _ProductManagementViewState
+    extends RealtimeListCacheState<ProductManagementView, Product> {
+  @override
   Widget build(BuildContext context) {
     return BlocListener<ProductBloc, ProductState>(
       listener: (context, state) {
-        if (state is ProductOperationSuccess) {
+        if (state is ProductLoaded) {
+          applyRealtimeItems(state.products, searchQuery: state.searchQuery);
+        } else if (state is ProductEmpty) {
+          applyRealtimeEmpty(searchQuery: state.searchQuery);
+        } else if (state is ProductInitial) {
+          resetRealtimeSnapshot();
+        } else if (state is ProductOperationSuccess) {
           CustomSnackBar.showSuccess(context, state.message);
         } else if (state is ProductError) {
           CustomSnackBar.showError(context, state.message);
@@ -85,8 +98,8 @@ class ProductManagementView extends StatelessWidget {
           children: [
             PageHeader(
               title: 'Products',
-              onBack: onBack,
-              role: _getRoleString(userRole),
+              onBack: widget.onBack,
+              role: _getRoleString(widget.userRole),
             ),
             Center(
               child: ConstrainedBox(
@@ -193,7 +206,10 @@ class ProductManagementView extends StatelessWidget {
                   const SizedBox(height: AppTheme.spacingLg),
                   BlocBuilder<ProductBloc, ProductState>(
                     builder: (context, state) {
-                      if (state is ProductInitial || state is ProductLoading) {
+                      final bool waitingForFirstLoad = !hasRealtimeData &&
+                          (state is ProductInitial || state is ProductLoading);
+
+                      if (waitingForFirstLoad) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(AppTheme.spacing2xl),
@@ -203,7 +219,7 @@ class ProductManagementView extends StatelessWidget {
                           ),
                         );
                       }
-                      
+
                       if (state is ProductError) {
                         return Center(
                           child: Padding(
@@ -231,8 +247,8 @@ class ProductManagementView extends StatelessWidget {
                                   variant: CustomButtonVariant.primary,
                                   onPressed: () {
                                     context.read<ProductBloc>().add(
-                                      LoadProducts(organizationId),
-                                    );
+                                          LoadProducts(widget.organizationId),
+                                        );
                                   },
                                 ),
                               ],
@@ -240,65 +256,31 @@ class ProductManagementView extends StatelessWidget {
                           ),
                         );
                       }
-                      
-                      if (state is ProductEmpty) {
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppTheme.spacing2xl),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  '📦',
-                                  style: TextStyle(fontSize: 64),
-                                ),
-                                const SizedBox(height: AppTheme.spacingMd),
-                                Text(
-                                  state.searchQuery != null
-                                      ? 'No Products Found'
-                                      : 'No Products',
-                                  style: const TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: AppTheme.spacingSm),
-                                Text(
-                                  state.searchQuery != null
-                                      ? 'No products match your search criteria'
-                                      : 'Add your first product to get started',
-                                  style: const TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: AppTheme.spacingLg),
-                                if (state.searchQuery != null)
-                                  CustomButton(
-                                    text: 'Clear Search',
-                                    variant: CustomButtonVariant.outline,
-                                    onPressed: () {
-                                      context.read<ProductBloc>().add(
-                                        const ResetProductSearch(),
-                                      );
-                                      context.read<ProductBloc>().add(
-                                        LoadProducts(organizationId),
-                                      );
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
+
+                      if (state is ProductEmpty || (hasRealtimeData && realtimeItems.isEmpty)) {
+                        final String? searchQuery =
+                            state is ProductEmpty ? state.searchQuery : realtimeSearchQuery;
+                        return _buildEmptyProductsView(context, searchQuery);
                       }
-                      
-                      if (state is ProductLoaded) {
-                        return _buildProductsTable(context, state.products);
+
+                      final products = state is ProductLoaded ? state.products : realtimeItems;
+                      if (products.isEmpty) {
+                        return _buildEmptyProductsView(context, realtimeSearchQuery);
                       }
-                      
-                      return const SizedBox.shrink();
+
+                      final table = _buildProductsTable(context, products);
+                      final bool showOverlay = hasRealtimeData &&
+                          (state is ProductLoading || state is ProductOperating);
+
+                      return withRealtimeBusyOverlay(
+                        child: table,
+                        showOverlay: showOverlay,
+                        overlayColor: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(16),
+                        progressIndicator: const CircularProgressIndicator(
+                          color: AppTheme.primaryColor,
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -322,49 +304,93 @@ class ProductManagementView extends StatelessWidget {
         const Spacer(),
         SizedBox(
           width: 300,
-          child: BlocBuilder<ProductBloc, ProductState>(
-            builder: (context, state) {
-              return CustomTextField(
-                hintText: 'Search products...',
-                prefixIcon: const Icon(Icons.search, size: 18),
-                variant: CustomTextFieldVariant.search,
-                onChanged: (query) {
-                  if (query.isEmpty) {
-                    context.read<ProductBloc>().add(
+          child: CustomTextField(
+            hintText: 'Search products...',
+            prefixIcon: const Icon(Icons.search, size: 18),
+            variant: CustomTextFieldVariant.search,
+            onChanged: (query) {
+              if (query.isEmpty) {
+                context.read<ProductBloc>().add(
                       const ResetProductSearch(),
                     );
-                    context.read<ProductBloc>().add(
-                      LoadProducts(organizationId),
+                context.read<ProductBloc>().add(
+                      LoadProducts(widget.organizationId),
                     );
-                  } else {
-                    context.read<ProductBloc>().add(
+              } else {
+                context.read<ProductBloc>().add(
                       SearchProducts(
-                        organizationId: organizationId,
+                        organizationId: widget.organizationId,
                         query: query,
                       ),
                     );
-                  }
-                },
-                suffixIcon: state is ProductLoaded && 
-                            state.searchQuery != null &&
-                            state.searchQuery!.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          context.read<ProductBloc>().add(
+              }
+            },
+            suffixIcon: realtimeSearchQuery != null && realtimeSearchQuery!.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      context.read<ProductBloc>().add(
                             const ResetProductSearch(),
                           );
-                          context.read<ProductBloc>().add(
-                            LoadProducts(organizationId),
+                      context.read<ProductBloc>().add(
+                            LoadProducts(widget.organizationId),
                           );
-                        },
-                      )
-                    : null,
-              );
-            },
+                    },
+                  )
+                : null,
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEmptyProductsView(BuildContext context, String? searchQuery) {
+    final bool hasSearch = searchQuery != null && searchQuery.isNotEmpty;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppTheme.spacing2xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '📦',
+              style: TextStyle(fontSize: 64),
+            ),
+            const SizedBox(height: AppTheme.spacingMd),
+            Text(
+              hasSearch ? 'No Products Found' : 'No Products',
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppTheme.spacingSm),
+            Text(
+              hasSearch
+                  ? 'No products match your search criteria'
+                  : 'Add your first product to get started',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (hasSearch) ...[
+              const SizedBox(height: AppTheme.spacingLg),
+              CustomButton(
+                text: 'Clear Search',
+                variant: CustomButtonVariant.outline,
+                onPressed: () {
+                  context.read<ProductBloc>().add(const ResetProductSearch());
+                  context.read<ProductBloc>().add(LoadProducts(widget.organizationId));
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -372,7 +398,7 @@ class ProductManagementView extends StatelessWidget {
     BuildContext context,
     List<Product> products,
   ) {
-    const double minTableWidth = 900;
+    const double minTableWidth = 780;
     
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -407,20 +433,6 @@ class ProductManagementView extends StatelessWidget {
               ),
               dividerThickness: 1,
               columns: [
-                DataColumn(
-                  label: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      'PRODUCT ID',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
                 DataColumn(
                   label: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -495,21 +507,6 @@ class ProductManagementView extends StatelessWidget {
               rows: products.map((product) {
                 return DataRow(
                   cells: [
-                    DataCell(
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        child: Text(
-                          product.productId,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
                     DataCell(
                       Padding(
                         padding: const EdgeInsets.symmetric(
@@ -739,7 +736,7 @@ class ProductManagementView extends StatelessWidget {
 
     context.read<ProductBloc>().add(
       AddProduct(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         product: product,
         userId: userId,
       ),
@@ -758,7 +755,7 @@ class ProductManagementView extends StatelessWidget {
 
     context.read<ProductBloc>().add(
       UpdateProduct(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         productId: oldProduct.id!,
         product: newProduct,
         userId: userId,
@@ -772,7 +769,7 @@ class ProductManagementView extends StatelessWidget {
   ) {
     context.read<ProductBloc>().add(
       DeleteProduct(
-        organizationId: organizationId,
+        organizationId: widget.organizationId,
         productId: product.id!,
       ),
     );
