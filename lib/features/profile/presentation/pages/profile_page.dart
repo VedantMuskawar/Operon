@@ -20,7 +20,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
   late Animation<Offset> _slideAnimation;
 
   Map<String, dynamic>? userData;
-  Map<String, dynamic>? systemMetadata;
   bool isLoading = true;
   String? error;
 
@@ -64,13 +63,9 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
           .doc(firebaseUser.uid)
           .get();
 
-      // Get system metadata
-      final systemData = await _configRepository.getSystemMetadata();
-
       if (mounted) {
         setState(() {
           userData = userDoc.data();
-          systemMetadata = systemData.toMap();
           isLoading = false;
         });
         _animationController.forward();
@@ -192,8 +187,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                 _buildProfileHeader(),
                 const SizedBox(height: 24),
                 _buildAccountInfo(),
-                const SizedBox(height: 24),
-                _buildSystemStats(),
                 const SizedBox(height: 24),
                 _buildAccountDetails(),
               ],
@@ -365,81 +358,6 @@ class _ProfilePageState extends State<ProfilePage> with TickerProviderStateMixin
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSystemStats() {
-    final totalOrgs = systemMetadata?['totalOrganizations'] ?? 0;
-    final totalUsers = systemMetadata?['totalUsers'] ?? 0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'System Statistics',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: GradientCard(
-                gradient: AppTheme.accentGradient,
-                child: Column(
-                  children: [
-                    const Icon(Icons.business, color: Colors.white, size: 32),
-                    const SizedBox(height: 8),
-                    Text(
-                      totalOrgs.toString(),
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Organizations Managed',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: GradientCard(
-                gradient: AppTheme.successGradient,
-                child: Column(
-                  children: [
-                    const Icon(Icons.people, color: Colors.white, size: 32),
-                    const SizedBox(height: 8),
-                    Text(
-                      totalUsers.toString(),
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Users in System',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),

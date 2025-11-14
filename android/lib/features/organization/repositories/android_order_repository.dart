@@ -1,19 +1,45 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Order;
 import '../models/order.dart';
+import 'android_client_repository.dart';
 
 class AndroidOrderRepository {
   final FirebaseFirestore _firestore;
 
-  AndroidOrderRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  static const List<String> _activePendingStatuses = <String>[
+    OrderStatus.pending,
+    OrderStatus.confirmed,
+  ];
+
+  final AndroidClientRepository _clientRepository;
+
+  AndroidOrderRepository({
+    FirebaseFirestore? firestore,
+    AndroidClientRepository? clientRepository,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _clientRepository = clientRepository ?? AndroidClientRepository();
 
   /// Create a new order
   Future<String> createOrder(String organizationId, Order order, String userId) async {
     try {
+      final fetchedClient = await _clientRepository.getClient(
+        organizationId,
+        order.clientId,
+      );
+      final fetchedName = fetchedClient?.name.trim() ?? '';
+      final fallbackName = order.clientName?.trim() ?? '';
+      final clientName = fetchedName.isNotEmpty ? fetchedName : fallbackName;
+
+      final fetchedPhone = fetchedClient?.phoneNumber.trim() ?? '';
+      final fallbackPhone = order.clientPhone?.trim() ?? '';
+      final clientPhone =
+          fetchedPhone.isNotEmpty ? fetchedPhone : fallbackPhone;
+
       final orderWithUser = Order(
         orderId: order.orderId,
         organizationId: organizationId,
         clientId: order.clientId,
+        clientName: clientName.isNotEmpty ? clientName : null,
+        clientPhone: clientPhone.isNotEmpty ? clientPhone : null,
         status: order.status,
         items: order.items,
         deliveryAddress: order.deliveryAddress,
@@ -21,7 +47,9 @@ class AndroidOrderRepository {
         city: order.city,
         locationId: order.locationId,
         subtotal: order.subtotal,
-        totalAmount: order.totalAmount,
+        gstAmount: order.gstAmount,
+        gstApplicable: order.gstApplicable,
+        gstRate: order.gstRate,
         trips: order.trips,
         paymentType: order.paymentType,
         createdAt: DateTime.now(),
@@ -29,6 +57,10 @@ class AndroidOrderRepository {
         createdBy: userId,
         updatedBy: userId,
         notes: order.notes,
+        remainingTrips: order.remainingTrips,
+        lastScheduledAt: order.lastScheduledAt,
+        lastScheduledBy: order.lastScheduledBy,
+        lastScheduledVehicleId: order.lastScheduledVehicleId,
       );
 
       final docRef = await _firestore
@@ -80,13 +112,14 @@ class AndroidOrderRepository {
       return _firestore
           .collection('ORDERS')
           .where('organizationId', isEqualTo: organizationId)
-          .where('status', isEqualTo: OrderStatus.pending)
+          .where('status', whereIn: _activePendingStatuses)
           .orderBy('createdAt', descending: true)
           .limit(limit)
           .snapshots()
           .map((snapshot) {
         final orders = snapshot.docs
             .map<Order>((doc) => Order.fromFirestore(doc))
+            .where((order) => order.remainingTrips > 0)
             .toList();
         return orders;
       });
@@ -108,8 +141,19 @@ class AndroidOrderRepository {
           .where('organizationId', isEqualTo: organizationId)
           .where('clientId', isEqualTo: clientId);
 
+      List<String>? statuses;
       if (status != null) {
-        query = query.where('status', isEqualTo: status);
+        statuses = status == OrderStatus.pending
+            ? _activePendingStatuses
+            : <String>[status];
+      }
+
+      if (statuses != null) {
+        if (statuses.length == 1) {
+          query = query.where('status', isEqualTo: statuses.first);
+        } else {
+          query = query.where('status', whereIn: statuses);
+        }
       }
 
       return query
@@ -119,7 +163,13 @@ class AndroidOrderRepository {
           .map((snapshot) {
         final orders = snapshot.docs
             .map<Order>((doc) => Order.fromFirestore(doc))
-            .toList();
+            .where((order) {
+          final shouldFilterRemainingTrips = statuses == null ||
+              statuses.any((value) =>
+                  value == OrderStatus.pending ||
+                  value == OrderStatus.confirmed);
+          return !shouldFilterRemainingTrips || order.remainingTrips > 0;
+        }).toList();
         return orders;
       });
     } catch (e) {
@@ -133,7 +183,7 @@ class AndroidOrderRepository {
       final snapshot = await _firestore
           .collection('ORDERS')
           .where('organizationId', isEqualTo: organizationId)
-          .where('status', isEqualTo: OrderStatus.pending)
+          .where('status', whereIn: _activePendingStatuses)
           .orderBy('createdAt', descending: true)
           .limit(limit)
           .get(
@@ -142,6 +192,7 @@ class AndroidOrderRepository {
 
       final orders = snapshot.docs
           .map<Order>((doc) => Order.fromFirestore(doc))
+          .where((order) => order.remainingTrips > 0)
           .toList();
 
       return orders;

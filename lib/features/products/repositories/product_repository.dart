@@ -57,6 +57,7 @@ class ProductRepository {
         productName: product.productName,
         description: product.description,
         unitPrice: product.unitPrice,
+        gstRate: product.gstRate,
         status: product.status,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),

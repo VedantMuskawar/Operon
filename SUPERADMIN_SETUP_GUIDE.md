@@ -79,10 +79,10 @@ Use the templates in `firebase_init_data.json`:
    - Document ID: `settings`
    - Data: Use template from JSON file
 
-4. **Create System Metadata**:
-   - Collection: `SYSTEM_METADATA`
-   - Document ID: `stats`
-   - Data: Use template from JSON file
+4. **Create Dashboard Metadata Summary**:
+   - Collection: `DASHBOARD_METADATA`
+   - Document ID: `CLIENTS`
+   - Data: Use template from JSON file (set `totalActiveClients` to `0`)
 
 5. **Create Organization User Subcollection**:
    - Collection: `ORGANIZATIONS/superadmin_org/USERS`
@@ -115,7 +115,7 @@ We can add a UI component for SuperAdmins to invite other SuperAdmins.
 1. **USERS**: User documents with Firebase Auth UID as document ID
 2. **ORGANIZATIONS**: Organization data including SuperAdmin org
 3. **SUPERADMIN_CONFIG**: System configuration settings
-4. **SYSTEM_METADATA**: System-wide statistics and metadata
+4. **DASHBOARD_METADATA**: Dashboard aggregates (summary + per financial year)
 
 ### Key Features:
 

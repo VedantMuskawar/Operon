@@ -13,6 +13,11 @@ class Vehicle {
   final DateTime updatedAt;
   final String? createdBy;
   final String? updatedBy;
+  final String? assignedDriverId;
+  final String? assignedDriverName;
+  final String? assignedDriverContact;
+  final DateTime? assignedDriverAt;
+  final String? assignedDriverBy;
 
   Vehicle({
     this.id,
@@ -27,6 +32,11 @@ class Vehicle {
     required this.updatedAt,
     this.createdBy,
     this.updatedBy,
+    this.assignedDriverId,
+    this.assignedDriverName,
+    this.assignedDriverContact,
+    this.assignedDriverAt,
+    this.assignedDriverBy,
   });
 
   factory Vehicle.fromFirestore(DocumentSnapshot doc) {
@@ -48,11 +58,30 @@ class Vehicle {
     if (data['weeklyCapacity'] != null || data['weekly_capacity'] != null) {
       final capacity = (data['weeklyCapacity'] ?? data['weekly_capacity']) as Map<String, dynamic>?;
       if (capacity != null) {
-        weeklyCapacity = capacity.map((key, value) => 
-          MapEntry(key, (value as num?)?.toInt() ?? 0)
-        );
+        weeklyCapacity = capacity.map((key, value) =>
+            MapEntry(key, (value as num?)?.toInt() ?? 0));
       }
+    } else {
+      weeklyCapacity = const {
+        'Mon': 1,
+        'Tue': 1,
+        'Wed': 1,
+        'Thu': 1,
+        'Fri': 1,
+        'Sat': 1,
+        'Sun': 1,
+      };
     }
+
+    final rawDriverId = data['assignedDriverId'] ?? data['assigned_driver_id'];
+    final rawDriverName =
+        data['assignedDriverName'] ?? data['assigned_driver_name'] ?? data['driverName'];
+    final rawDriverContact = data['assignedDriverContact'] ??
+        data['assigned_driver_contact'] ??
+        data['driverContact'] ??
+        data['driver_phone'];
+    final driverAssignedAt = data['assignedDriverAt'] ?? data['assigned_driver_at'];
+    final driverAssignedBy = data['assignedDriverBy'] ?? data['assigned_driver_by'];
 
     try {
       return Vehicle(
@@ -72,6 +101,21 @@ class Vehicle {
             : DateTime.now(),
         createdBy: data['createdBy'] ?? data['created_by'] ?? data['createdBy'],
         updatedBy: data['updatedBy'] ?? data['updated_by'] ?? data['updatedBy'],
+        assignedDriverId: (rawDriverId?.toString().trim().isEmpty ?? true)
+            ? null
+            : rawDriverId.toString(),
+        assignedDriverName: (rawDriverName?.toString().trim().isEmpty ?? true)
+            ? null
+            : rawDriverName.toString(),
+        assignedDriverContact: (rawDriverContact?.toString().trim().isEmpty ?? true)
+            ? null
+            : rawDriverContact.toString(),
+        assignedDriverAt: driverAssignedAt is Timestamp
+            ? driverAssignedAt.toDate()
+            : driverAssignedAt is DateTime
+                ? driverAssignedAt
+                : null,
+        assignedDriverBy: driverAssignedBy?.toString(),
       );
     } catch (e, stackTrace) {
       print('Error creating Vehicle from document ${doc.id}: $e');
@@ -94,6 +138,13 @@ class Vehicle {
       'updatedAt': Timestamp.fromDate(updatedAt),
       if (createdBy != null) 'createdBy': createdBy,
       if (updatedBy != null) 'updatedBy': updatedBy,
+      if (assignedDriverId != null) 'assignedDriverId': assignedDriverId,
+      if (assignedDriverName != null) 'assignedDriverName': assignedDriverName,
+      if (assignedDriverContact != null)
+        'assignedDriverContact': assignedDriverContact,
+      if (assignedDriverAt != null)
+        'assignedDriverAt': Timestamp.fromDate(assignedDriverAt!),
+      if (assignedDriverBy != null) 'assignedDriverBy': assignedDriverBy,
     };
   }
 
@@ -107,6 +158,11 @@ class Vehicle {
     Map<String, int>? weeklyCapacity,
     DateTime? updatedAt,
     String? updatedBy,
+    String? assignedDriverId,
+    String? assignedDriverName,
+    String? assignedDriverContact,
+    DateTime? assignedDriverAt,
+    String? assignedDriverBy,
   }) {
     return Vehicle(
       id: id,
@@ -121,6 +177,12 @@ class Vehicle {
       updatedAt: updatedAt ?? this.updatedAt,
       createdBy: createdBy,
       updatedBy: updatedBy ?? this.updatedBy,
+      assignedDriverId: assignedDriverId ?? this.assignedDriverId,
+      assignedDriverName: assignedDriverName ?? this.assignedDriverName,
+      assignedDriverContact:
+          assignedDriverContact ?? this.assignedDriverContact,
+      assignedDriverAt: assignedDriverAt ?? this.assignedDriverAt,
+      assignedDriverBy: assignedDriverBy ?? this.assignedDriverBy,
     );
   }
 

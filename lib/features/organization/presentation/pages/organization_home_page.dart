@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../../core/navigation/organization_navigation_scope.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/models/organization.dart';
@@ -11,6 +12,7 @@ import '../../../auth/bloc/auth_bloc.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import 'organization_select_page.dart';
 import '../widgets/organization_settings_view.dart';
+import '../widgets/orders_map_view.dart';
 import '../../../../contexts/organization_context.dart';
 import '../../../vehicle/presentation/pages/vehicle_management_page.dart';
 import '../../../vehicle/bloc/vehicle_bloc.dart';
@@ -29,6 +31,13 @@ import '../../../location_pricing/presentation/pages/location_pricing_management
 import '../../../location_pricing/bloc/location_pricing_bloc.dart';
 import '../../../location_pricing/bloc/location_pricing_event.dart';
 import '../../../location_pricing/repositories/location_pricing_repository.dart';
+import '../../../orders/bloc/pending_orders_bloc.dart';
+import '../../../orders/repositories/order_repository.dart';
+import '../../../orders/repositories/scheduled_order_repository.dart';
+import '../../../orders/presentation/widgets/pending_orders_view.dart';
+import '../../../orders/presentation/widgets/scheduled_orders_dashboard.dart';
+import '../../../crm/presentation/pages/crm_page.dart';
+import '../../../dashboard/presentation/widgets/clients_metadata_panel.dart';
 
 class OrganizationHomePage extends StatefulWidget {
   const OrganizationHomePage({
@@ -82,6 +91,12 @@ class OrganizationHomePage extends StatefulWidget {
             description: "Manage location-based pricing for orders",
             viewId: 'location-pricing',
           ),
+          SectionItem(
+            emoji: "💬",
+            title: "CRM Messaging",
+            description: "Craft customer notifications and WhatsApp templates",
+            viewId: 'crm',
+          ),
         ],
       ),
     ];
@@ -99,7 +114,8 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
   String _currentView =
       'home'; // 'home', 'organization-settings', 'vehicle-management', 'payment-account-management', 'products'
   late AnimationController _headerAnimationController;
-  late Animation<double> _headerSlideAnimation;
+  late final ScheduledOrderRepository _scheduledOrderRepository;
+  late final OrderRepository _orderRepository;
 
   List<NavigationPillItem> get _navigationItems {
     final orgContext = context.organizationContext;
@@ -107,6 +123,10 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     final items = [
       const NavigationPillItem(id: 'home', label: 'Home'),
       const NavigationPillItem(id: 'orders-map', label: 'Orders Map'),
+      const NavigationPillItem(
+        id: 'pending-orders',
+        label: 'Pending Orders',
+      ),
       const NavigationPillItem(
         id: 'scheduled-orders',
         label: 'Scheduled Orders',
@@ -125,19 +145,14 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
   void initState() {
     super.initState();
     _initializeAnimations();
+    _scheduledOrderRepository = ScheduledOrderRepository();
+    _orderRepository = OrderRepository();
   }
 
   void _initializeAnimations() {
     _headerAnimationController = AnimationController(
       duration: AppTheme.animationSlow,
       vsync: this,
-    );
-
-    _headerSlideAnimation = Tween<double>(begin: -100.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _headerAnimationController,
-        curve: AppTheme.animationCurve,
-      ),
     );
 
     // Start header animation
@@ -329,78 +344,83 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
 
   Widget _buildNavigationPills() {
     return Center(
-      child: Container(
-        padding: const EdgeInsets.all(8), // 0.5rem padding
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B), // Dark background for pills container
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Stack(
-          children: [
-            // Sliding background indicator
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              top: 0, // Align with container padding
-              bottom: 0, // Align with container padding
-              left: _getPillOffset(),
-              child: Container(
-                width: _getPillWidth(),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF667EEA), // #667eea
-                      Color(0xFF764BA2), // #764ba2
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Container(
+          padding: const EdgeInsets.all(8), // 0.5rem padding
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B), // Dark background for pills container
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Sliding background indicator
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                top: 0, // Align with container padding
+                bottom: 0, // Align with container padding
+                left: _getPillOffset(),
+                child: Container(
+                  width: _getPillWidth(),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF667EEA), // #667eea
+                        Color(0xFF764BA2), // #764ba2
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(
+                      8,
+                    ), // var(--radius-md) = 0.5rem = 8px
                   ),
-                  borderRadius: BorderRadius.circular(
-                    8,
-                  ), // var(--radius-md) = 0.5rem = 8px
                 ),
               ),
-            ),
-            // Pills
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: _navigationItems.asMap().entries.map((entry) {
-                final index = entry.key;
-                final item = entry.value;
-                final isSelected = index == _selectedNavigationIndex;
+              // Pills
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: _navigationItems.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  final isSelected = index == _selectedNavigationIndex;
 
-                return GestureDetector(
-                  onTap: () => _onNavigationItemSelected(index),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ), // 1rem 1.5rem (16px 24px)
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(
-                        8,
-                      ), // var(--radius-md) = 0.5rem = 8px
-                    ),
-                    child: Text(
-                      item.label,
-                      style: TextStyle(
-                        fontSize: isSelected
-                            ? 16.8
-                            : 16, // 1.05rem for active, 1rem for inactive
-                        fontWeight:
-                            FontWeight.w600, // var(--font-weight-semibold)
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(
-                                0xFF94A3B8,
-                              ), // Light gray for inactive
+                  return GestureDetector(
+                    onTap: () => _onNavigationItemSelected(index),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ), // 1rem 1.5rem (16px 24px)
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(
+                          8,
+                        ), // var(--radius-md) = 0.5rem = 8px
+                      ),
+                      child: Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: isSelected
+                              ? 16.8
+                              : 16, // 1.05rem for active, 1rem for inactive
+                          fontWeight:
+                              FontWeight.w600, // var(--font-weight-semibold)
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(
+                                  0xFF94A3B8,
+                                ), // Light gray for inactive
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -545,8 +565,56 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
   }
 
   Widget _buildMainContent(OrganizationContext orgContext) {
+    final selectedNavId = _navigationItems[_selectedNavigationIndex].id;
+
     if (widget.customViewBuilders.containsKey(_currentView)) {
       return widget.customViewBuilders[_currentView]!(context);
+    }
+
+    if (_currentView == 'home') {
+      if (selectedNavId == 'pending-orders') {
+        return Padding(
+          padding: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
+          child: _buildPendingOrdersSection(orgContext),
+        );
+      }
+      if (selectedNavId == 'scheduled-orders') {
+        return Padding(
+          padding: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
+          child: _buildScheduledOrdersSection(orgContext),
+        );
+      }
+      if (selectedNavId == 'crm') {
+        return Padding(
+          padding: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
+          child: _buildCrmSection(orgContext),
+        );
+      }
+      if (selectedNavId == 'orders-map') {
+        return Padding(
+          padding: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
+          child: orgContext.organizationId != null
+              ? OrdersMapView(
+                  organizationId: orgContext.organizationId!,
+                  organizationName: orgContext.organizationName,
+                )
+              : const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Text(
+                      'Organization not found',
+                      style: TextStyle(color: Color(0xFFF5F5F7)),
+                    ),
+                  ),
+                ),
+        );
+      }
+      if (selectedNavId == 'dashboard') {
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(AppTheme.getResponsivePadding(context)),
+          child: ClientsMetadataPanel(),
+        );
+      }
     }
 
     return SingleChildScrollView(
@@ -932,42 +1000,48 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
               ),
             ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              // Tile Icon - Responsive sizing
-              Container(
-                margin: EdgeInsets.only(bottom: marginBottom),
-                child: Text(
-                  item.emoji,
-                  style: TextStyle(
-                    fontSize: emojiSize,
-                    shadows: const [
-                      Shadow(
-                        color: Colors.black54,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Tile Icon - Responsive sizing
+                Container(
+                  margin: EdgeInsets.only(bottom: marginBottom),
+                  child: Text(
+                    item.emoji,
+                    style: TextStyle(
+                      fontSize: emojiSize,
+                      shadows: const [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 4,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              // Tile Title - Responsive sizing
-              Text(
-                item.title,
-                style: TextStyle(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFFF3F4F6), // text-gray-100
-                  height: 1.2, // leading-tight
-                  letterSpacing: 0.025, // tracking-wide
+                // Tile Title - Responsive sizing
+                SizedBox(
+                  width: 120,
+                  child: Text(
+                    item.title,
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFFF3F4F6), // text-gray-100
+                      height: 1.2, // leading-tight
+                      letterSpacing: 0.025, // tracking-wide
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -993,6 +1067,16 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
         break;
       case 'location-pricing':
         setState(() => _currentView = 'location-pricing');
+        break;
+      case 'crm':
+        setState(() {
+          _currentView = 'home';
+          final crmIndex =
+              _navigationItems.indexWhere((navItem) => navItem.id == 'crm');
+          if (crmIndex != -1) {
+            _selectedNavigationIndex = crmIndex;
+          }
+        });
         break;
       default:
         if (widget.customViewBuilders.containsKey(item.viewId)) {
@@ -1110,6 +1194,96 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     );
   }
 
+  Widget _buildPendingOrdersSection(OrganizationContext orgContext) {
+    final organizationId = orgContext.organizationId;
+    final userId = _resolveUserId(orgContext);
+
+    if (organizationId == null || organizationId.isEmpty) {
+      return _buildCenteredMessage('Organization not found');
+    }
+
+    if (userId.isEmpty) {
+      return _buildCenteredMessage('Unable to determine user identity.');
+    }
+
+    return BlocProvider(
+      key: ValueKey<String>('pending-orders-$organizationId'),
+      create: (_) => PendingOrdersBloc(
+        orderRepository: _orderRepository,
+      ),
+      child: PendingOrdersView(
+        organizationId: organizationId,
+        userId: userId,
+        scheduledOrderRepository: _scheduledOrderRepository,
+      ),
+    );
+  }
+
+  Widget _buildScheduledOrdersSection(OrganizationContext orgContext) {
+    final organizationId = orgContext.organizationId;
+    if (organizationId == null || organizationId.isEmpty) {
+      return _buildCenteredMessage('Organization not found');
+    }
+
+    final userId = _resolveUserId(orgContext);
+    if (userId.isEmpty) {
+      return _buildCenteredMessage('Unable to determine user identity.');
+    }
+
+    return Container(
+      height: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+      ),
+      child: ScheduledOrdersDashboard(
+        organizationId: organizationId,
+        repository: _scheduledOrderRepository,
+        orderRepository: _orderRepository,
+        userId: userId,
+      ),
+    );
+  }
+
+  Widget _buildCrmSection(OrganizationContext orgContext) {
+    final organizationId = orgContext.organizationId;
+    if (organizationId == null || organizationId.isEmpty) {
+      return _buildCenteredMessage('Organization not found');
+    }
+
+    return CrmPage(
+      organizationId: organizationId,
+      organizationName: orgContext.organizationName,
+    );
+  }
+
+  Widget _buildCenteredMessage(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Text(
+          message,
+          style: const TextStyle(color: Color(0xFFF5F5F7)),
+        ),
+      ),
+    );
+  }
+
+  String _resolveUserId(OrganizationContext orgContext) {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is AuthAuthenticated) {
+      return authState.firebaseUser.uid;
+    }
+    if (authState is AuthOrganizationSelectionRequired) {
+      return authState.firebaseUser.uid;
+    }
+
+    return (orgContext.userInfo?['userId'] as String?) ??
+        (orgContext.userInfo?['uid'] as String?) ??
+        FirebaseAuth.instance.currentUser?.uid ??
+        '';
+  }
+
   void _onNavigationItemSelected(int index) {
     setState(() {
       _selectedNavigationIndex = index;
@@ -1136,23 +1310,6 @@ class _OrganizationHomePageState extends State<OrganizationHomePage>
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (context) => const OrganizationSelectPage()),
     );
-  }
-
-  String _getCurrentViewTitle(OrganizationContext orgContext) {
-    final isAdmin = orgContext.isAdmin;
-
-    switch (_selectedNavigationIndex) {
-      case 0:
-        return 'PaveHome';
-      case 1:
-        return 'Orders Map';
-      case 2:
-        return 'Scheduled Orders';
-      case 3:
-        return isAdmin ? 'Dashboard' : 'Orders Map';
-      default:
-        return 'PaveHome';
-    }
   }
 
   String _getUserName(OrganizationContext orgContext) {

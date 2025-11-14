@@ -37,7 +37,6 @@
 ### **3. Check Database** ⏱️ 3 min
 - [ ] Firebase Console → Firestore
 - [ ] Check `organizations` collection → New org created
-- [ ] Check `SYSTEM_METADATA/counters` → `totalOrganizations` incremented
 - [ ] Check `ACTIVITY` collection → `ORGANIZATION_CREATED` log
 
 ### **4. Test Admin Invitation** ⏱️ 3 min
@@ -49,7 +48,6 @@
 - [ ] Use admin phone: `+919876543211`
 - [ ] Send OTP → Verify: `123456`
 - [ ] Check `users` collection → New user created
-- [ ] Check `SYSTEM_METADATA/counters` → `totalUsers` incremented
 
 ## 🚨 **Error Scenarios to Test**
 
@@ -70,13 +68,6 @@
 
 ### **Database State After Test**
 ```json
-SYSTEM_METADATA/counters: {
-  "totalOrganizations": 1,
-  "totalUsers": 2,
-  "activeSubscriptions": 0,
-  "totalRevenue": 0.0
-}
-
 organizations/org_001: {
   "orgName": "Test Company Pvt Ltd",
   "status": "pending",

@@ -63,7 +63,7 @@ The onboarding process follows this flow:
 6. **Expected Result**: 
    - Organization created in Firestore
    - Admin invitation SMS sent
-   - System metadata counters updated
+   - Dashboard metadata summary updated
    - Activity log created
 
 #### **Step 3: Admin Invitation Process**
@@ -94,7 +94,7 @@ The onboarding process follows this flow:
 3. **Expected Result**:
    - Organization status changed to "active"
    - Subscription activated
-   - System metadata updated
+   - Dashboard metadata updated
    - Activation notification sent
 
 ### **Scenario 2: Error Handling Testing**
@@ -114,18 +114,17 @@ The onboarding process follows this flow:
 1. **Enter wrong OTP**: `000000`
 2. **Expected Result**: Error message and retry option
 
-### **Scenario 3: System Metadata Testing**
+### **Scenario 3: Dashboard Metadata Testing**
 
-#### **Check System Counters**
-1. **Call `systemStatsGet` function**
+#### **Check Dashboard Summary**
+1. **Open Firestore → `DASHBOARD_METADATA/CLIENTS`**
 2. **Expected Result**:
    ```json
    {
-     "totalOrganizations": 1,
-     "totalUsers": 2,
-     "activeSubscriptions": 1,
-     "totalRevenue": 999.0,
-     "lastUpdated": "2024-01-15T10:30:00Z"
+     "totalActiveClients": 18,
+     "createdAt": "2024-01-15T10:30:00Z",
+     "updatedAt": "2024-01-16T08:45:00Z",
+     "lastEventAt": "2024-01-16T08:45:00Z"
    }
    ```
 
@@ -140,19 +139,18 @@ The onboarding process follows this flow:
 ### **Scenario 4: Database Triggers Testing**
 
 #### **Automatic Metadata Updates**
-1. **Create organization via SuperAdmin dashboard**
-2. **Check `SYSTEM_METADATA/counters` document**
-3. **Expected Result**: `totalOrganizations` incremented by 1
+1. **Create or delete clients via dashboard or Firestore**
+2. **Check `DASHBOARD_METADATA/CLIENTS` summary document**
+3. **Expected Result**: `totalActiveClients` reflects active client count
 
-#### **User Creation Tracking**
-1. **Admin completes verification**
-2. **Check `SYSTEM_METADATA/counters` document**
-3. **Expected Result**: `totalUsers` incremented by 1
+#### **Financial Year Aggregation**
+1. **Add clients with `createdAt` values across multiple months**
+2. **Check `DASHBOARD_METADATA/CLIENTS/FINANCIAL_YEARS/{financialYearId}`**
+3. **Expected Result**: `totalOnboarded` and `monthlyOnboarding` update accordingly
 
-#### **Subscription Activation**
-1. **Complete organization setup**
-2. **Check `SYSTEM_METADATA/counters` document**
-3. **Expected Result**: `activeSubscriptions` incremented by 1
+#### **Status Toggle Tracking**
+1. **Toggle client status between `active` and `inactive`**
+2. **Confirm summary document updates without changing historical onboarding totals**
 
 ## 🔧 **Testing Tools & Commands**
 
@@ -176,8 +174,15 @@ db.collection('organizations').doc('org_001').get()
 // Check user document
 db.collection('users').doc('user_001').get()
 
-// Check system metadata
-db.collection('SYSTEM_METADATA').doc('counters').get()
+// Check dashboard metadata summary
+db.collection('DASHBOARD_METADATA').doc('CLIENTS').get()
+
+// Check financial year details
+db.collection('DASHBOARD_METADATA')
+  .doc('CLIENTS')
+  .collection('FINANCIAL_YEARS')
+  .doc('2024-2025')
+  .get()
 
 // Check activity logs
 db.collection('ACTIVITY').orderBy('timestamp', 'desc').limit(10).get()

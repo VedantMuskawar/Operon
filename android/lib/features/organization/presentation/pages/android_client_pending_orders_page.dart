@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/app_theme.dart';
 import '../../models/order.dart';
 import '../../repositories/android_order_repository.dart';
+import '../../repositories/android_scheduled_order_repository.dart';
+import '../widgets/android_schedule_order_dialog.dart';
 import 'android_create_order_page.dart';
 import 'android_order_detail_page.dart';
 
@@ -27,6 +30,8 @@ class AndroidClientPendingOrdersPage extends StatefulWidget {
 
 class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrdersPage> {
   final AndroidOrderRepository _orderRepository = AndroidOrderRepository();
+  final AndroidScheduledOrderRepository _scheduledOrderRepository =
+      AndroidScheduledOrderRepository();
   static const int _pageSize = 50;
   late final Stream<List<Order>> _pendingOrdersStream;
   bool _isRefreshing = false;
@@ -362,7 +367,7 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
         itemCount: orders.length,
         itemBuilder: (context, index) {
           final order = orders[index];
-          return _buildOrderCard(order);
+          return _buildPendingOrderTile(context, order);
         },
       ),
     );
@@ -450,30 +455,6 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
     );
   }
 
-  String _getRelativeTime(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    
-    if (difference.inDays == 0) {
-      if (difference.inHours == 0) {
-        if (difference.inMinutes == 0) {
-          return 'Just now';
-        }
-        return '${difference.inMinutes}m ago';
-      }
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
-      return '${weeks}w ago';
-    } else {
-      return DateFormat('MMM dd, yyyy').format(date);
-    }
-  }
-
   Color _getOrderAgeColor(DateTime createdAt) {
     final daysSince = DateTime.now().difference(createdAt).inDays;
     if (daysSince <= 1) {
@@ -485,15 +466,85 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
     }
   }
 
-  Widget _buildOrderCard(Order order) {
-    // Get product names - show up to 2, with count if more
-    final productNames = order.items.map((item) => item.productName).toList();
-    final productDisplayText = productNames.length <= 2
-        ? productNames.join(', ')
-        : '${productNames.take(2).join(', ')} +${productNames.length - 2} more';
+  Widget _buildRemainingTripsChip(int remainingTrips) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Text(
+        '$remainingTrips',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
 
-    final totalQuantity = order.items.fold<int>(0, (sum, item) => sum + item.quantity);
+  Widget _buildPendingOrderTile(BuildContext context, Order order) {
     final orderAgeColor = _getOrderAgeColor(order.createdAt);
+    final clientName = (order.clientName?.trim().isNotEmpty ?? false)
+        ? order.clientName!.trim()
+        : widget.clientName;
+    final regionAddress = [order.region, order.city]
+        .where((value) => value.trim().isNotEmpty)
+        .join(', ');
+    final totalQuantity =
+        order.items.fold<int>(0, (sum, item) => sum + item.quantity);
+    final orderPlacedOn =
+        DateFormat('dd MMM yyyy, hh:mm a').format(order.createdAt);
+    final orderPhone = order.clientPhone?.trim() ?? '';
+    final fallbackPhone = widget.clientPhone.trim();
+    final callPhone =
+        (orderPhone.isNotEmpty ? orderPhone : fallbackPhone).trim();
+    final hasCallPhone = callPhone.isNotEmpty;
+
+    TextStyle labelStyle(Color color) => TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: color,
+          letterSpacing: 0.1,
+        );
+    TextStyle valueStyle(Color color) => TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: color,
+        );
+
+    Widget infoPair(
+      String label,
+      String value, {
+      bool alignEnd = false,
+      int maxLines = 1,
+    }) {
+      return Column(
+        crossAxisAlignment:
+            alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: labelStyle(AppTheme.textSecondaryColor)),
+          const SizedBox(height: 4),
+          Text(
+            value.isNotEmpty ? value : '—',
+            style: valueStyle(AppTheme.textPrimaryColor),
+            textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -507,21 +558,9 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
         boxShadow: [
           ...AppTheme.cardShadow,
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-          BoxShadow(
-            color: orderAgeColor.withValues(alpha: 0.3),
-            blurRadius: 12,
-            spreadRadius: 0,
-            offset: const Offset(0, 0),
-          ),
-          BoxShadow(
-            color: orderAgeColor.withValues(alpha: 0.15),
-            blurRadius: 20,
-            spreadRadius: 2,
-            offset: const Offset(0, 0),
+            color: orderAgeColor.withValues(alpha: 0.25),
+            blurRadius: 16,
+            spreadRadius: 1,
           ),
         ],
       ),
@@ -533,236 +572,113 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
               context,
               MaterialPageRoute(
                 builder: (context) => AndroidOrderDetailPage(
-                  organizationId: widget.organizationId,
+                  organizationId: order.organizationId,
                   orderId: order.orderId,
                   order: order,
                 ),
               ),
-                  );
+            );
           },
           borderRadius: BorderRadius.circular(18),
           splashColor: AppTheme.primaryColor.withValues(alpha: 0.1),
           highlightColor: AppTheme.primaryColor.withValues(alpha: 0.05),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Row: Product and Trips aligned at top
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Left Column: Product Info
                     Expanded(
-                          child: Column(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          infoPair('Client Name', clientName, maxLines: 1),
+                          const SizedBox(height: 10),
+                          Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Product Info with Status Dot
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: orderAgeColor,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: orderAgeColor.withValues(alpha: 0.5),
-                                          blurRadius: 4,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.shopping_cart_rounded,
-                                    size: 18,
-                                    color: AppTheme.primaryColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      productDisplayText,
-                                      style: const TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.textPrimaryColor,
-                                        letterSpacing: 0.2,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (totalQuantity > 0) ...[
-                                const SizedBox(height: 6),
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 22),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      '$totalQuantity ${totalQuantity == 1 ? 'unit' : 'units'}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                  ),
+                              Expanded(
+                                child: infoPair(
+                                  'Region, Address',
+                                  regionAddress,
+                                  maxLines: 2,
                                 ),
-                              ],
+                              ),
+                              const SizedBox(width: 12),
+                              infoPair(
+                                'Quantity',
+                                '$totalQuantity',
+                                alignEnd: true,
+                              ),
                             ],
                           ),
-                        ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    // Right Column: Enhanced Trips Display - Aligned to top
-                    Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                gradient: AppTheme.primaryGradient,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.primaryColor.withValues(alpha: 0.4),
-                                    blurRadius: 12,
-                                    spreadRadius: 2,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                '${order.trips}',
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.directions_car_rounded,
-                                  size: 13,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  'Trips',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textSecondaryColor,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                    _buildRemainingTripsChip(order.remainingTrips),
                   ],
                 ),
+                const SizedBox(height: 10),
+                if (hasCallPhone) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _callClient(callPhone),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.7),
+                        ),
+                        foregroundColor: AppTheme.primaryColor,
+                      ),
+                      icon: const Icon(Icons.call),
+                      label: const Text(
+                        'Call Client',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                infoPair('Order placed', orderPlacedOn, maxLines: 2),
                 const SizedBox(height: 12),
-                // Bottom Section: Location and Date - Better aligned
                 Row(
                   children: [
-                    if (order.region.isNotEmpty || order.city.isNotEmpty) ...[
-                      Icon(
-                        Icons.location_on_rounded,
-                        size: 14,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          [order.region, order.city].where((s) => s.isNotEmpty).join(', '),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.textSecondaryColor,
-                            letterSpacing: 0.1,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Icon(
-                      Icons.calendar_today_rounded,
-                      size: 14,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _getRelativeTime(order.createdAt),
-                          style: TextStyle(
-                            fontSize: 12,
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _handleScheduleOrder(order),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          textStyle: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimaryColor,
                           ),
                         ),
-                        Text(
-                          DateFormat('MMM dd').format(order.createdAt),
+                        child: const Text('Schedule'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _handleDeleteOrder(order),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: BorderSide(
+                            color: AppTheme.errorColor.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
                           style: TextStyle(
-                            fontSize: 10,
-                            color: AppTheme.textSecondaryColor.withValues(alpha: 0.7),
+                            color: AppTheme.errorColor,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                // Action Buttons Row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // Schedule Button
-                    _buildActionButton(
-                      icon: Icons.event_available_rounded,
-                      backgroundColor: AppTheme.successColor,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppTheme.successColor,
-                          AppTheme.successColor.withValues(alpha: 0.8),
-                        ],
                       ),
-                      onTap: () => _handleScheduleOrder(order),
-                    ),
-                    const SizedBox(width: 10),
-                    // Delete Button
-                    _buildActionButton(
-                      icon: Icons.delete_outline_rounded,
-                      backgroundColor: AppTheme.errorColor,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppTheme.errorColor,
-                          AppTheme.errorColor.withValues(alpha: 0.8),
-                        ],
-                      ),
-                      onTap: () => _handleDeleteOrder(order),
                     ),
                   ],
                 ),
@@ -774,39 +690,22 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color backgroundColor,
-    required Gradient gradient,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: backgroundColor.withValues(alpha: 0.3),
-                blurRadius: 8,
-                spreadRadius: 0,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
+  Future<void> _callClient(String phoneNumber) async {
+    final normalized = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (normalized.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Client phone number unavailable')),
+      );
+      return;
+    }
+
+    final uri = Uri(scheme: 'tel', path: normalized);
+    final launched = await launchUrl(uri);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open dialer')),
+      );
+    }
   }
 
   Future<void> _handleScheduleOrder(Order order) async {
@@ -818,21 +717,19 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
       return;
     }
 
-    try {
-      final updatedOrder = order.copyWith(
-        status: OrderStatus.confirmed,
-        updatedAt: DateTime.now(),
-        updatedBy: userId,
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AndroidScheduleOrderDialog(
+        organizationId: widget.organizationId,
+        order: order,
+        userId: userId,
+        scheduledOrderRepository: _scheduledOrderRepository,
+      ),
       );
 
-      await _orderRepository.updateOrder(
-        widget.organizationId,
-        order.orderId,
-        updatedOrder,
-        userId,
-      );
+    if (!mounted || result != true) return;
 
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(
@@ -846,17 +743,6 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
             behavior: SnackBarBehavior.floating,
           ),
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error scheduling order: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _handleDeleteOrder(Order order) async {
@@ -964,4 +850,5 @@ class _AndroidClientPendingOrdersPageState extends State<AndroidClientPendingOrd
     }
   }
 }
+
 

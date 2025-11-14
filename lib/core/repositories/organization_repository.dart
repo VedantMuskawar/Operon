@@ -372,33 +372,4 @@ class OrganizationRepository {
     return await StorageUtils.uploadOrganizationLogo(orgId, logoBytes, fileName: fileName);
   }
 
-  // Get dashboard analytics
-  Future<Map<String, dynamic>> getDashboardAnalytics() async {
-    try {
-      final countersSnapshot = await _firestore
-          .collection(AppConstants.systemMetadataCollection)
-          .doc('counters')
-          .get();
-
-      final organizationsSnapshot = await _firestore
-          .collection(AppConstants.organizationsCollection)
-          .where('status', isEqualTo: AppConstants.orgStatusActive)
-          .get();
-
-      final subscriptionsSnapshot = await _firestore
-          .collectionGroup(AppConstants.subscriptionSubcollection)
-          .where('isActive', isEqualTo: true)
-          .get();
-
-      return {
-        'totalOrganizations': organizationsSnapshot.docs.length,
-        'activeOrganizations': organizationsSnapshot.docs.length,
-        'totalSubscriptions': subscriptionsSnapshot.docs.length,
-        'activeSubscriptions': subscriptionsSnapshot.docs.length,
-        'systemCounters': countersSnapshot.data() ?? {},
-      };
-    } catch (e) {
-      throw Exception('Failed to fetch dashboard analytics: $e');
-    }
-  }
 }

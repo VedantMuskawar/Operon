@@ -27,6 +27,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   late TextEditingController _productNameController;
   late TextEditingController _descriptionController;
   late TextEditingController _unitPriceController;
+  late TextEditingController _gstRateController;
 
   bool _autoGenerateId = true;
   String _selectedStatus = ProductStatus.active;
@@ -41,6 +42,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _productNameController = TextEditingController();
     _descriptionController = TextEditingController();
     _unitPriceController = TextEditingController();
+    _gstRateController = TextEditingController();
 
     if (widget.product != null) {
       // Editing existing product
@@ -49,12 +51,14 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       _productNameController.text = widget.product!.productName;
       _descriptionController.text = widget.product!.description ?? '';
       _unitPriceController.text = widget.product!.unitPrice.toString();
+      _gstRateController.text = widget.product!.gstRate.toString();
       _selectedStatus = widget.product!.status;
     } else {
       // New product - generate ID if auto-generate is enabled
       if (_autoGenerateId) {
         _productIdController.text = _generateProductId();
       }
+      _gstRateController.text = '0';
     }
   }
 
@@ -64,6 +68,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _productNameController.dispose();
     _descriptionController.dispose();
     _unitPriceController.dispose();
+    _gstRateController.dispose();
     super.dispose();
   }
 
@@ -122,6 +127,12 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       isValid = false;
     }
 
+    final gstRateValue = double.tryParse(_gstRateController.text);
+    if (gstRateValue == null || gstRateValue < 0) {
+      _errors['gstRate'] = 'GST rate must be 0 or a positive number';
+      isValid = false;
+    }
+
     setState(() {});
     return isValid;
   }
@@ -141,6 +152,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           ? null 
           : _descriptionController.text.trim(),
       unitPrice: double.parse(_unitPriceController.text),
+      gstRate: double.parse(_gstRateController.text),
       status: _selectedStatus,
       createdAt: widget.product?.createdAt ?? now,
       updatedAt: now,
@@ -281,15 +293,39 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                           ),
                           const SizedBox(height: 16),
                           
-                          // Unit Price
-                          CustomTextField(
-                            controller: _unitPriceController,
-                            labelText: 'Base Unit Price *',
-                            hintText: '0.00',
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
-                            variant: CustomTextFieldVariant.number,
-                            errorText: _errors['unitPrice'],
-                            onChanged: (_) => _clearError('unitPrice'),
+                          // Pricing
+                          Row(
+                            children: [
+                              Expanded(
+                                child: CustomTextField(
+                                  controller: _unitPriceController,
+                                  labelText: 'Base Unit Price *',
+                                  hintText: '0.00',
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  variant: CustomTextFieldVariant.number,
+                                  errorText: _errors['unitPrice'],
+                                  onChanged: (_) => _clearError('unitPrice'),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: CustomTextField(
+                                  controller: _gstRateController,
+                                  labelText: 'GST Rate (%)',
+                                  hintText: 'e.g., 18',
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  variant: CustomTextFieldVariant.number,
+                                  errorText: _errors['gstRate'],
+                                  onChanged: (_) => _clearError('gstRate'),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

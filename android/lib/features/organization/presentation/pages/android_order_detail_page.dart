@@ -147,6 +147,13 @@ class _AndroidOrderDetailPageState extends State<AndroidOrderDetailPage> {
     return '₹${amount.toStringAsFixed(2)}';
   }
 
+  String _formatPercentage(double value) {
+    if (value == value.roundToDouble()) {
+      return '${value.toStringAsFixed(0)}%';
+    }
+    return '${value.toStringAsFixed(2)}%';
+  }
+
   IconData _getStatusIcon(String status) {
     switch (status.toLowerCase()) {
       case 'pending':
@@ -361,6 +368,19 @@ class _AndroidOrderDetailPageState extends State<AndroidOrderDetailPage> {
                             'Payment Type',
                             PaymentType.getDisplayName(widget.order.paymentType),
                             AppTheme.primaryColor,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildEnhancedInfoRow(
+                            widget.order.gstApplicable
+                                ? Icons.receipt_long_rounded
+                                : Icons.receipt_long_outlined,
+                            'GST',
+                            widget.order.gstApplicable
+                                ? 'Applied (${_formatPercentage(widget.order.gstRate)})'
+                                : 'Not applied',
+                            widget.order.gstApplicable
+                                ? AppTheme.successColor
+                                : AppTheme.textSecondaryColor,
                           ),
                           const SizedBox(height: 16),
                           _buildEnhancedInfoRow(

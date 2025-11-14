@@ -68,4 +68,35 @@ class ClientRepository {
         .where((client) => client.name.isNotEmpty)
         .toList(growable: false);
   }
+
+  Future<Client?> fetchClientById({
+    required String organizationId,
+    required String clientId,
+  }) async {
+    try {
+      final doc = await _firestore
+          .collection(AppConstants.clientsCollection)
+          .doc(clientId)
+          .get();
+
+      if (doc.exists) {
+        final client = Client.fromFirestore(doc);
+        if (client.organizationId == organizationId) {
+          return client;
+        }
+      }
+
+      final snapshot = await _firestore
+          .collection(AppConstants.clientsCollection)
+          .where('clientId', isEqualTo: clientId)
+          .where('organizationId', isEqualTo: organizationId)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) return null;
+      return Client.fromFirestore(snapshot.docs.first);
+    } catch (_) {
+      return null;
+    }
+  }
 }

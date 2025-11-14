@@ -6,6 +6,7 @@ class Product {
   final String productName;
   final String? description;
   final double unitPrice;
+  final double gstRate;
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -18,6 +19,7 @@ class Product {
     required this.productName,
     this.description,
     required this.unitPrice,
+    this.gstRate = 0,
     this.status = 'Active',
     required this.createdAt,
     required this.updatedAt,
@@ -35,6 +37,7 @@ class Product {
       productName: data['productName'] ?? '',
       description: data['description'],
       unitPrice: (data['unitPrice'] ?? 0).toDouble(),
+      gstRate: (data['gstRate'] ?? 0).toDouble(),
       status: data['status'] ?? 'Active',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -50,6 +53,7 @@ class Product {
       'productName': productName,
       if (description != null) 'description': description,
       'unitPrice': unitPrice,
+      'gstRate': gstRate,
       'status': status,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
@@ -64,6 +68,7 @@ class Product {
     String? productName,
     String? description,
     double? unitPrice,
+    double? gstRate,
     String? status,
     DateTime? updatedAt,
     String? updatedBy,
@@ -74,6 +79,7 @@ class Product {
       productName: productName ?? this.productName,
       description: description ?? this.description,
       unitPrice: unitPrice ?? this.unitPrice,
+      gstRate: gstRate ?? this.gstRate,
       status: status ?? this.status,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -87,7 +93,7 @@ class Product {
 
   @override
   String toString() {
-    return 'Product(id: $id, productId: $productId, productName: $productName, unitPrice: $unitPrice, status: $status)';
+    return 'Product(id: $id, productId: $productId, productName: $productName, unitPrice: $unitPrice, gstRate: $gstRate, status: $status)';
   }
 
   @override

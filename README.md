@@ -724,17 +724,32 @@ bool isAuthorizedPhoneNumber(String phoneNumber) {
 }
 ```
 
-#### SYSTEM_METADATA
+#### DASHBOARD_METADATA/CLIENTS (Summary)
 ```javascript
 {
-  id: "counters",
-  totalOrganizations: 25,
-  totalUsers: 150,
-  activeSubscriptions: 20,
-  totalRevenue: 50000.0,
-  lastOrgIdCounter: 25,
-  lastUserIdCounter: 150,
-  lastUpdated: Timestamp
+  id: "CLIENTS",
+  totalActiveClients: 120,
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+  lastEventAt: Timestamp
+}
+```
+
+#### DASHBOARD_METADATA/CLIENTS/FINANCIAL_YEARS/{financialYearId}
+```javascript
+{
+  financialYearId: "2024-2025",
+  totalOnboarded: 52,
+  totalActiveClientsSnapshot: 47,
+  monthlyOnboarding: {
+    "2024-04": 3,
+    "2024-05": 6,
+    // ...
+    "2025-03": 4
+  },
+  createdAt: Timestamp,
+  updatedAt: Timestamp,
+  lastEventAt: Timestamp
 }
 ```
 
@@ -765,11 +780,10 @@ system/
 
 ### Available Functions
 
-#### System Metadata Functions
-- `systemMetadataInitialize`: Initialize system counters
-- `systemMetadataGet`: Get current system statistics
-- `systemMetadataUpdate`: Update system counters
-- `systemMetadataGetStats`: Get comprehensive statistics
+#### Dashboard Metadata Triggers
+- `onClientCreated`: Update dashboard metadata when a client is created
+- `onClientUpdated`: Track client status changes
+- `onClientDeleted`: Keep active client counts accurate
 
 #### Organization Functions
 - `createOrganization`: Create new organization with admin

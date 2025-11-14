@@ -290,10 +290,10 @@ class AuthRepository {
     }
   }
 
-  // Initialize SUPERADMIN_CONFIG and SYSTEM_METADATA collections if they don't exist
+  // Initialize SUPERADMIN_CONFIG collection if it doesn't exist
   Future<void> _initializeCollectionsIfNeeded() async {
     try {
-      await _configRepository.initializeCollectionsIfNeeded();
+      await _configRepository.ensureSuperAdminConfigExists();
     } catch (e) {
       // Log error but don't throw - this shouldn't prevent login
       print('Warning: Failed to initialize collections: $e');

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/app_theme.dart';
 import '../../../../core/services/call_detection_service.dart';
 import '../../../auth/android_auth_bloc.dart';
@@ -13,8 +13,10 @@ import 'android_organization_settings_page.dart';
 import 'android_clients_page.dart';
 import 'android_add_client_page.dart';
 import '../../repositories/android_order_repository.dart';
-import '../../repositories/android_client_repository.dart';
+import '../widgets/android_scheduled_orders_dashboard.dart';
+import '../../repositories/android_scheduled_order_repository.dart';
 import '../../models/order.dart';
+import '../widgets/android_schedule_order_dialog.dart';
 import 'android_order_detail_page.dart';
 
 class AndroidOrganizationHomePage extends StatefulWidget {
@@ -36,6 +38,8 @@ class _AndroidOrganizationHomePageState extends State<AndroidOrganizationHomePag
   
   // Pending Orders state
   final AndroidOrderRepository _orderRepository = AndroidOrderRepository();
+  final AndroidScheduledOrderRepository _scheduledOrderRepository =
+      AndroidScheduledOrderRepository();
   final ScrollController _pendingOrdersScrollController = ScrollController();
 
   @override
@@ -540,30 +544,6 @@ class _AndroidOrganizationHomePageState extends State<AndroidOrganizationHomePag
     );
   }
 
-  String _getRelativeTime(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    
-    if (difference.inDays == 0) {
-      if (difference.inHours == 0) {
-        if (difference.inMinutes == 0) {
-          return 'Just now';
-        }
-        return '${difference.inMinutes}m ago';
-      }
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
-      return '${weeks}w ago';
-    } else {
-      return DateFormat('MMM dd, yyyy').format(date);
-    }
-  }
-
   Color _getOrderAgeColor(DateTime createdAt) {
     final daysSince = DateTime.now().difference(createdAt).inDays;
     if (daysSince <= 1) {
@@ -575,39 +555,28 @@ class _AndroidOrganizationHomePageState extends State<AndroidOrganizationHomePag
     }
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color backgroundColor,
-    required Gradient gradient,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: backgroundColor.withValues(alpha: 0.3),
-                blurRadius: 8,
-                spreadRadius: 0,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
+  String _formatOrderPlaced(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final day = date.day.toString().padLeft(2, '0');
+    final month = months[date.month - 1];
+    final year = date.year;
+    final hour12 = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+    return '$day $month $year, $hour12:$minute $period';
   }
 
   Future<void> _handleScheduleOrder(Order order) async {
@@ -619,21 +588,19 @@ class _AndroidOrganizationHomePageState extends State<AndroidOrganizationHomePag
       return;
     }
 
-    try {
-      final updatedOrder = order.copyWith(
-        status: OrderStatus.confirmed,
-        updatedAt: DateTime.now(),
-        updatedBy: userId,
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AndroidScheduleOrderDialog(
+        organizationId: order.organizationId,
+        order: order,
+        userId: userId,
+        scheduledOrderRepository: _scheduledOrderRepository,
+      ),
       );
 
-      await _orderRepository.updateOrder(
-        order.organizationId,
-        order.orderId,
-        updatedOrder,
-        userId,
-      );
+    if (!mounted || result != true) return;
 
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(
@@ -647,17 +614,6 @@ class _AndroidOrganizationHomePageState extends State<AndroidOrganizationHomePag
             behavior: SnackBarBehavior.floating,
           ),
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error scheduling order: $e'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _handleDeleteOrder(Order order) async {
@@ -766,359 +722,261 @@ class _AndroidOrganizationHomePageState extends State<AndroidOrganizationHomePag
   }
 
   Widget _buildPendingOrderTile(BuildContext context, Order order) {
-    // Get product names - show up to 2, with count if more
-    final productNames = order.items.map((item) => item.productName).toList();
-    final productDisplayText = productNames.length <= 2
-        ? productNames.join(', ')
-        : '${productNames.take(2).join(', ')} +${productNames.length - 2} more';
-
-    final totalQuantity = order.items.fold<int>(0, (sum, item) => sum + item.quantity);
     final orderAgeColor = _getOrderAgeColor(order.createdAt);
+    final clientName = (order.clientName?.trim().isNotEmpty ?? false)
+        ? order.clientName!.trim()
+        : '—';
+    final regionAddress = [order.region, order.city]
+        .where((value) => value.trim().isNotEmpty)
+        .join(', ');
+    final totalQuantity =
+        order.items.fold<int>(0, (sum, item) => sum + item.quantity);
+    final orderPlacedOn = _formatOrderPlaced(order.createdAt);
 
-    // Load client name
-    final clientRepository = AndroidClientRepository();
-    return FutureBuilder(
-      future: clientRepository.getClient(order.organizationId, order.clientId),
-      builder: (context, snapshot) {
-        final clientName = snapshot.hasData ? snapshot.data!.name : 'Unknown Client';
-        
-        return Container(
-          margin: const EdgeInsets.only(bottom: 14),
-          decoration: BoxDecoration(
-            color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: orderAgeColor,
-              width: 2,
-            ),
-            boxShadow: [
-              ...AppTheme.cardShadow,
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-              BoxShadow(
-                color: orderAgeColor.withValues(alpha: 0.3),
-                blurRadius: 12,
-                spreadRadius: 0,
-                offset: const Offset(0, 0),
-              ),
-              BoxShadow(
-                color: orderAgeColor.withValues(alpha: 0.15),
-                blurRadius: 20,
-                spreadRadius: 2,
-                offset: const Offset(0, 0),
-              ),
-            ],
+    TextStyle labelStyle(Color color) => TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: color,
+          letterSpacing: 0.1,
+        );
+    TextStyle valueStyle(Color color) => TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: color,
+        );
+
+    Widget infoPair(
+      String label,
+      String value, {
+      bool alignEnd = false,
+      int maxLines = 1,
+    }) {
+      return Column(
+        crossAxisAlignment:
+            alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: labelStyle(AppTheme.textSecondaryColor)),
+          const SizedBox(height: 4),
+          Text(
+            value.isNotEmpty ? value : '—',
+            style: valueStyle(AppTheme.textPrimaryColor),
+            textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AndroidOrderDetailPage(
-                      organizationId: order.organizationId,
-                      orderId: order.orderId,
-                      order: order,
-                    ),
-                  ),
-                );
-              },
-              borderRadius: BorderRadius.circular(18),
-              splashColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-              highlightColor: AppTheme.primaryColor.withValues(alpha: 0.05),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Column(
+        ],
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: orderAgeColor,
+          width: 2,
+        ),
+        boxShadow: [
+          ...AppTheme.cardShadow,
+          BoxShadow(
+            color: orderAgeColor.withValues(alpha: 0.25),
+            blurRadius: 16,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AndroidOrderDetailPage(
+                  organizationId: order.organizationId,
+                  orderId: order.orderId,
+                  order: order,
+                ),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(18),
+          splashColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+          highlightColor: AppTheme.primaryColor.withValues(alpha: 0.05),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                        // Top Row: Client/Product and Trips aligned at top
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Left Column: Client and Product Info
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Client Info with Status Dot
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: BoxDecoration(
-                                          color: orderAgeColor,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: orderAgeColor.withValues(alpha: 0.5),
-                                              blurRadius: 4,
-                                              spreadRadius: 1,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        Icons.person_rounded,
-                                        size: 18,
-                                        color: AppTheme.primaryColor,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          clientName,
-                                          style: const TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppTheme.textPrimaryColor,
-                                            letterSpacing: 0.2,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  // Product Info
-                                  Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Icon(
-                                        Icons.shopping_cart_rounded,
-                                        size: 17,
-                                        color: AppTheme.textSecondaryColor,
-                                      ),
-                                      const SizedBox(width: 7),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              productDisplayText,
-                                              style: const TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppTheme.textPrimaryColor,
-                                                letterSpacing: 0.1,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            if (totalQuantity > 0) ...[
-                                              const SizedBox(height: 4),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                                decoration: BoxDecoration(
-                                                  color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(
-                                                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                                                    width: 1,
-                                                  ),
-                                                ),
-                                                child: Text(
-                                                  '$totalQuantity ${totalQuantity == 1 ? 'unit' : 'units'}',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: AppTheme.primaryColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Right Column: Enhanced Trips Display - Aligned to top
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    gradient: AppTheme.primaryGradient,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: AppTheme.primaryColor.withValues(alpha: 0.4),
-                                        blurRadius: 12,
-                                        spreadRadius: 2,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Text(
-                                    '${order.trips}',
-                                    style: const TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.directions_car_rounded,
-                                      size: 13,
-                                      color: AppTheme.textSecondaryColor,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      'Trips',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textSecondaryColor,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        // Bottom Section: Location and Date - Better aligned
-                        Row(
-                          children: [
-                            if (order.region.isNotEmpty || order.city.isNotEmpty) ...[
-                              Icon(
-                                Icons.location_on_rounded,
-                                size: 14,
-                                color: AppTheme.textSecondaryColor,
-                              ),
-                              const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          infoPair('Client Name', clientName, maxLines: 1),
+                          const SizedBox(height: 10),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Expanded(
-                                child: Text(
-                                  [order.region, order.city].where((s) => s.isNotEmpty).join(', '),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppTheme.textSecondaryColor,
-                                    letterSpacing: 0.1,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                                child: infoPair(
+                                  'Region, Address',
+                                  regionAddress,
+                                  maxLines: 2,
                                 ),
                               ),
                               const SizedBox(width: 12),
+                              infoPair(
+                                'Quantity',
+                                '$totalQuantity',
+                                alignEnd: true,
+                              ),
                             ],
-                            Icon(
-                              Icons.calendar_today_rounded,
-                              size: 14,
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                            const SizedBox(width: 6),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _getRelativeTime(order.createdAt),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimaryColor,
-                                  ),
-                                ),
-                                Text(
-                                  DateFormat('MMM dd').format(order.createdAt),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppTheme.textSecondaryColor.withValues(alpha: 0.7),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildRemainingTripsChip(order.remainingTrips),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if ((order.clientPhone?.trim().isNotEmpty ?? false)) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          _callClient(order.clientPhone!.trim()),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.7),
                         ),
-                        const SizedBox(height: 12),
-                        // Action Buttons Row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            // Schedule Button
-                            _buildActionButton(
-                              icon: Icons.event_available_rounded,
-                              backgroundColor: AppTheme.successColor,
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.successColor,
-                                  AppTheme.successColor.withValues(alpha: 0.8),
-                                ],
-                              ),
-                              onTap: () => _handleScheduleOrder(order),
-                            ),
-                            const SizedBox(width: 10),
-                            // Delete Button
-                            _buildActionButton(
-                              icon: Icons.delete_outline_rounded,
-                              backgroundColor: AppTheme.errorColor,
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppTheme.errorColor,
-                                  AppTheme.errorColor.withValues(alpha: 0.8),
-                                ],
-                              ),
-                              onTap: () => _handleDeleteOrder(order),
-                            ),
-                          ],
-                        ),
-                      ],
+                        foregroundColor: AppTheme.primaryColor,
+                      ),
+                      icon: const Icon(Icons.call),
+                      label: const Text(
+                        'Call Client',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                ],
+                infoPair('Order placed', orderPlacedOn, maxLines: 2),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _handleScheduleOrder(order),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        child: const Text('Schedule'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _handleDeleteOrder(order),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: BorderSide(
+                            color: AppTheme.errorColor.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: AppTheme.errorColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRemainingTripsChip(int remainingTrips) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Text(
+        '$remainingTrips',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
     );
   }
 
   Widget _buildScheduledOrdersContent(BuildContext context) {
+    final orgId = widget.organization['orgId'] ?? widget.organization['id'];
+    if (orgId == null) {
+      return _buildCenteredMessage('Organization not found');
+    }
+
+    final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (userId.isEmpty) {
+      return _buildCenteredMessage('User not authenticated');
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 16,
+      ),
+      child: AndroidScheduledOrdersDashboard(
+        organizationId: orgId.toString(),
+        repository: _scheduledOrderRepository,
+        orderRepository: _orderRepository,
+        userId: userId,
+      ),
+    );
+  }
+
+  Widget _buildCenteredMessage(String message) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.schedule,
-            size: 64,
-            color: AppTheme.textSecondaryColor,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Scheduled Orders',
-            style: TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Coming Soon',
-            style: TextStyle(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          message,
+          style: const TextStyle(
               color: AppTheme.textSecondaryColor,
               fontSize: 16,
             ),
+          textAlign: TextAlign.center,
           ),
-        ],
       ),
     );
   }
@@ -1433,6 +1291,25 @@ class _AndroidOrganizationHomePageState extends State<AndroidOrganizationHomePag
         return 'Driver';
       default:
         return 'Member';
+    }
+  }
+
+  Future<void> _callClient(String phoneNumber) async {
+    final normalized = phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (normalized.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Client phone number unavailable')),
+      );
+      return;
+    }
+
+    final uri = Uri(scheme: 'tel', path: normalized);
+    final launched = await launchUrl(uri);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open dialer')),
+      );
     }
   }
 }

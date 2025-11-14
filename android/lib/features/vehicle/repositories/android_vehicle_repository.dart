@@ -129,5 +129,27 @@ class AndroidVehicleRepository {
       throw Exception('Failed to delete vehicle: $e');
     }
   }
+
+  Future<Vehicle?> getVehicleById(
+    String organizationId,
+    String vehicleId,
+  ) async {
+    try {
+      final doc = await _firestore
+          .collection('ORGANIZATIONS')
+          .doc(organizationId)
+          .collection('VEHICLES')
+          .doc(vehicleId)
+          .get();
+
+      if (!doc.exists) {
+        return null;
+      }
+
+      return Vehicle.fromFirestore(doc);
+    } catch (e) {
+      throw Exception('Failed to fetch vehicle: $e');
+    }
+  }
 }
 

@@ -46,9 +46,13 @@ class AppConstants {
   static const String organizationsCollection = 'ORGANIZATIONS';
   static const String usersCollection = 'USERS';
   static const String clientsCollection = 'CLIENTS';
+  static const String ordersCollection = 'ORDERS';
+  static const String crmSettingsCollection = 'CRM_SETTINGS';
   static const String employeesCollection = 'EMPLOYEES';
   static const String superadminConfigCollection = 'SUPERADMIN_CONFIG';
-  static const String systemMetadataCollection = 'SYSTEM_METADATA';
+  static const String dashboardMetadataCollection = 'DASHBOARD_METADATA';
+  static const String dashboardClientsDocument = 'CLIENTS';
+  static const String dashboardFinancialYearsSubcollection = 'FINANCIAL_YEARS';
 
   // Firestore Subcollections (CAPITAL LETTERS)
   static const String subscriptionSubcollection = 'SUBSCRIPTION';
@@ -56,6 +60,9 @@ class AppConstants {
   static const String organizationsSubcollection = 'ORGANIZATIONS';
   static const String rolesSubcollection = 'ROLES';
   static const String employeeLedgerSubcollection = 'LEDGER';
+  static const String dmTrackingSubcollection = 'DM_TRACKING';
+  static const String dmTemplatesSubcollection = 'DM_TEMPLATES';
+  static const String depotsSubcollection = 'DEPOTS';
 
   // Employee Status
   static const String employeeStatusActive = 'active';

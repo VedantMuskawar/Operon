@@ -17,6 +17,14 @@ class StorageUtils {
     return 'organizations/$orgId/attachments/$fileName';
   }
 
+  static String getScheduleDeliveryProofPath(
+    String orgId,
+    String scheduleId,
+    String fileName,
+  ) {
+    return 'organizations/$orgId/sch_orders/$scheduleId/delivery/$fileName';
+  }
+
   // User Storage Paths
   static String getUserProfilePhotoPath(String userId, String fileName) {
     return 'users/$userId/profile_photos/$fileName';

@@ -11,8 +11,10 @@ class MainActivity : FlutterActivity() {
     
     private val METHOD_CHANNEL_NAME = "com.example.operon/call_detection"
     private val NATIVE_OVERLAY_CHANNEL_NAME = "com.example.operon/native_overlay"
+    private val TRIP_TRACKING_CHANNEL_NAME = "com.example.operon/trip_tracking"
     private var methodChannel: MethodChannel? = null
     private var nativeOverlayChannel: MethodChannel? = null
+    private var tripTrackingChannel: MethodChannel? = null
     
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -58,6 +60,38 @@ class MainActivity : FlutterActivity() {
         
         // Start the call detection service after Flutter engine is ready
         startCallDetectionService()
+
+        tripTrackingChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            TRIP_TRACKING_CHANNEL_NAME
+        )
+
+        tripTrackingChannel?.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startTripTracking" -> {
+                    val scheduleId = call.argument<String>("scheduleId")
+                    if (scheduleId.isNullOrBlank()) {
+                        result.error("invalid_args", "scheduleId is required", null)
+                        return@setMethodCallHandler
+                    }
+                    val vehicleLabel = call.argument<String>("vehicleLabel")
+                    TripTrackingService.start(
+                        this,
+                        scheduleId,
+                        vehicleLabel
+                    )
+                    result.success(null)
+                }
+
+                "stopTripTracking" -> {
+                    val scheduleId = call.argument<String>("scheduleId")
+                    TripTrackingService.stop(this, scheduleId)
+                    result.success(null)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {

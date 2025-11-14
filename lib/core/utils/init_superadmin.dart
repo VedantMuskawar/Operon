@@ -23,7 +23,6 @@ class SuperAdminInitializer {
       await _createSuperAdminOrganization();
       await _createSuperAdminUser(firebaseAuthUid);
       await _createSuperAdminConfig();
-      await _createSystemMetadata();
       await _createSuperAdminOrgUser(firebaseAuthUid);
       
       print('\n🎉 SuperAdmin initialization completed successfully!');
@@ -162,29 +161,6 @@ class SuperAdminInitializer {
         .set(configData);
     
     print('✅ SuperAdmin configuration created');
-  }
-
-  /// Create system metadata
-  Future<void> _createSystemMetadata() async {
-    print('📊 Creating system metadata...');
-    
-    final metadataData = {
-      'totalOrganizations': 1,
-      'totalUsers': 1,
-      'activeOrganizations': 1,
-      'activeUsers': 1,
-      'totalSuperAdmins': 1,
-      'lastUpdated': Timestamp.now(),
-      'systemVersion': '1.0.0',
-      'databaseVersion': '1.0.0'
-    };
-
-    await _firestore
-        .collection(AppConstants.systemMetadataCollection)
-        .doc('stats')
-        .set(metadataData);
-    
-    print('✅ System metadata created');
   }
 
   /// Create SuperAdmin user in organization subcollection

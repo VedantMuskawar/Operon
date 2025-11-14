@@ -61,6 +61,9 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
   bool _isNewRegion = false;
   String? _selectedPaymentType; // Payment type selection
 
+  final TextEditingController _gstRateController = TextEditingController();
+  bool _gstApplicable = false;
+
   // Step 0: Client Selection (if clientId not provided)
   List<Client> _allClients = [];
   String? _selectedClientId;
@@ -101,6 +104,15 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
       if (widget.existingOrder!.notes != null) {
         _notesController.text = widget.existingOrder!.notes!;
       }
+      _gstApplicable = widget.existingOrder!.gstApplicable;
+      final double existingGstRate = widget.existingOrder!.gstRate != 0
+          ? widget.existingOrder!.gstRate
+          : (widget.existingOrder!.items.isNotEmpty
+              ? widget.existingOrder!.items.first.gstRate
+              : 0.0);
+      if (_gstApplicable && existingGstRate > 0) {
+        _gstRateController.text = _formatGstRate(existingGstRate);
+      }
       _loadClientInfo();
     } else if (widget.clientId != null) {
       _selectedClientId = widget.clientId;
@@ -134,6 +146,7 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
     _unitPriceController.dispose();
     _newRegionController.dispose();
     _quantityController.dispose();
+    _gstRateController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -248,12 +261,41 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
     }
   }
 
+  String _formatGstRate(double rate) {
+    if (rate.roundToDouble() == rate) {
+      return rate.toStringAsFixed(0);
+    }
+    return rate.toStringAsFixed(2);
+  }
+
+  double _parseGstRate() {
+    if (!_gstApplicable) return 0.0;
+    return double.tryParse(_gstRateController.text.trim()) ?? 0.0;
+  }
+
+  double _calculateGstAmount(double subtotal) {
+    if (!_gstApplicable) return 0.0;
+    final rate = _parseGstRate();
+    if (rate <= 0 || subtotal <= 0) {
+      return 0.0;
+    }
+    return subtotal * rate / 100;
+  }
+
   double _calculateSubtotal() {
     if (_selectedProductId == null || _quantity == 0 || _unitPriceController.text.isEmpty) return 0.0;
     
     final unitPrice = double.tryParse(_unitPriceController.text) ?? 0.0;
     
     return _quantity * unitPrice * _trips;
+  }
+
+  int _adjustRemainingTrips(int currentRemaining, int previousTrips, int newTrips) {
+    final difference = newTrips - previousTrips;
+    final updated = currentRemaining + difference;
+    if (updated < 0) return 0;
+    if (updated > newTrips) return newTrips;
+    return updated;
   }
 
   bool _canProceedToStep2() {
@@ -284,6 +326,7 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
 
     try {
       final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+      final double gstRate = _parseGstRate();
       
       // Determine final region and city (from existing or new inputs)
       final finalRegion = _isNewRegion ? _newRegionController.text.trim() : _selectedRegion!;
@@ -291,7 +334,7 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
       
       // Update or create location pricing (always save, especially for new regions)
       final unitPrice = double.parse(_unitPriceController.text);
-      final locationId = await _locationRepository.createOrUpdateLocationPricing(
+      await _locationRepository.createOrUpdateLocationPricing(
         widget.organizationId,
         finalRegion,
         finalCity,
@@ -310,17 +353,19 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
       final orderItems = <OrderItem>[];
       if (_selectedProductId != null && _quantity > 0) {
         final product = _allProducts.firstWhere((p) => p.productId == _selectedProductId);
+        final itemTotal = _quantity * unitPrice * _trips;
         orderItems.add(OrderItem(
           productId: product.productId,
           productName: product.productName,
           quantity: _quantity,
           unitPrice: unitPrice,
-          totalPrice: _quantity * unitPrice * _trips,
+          totalPrice: itemTotal,
+          gstRate: gstRate,
         ));
       }
 
       final subtotal = _calculateSubtotal();
-
+      final gstAmount = _calculateGstAmount(subtotal);
       // Generate order ID
       final orderId = _generateOrderId();
 
@@ -331,10 +376,25 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
               city: finalCity,
               locationId: locationPricing?.id,
               subtotal: subtotal,
-              totalAmount: subtotal,
+              gstAmount: gstAmount,
+              gstApplicable: _gstApplicable,
+              gstRate: gstRate,
               trips: _trips,
               paymentType: _selectedPaymentType ?? PaymentType.payOnDelivery,
-              notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+              clientName: _clientName?.trim().isNotEmpty == true
+                  ? _clientName!.trim()
+                  : widget.existingOrder!.clientName,
+              clientPhone: _clientPhone?.trim().isNotEmpty == true
+                  ? _clientPhone!.trim()
+                  : widget.existingOrder!.clientPhone,
+              notes: _notesController.text.trim().isNotEmpty
+                  ? _notesController.text.trim()
+                  : null,
+              remainingTrips: (_adjustRemainingTrips(
+                widget.existingOrder!.remainingTrips,
+                widget.existingOrder!.trips,
+                _trips,
+              )),
             )
           : Order(
               orderId: orderId,
@@ -353,14 +413,28 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
               city: finalCity,
               locationId: locationPricing?.id,
               subtotal: subtotal,
-              totalAmount: subtotal,
+              gstAmount: gstAmount,
+              gstApplicable: _gstApplicable,
+              gstRate: gstRate,
               trips: _trips,
               paymentType: _selectedPaymentType ?? PaymentType.payOnDelivery,
+              clientName: _clientName?.trim().isNotEmpty == true
+                  ? _clientName!.trim()
+                  : null,
+              clientPhone: _clientPhone?.trim().isNotEmpty == true
+                  ? _clientPhone!.trim()
+                  : null,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
               createdBy: userId,
               updatedBy: userId,
-              notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+              notes: _notesController.text.trim().isNotEmpty
+                  ? _notesController.text.trim()
+                  : null,
+              remainingTrips: _trips,
+              lastScheduledAt: null,
+              lastScheduledBy: null,
+              lastScheduledVehicleId: null,
             );
 
       if (widget.existingOrder != null) {
@@ -1416,6 +1490,14 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                if (_clientName != null && _clientName!.isNotEmpty) ...[
+                  _buildSummaryRow('Client', _clientName!),
+                  const SizedBox(height: 12),
+                ],
+                if (_clientPhone != null && _clientPhone!.isNotEmpty) ...[
+                  _buildSummaryRow('Phone', _clientPhone!),
+                  const SizedBox(height: 12),
+                ],
                 if (selectedProduct != null) ...[
                   _buildSummaryRow('Product', selectedProduct.productName),
                   const SizedBox(height: 12),
@@ -1515,32 +1597,115 @@ class _AndroidCreateOrderPageState extends State<AndroidCreateOrderPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(
+                Column(
                   children: [
-                    Expanded(
-                      child: _buildPaymentOption(
-                        PaymentType.payOnDelivery,
-                        'Pay on Delivery',
-                        Icons.delivery_dining,
-                      ),
+                    _buildPaymentOption(
+                      PaymentType.payOnDelivery,
+                      'Pay on Delivery',
+                      Icons.delivery_dining,
+                      fullWidth: true,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildPaymentOption(
-                        PaymentType.payLater,
-                        'Pay Later',
-                        Icons.schedule,
+                    const SizedBox(height: 12),
+                    _buildPaymentOption(
+                      PaymentType.payLater,
+                      'Pay Later',
+                      Icons.schedule,
+                      fullWidth: true,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildPaymentOption(
+                      PaymentType.advance,
+                      'Advance',
+                      Icons.payment,
+                      fullWidth: true,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // GST Selection
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.cardColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.receipt_long_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'GST',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimaryColor,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                _buildPaymentOption(
-                  PaymentType.advance,
-                  'Advance',
-                  Icons.payment,
-                  fullWidth: true,
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppTheme.primaryColor,
+                  title: const Text(
+                    'Apply GST',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Enable if GST should be added to this order.',
+                  ),
+                  value: _gstApplicable,
+                  onChanged: (value) {
+                    setState(() {
+                      _gstApplicable = value;
+                      if (!value) {
+                        _gstRateController.clear();
+                      }
+                    });
+                  },
                 ),
+                if (_gstApplicable) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _gstRateController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'GST Rate (%)',
+                      filled: true,
+                      fillColor: AppTheme.backgroundColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.percent),
+                    ),
+                    validator: (value) {
+                      if (_gstApplicable) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Enter GST rate';
+                        }
+                        final parsed = double.tryParse(value.trim());
+                        if (parsed == null || parsed <= 0) {
+                          return 'Enter valid GST rate';
+                        }
+                      }
+                      return null;
+                    },
+                  ),
+                ],
               ],
             ),
           ),

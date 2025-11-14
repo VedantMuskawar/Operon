@@ -14,6 +14,10 @@ import '../../../../core/widgets/page_header.dart';
 import '../../../../core/widgets/form_container.dart';
 import '../../bloc/organization_bloc.dart';
 import '../../../../contexts/organization_context.dart';
+import '../../bloc/depot/depot_bloc.dart';
+import '../../bloc/depot/depot_event.dart';
+import '../../../../core/repositories/depot_repository.dart';
+import 'depot_location_section.dart';
 
 class OrganizationSettingsView extends StatefulWidget {
   final VoidCallback onBack;
@@ -40,6 +44,8 @@ class _OrganizationSettingsViewState extends State<OrganizationSettingsView> {
   String? _currentLogoUrl;
   bool _hasChanges = false;
   bool _hasLoadedDetails = false;
+  late final DepotBloc _depotBloc;
+  String? _loadedDepotOrgId;
   
   final List<String> _industryOptions = [
     'Manufacturing',
@@ -58,6 +64,7 @@ class _OrganizationSettingsViewState extends State<OrganizationSettingsView> {
   void initState() {
     super.initState();
     _initializeControllers();
+    _depotBloc = DepotBloc(depotRepository: DepotRepository());
   }
 
   @override
@@ -67,6 +74,7 @@ class _OrganizationSettingsViewState extends State<OrganizationSettingsView> {
     _gstController.dispose();
     _industryController.dispose();
     _locationController.dispose();
+    _depotBloc.close();
     super.dispose();
   }
 
@@ -150,6 +158,14 @@ class _OrganizationSettingsViewState extends State<OrganizationSettingsView> {
           });
         }
 
+        if (orgContext.organizationId != null &&
+            _loadedDepotOrgId != orgContext.organizationId) {
+          _loadedDepotOrgId = orgContext.organizationId;
+          _depotBloc.add(LoadDepotLocation(_loadedDepotOrgId!));
+        } else if (orgContext.organizationId == null && _loadedDepotOrgId != null) {
+          _loadedDepotOrgId = null;
+        }
+
         return BlocListener<OrganizationBloc, OrganizationState>(
           listener: (context, state) {
             print('🔍 DEBUG: BLoC state changed: ${state.runtimeType}');
@@ -192,6 +208,18 @@ class _OrganizationSettingsViewState extends State<OrganizationSettingsView> {
                           child: _buildOrganizationForm(),
                         ),
                         const SizedBox(height: AppTheme.spacingLg),
+                        if (orgContext.organizationId != null) ...[
+                          FormContainer(
+                            title: 'Depot Location',
+                            child: BlocProvider.value(
+                              value: _depotBloc,
+                              child: DepotLocationSection(
+                                orgId: orgContext.organizationId!,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppTheme.spacingLg),
+                        ],
                         FormContainer(
                           title: 'Subscription Information',
                           child: _buildSubscriptionInfo(),

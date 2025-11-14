@@ -4,11 +4,10 @@ This directory contains Firebase Cloud Functions for the OPERON organization man
 
 ## 🚀 **Available Functions**
 
-### **System Metadata Management**
-- `systemMetadataInitialize` - Initialize system counters
-- `systemMetadataGet` - Get system metadata counters
-- `systemMetadataUpdate` - Update system metadata atomically
-- `systemStatsGet` - Get comprehensive system statistics
+### **Dashboard Metadata**
+- `onClientCreated` - Updates dashboard metadata when a client is created
+- `onClientUpdated` - Tracks client status changes for active counts
+- `onClientDeleted` - Decrements active client counters when removed
 
 ### **Organization Management**
 - `organizationCreate` - Creates new organization with admin user
@@ -30,10 +29,11 @@ This directory contains Firebase Cloud Functions for the OPERON organization man
 - `onboardingValidateSetup` - Validates setup completion
 
 ### **Database Triggers**
-- `onOrganizationCreated` - Auto-updates metadata when org created
+- `onClientCreated` / `onClientUpdated` / `onClientDeleted` - Maintain dashboard metadata
+- `onOrganizationCreated` - Tracks organization lifecycle events
 - `onOrganizationUpdated` - Tracks organization changes
-- `onOrganizationDeleted` - Auto-updates metadata when org deleted
-- `onUserCreated` - Auto-updates metadata when user created
+- `onOrganizationDeleted` - Handles organization clean-up
+- `onUserCreated` - Logs user provisioning
 - `onUserUpdated` - Tracks user changes
 - `onSubscriptionUpdated` - Tracks subscription changes
 
@@ -41,47 +41,19 @@ This directory contains Firebase Cloud Functions for the OPERON organization man
 - `scheduledCleanupExpiredInvitations` - Cleans expired invitations (24h)
 - `scheduledSendSetupReminders` - Sends setup reminders (24h)
 
-## 📊 **System Metadata Usage**
+## 📊 **Dashboard Metadata Usage**
 
-### **Dashboard Statistics**
-The system metadata functions provide real-time statistics for the SuperAdmin dashboard:
+Client analytics are stored under:
 
-```javascript
-// Get system statistics
-const stats = await systemStatsGet();
-
-// Returns:
-{
-  totalOrganizations: 150,
-  totalUsers: 1250,
-  totalRevenue: 125000.0,
-  activeSubscriptions: 145,
-  actualOrgCount: 150,
-  actualUserCount: 1250,
-  actualSubscriptionCount: 145,
-  activeOrgCount: 140,
-  activeUserCount: 1200,
-  activeSubscriptionCount: 140,
-  lastUpdated: "2024-01-15T10:30:00Z"
-}
+```
+DASHBOARD_METADATA/
+  CLIENTS (summary document)
+    FINANCIAL_YEARS/{financialYearId}
 ```
 
-### **Automatic Updates**
-Database triggers automatically update metadata when:
-- Organizations are created/updated/deleted
-- Users are created/updated
-- Subscriptions are activated/deactivated
-
-### **Manual Updates**
-```javascript
-// Update specific counters
-await systemMetadataUpdate({
-  updates: {
-    totalRevenue: FieldValue.increment(999.0),
-    activeSubscriptions: FieldValue.increment(1)
-  }
-});
-```
+- The summary document tracks the global `totalActiveClients`.
+- Each financial year document tracks `totalOnboarded`, `totalActiveClientsSnapshot`, and a `monthlyOnboarding` map keyed by `YYYY-MM`.
+- Cloud Functions keep these documents in sync whenever clients are created, deleted, or have their status toggled.
 
 ## 📱 **Phone Auth Onboarding Flow**
 

@@ -7,6 +7,16 @@ const {getFirestore, FieldValue} = require("firebase-admin/firestore");
 const {getAuth} = require("firebase-admin/auth");
 const logger = require("firebase-functions/logger");
 
+const DM_TRACKING_SUBCOLLECTION = "DM_TRACKING";
+const DM_LEDGER_SUBCOLLECTION = "DM_LEDGER";
+const SCHEDULED_ORDERS_COLLECTION = "SCH_ORDERS";
+const DASHBOARD_METADATA_COLLECTION = "DASHBOARD_METADATA";
+const DASHBOARD_CLIENTS_DOC_ID = "CLIENTS";
+const DASHBOARD_FINANCIAL_YEAR_SUBCOLLECTION = "FINANCIAL_YEARS";
+const CLIENTS_COLLECTION = "CLIENTS";
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const DEFAULT_START_DM_NUMBER = 1;
+
 // Initialize Firebase Admin
 initializeApp();
 const db = getFirestore();
@@ -16,121 +26,263 @@ const auth = getAuth();
 setGlobalOptions({ maxInstances: 10 });
 
 // ============================================================================
-// SYSTEM METADATA FUNCTIONS
+// DM NUMBER FUNCTIONS
 // ============================================================================
 
-/**
- * Initialize system metadata counters
- * This function should be called once to set up initial counters
- */
-exports.systemMetadataInitialize = onCall(async (request) => {
-  try {
-    const countersRef = db.collection('SYSTEM_METADATA').doc('counters');
-    
-    const initialData = {
-      totalOrganizations: 0,
-      totalUsers: 0,
-      totalRevenue: 0.0,
-      activeSubscriptions: 0,
-      lastOrgIdCounter: 0,
-      lastUserIdCounter: 0,
-      lastUpdated: FieldValue.serverTimestamp(),
+exports.generateDmNumber = onCall(async (request) => {
+  const { organizationId, scheduleId, orderId } = request.data || {};
+
+  if (!organizationId || !scheduleId) {
+    throw new Error("organizationId and scheduleId are required");
+  }
+
+  const financialYearId = getFinancialYearId();
+  const dmDocRef = db
+    .collection("ORGANIZATIONS")
+    .doc(organizationId)
+    .collection(DM_TRACKING_SUBCOLLECTION)
+    .doc(financialYearId);
+  const scheduleRef = db
+    .collection(SCHEDULED_ORDERS_COLLECTION)
+    .doc(scheduleId);
+
+  let responsePayload = null;
+
+  await db.runTransaction(async (transaction) => {
+    const scheduleSnap = await transaction.get(scheduleRef);
+    if (!scheduleSnap.exists) {
+      throw new Error("Scheduled order not found");
+    }
+
+    const scheduleData = scheduleSnap.data();
+    if ((scheduleData.organizationId || scheduleData.orgId) !== organizationId) {
+      throw new Error("Scheduled order does not belong to the organization");
+    }
+
+    if (scheduleData.dmNumber) {
+      responsePayload = {
+        success: true,
+        dmNumber: scheduleData.dmNumber,
+        financialYearId,
+        alreadyGenerated: true,
+      };
+      return;
+    }
+
+    const dmSnap = await transaction.get(dmDocRef);
+    let startDmNumber = DEFAULT_START_DM_NUMBER;
+    let lastAssignedNumber = 0;
+    let currentDmNumber = 0;
+
+    if (!dmSnap.exists) {
+      transaction.set(
+        dmDocRef,
+        {
+          startDmNumber: startDmNumber,
+          currentDmNumber: 0,
+          lastDmNumber: 0,
+          createdAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } else {
+      const dmData = dmSnap.data();
+      startDmNumber = coerceInt(
+        dmData.startDmNumber,
+        DEFAULT_START_DM_NUMBER,
+      );
+      currentDmNumber = coerceInt(dmData.currentDmNumber, 0);
+      lastAssignedNumber = coerceInt(dmData.lastDmNumber, 0);
+    }
+
+    const nextDmNumber = currentDmNumber + 1;
+
+    const nowTimestamp = FieldValue.serverTimestamp();
+
+    transaction.set(
+      dmDocRef,
+      {
+        startDmNumber,
+        currentDmNumber: nextDmNumber,
+        lastDmNumber: nextDmNumber,
+        lastAssignedOrderId: scheduleId,
+        lastOrderId: orderId || scheduleData.orderId || null,
+        lastAssignedAt: nowTimestamp,
+        updatedAt: nowTimestamp,
+      },
+      { merge: true },
+    );
+
+    const scheduleUpdate = {
+      dmNumber: nextDmNumber,
+      dmFinancialYearId: financialYearId,
+      dmGeneratedAt: nowTimestamp,
     };
 
-    await countersRef.set(initialData);
-    
-    logger.info('System metadata initialized successfully');
-    return { success: true, message: 'System metadata initialized' };
-  } catch (error) {
-    logger.error('Error initializing system metadata:', error);
-    throw new Error(`Failed to initialize system metadata: ${error.message}`);
-  }
-});
-
-/**
- * Get system metadata counters
- */
-exports.systemMetadataGet = onCall(async (request) => {
-  try {
-    const countersRef = db.collection('SYSTEM_METADATA').doc('counters');
-    const doc = await countersRef.get();
-    
-    if (!doc.exists) {
-      // Initialize if doesn't exist
-      await exports.systemMetadataInitialize.run(request);
-      const newDoc = await countersRef.get();
-      return newDoc.data();
-    }
-    
-    return doc.data();
-  } catch (error) {
-    logger.error('Error getting system metadata:', error);
-    throw new Error(`Failed to get system metadata: ${error.message}`);
-  }
-});
-
-/**
- * Update system metadata counters atomically
- */
-exports.systemMetadataUpdate = onCall(async (request) => {
-  try {
-    const { updates } = request.data;
-    
-    if (!updates || typeof updates !== 'object') {
-      throw new Error('Updates object is required');
+    if (orderId) {
+      scheduleUpdate.dmOrderId = orderId;
     }
 
-    const countersRef = db.collection('SYSTEM_METADATA').doc('counters');
-    
-    // Add timestamp to updates
-    updates.lastUpdated = FieldValue.serverTimestamp();
-    
-    await countersRef.update(updates);
-    
-    logger.info('System metadata updated successfully', { updates });
-    return { success: true, message: 'System metadata updated' };
-  } catch (error) {
-    logger.error('Error updating system metadata:', error);
-    throw new Error(`Failed to update system metadata: ${error.message}`);
+    transaction.update(scheduleRef, scheduleUpdate);
+
+    const ledgerDocId = `${nextDmNumber}`;
+    const ledgerRef = dmDocRef
+      .collection(DM_LEDGER_SUBCOLLECTION)
+      .doc(ledgerDocId);
+
+    transaction.set(
+      ledgerRef,
+      {
+        dmNumber: nextDmNumber,
+        scheduleId,
+        orderId: orderId || scheduleData.orderId || null,
+        status: "active",
+        generatedAt: nowTimestamp,
+      },
+      { merge: true },
+    );
+
+    responsePayload = {
+      success: true,
+      dmNumber: nextDmNumber,
+      financialYearId,
+      alreadyGenerated: false,
+      previousDmNumber: currentDmNumber || lastAssignedNumber,
+    };
+  });
+
+  if (responsePayload && !responsePayload.alreadyGenerated) {
+    logger.info("DM number generated", {
+      organizationId,
+      scheduleId,
+      dmNumber: responsePayload.dmNumber,
+      financialYearId: responsePayload.financialYearId,
+    });
   }
+
+  return responsePayload;
 });
 
-/**
- * Get comprehensive system statistics
- */
-exports.systemStatsGet = onCall(async (request) => {
-  try {
-    const countersRef = db.collection('SYSTEM_METADATA').doc('counters');
-    const countersDoc = await countersRef.get();
-    
-    if (!countersDoc.exists) {
-      await exports.systemMetadataInitialize.run(request);
-      const newDoc = await countersRef.get();
-      return newDoc.data();
-    }
-    
-    // Get additional stats from collections
-    const [orgsSnapshot, usersSnapshot, subscriptionsSnapshot] = await Promise.all([
-      db.collection('ORGANIZATIONS').get(),
-      db.collection('USERS').get(),
-      db.collectionGroup('subscriptions').get()
-    ]);
-    
-    const stats = countersDoc.data();
-    stats.actualOrgCount = orgsSnapshot.size;
-    stats.actualUserCount = usersSnapshot.size;
-    stats.actualSubscriptionCount = subscriptionsSnapshot.size;
-    
-    // Calculate additional metrics
-    stats.activeOrgCount = orgsSnapshot.docs.filter(doc => doc.data().status === 'active').length;
-    stats.activeUserCount = usersSnapshot.docs.filter(doc => doc.data().status === 'active').length;
-    stats.activeSubscriptionCount = subscriptionsSnapshot.docs.filter(doc => doc.data().isActive === true).length;
-    
-    return stats;
-  } catch (error) {
-    logger.error('Error getting system stats:', error);
-    throw new Error(`Failed to get system stats: ${error.message}`);
+exports.cancelDmNumber = onCall(async (request) => {
+  const { organizationId, scheduleId } = request.data || {};
+
+  if (!organizationId || !scheduleId) {
+    throw new Error("organizationId and scheduleId are required");
   }
+
+  const scheduleRef = db
+    .collection(SCHEDULED_ORDERS_COLLECTION)
+    .doc(scheduleId);
+
+  let responsePayload = null;
+
+  await db.runTransaction(async (transaction) => {
+    const scheduleSnap = await transaction.get(scheduleRef);
+    if (!scheduleSnap.exists) {
+      throw new Error("Scheduled order not found");
+    }
+
+    const scheduleData = scheduleSnap.data();
+    if ((scheduleData.organizationId || scheduleData.orgId) !== organizationId) {
+      throw new Error("Scheduled order does not belong to the organization");
+    }
+
+    if (!scheduleData.dmNumber) {
+      responsePayload = { success: true, alreadyCleared: true };
+      return;
+    }
+
+    if (scheduleData.status && scheduleData.status !== "scheduled") {
+      throw new Error("DM can only be cancelled while schedule status is 'scheduled'");
+    }
+
+    const dmNumber = coerceInt(scheduleData.dmNumber);
+    const financialYearId =
+      typeof scheduleData.dmFinancialYearId === "string" &&
+      scheduleData.dmFinancialYearId.length > 0
+        ? scheduleData.dmFinancialYearId
+        : getFinancialYearId();
+
+    const dmDocRef = db
+      .collection("ORGANIZATIONS")
+      .doc(organizationId)
+      .collection(DM_TRACKING_SUBCOLLECTION)
+      .doc(financialYearId);
+
+    const ledgerDocId = `${dmNumber}`;
+    const ledgerRef = dmDocRef
+      .collection(DM_LEDGER_SUBCOLLECTION)
+      .doc(ledgerDocId);
+
+    const ledgerSnap = await transaction.get(ledgerRef);
+    let ledgerData = ledgerSnap.exists ? ledgerSnap.data() : null;
+
+    if (!ledgerData) {
+      ledgerData = {
+        dmNumber,
+        scheduleId,
+        orderId: scheduleData.orderId || null,
+        status: "active",
+        generatedAt: scheduleData.dmGeneratedAt || FieldValue.serverTimestamp(),
+      };
+      transaction.set(ledgerRef, ledgerData, { merge: true });
+    } else if (ledgerData.status === "cancelled") {
+      transaction.update(scheduleRef, {
+        dmNumber: FieldValue.delete(),
+        dmFinancialYearId: FieldValue.delete(),
+        dmGeneratedAt: FieldValue.delete(),
+        dmOrderId: FieldValue.delete(),
+      });
+
+      responsePayload = {
+        success: true,
+        cancelledDmNumber: dmNumber,
+        financialYearId,
+        alreadyCancelled: true,
+      };
+      return;
+    }
+
+    const nowTimestamp = FieldValue.serverTimestamp();
+
+    transaction.update(dmDocRef, {
+      lastDmNumber: dmNumber,
+      lastAssignedOrderId: FieldValue.delete(),
+      lastOrderId: FieldValue.delete(),
+      lastAssignedAt: FieldValue.delete(),
+      updatedAt: nowTimestamp,
+    });
+
+    transaction.update(ledgerRef, {
+      status: "cancelled",
+      cancelledAt: nowTimestamp,
+    });
+
+    transaction.update(scheduleRef, {
+      dmNumber: FieldValue.delete(),
+      dmFinancialYearId: FieldValue.delete(),
+      dmGeneratedAt: FieldValue.delete(),
+      dmOrderId: FieldValue.delete(),
+    });
+
+    responsePayload = {
+      success: true,
+      cancelledDmNumber: dmNumber,
+      financialYearId,
+      status: "cancelled",
+    };
+  });
+
+  if (responsePayload && responsePayload.success) {
+    logger.info("DM number cancelled", {
+      organizationId,
+      scheduleId,
+      dmNumber: responsePayload.cancelledDmNumber,
+      financialYearId: responsePayload.financialYearId,
+    });
+  }
+
+  return responsePayload;
 });
 
 // ============================================================================
@@ -768,6 +920,152 @@ exports.scheduledSendSetupReminders = onSchedule({
 // ============================================================================
 
 /**
+ * Trigger: When a client is created
+ */
+exports.onClientCreated = onDocumentCreated({
+  document: `${CLIENTS_COLLECTION}/{clientId}`,
+  region: 'us-central1'
+}, async (event) => {
+  try {
+    const clientId = event.params.clientId;
+    const clientData = event.data?.data();
+
+    if (!clientData) {
+      logger.warn('Client create trigger missing data', { clientId });
+      return;
+    }
+
+    const createdAt = toDate(clientData.createdAt) || new Date();
+    const financialYearId = getFinancialYearId(createdAt);
+    const monthKey = getFinancialMonthKey(createdAt);
+    const activeDelta = isClientActive(clientData.status) ? 1 : 0;
+
+    await db.runTransaction(async (transaction) => {
+      const summaryRef = clientsSummaryRef();
+      const yearRef = clientsFinancialYearRef(financialYearId);
+
+      const [summarySnap, yearSnap] = await Promise.all([
+        transaction.get(summaryRef),
+        transaction.get(yearRef),
+      ]);
+
+      const currentActive = summarySnap.exists
+        ? coerceInt(summarySnap.data().totalActiveClients, 0)
+        : 0;
+      const nextActive = currentActive + activeDelta;
+      const now = FieldValue.serverTimestamp();
+
+      const summaryPayload = {
+        totalActiveClients: nextActive,
+        lastEventAt: now,
+        updatedAt: now,
+      };
+      if (!summarySnap.exists) {
+        summaryPayload.createdAt = now;
+      }
+      transaction.set(summaryRef, summaryPayload, { merge: true });
+
+      const yearPayload = {
+        financialYearId,
+        totalOnboarded: FieldValue.increment(1),
+        totalActiveClientsSnapshot: nextActive,
+        updatedAt: now,
+        lastEventAt: now,
+      };
+      yearPayload[`monthlyOnboarding.${monthKey}`] = FieldValue.increment(1);
+      if (!yearSnap.exists) {
+        yearPayload.createdAt = now;
+      }
+      transaction.set(yearRef, yearPayload, { merge: true });
+    });
+
+    logger.info('Client dashboard metadata updated (create)', {
+      clientId,
+      financialYearId,
+      monthKey,
+    });
+  } catch (error) {
+    logger.error('Error processing client creation:', error);
+  }
+});
+
+/**
+ * Trigger: When a client is updated
+ */
+exports.onClientUpdated = onDocumentUpdated({
+  document: `${CLIENTS_COLLECTION}/{clientId}`,
+  region: 'us-central1'
+}, async (event) => {
+  try {
+    const before = event.data.before.data();
+    const after = event.data.after.data();
+    const clientId = event.params.clientId;
+
+    if (!before || !after) {
+      logger.warn('Client update missing data', { clientId });
+      return;
+    }
+
+    const beforeActive = isClientActive(before.status);
+    const afterActive = isClientActive(after.status);
+    const delta = (afterActive ? 1 : 0) - (beforeActive ? 1 : 0);
+
+    if (delta === 0) {
+      return;
+    }
+
+    const createdAt =
+      toDate(after.createdAt) ||
+      toDate(before.createdAt) ||
+      new Date();
+    const financialYearId = getFinancialYearId(createdAt);
+
+    await updateClientActiveCounts(financialYearId, delta);
+
+    logger.info('Client dashboard metadata updated (status change)', {
+      clientId,
+      financialYearId,
+      delta,
+    });
+  } catch (error) {
+    logger.error('Error processing client update:', error);
+  }
+});
+
+/**
+ * Trigger: When a client is deleted
+ */
+exports.onClientDeleted = onDocumentDeleted({
+  document: `${CLIENTS_COLLECTION}/{clientId}`,
+  region: 'us-central1'
+}, async (event) => {
+  try {
+    const clientId = event.params.clientId;
+    const clientData = event.data?.data();
+
+    if (!clientData) {
+      return;
+    }
+
+    if (!isClientActive(clientData.status)) {
+      return;
+    }
+
+    const createdAt = toDate(clientData.createdAt) || new Date();
+    const financialYearId = getFinancialYearId(createdAt);
+
+    await updateClientActiveCounts(financialYearId, -1);
+
+    logger.info('Client dashboard metadata updated (delete)', {
+      clientId,
+      financialYearId,
+    });
+  } catch (error) {
+    logger.error('Error processing client deletion:', error);
+  }
+});
+
+/**
  * Trigger: When a new organization is created
  */
 exports.onOrganizationCreated = onDocumentCreated({
@@ -780,14 +1078,6 @@ exports.onOrganizationCreated = onDocumentCreated({
     
     logger.info(`New organization created: ${orgId}`);
     
-    // Increment organization counter
-    const countersRef = db.collection('SYSTEM_METADATA').doc('counters');
-    await countersRef.update({
-      totalOrganizations: FieldValue.increment(1),
-      lastOrgIdCounter: FieldValue.increment(1),
-      lastUpdated: FieldValue.serverTimestamp()
-    });
-
     // Create activity log
     await db.collection('ACTIVITY').add({
       type: 'ORGANIZATION_CREATED',
@@ -877,13 +1167,6 @@ exports.onOrganizationDeleted = onDocumentDeleted({
     
     logger.info(`Organization deleted: ${orgId}`);
     
-    // Decrement organization counter
-    const countersRef = db.collection('SYSTEM_METADATA').doc('counters');
-    await countersRef.update({
-      totalOrganizations: FieldValue.increment(-1),
-      lastUpdated: FieldValue.serverTimestamp()
-    });
-
     // Create activity log
     await db.collection('ACTIVITY').add({
       type: 'ORGANIZATION_DELETED',
@@ -919,14 +1202,6 @@ exports.onUserCreated = onDocumentCreated({
     
     logger.info(`New user created: ${userId}`);
     
-    // Increment user counter
-    const countersRef = db.collection('SYSTEM_METADATA').doc('counters');
-    await countersRef.update({
-      totalUsers: FieldValue.increment(1),
-      lastUserIdCounter: FieldValue.increment(1),
-      lastUpdated: FieldValue.serverTimestamp()
-    });
-
     // Create activity log
     await db.collection('ACTIVITY').add({
       type: 'USER_CREATED',
@@ -1018,42 +1293,6 @@ exports.onSubscriptionUpdated = onDocumentUpdated({
     
     logger.info(`Subscription updated: ${subscriptionId} for org ${orgId}`);
     
-    const countersRef = db.collection('SYSTEM_METADATA').doc('counters');
-    
-    // Handle status changes
-    if (beforeData.status !== afterData.status) {
-      if (afterData.status === 'active' && beforeData.status !== 'active') {
-        // Subscription activated
-        await countersRef.update({
-          activeSubscriptions: FieldValue.increment(1),
-          lastUpdated: FieldValue.serverTimestamp()
-        });
-      } else if (beforeData.status === 'active' && afterData.status !== 'active') {
-        // Subscription deactivated
-        await countersRef.update({
-          activeSubscriptions: FieldValue.increment(-1),
-          lastUpdated: FieldValue.serverTimestamp()
-        });
-      }
-    }
-
-    // Handle isActive changes
-    if (beforeData.isActive !== afterData.isActive) {
-      if (afterData.isActive && !beforeData.isActive) {
-        // Subscription activated
-        await countersRef.update({
-          activeSubscriptions: FieldValue.increment(1),
-          lastUpdated: FieldValue.serverTimestamp()
-        });
-      } else if (!afterData.isActive && beforeData.isActive) {
-        // Subscription deactivated
-        await countersRef.update({
-          activeSubscriptions: FieldValue.increment(-1),
-          lastUpdated: FieldValue.serverTimestamp()
-        });
-      }
-    }
-
     // Create activity log
     await db.collection('ACTIVITY').add({
       type: 'SUBSCRIPTION_UPDATED',
@@ -1079,6 +1318,117 @@ exports.onSubscriptionUpdated = onDocumentUpdated({
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+
+/**
+ * Returns the financial year identifier (e.g. 2024-2025) for the supplied UTC
+ * date, adjusted to IST (UTC+5:30).
+ */
+function getFinancialYearId(date = new Date()) {
+  const istDate = new Date(date.getTime() + IST_OFFSET_MS);
+  const month = istDate.getUTCMonth() + 1;
+  const year = istDate.getUTCFullYear();
+  const startYear = month >= 4 ? year : year - 1;
+  const endYear = startYear + 1;
+  return `${startYear}-${endYear}`;
+}
+
+function coerceInt(value, fallback = 0) {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+  const parsed = parseInt(value, 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function toDate(value) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value.toDate === "function") {
+    return value.toDate();
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getFinancialMonthKey(date = new Date()) {
+  const istDate = new Date(date.getTime() + IST_OFFSET_MS);
+  const month = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+  const year = istDate.getUTCFullYear();
+  return `${year}-${month}`;
+}
+
+function normalizeClientStatus(status) {
+  if (typeof status !== "string") {
+    return "";
+  }
+  return status.trim().toLowerCase();
+}
+
+function isClientActive(status) {
+  return normalizeClientStatus(status) === "active";
+}
+
+function clientsSummaryRef() {
+  return db.collection(DASHBOARD_METADATA_COLLECTION).doc(DASHBOARD_CLIENTS_DOC_ID);
+}
+
+function clientsFinancialYearRef(financialYearId) {
+  return clientsSummaryRef()
+    .collection(DASHBOARD_FINANCIAL_YEAR_SUBCOLLECTION)
+    .doc(financialYearId);
+}
+
+async function updateClientActiveCounts(financialYearId, delta) {
+  if (!delta) {
+    return;
+  }
+
+  await db.runTransaction(async (transaction) => {
+    const summaryRef = clientsSummaryRef();
+    const yearRef = clientsFinancialYearRef(financialYearId);
+
+    const [summarySnap, yearSnap] = await Promise.all([
+      transaction.get(summaryRef),
+      transaction.get(yearRef),
+    ]);
+
+    const currentActive = summarySnap.exists
+      ? coerceInt(summarySnap.data().totalActiveClients, 0)
+      : 0;
+    const nextActive = Math.max(0, currentActive + delta);
+    const now = FieldValue.serverTimestamp();
+
+    const summaryPayload = {
+      totalActiveClients: nextActive,
+      lastEventAt: now,
+      updatedAt: now,
+    };
+    if (!summarySnap.exists) {
+      summaryPayload.createdAt = now;
+    }
+    transaction.set(summaryRef, summaryPayload, { merge: true });
+
+    const yearPayload = {
+      financialYearId,
+      totalActiveClientsSnapshot: nextActive,
+      updatedAt: now,
+      lastEventAt: now,
+    };
+    if (!yearSnap.exists) {
+      yearPayload.createdAt = now;
+      yearPayload.totalOnboarded = 0;
+    }
+
+    transaction.set(yearRef, yearPayload, { merge: true });
+  });
+}
 
 /**
  * Returns permissions based on user role
