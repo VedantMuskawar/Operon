@@ -1,0 +1,11 @@
+name: core_models
+description: Shared models and entities for Dash apps.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+dependencies:
+  cloud_firestore: ^4.15.5
+  firebase_auth: ^4.19.5
+dev_dependencies:
+  flutter_lints: ^3.0.0

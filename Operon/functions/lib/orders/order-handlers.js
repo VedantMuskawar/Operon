@@ -1,0 +1,532 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.onOrderUpdated = exports.onPendingOrderCreated = exports.onOrderDeleted = void 0;
+const admin = __importStar(require("firebase-admin"));
+const functions = __importStar(require("firebase-functions"));
+const constants_1 = require("../shared/constants");
+const firestore_helpers_1 = require("../shared/firestore-helpers");
+const order_scheduling_1 = require("./order-scheduling");
+const financial_year_1 = require("../shared/financial-year");
+const db = (0, firestore_helpers_1.getFirestore)();
+const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
+/**
+ * Helper function to mark trips with orderDeleted flag when order is deleted
+ * This is for audit purposes only - trips remain independent and functional
+ *
+ * @param orderId - The order ID
+ * @param deletedBy - User who deleted the order
+ * @param tripsSnapshot - Optional pre-fetched trips snapshot (to avoid race conditions)
+ */
+async function markTripsAsOrderDeleted(orderId, deletedBy, tripsSnapshot) {
+    try {
+        // Use provided snapshot or fetch new one
+        let tripsToMark;
+        if (tripsSnapshot) {
+            tripsToMark = tripsSnapshot.docs;
+        }
+        else {
+            const fetchedSnapshot = await db
+                .collection(SCHEDULE_TRIPS_COLLECTION)
+                .where('orderId', '==', orderId)
+                .get();
+            tripsToMark = fetchedSnapshot.docs;
+        }
+        if (tripsToMark.length === 0) {
+            console.log('[Order Deletion] No trips to mark', { orderId });
+            return;
+        }
+        console.log('[Order Deletion] Marking trips with orderDeleted flag', {
+            orderId,
+            tripsCount: tripsToMark.length,
+        });
+        // Mark trips with orderDeleted flag (for audit, not for deletion)
+        // Use allSettled to continue even if some updates fail
+        const markingPromises = tripsToMark.map(async (doc) => {
+            try {
+                // Check if trip still exists before updating
+                const tripDoc = await doc.ref.get();
+                if (!tripDoc.exists) {
+                    console.warn('[Order Deletion] Trip no longer exists, skipping', {
+                        orderId,
+                        tripId: doc.id,
+                    });
+                    return;
+                }
+                await doc.ref.update({
+                    orderDeleted: true,
+                    orderDeletedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    orderDeletedBy: deletedBy || 'system',
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+                console.log('[Order Deletion] Marked trip', {
+                    orderId,
+                    tripId: doc.id,
+                });
+            }
+            catch (updateError) {
+                console.error('[Order Deletion] Failed to mark individual trip', {
+                    orderId,
+                    tripId: doc.id,
+                    error: updateError,
+                });
+                // Continue with other trips
+            }
+        });
+        const markingResults = await Promise.allSettled(markingPromises);
+        const successfulMarks = markingResults.filter(r => r.status === 'fulfilled').length;
+        const failedMarks = markingResults.filter(r => r.status === 'rejected').length;
+        console.log('[Order Deletion] Trip marking results', {
+            orderId,
+            total: tripsToMark.length,
+            successful: successfulMarks,
+            failed: failedMarks,
+        });
+    }
+    catch (error) {
+        console.error('[Order Deletion] Error marking trips', {
+            orderId,
+            error,
+        });
+        // Don't throw - trip marking failure shouldn't block order deletion
+    }
+}
+/**
+ * Cloud Function: Triggered when an order is deleted
+ * Automatically deletes all associated transactions and marks trips for audit
+ */
+exports.onOrderDeleted = functions.firestore
+    .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
+    .onDelete(async (snapshot, context) => {
+    var _a;
+    const orderId = context.params.orderId;
+    const deletedBy = (_a = snapshot.data()) === null || _a === void 0 ? void 0 : _a.deletedBy;
+    console.log('[Order Deletion] Processing order deletion', {
+        orderId,
+        deletedBy,
+    });
+    // First, get trips count and snapshot BEFORE any operations
+    // This ensures we have the trip references even if something fails later
+    let tripsSnapshot = null;
+    let tripsCount = 0;
+    try {
+        tripsSnapshot = await db
+            .collection(SCHEDULE_TRIPS_COLLECTION)
+            .where('orderId', '==', orderId)
+            .get();
+        tripsCount = tripsSnapshot.size;
+        if (tripsCount > 0) {
+            console.log('[Order Deletion] Order has scheduled trips - trips will remain independent', {
+                orderId,
+                tripsCount,
+            });
+        }
+    }
+    catch (tripError) {
+        console.error('[Order Deletion] Error fetching trips', {
+            orderId,
+            error: tripError,
+        });
+        // Continue even if trip fetch fails
+    }
+    // Process transaction deletion
+    try {
+        // Find all transactions associated with this order
+        const transactionsSnapshot = await db
+            .collection(constants_1.TRANSACTIONS_COLLECTION)
+            .where('orderId', '==', orderId)
+            .get();
+        if (transactionsSnapshot.empty) {
+            console.log('[Order Deletion] No transactions found for order', {
+                orderId,
+            });
+        }
+        else {
+            console.log('[Order Deletion] Found transactions to delete', {
+                orderId,
+                transactionCount: transactionsSnapshot.size,
+            });
+            // Delete all associated transactions with retry logic
+            // This will trigger onTransactionDeleted which will properly revert ledger and analytics
+            const deletionPromises = transactionsSnapshot.docs.map(async (txDoc) => {
+                const txId = txDoc.id;
+                const txData = txDoc.data();
+                const currentStatus = txData.status;
+                // Retry deletion up to 3 times
+                let retries = 0;
+                const maxRetries = 3;
+                while (retries < maxRetries) {
+                    try {
+                        await txDoc.ref.delete();
+                        console.log('[Order Deletion] Deleted transaction', {
+                            orderId,
+                            transactionId: txId,
+                            previousStatus: currentStatus,
+                            retries,
+                        });
+                        return; // Success
+                    }
+                    catch (error) {
+                        retries++;
+                        if (retries >= maxRetries) {
+                            console.error('[Order Deletion] Failed to delete transaction after retries', {
+                                orderId,
+                                transactionId: txId,
+                                error,
+                                retries,
+                            });
+                            // Mark transaction for manual cleanup
+                            try {
+                                await txDoc.ref.update({
+                                    needsCleanup: true,
+                                    cleanupReason: `Order ${orderId} was deleted but transaction deletion failed`,
+                                    cleanupRequestedAt: admin.firestore.FieldValue.serverTimestamp(),
+                                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                                });
+                            }
+                            catch (updateError) {
+                                console.error('[Order Deletion] Failed to mark transaction for cleanup', {
+                                    orderId,
+                                    transactionId: txId,
+                                    error: updateError,
+                                });
+                            }
+                            // Don't throw - continue with other transactions
+                            return;
+                        }
+                        // Exponential backoff
+                        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000));
+                        console.warn('[Order Deletion] Retrying transaction deletion', {
+                            orderId,
+                            transactionId: txId,
+                            retry: retries,
+                            maxRetries,
+                        });
+                    }
+                }
+            });
+            // Use Promise.allSettled to continue even if some deletions fail
+            const deletionResults = await Promise.allSettled(deletionPromises);
+            const successfulDeletions = deletionResults.filter(r => r.status === 'fulfilled').length;
+            const failedDeletions = deletionResults.filter(r => r.status === 'rejected').length;
+            console.log('[Order Deletion] Transaction deletion results', {
+                orderId,
+                total: transactionsSnapshot.size,
+                successful: successfulDeletions,
+                failed: failedDeletions,
+            });
+        }
+    }
+    catch (transactionError) {
+        console.error('[Order Deletion] Error processing transaction deletion', {
+            orderId,
+            error: transactionError,
+        });
+        // Continue to trip marking even if transaction deletion fails
+    }
+    // Mark trips with orderDeleted flag (for audit trail, not for deletion)
+    // This happens AFTER transaction deletion, and even if transaction deletion fails
+    if (tripsCount > 0 && tripsSnapshot) {
+        try {
+            await markTripsAsOrderDeleted(orderId, deletedBy, tripsSnapshot);
+        }
+        catch (tripMarkingError) {
+            console.error('[Order Deletion] Error marking trips', {
+                orderId,
+                error: tripMarkingError,
+            });
+            // Don't throw - trip marking failure shouldn't block order deletion
+        }
+    }
+    console.log('[Order Deletion] Successfully processed order deletion', {
+        orderId,
+        tripsMarked: tripsCount,
+    });
+});
+/**
+ * Cloud Function: Triggered when an order is created
+ * Creates advance transaction if advance payment was provided
+ */
+exports.onPendingOrderCreated = functions.firestore
+    .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
+    .onCreate(async (snapshot, context) => {
+    var _a;
+    const orderId = context.params.orderId;
+    const orderData = snapshot.data();
+    const advanceAmount = orderData.advanceAmount || 0;
+    // Only create transaction if advance amount > 0
+    if (!advanceAmount || advanceAmount <= 0) {
+        console.log('[Order Created] No advance payment, skipping transaction creation', {
+            orderId,
+        });
+        return;
+    }
+    const organizationId = orderData.organizationId;
+    const clientId = orderData.clientId;
+    const orderNumber = orderData.orderNumber;
+    const totalAmount = (_a = orderData.pricing) === null || _a === void 0 ? void 0 : _a.totalAmount;
+    const remainingAmount = orderData.remainingAmount ||
+        (totalAmount ? totalAmount - advanceAmount : undefined);
+    const advancePaymentAccountId = orderData.advancePaymentAccountId || 'cash';
+    const createdBy = orderData.createdBy || 'system';
+    // Validate required fields
+    if (!organizationId || !clientId) {
+        console.error('[Order Created] Missing required fields for advance transaction', {
+            orderId,
+            organizationId,
+            clientId,
+        });
+        // Mark order with error flag
+        await snapshot.ref.update({
+            advanceTransactionError: 'Missing required fields: organizationId or clientId',
+            advanceTransactionErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return;
+    }
+    // Validate advance amount doesn't exceed total
+    if (totalAmount && advanceAmount > totalAmount) {
+        console.error('[Order Created] Advance amount exceeds order total', {
+            orderId,
+            advanceAmount,
+            totalAmount,
+        });
+        // Mark order with error flag
+        await snapshot.ref.update({
+            advanceTransactionError: `Advance amount (${advanceAmount}) exceeds order total (${totalAmount})`,
+            advanceTransactionErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return;
+    }
+    try {
+        // Get payment account type if payment account ID is provided
+        let paymentAccountType = 'cash';
+        if (advancePaymentAccountId && advancePaymentAccountId !== 'cash') {
+            try {
+                // Fetch payment account details from ORGANIZATIONS/{orgId}/PAYMENT_ACCOUNTS
+                const accountRef = db
+                    .collection('ORGANIZATIONS')
+                    .doc(organizationId)
+                    .collection('PAYMENT_ACCOUNTS')
+                    .doc(advancePaymentAccountId);
+                const accountDoc = await accountRef.get();
+                if (!accountDoc.exists) {
+                    console.error('[Order Created] Payment account not found', {
+                        orderId,
+                        advancePaymentAccountId,
+                    });
+                    await snapshot.ref.update({
+                        advanceTransactionError: `Payment account ${advancePaymentAccountId} not found`,
+                        advanceTransactionErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    return;
+                }
+                const accountData = accountDoc.data();
+                // Validate account is active
+                if ((accountData === null || accountData === void 0 ? void 0 : accountData.isActive) === false) {
+                    console.error('[Order Created] Payment account is inactive', {
+                        orderId,
+                        advancePaymentAccountId,
+                    });
+                    await snapshot.ref.update({
+                        advanceTransactionError: `Payment account ${advancePaymentAccountId} is inactive`,
+                        advanceTransactionErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    return;
+                }
+                paymentAccountType = (accountData === null || accountData === void 0 ? void 0 : accountData.type) || 'other';
+            }
+            catch (error) {
+                console.error('[Order Created] Error validating payment account', {
+                    orderId,
+                    advancePaymentAccountId,
+                    error,
+                });
+                await snapshot.ref.update({
+                    advanceTransactionError: `Error validating payment account: ${error instanceof Error ? error.message : String(error)}`,
+                    advanceTransactionErrorAt: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+                return;
+            }
+        }
+        // Calculate financial year
+        const now = new Date();
+        const { fyLabel: financialYear } = (0, financial_year_1.getFinancialContext)(now);
+        // Create advance transaction with retry logic
+        let retries = 0;
+        const maxRetries = 3;
+        let transactionCreated = false;
+        let transactionRef = null;
+        const transactionData = {
+            organizationId,
+            clientId,
+            type: 'advance',
+            category: 'income',
+            amount: advanceAmount,
+            status: 'completed',
+            paymentAccountId: advancePaymentAccountId,
+            paymentAccountType: paymentAccountType,
+            orderId: orderId,
+            description: `Advance payment for order ${orderNumber || orderId}`,
+            metadata: {
+                orderTotal: totalAmount || 0,
+                advanceAmount,
+                remainingAmount: remainingAmount || 0,
+            },
+            createdBy: createdBy,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            financialYear: financialYear,
+        };
+        while (retries < maxRetries && !transactionCreated) {
+            try {
+                transactionRef = db.collection(constants_1.TRANSACTIONS_COLLECTION).doc();
+                await transactionRef.set(transactionData);
+                transactionCreated = true;
+                console.log('[Order Created] Successfully created advance transaction', {
+                    orderId,
+                    transactionId: transactionRef.id,
+                    advanceAmount,
+                    financialYear,
+                    retries,
+                });
+            }
+            catch (error) {
+                retries++;
+                if (retries >= maxRetries) {
+                    console.error('[Order Created] Failed to create advance transaction after retries', {
+                        orderId,
+                        error,
+                        retries,
+                    });
+                    // Mark order with error flag for manual retry
+                    await snapshot.ref.update({
+                        advanceTransactionFailed: true,
+                        advanceTransactionError: error instanceof Error ? error.message : String(error),
+                        advanceTransactionRetries: retries,
+                        advanceTransactionFailedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    break;
+                }
+                // Exponential backoff
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, retries) * 1000));
+                console.warn('[Order Created] Retrying advance transaction creation', {
+                    orderId,
+                    retry: retries,
+                    maxRetries,
+                });
+            }
+        }
+    }
+    catch (error) {
+        console.error('[Order Created] Error creating advance transaction', {
+            orderId,
+            error,
+        });
+        // Mark order with error flag
+        try {
+            await snapshot.ref.update({
+                advanceTransactionFailed: true,
+                advanceTransactionError: error instanceof Error ? error.message : String(error),
+                advanceTransactionFailedAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+        catch (updateError) {
+            console.error('[Order Created] Failed to mark order with error flag', {
+                orderId,
+                error: updateError,
+            });
+        }
+        // Don't throw - we don't want to block order creation if transaction creation fails
+        // The transaction can be created manually if needed
+    }
+});
+/**
+ * Cloud Function: Triggered when an order is updated
+ * Cleans up auto-schedule data if order is cancelled
+ */
+exports.onOrderUpdated = functions.firestore
+    .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
+    .onUpdate(async (change, context) => {
+    const orderId = context.params.orderId;
+    const before = change.before.data();
+    const after = change.after.data();
+    const beforeStatus = before.status || 'pending';
+    const afterStatus = after.status || 'pending';
+    // Only process if status changed to cancelled
+    if (beforeStatus !== 'cancelled' && afterStatus === 'cancelled') {
+        console.log('[Order Update] Order cancelled, cleaning up auto-schedule data', {
+            orderId,
+            previousStatus: beforeStatus,
+        });
+        try {
+            const orderData = after;
+            const items = orderData.items || [];
+            const autoSchedule = orderData.autoSchedule;
+            // Remove auto-schedule data since order is cancelled
+            await change.after.ref.update({
+                autoSchedule: admin.firestore.FieldValue.delete(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            // Remove this order's estimated date from reference data
+            if ((autoSchedule === null || autoSchedule === void 0 ? void 0 : autoSchedule.estimatedDeliveryDate) && items.length > 0) {
+                const primaryProduct = items[0];
+                const productId = primaryProduct.productId;
+                const fixedQuantityPerTrip = primaryProduct.fixedQuantityPerTrip || primaryProduct.totalQuantity;
+                const organizationId = orderData.organizationId;
+                if (organizationId && productId && fixedQuantityPerTrip) {
+                    await (0, order_scheduling_1.removeEstimatedDeliveryDateReference)(organizationId, productId, fixedQuantityPerTrip, autoSchedule.estimatedDeliveryDate);
+                }
+            }
+            console.log('[Order Update] Successfully cleaned up auto-schedule data', {
+                orderId,
+            });
+        }
+        catch (error) {
+            console.error('[Order Update] Error cleaning up auto-schedule data', {
+                orderId,
+                error,
+            });
+            // Don't throw - cleanup failure shouldn't block order cancellation
+        }
+    }
+});
+//# sourceMappingURL=order-handlers.js.map

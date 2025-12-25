@@ -1,0 +1,26 @@
+{
+  "name": "dash-data-migrations",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-clients.ts",
+    "delete-old-clients": "TS_NODE_PROJECT=tsconfig.json ts-node src/delete-old-clients.ts",
+    "migrate-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-app-access-roles.ts",
+    "migrate-user-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-user-app-access-roles.ts",
+    "verify-user-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/verify-user-app-access-roles.ts",
+    "verify-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/verify-app-access-roles.ts",
+    "show-admin-role": "TS_NODE_PROJECT=tsconfig.json ts-node src/show-admin-role.ts",
+    "show-user-org-documents": "TS_NODE_PROJECT=tsconfig.json ts-node src/show-user-org-documents.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^13.6.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}

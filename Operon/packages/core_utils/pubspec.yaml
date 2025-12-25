@@ -1,0 +1,12 @@
+name: core_utils
+description: Utilities, constants, and responsive helpers for Dash apps.
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^3.0.0

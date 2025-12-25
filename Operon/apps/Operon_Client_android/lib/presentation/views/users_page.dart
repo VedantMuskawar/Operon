@@ -1,0 +1,488 @@
+import 'package:core_bloc/core_bloc.dart';
+import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/data/repositories/employees_repository.dart';
+import 'package:dash_mobile/domain/entities/organization_employee.dart';
+import 'package:dash_mobile/domain/entities/organization_role.dart';
+import 'package:dash_mobile/domain/entities/organization_user.dart';
+import 'package:dash_mobile/presentation/blocs/users/users_cubit.dart';
+import 'package:dash_mobile/presentation/blocs/roles/roles_cubit.dart';
+import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+
+class UsersPage extends StatelessWidget {
+  const UsersPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final roleDetails =
+        context.watch<OrganizationContextCubit>().state.role;
+    final canManageUsers = roleDetails?.isAdmin ?? roleDetails?.canCreate('users') ?? false;
+
+    return BlocListener<UsersCubit, UsersState>(
+      listener: (context, state) {
+        if (state.status == ViewStatus.failure && state.message != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message!)),
+          );
+        }
+      },
+      child: PageWorkspaceLayout(
+        title: 'Users',
+        currentIndex: 4,
+        onBack: () => context.go('/home'),
+        onNavTap: (value) => context.go('/home', extra: value),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (canManageUsers)
+              SizedBox(
+                width: double.infinity,
+                child: DashButton(
+                  label: 'Add User',
+                  onPressed: () => _openUserDialog(context),
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: const Color(0x22FFFFFF),
+                ),
+                child: const Text(
+                  'You have read-only access to users.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            const SizedBox(height: 20),
+            BlocBuilder<UsersCubit, UsersState>(
+              builder: (context, state) {
+                if (state.status == ViewStatus.loading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (state.users.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No users yet. Tap “Add User” to invite someone.',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 16,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: state.users.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final user = state.users[index];
+                    return _UserTile(
+                      user: user,
+                      canManage: canManageUsers,
+                      onEdit: canManageUsers
+                          ? () => _openUserDialog(context, user: user)
+                          : null,
+                      onDelete: canManageUsers
+                          ? () => context.read<UsersCubit>().deleteUser(user.id)
+                          : null,
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openUserDialog(
+    BuildContext context, {
+    OrganizationUser? user,
+  }) async {
+    final usersCubit = context.read<UsersCubit>();
+    final rolesCubit = context.read<RolesCubit>();
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: usersCubit),
+          BlocProvider.value(value: rolesCubit),
+        ],
+        child: _UserDialog(user: user),
+      ),
+    );
+  }
+}
+
+class _UserTile extends StatelessWidget {
+  const _UserTile({
+    required this.user,
+    required this.canManage,
+    this.onEdit,
+    this.onDelete,
+  });
+
+  final OrganizationUser user;
+  final bool canManage;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(Icons.person_outline, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  user.phone,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  user.roleTitle,
+                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          if (canManage)
+            IconButton(
+              icon: const Icon(Icons.edit, color: Colors.white54),
+              onPressed: onEdit,
+            ),
+          if (canManage)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              onPressed: onDelete,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserDialog extends StatefulWidget {
+  const _UserDialog({this.user});
+
+  final OrganizationUser? user;
+
+  @override
+  State<_UserDialog> createState() => _UserDialogState();
+}
+
+class _UserDialogState extends State<_UserDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  OrganizationRole? _selectedRole;
+  String? _selectedEmployeeId;
+  bool _isSubmitting = false;
+  bool _isLoadingEmployees = true;
+  List<OrganizationEmployee> _employees = const [];
+
+  OrganizationRole? _currentRole(List<OrganizationRole> roles) {
+    if (_selectedRole != null) return _selectedRole;
+    if (widget.user != null) {
+      try {
+        return roles.firstWhere(
+          (role) => role.title == widget.user!.roleTitle,
+        );
+      } catch (_) {
+        return roles.isNotEmpty ? roles.first : null;
+      }
+    }
+    return roles.isNotEmpty ? roles.first : null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final user = widget.user;
+    _nameController = TextEditingController(text: user?.name ?? '');
+    _phoneController = TextEditingController(text: user?.phone ?? '');
+    _selectedEmployeeId = user?.employeeId;
+    _loadEmployees();
+  }
+
+  Future<void> _loadEmployees() async {
+    final employeesRepository = context.read<EmployeesRepository>();
+    final usersCubit = context.read<UsersCubit>();
+    try {
+      final employees =
+          await employeesRepository.fetchEmployees(usersCubit.organizationId);
+      if (mounted) {
+        setState(() {
+          _employees = employees;
+          _isLoadingEmployees = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoadingEmployees = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rolesState = context.watch<RolesCubit>().state;
+    final roles = [
+      ...rolesState.roles,
+    ];
+    final hasAdmin =
+        roles.any((role) => role.title.toUpperCase() == 'ADMIN');
+    if (!hasAdmin) {
+      roles.add(
+        const OrganizationRole(
+          id: 'admin-default',
+          title: 'ADMIN',
+          salaryType: SalaryType.salaryMonthly,
+          colorHex: '#6F4BFF',
+          permissions: RolePermissions(),
+        ),
+      );
+    }
+    final isEditing = widget.user != null;
+
+    if (roles.isEmpty) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF11111B),
+        title: const Text('Add User', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Create at least one role before adding users.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      );
+    }
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF11111B),
+      title: Text(
+        isEditing ? 'Edit User' : 'Add User',
+        style: const TextStyle(color: Colors.white),
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _nameController,
+                style: const TextStyle(color: Colors.white),
+                decoration: _inputDecoration('Name'),
+                validator: (value) =>
+                    (value == null || value.trim().isEmpty)
+                        ? 'Enter name'
+                        : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneController,
+                style: const TextStyle(color: Colors.white),
+                keyboardType: TextInputType.phone,
+                decoration: _inputDecoration('Phone number'),
+                validator: (value) =>
+                    (value == null || value.trim().isEmpty)
+                        ? 'Enter phone number'
+                        : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<OrganizationRole>(
+                initialValue: _currentRole(roles),
+                dropdownColor: const Color(0xFF1B1B2C),
+                style: const TextStyle(color: Colors.white),
+                items: roles
+                    .map(
+                      (role) => DropdownMenuItem(
+                        value: role,
+                        child: Text(role.title),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (role) => setState(() {
+                  _selectedRole = role;
+                  if (role?.title.toUpperCase() == 'ADMIN') {
+                    _selectedEmployeeId = null;
+                  }
+                }),
+                decoration: _inputDecoration('Role'),
+                validator: (value) =>
+                    value == null ? 'Select a role' : null,
+              ),
+              if (_shouldShowEmployeeDropdown(roles))
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: _buildEmployeeDropdown(roles),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _isSubmitting
+              ? null
+              : () async {
+                  if (!(_formKey.currentState?.validate() ?? false)) return;
+                  final role = _currentRole(roles);
+                  if (role == null) return;
+                  if (role.title.toUpperCase() != 'ADMIN' &&
+                      _selectedEmployeeId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Select an employee for non-admin users.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+
+                  setState(() => _isSubmitting = true);
+                  try {
+                    final usersCubit = context.read<UsersCubit>();
+                    final user = OrganizationUser(
+                      id: widget.user?.id ?? '',
+                      name: _nameController.text.trim(),
+                      phone: _phoneController.text.trim(),
+                      roleId: role.id,
+                      roleTitle: role.title,
+                      organizationId: usersCubit.organizationId,
+                      employeeId: role.title.toUpperCase() == 'ADMIN'
+                          ? null
+                          : _selectedEmployeeId,
+                    );
+                    await usersCubit.upsertUser(user);
+                    if (mounted) Navigator.of(context).pop();
+                  } finally {
+                    if (mounted) {
+                      setState(() => _isSubmitting = false);
+                    }
+                  }
+                },
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
+        ),
+      ],
+    );
+  }
+
+  bool _shouldShowEmployeeDropdown(List<OrganizationRole> roles) {
+    final role = _currentRole(roles);
+    return role != null && role.title.toUpperCase() != 'ADMIN';
+  }
+
+  Widget _buildEmployeeDropdown(List<OrganizationRole> roles) {
+    if (_isLoadingEmployees) {
+      return const Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    if (_employees.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0x22FFFFFF),
+        ),
+        child: const Text(
+          'No employees found. Add employees first.',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+    return DropdownButtonFormField<String>(
+      initialValue: _selectedEmployeeId,
+      dropdownColor: const Color(0xFF1B1B2C),
+      style: const TextStyle(color: Colors.white),
+      items: _employees
+          .map(
+            (employee) => DropdownMenuItem(
+              value: employee.id,
+              child: Text(employee.name),
+            ),
+          )
+          .toList(),
+      onChanged: (value) => setState(() => _selectedEmployeeId = value),
+      decoration: _inputDecoration('Linked Employee'),
+      validator: (value) =>
+          _shouldShowEmployeeDropdown(roles) && value == null
+              ? 'Select employee'
+              : null,
+    );
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: const Color(0xFF1B1B2C),
+      labelStyle: const TextStyle(color: Colors.white70),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+}
+

@@ -1,0 +1,7 @@
+name: dash_workspace
+packages:
+  - apps/**
+  - packages/**
+commands:
+  bootstrap:
+    run: flutter pub get
