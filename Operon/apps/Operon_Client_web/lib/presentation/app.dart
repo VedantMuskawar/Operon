@@ -1,0 +1,141 @@
+import 'package:core_services/core_services.dart';
+import 'package:dash_web/config/app_router.dart';
+import 'package:dash_web/config/app_theme.dart';
+import 'package:dash_web/data/datasources/employees_data_source.dart';
+import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
+import 'package:dash_web/data/datasources/products_data_source.dart';
+import 'package:dash_web/data/datasources/app_access_roles_data_source.dart';
+import 'package:dash_web/data/datasources/job_roles_data_source.dart';
+import 'package:dash_web/data/datasources/roles_data_source.dart';
+import 'package:dash_web/data/datasources/users_data_source.dart';
+import 'package:dash_web/data/datasources/vehicles_data_source.dart';
+import 'package:dash_web/data/datasources/delivery_zones_data_source.dart';
+import 'package:dash_web/data/datasources/clients_data_source.dart';
+import 'package:dash_web/data/datasources/pending_orders_data_source.dart';
+import 'package:dash_web/data/repositories/auth_repository.dart';
+import 'package:dash_web/data/repositories/employees_repository.dart';
+import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
+import 'package:dash_web/data/repositories/products_repository.dart';
+import 'package:dash_web/data/repositories/app_access_roles_repository.dart';
+import 'package:dash_web/data/repositories/job_roles_repository.dart';
+import 'package:dash_web/data/repositories/roles_repository.dart';
+import 'package:dash_web/data/repositories/user_organization_repository.dart';
+import 'package:dash_web/data/repositories/users_repository.dart';
+import 'package:dash_web/data/repositories/vehicles_repository.dart';
+import 'package:dash_web/data/repositories/delivery_zones_repository.dart';
+import 'package:dash_web/data/repositories/clients_repository.dart';
+import 'package:dash_web/data/repositories/pending_orders_repository.dart';
+import 'package:dash_web/data/services/qr_code_service.dart';
+import 'package:dash_web/presentation/blocs/app_initialization/app_initialization_cubit.dart';
+import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
+import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_web/presentation/blocs/org_selector/org_selector_cubit.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+class DashWebApp extends StatelessWidget {
+  const DashWebApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<AuthRepository>(
+          create: (_) => AuthRepositoryImpl(),
+        ),
+        RepositoryProvider<UserOrganizationRepository>(
+          create: (_) => UserOrganizationRepository(),
+        ),
+        RepositoryProvider<RolesRepository>(
+          create: (_) => RolesRepository(
+            dataSource: RolesDataSource(),
+          ),
+        ),
+        RepositoryProvider<AppAccessRolesRepository>(
+          create: (_) => AppAccessRolesRepository(
+            dataSource: AppAccessRolesDataSource(),
+          ),
+        ),
+        RepositoryProvider<JobRolesRepository>(
+          create: (_) => JobRolesRepository(
+            dataSource: JobRolesDataSource(),
+          ),
+        ),
+        RepositoryProvider<ProductsRepository>(
+          create: (_) => ProductsRepository(
+            dataSource: ProductsDataSource(),
+          ),
+        ),
+        RepositoryProvider<PaymentAccountsRepository>(
+          create: (_) => PaymentAccountsRepository(
+            dataSource: PaymentAccountsDataSource(),
+          ),
+        ),
+        RepositoryProvider<UsersRepository>(
+          create: (_) => UsersRepository(
+            dataSource: UsersDataSource(),
+          ),
+        ),
+        RepositoryProvider<EmployeesRepository>(
+          create: (_) => EmployeesRepository(
+            dataSource: EmployeesDataSource(),
+          ),
+        ),
+        RepositoryProvider<VehiclesRepository>(
+          create: (_) => VehiclesRepository(
+            dataSource: VehiclesDataSource(),
+          ),
+        ),
+        RepositoryProvider<DeliveryZonesRepository>(
+          create: (_) => DeliveryZonesRepository(
+            dataSource: DeliveryZonesDataSource(),
+          ),
+        ),
+        RepositoryProvider<ClientsRepository>(
+          create: (_) => ClientsRepository(
+            dataSource: ClientsDataSource(),
+          ),
+        ),
+        RepositoryProvider<PendingOrdersRepository>(
+          create: (_) => PendingOrdersRepository(
+            dataSource: PendingOrdersDataSource(),
+          ),
+        ),
+        RepositoryProvider<QrCodeService>(
+          create: (_) => QrCodeService(),
+        ),
+      ],
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthBloc>(
+            create: (context) => AuthBloc(
+              authRepository: context.read<AuthRepository>(),
+            ),
+          ),
+          BlocProvider<OrganizationContextCubit>(
+            create: (_) => OrganizationContextCubit(),
+          ),
+          BlocProvider<OrgSelectorCubit>(
+            create: (context) => OrgSelectorCubit(
+              repository: context.read<UserOrganizationRepository>(),
+            ),
+          ),
+          BlocProvider<AppInitializationCubit>(
+            create: (context) => AppInitializationCubit(
+              authRepository: context.read<AuthRepository>(),
+              orgContextCubit: context.read<OrganizationContextCubit>(),
+              orgSelectorCubit: context.read<OrgSelectorCubit>(),
+              appAccessRolesRepository: context.read<AppAccessRolesRepository>(),
+            ),
+          ),
+        ],
+        child: MaterialApp.router(
+          title: 'Dash Web',
+          theme: buildDashTheme(),
+          routerConfig: buildRouter(),
+          debugShowCheckedModeBanner: false,
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,66 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dash_web/domain/entities/organization_employee.dart';
+
+class EmployeesDataSource {
+  EmployeesDataSource({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
+
+  CollectionReference<Map<String, dynamic>> get _employeesRef =>
+      _firestore.collection('EMPLOYEES');
+
+  Future<List<OrganizationEmployee>> fetchEmployees(String organizationId) async {
+    final snapshot = await _employeesRef
+        .where('organizationId', isEqualTo: organizationId)
+        .orderBy('employeeName')
+        .get();
+    return snapshot.docs
+        .map((doc) => OrganizationEmployee.fromJson(doc.data(), doc.id))
+        .toList();
+  }
+
+  Future<OrganizationEmployee?> fetchEmployee(String employeeId) async {
+    final doc = await _employeesRef.doc(employeeId).get();
+    if (!doc.exists) return null;
+    return OrganizationEmployee.fromJson(doc.data()!, doc.id);
+  }
+
+  Future<List<OrganizationEmployee>> fetchEmployeesByJobRole(
+    String organizationId,
+    String jobRoleId,
+  ) async {
+    final snapshot = await _employeesRef
+        .where('organizationId', isEqualTo: organizationId)
+        .where('jobRoleIds', arrayContains: jobRoleId)
+        .orderBy('employeeName')
+        .get();
+    return snapshot.docs
+        .map((doc) => OrganizationEmployee.fromJson(doc.data(), doc.id))
+        .toList();
+  }
+
+  Future<void> createEmployee(OrganizationEmployee employee) async {
+    await _employeesRef.doc(employee.id).set({
+      ...employee.toJson(),
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateEmployee(OrganizationEmployee employee) async {
+    await _employeesRef.doc(employee.id).update({
+      'employeeName': employee.name,
+      'jobRoleIds': employee.jobRoleIds,
+      'jobRoles': employee.jobRoles.map(
+        (key, value) => MapEntry(key, value.toJson()),
+      ),
+      'wage': employee.wage.toJson(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> deleteEmployee(String employeeId) {
+    return _employeesRef.doc(employeeId).delete();
+  }
+}
