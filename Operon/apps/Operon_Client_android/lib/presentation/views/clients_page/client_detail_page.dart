@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
-import 'package:dash_mobile/data/repositories/client_ledger_repository.dart';
+import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/order_tile.dart';

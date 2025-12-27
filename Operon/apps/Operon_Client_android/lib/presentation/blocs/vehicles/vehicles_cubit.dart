@@ -1,6 +1,6 @@
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
-import 'package:dash_mobile/domain/entities/vehicle.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 part 'vehicles_state.dart';

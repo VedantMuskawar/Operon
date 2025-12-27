@@ -1,5 +1,5 @@
-import 'package:dash_mobile/data/datasources/vehicles_data_source.dart';
-import 'package:dash_mobile/domain/entities/vehicle.dart';
+import 'package:core_datasources/core_datasources.dart';
+import 'package:core_models/core_models.dart';
 
 class VehiclesRepository {
   VehiclesRepository({required VehiclesDataSource dataSource}) : _dataSource = dataSource;

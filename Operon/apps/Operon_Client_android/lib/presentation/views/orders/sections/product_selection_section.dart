@@ -1,5 +1,5 @@
+import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/domain/entities/order_item.dart';
-import 'package:dash_mobile/domain/entities/organization_product.dart';
 import 'package:dash_mobile/presentation/blocs/create_order/create_order_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

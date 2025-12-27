@@ -86,10 +86,26 @@ class ScheduledTripTile extends StatelessWidget {
 
     final tripId = trip['id'] as String?;
     final scheduleTripId = trip['scheduleTripId'] as String?;
+    final scheduledDate = trip['scheduledDate'];
 
-    if (tripId == null || scheduleTripId == null) {
+    // Validate required fields
+    if (tripId == null || tripId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trip ID or Schedule Trip ID not found')),
+        const SnackBar(content: Text('Trip ID not found')),
+      );
+      return;
+    }
+
+    if (scheduleTripId == null || scheduleTripId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Schedule Trip ID not found')),
+      );
+      return;
+    }
+
+    if (scheduledDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Scheduled date is missing from trip data')),
       );
       return;
     }
@@ -100,7 +116,10 @@ class ScheduledTripTile extends StatelessWidget {
       // Show loading
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Generating DM...')),
+        const SnackBar(
+          content: Text('Generating DM...'),
+          duration: Duration(seconds: 30), // Longer duration for network calls
+        ),
       );
 
       final dmId = await dmRepo.generateDM(
@@ -112,13 +131,43 @@ class ScheduledTripTile extends StatelessWidget {
       );
 
       if (!context.mounted) return;
+      // Hide previous snackbar and show success
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('DM generated: $dmId')),
+        SnackBar(
+          content: Text('DM generated successfully: $dmId'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Log the full error for debugging
+      debugPrint('Error generating DM: $e');
+      debugPrint('Stack trace: $stackTrace');
+      debugPrint('Trip data keys: ${trip.keys.toList()}');
+      debugPrint('Trip ID: $tripId, Schedule Trip ID: $scheduleTripId');
+      debugPrint('Scheduled date: $scheduledDate (type: ${scheduledDate.runtimeType})');
+
       if (!context.mounted) return;
+      
+      // Provide more user-friendly error message
+      String errorMessage = 'Failed to generate DM';
+      if (e.toString().contains('scheduledDate')) {
+        errorMessage = 'Invalid scheduled date format. Please try again.';
+      } else if (e.toString().contains('already exists')) {
+        errorMessage = 'DM already exists for this trip';
+      } else if (e.toString().contains('Missing required')) {
+        errorMessage = 'Missing required trip information. Please refresh and try again.';
+      } else {
+        errorMessage = 'Failed to generate DM: ${e.toString().split('\n').first}';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to generate DM: $e')),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
       );
     }
   }

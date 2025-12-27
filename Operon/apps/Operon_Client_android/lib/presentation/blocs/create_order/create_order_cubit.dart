@@ -1,12 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_mobile/data/repositories/products_repository.dart';
-import 'package:dash_mobile/domain/entities/delivery_city.dart';
-import 'package:dash_mobile/domain/entities/delivery_zone.dart';
-import 'package:dash_mobile/domain/entities/delivery_zone_price.dart';
 import 'package:dash_mobile/domain/entities/order_item.dart';
-import 'package:dash_mobile/domain/entities/organization_product.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 part 'create_order_event.dart';

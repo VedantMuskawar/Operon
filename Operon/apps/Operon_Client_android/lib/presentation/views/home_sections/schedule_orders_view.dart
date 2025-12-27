@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
-import 'package:dash_mobile/domain/entities/vehicle.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/orders/schedule_trip_detail_page.dart';
 import 'package:dash_mobile/presentation/widgets/schedule_trip_modal.dart';

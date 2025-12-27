@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:core_datasources/core_datasources.dart';
 
 class ScheduledTripsDataSource {
   ScheduledTripsDataSource({FirebaseFirestore? firestore})
@@ -9,6 +10,7 @@ class ScheduledTripsDataSource {
   static const String _collection = 'SCHEDULE_TRIPS';
 
   /// Generate unique scheduleTripId: ClientID-OrderID-YYYYMMDD-VehicleID-Slot
+  /// Uses shared utility from core_datasources
   String generateScheduleTripId({
     required String clientId,
     required String orderId,
@@ -16,16 +18,17 @@ class ScheduledTripsDataSource {
     required String vehicleId,
     required int slot,
   }) {
-    // Format date as YYYYMMDD
-    final year = scheduledDate.year.toString();
-    final month = scheduledDate.month.toString().padLeft(2, '0');
-    final day = scheduledDate.day.toString().padLeft(2, '0');
-    final dateStr = '$year$month$day';
-    
-    return '${clientId.toUpperCase()}-${orderId.toUpperCase()}-$dateStr-${vehicleId.toUpperCase()}-$slot';
+    return ScheduledTripsUtils.generateScheduleTripId(
+      clientId: clientId,
+      orderId: orderId,
+      scheduledDate: scheduledDate,
+      vehicleId: vehicleId,
+      slot: slot,
+    );
   }
 
   /// Check if slot is available (Date+Vehicle+Slot must be unique)
+  /// Uses shared utility from core_datasources
   Future<bool> isSlotAvailable({
     required String organizationId,
     required DateTime scheduledDate,
@@ -33,73 +36,26 @@ class ScheduledTripsDataSource {
     required int slot,
     String? excludeTripId, // Exclude current trip when rescheduling
   }) async {
-    final startOfDay = DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
-
-    var query = _firestore
-        .collection(_collection)
-        .where('organizationId', isEqualTo: organizationId)
-        .where('vehicleId', isEqualTo: vehicleId)
-        .where('slot', isEqualTo: slot)
-        .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-        .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay));
-
-    final snapshot = await query.get();
-
-    // Filter by tripStatus in memory and exclude current trip if provided
-    final conflictingTrips = snapshot.docs.where((doc) {
-      final status = doc.data()['tripStatus'] as String?;
-      final isActive = status == 'scheduled' || status == 'in_progress';
-      final isNotExcluded = excludeTripId == null || doc.id != excludeTripId;
-      return isActive && isNotExcluded;
-    }).toList();
-
-    return conflictingTrips.isEmpty;
+    return ScheduledTripsUtils.isSlotAvailable(
+      firestore: _firestore,
+      organizationId: organizationId,
+      scheduledDate: scheduledDate,
+      vehicleId: vehicleId,
+      slot: slot,
+      excludeTripId: excludeTripId,
+    );
   }
 
   /// Calculate trip-specific pricing based on fixedQuantityPerTrip
+  /// Uses shared utility from core_datasources
   Map<String, dynamic> calculateTripPricing(
     List<dynamic> items, {
     bool includeGstInTotal = true,
   }) {
-    double totalSubtotal = 0.0;
-    double totalGstAmount = 0.0;
-    double totalAmount = 0.0;
-
-    // Calculate pricing for each item based on fixedQuantityPerTrip
-    final tripItems = items.map((item) {
-      if (item is! Map<String, dynamic>) return item;
-
-      final fixedQty = (item['fixedQuantityPerTrip'] as num?)?.toInt() ?? 0;
-      final unitPrice = (item['unitPrice'] as num?)?.toDouble() ?? 0.0;
-      final gstPercent = (item['gstPercent'] as num?)?.toDouble();
-
-      // Calculate trip-specific pricing
-      final subtotal = fixedQty * unitPrice;
-      final gstAmount =
-          includeGstInTotal && gstPercent != null ? subtotal * (gstPercent / 100) : 0.0;
-      final total = subtotal + gstAmount;
-
-      totalSubtotal += subtotal;
-      totalGstAmount += gstAmount;
-      totalAmount += total;
-
-      return {
-        ...item,
-        'tripSubtotal': subtotal,
-        'tripGstAmount': gstAmount,
-        'tripTotal': total,
-      };
-    }).toList();
-
-    return {
-      'items': tripItems,
-      'tripPricing': {
-        'subtotal': totalSubtotal,
-        'gstAmount': totalGstAmount,
-        'total': totalAmount,
-      },
-    };
+    return ScheduledTripsUtils.calculateTripPricing(
+      items,
+      includeGstInTotal: includeGstInTotal,
+    );
   }
 
   /// Create a scheduled trip
@@ -186,6 +142,47 @@ class ScheduledTripsDataSource {
       };
     }
 
+    // Check if this is the first trip and deduct advance payment if applicable
+    final orderRef = _firestore.collection('PENDING_ORDERS').doc(orderId);
+    final orderDoc = await orderRef.get();
+    double? advanceAmountDeducted;
+    
+    if (orderDoc.exists) {
+      final orderData = orderDoc.data();
+      final totalScheduledTrips = (orderData?['totalScheduledTrips'] as num?)?.toInt() ?? 0;
+      final advanceAmount = (orderData?['advanceAmount'] as num?)?.toDouble();
+      
+      // If this is the first trip (totalScheduledTrips === 0) and order has advance payment
+      if (totalScheduledTrips == 0 && advanceAmount != null && advanceAmount > 0) {
+        final currentTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+        // Deduct advance amount from trip total (ensure it doesn't go negative)
+        final newTotal = (currentTotal - advanceAmount).clamp(0.0, double.infinity);
+        advanceAmountDeducted = currentTotal - newTotal; // Store how much was actually deducted
+        
+        // Update tripPricing total
+        tripPricing = {
+          ...tripPricing,
+          'total': newTotal,
+          'advanceAmountDeducted': advanceAmountDeducted, // Store for reference
+        };
+        
+        // Also update item-level trip totals proportionally
+        if (tripItems.isNotEmpty && currentTotal > 0 && advanceAmountDeducted > 0) {
+          final reductionRatio = newTotal / currentTotal;
+          tripItems = tripItems.map((item) {
+            if (item is Map<String, dynamic>) {
+              final itemTotal = (item['tripTotal'] as num?)?.toDouble() ?? 0.0;
+              return {
+                ...item,
+                'tripTotal': (itemTotal * reductionRatio).clamp(0.0, double.infinity),
+              };
+            }
+            return item;
+          }).toList();
+        }
+      }
+    }
+
     final docRef = _firestore.collection(_collection).doc();
     
     await docRef.set({
@@ -219,22 +216,23 @@ class ScheduledTripsDataSource {
     });
 
     // Append tripId to order (lightweight ref list), and bump counts
-    final orderRef = _firestore.collection('PENDING_ORDERS').doc(orderId);
-    await _firestore.runTransaction((txn) async {
-      final snap = await txn.get(orderRef);
-      if (!snap.exists) return;
-      final data = snap.data() as Map<String, dynamic>;
-      final tripIds = List<String>.from(data['tripIds'] as List<dynamic>? ?? []);
-      if (!tripIds.contains(docRef.id)) {
-        tripIds.add(docRef.id);
-      }
-      final totalScheduledTrips = (data['totalScheduledTrips'] as num?)?.toInt() ?? 0;
-      txn.update(orderRef, {
-        'tripIds': tripIds,
-        'totalScheduledTrips': totalScheduledTrips + 1,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    });
+        // Note: totalScheduledTrips is updated by Cloud Function (onScheduledTripCreated)
+        // We only update tripIds here for quick reference
+        // Reuse orderRef that was already fetched above
+        await _firestore.runTransaction((txn) async {
+          final snap = await txn.get(orderRef);
+          if (!snap.exists) return;
+          final data = snap.data() as Map<String, dynamic>;
+          final tripIds = List<String>.from(data['tripIds'] as List<dynamic>? ?? []);
+          if (!tripIds.contains(docRef.id)) {
+            tripIds.add(docRef.id);
+          }
+          // DO NOT increment totalScheduledTrips here - Cloud Function handles it
+          txn.update(orderRef, {
+            'tripIds': tripIds,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        });
 
     return docRef.id;
   }
@@ -260,7 +258,8 @@ class ScheduledTripsDataSource {
       final orderId = data['orderId'] as String?;
       await docRef.delete();
 
-      // Remove tripId from order refs and decrement counts
+      // Remove tripId from order refs
+      // Note: totalScheduledTrips is updated by Cloud Function (onScheduledTripDeleted)
       if (orderId != null) {
         final orderRef = _firestore.collection('PENDING_ORDERS').doc(orderId);
         await _firestore.runTransaction((txn) async {
@@ -269,10 +268,9 @@ class ScheduledTripsDataSource {
           final orderData = orderSnap.data() as Map<String, dynamic>;
           final tripIds = List<String>.from(orderData['tripIds'] as List<dynamic>? ?? []);
           tripIds.remove(tripId);
-          final totalScheduledTrips = (orderData['totalScheduledTrips'] as num?)?.toInt() ?? 0;
+          // DO NOT decrement totalScheduledTrips here - Cloud Function handles it
           txn.update(orderRef, {
             'tripIds': tripIds,
-            'totalScheduledTrips': totalScheduledTrips > 0 ? totalScheduledTrips - 1 : 0,
             'updatedAt': FieldValue.serverTimestamp(),
           });
         });
@@ -474,10 +472,22 @@ class ScheduledTripsDataSource {
         .map((snapshot) {
       final trips = snapshot.docs.map((doc) {
         final data = doc.data();
-        return {
+        // Convert Firestore Timestamp to DateTime for proper serialization
+        // This matches the web app implementation and ensures compatibility with cloud functions
+        final convertedData = <String, dynamic>{
           'id': doc.id,
-          ...data,
         };
+        
+        // Convert all Timestamp fields to DateTime
+        data.forEach((key, value) {
+          if (value is Timestamp) {
+            convertedData[key] = value.toDate();
+          } else {
+            convertedData[key] = value;
+          }
+        });
+        
+        return convertedData;
       }).toList();
       
       // Sort by slot

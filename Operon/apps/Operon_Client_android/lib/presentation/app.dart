@@ -2,33 +2,28 @@ import 'package:dash_mobile/config/app_router.dart';
 import 'package:dash_mobile/config/app_theme.dart';
 import 'package:dash_mobile/data/repositories/auth_repository.dart';
 import 'package:dash_mobile/data/datasources/employees_data_source.dart';
-import 'package:dash_mobile/data/datasources/products_data_source.dart';
-import 'package:dash_mobile/data/datasources/roles_data_source.dart';
+import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/datasources/user_organization_data_source.dart';
-import 'package:dash_mobile/data/datasources/delivery_zones_data_source.dart';
 import 'package:dash_mobile/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_mobile/data/datasources/users_data_source.dart';
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
-import 'package:dash_mobile/data/datasources/vehicles_data_source.dart';
 import 'package:dash_mobile/data/datasources/pending_orders_data_source.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/repositories/analytics_repository.dart';
 import 'package:dash_mobile/data/repositories/clients_repository.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/repositories/products_repository.dart';
-import 'package:dash_mobile/data/repositories/roles_repository.dart';
 import 'package:dash_mobile/data/repositories/user_organization_repository.dart';
 import 'package:dash_mobile/data/repositories/users_repository.dart';
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/data/repositories/transactions_repository.dart';
 import 'package:dash_mobile/data/datasources/transactions_data_source.dart';
-import 'package:dash_mobile/data/repositories/client_ledger_repository.dart';
-import 'package:dash_mobile/data/datasources/client_ledger_data_source.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/datasources/scheduled_trips_data_source.dart';
 import 'package:dash_mobile/data/repositories/delivery_memo_repository.dart';
-import 'package:dash_mobile/data/datasources/delivery_memo_data_source.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:core_datasources/core_datasources.dart' hide DeliveryMemoRepository;
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/data/services/analytics_service.dart';
 import 'package:dash_mobile/data/services/qr_code_service.dart';
@@ -133,7 +128,10 @@ class DashMobileApp extends StatelessWidget {
     );
 
     final deliveryMemoRepository = DeliveryMemoRepository(
-      dataSource: DeliveryMemoDataSource(firestore: authRepository.firestore),
+      dataSource: DeliveryMemoDataSource(
+        firestore: authRepository.firestore,
+        functions: FirebaseFunctions.instanceFor(region: 'us-central1'),
+      ),
     );
 
     final qrCodeService = QrCodeService();

@@ -1,6 +1,6 @@
 import 'package:core_bloc/core_bloc.dart';
-import 'package:dash_mobile/data/repositories/roles_repository.dart';
-import 'package:dash_mobile/domain/entities/organization_role.dart';
+import 'package:core_datasources/core_datasources.dart';
+import 'package:core_models/core_models.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class RolesState extends BaseState {

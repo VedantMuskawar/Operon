@@ -1,7 +1,5 @@
-import 'package:dash_mobile/data/datasources/delivery_zones_data_source.dart';
-import 'package:dash_mobile/domain/entities/delivery_city.dart';
-import 'package:dash_mobile/domain/entities/delivery_zone.dart';
-import 'package:dash_mobile/domain/entities/delivery_zone_price.dart';
+import 'package:core_datasources/core_datasources.dart';
+import 'package:core_models/core_models.dart';
 
 class DeliveryZonesRepository {
   DeliveryZonesRepository({required DeliveryZonesDataSource dataSource})

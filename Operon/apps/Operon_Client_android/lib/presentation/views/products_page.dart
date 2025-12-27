@@ -1,6 +1,6 @@
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
-import 'package:dash_mobile/domain/entities/organization_product.dart';
 import 'package:dash_mobile/presentation/blocs/products/products_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
 import 'package:flutter/material.dart';

@@ -1,8 +1,8 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/domain/entities/organization_membership.dart';
-import 'package:dash_mobile/domain/entities/organization_role.dart';
-import 'package:dash_mobile/data/repositories/roles_repository.dart';
+import 'package:core_models/core_models.dart';
+import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_selector/org_selector_cubit.dart';

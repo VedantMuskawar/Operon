@@ -37,6 +37,15 @@ class HomeOverviewView extends StatelessWidget {
         route: '/vehicles',
       ));
     }
+    // Delivery Memos - accessible to users who can view orders
+    if (role?.canAccessSection('pendingOrders') == true ||
+        role?.canAccessSection('scheduleOrders') == true) {
+      tiles.add(const _OverviewTile(
+        icon: Icons.description_outlined,
+        label: 'DM',
+        route: '/delivery-memos',
+      ));
+    }
 
     return GridView.count(
       shrinkWrap: true,

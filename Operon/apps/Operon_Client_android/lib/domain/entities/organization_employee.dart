@@ -1,4 +1,4 @@
-import 'package:dash_mobile/domain/entities/organization_role.dart';
+import 'package:core_models/core_models.dart';
 
 class OrganizationEmployee {
   const OrganizationEmployee({

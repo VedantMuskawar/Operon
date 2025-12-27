@@ -368,6 +368,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
   }
 
+  // DEPRECATED: This method is no longer used. Use _markAsReturned instead.
+  // Kept for reference but should not be called.
+  @Deprecated('Use _markAsReturned instead. This method incorrectly creates credit transactions for pay_later on return.')
   Future<void> _showReturnDialog_UNUSED(BuildContext context) async {
     final readingController = TextEditingController();
     final formKey = GlobalKey<FormState>();
@@ -444,10 +447,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     );
 
     if (result != null) {
+      // DEPRECATED: This calls the old _returnTrip method which incorrectly creates credit transactions
+      // Use _markAsReturned instead (called from the active return flow)
       await _returnTrip(context, result);
     }
   }
 
+  // DEPRECATED: This method is no longer used. Use _markAsReturned instead.
+  // This method incorrectly creates credit transactions for pay_later trips on return.
+  // Credit transactions should be created at DM generation (dispatch), not on return.
+  @Deprecated('Use _markAsReturned instead. Credit transactions should be created at dispatch via DM generation.')
   Future<void> _returnTrip(BuildContext context, double finalReading) async {
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
@@ -499,39 +508,12 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         completedAt: DateTime.now(),
       );
 
-      // Create credit transaction for pay_later orders
-      if (paymentType.toLowerCase() == 'pay_later') {
-        final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
-        final totalAmount = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-        
-        if (totalAmount > 0) {
-          final transactionsRepo = context.read<TransactionsRepository>();
-          final financialYear = FinancialYearUtils.getFinancialYear(DateTime.now());
-          final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Order Payment';
-          
-          await transactionsRepo.createTransaction(
-            Transaction(
-              id: '', // Will be generated
-              organizationId: organization.id,
-              clientId: clientId,
-              type: TransactionType.credit,
-              category: TransactionCategory.income,
-              amount: totalAmount,
-              status: TransactionStatus.completed,
-              createdBy: currentUser.uid,
-              createdAt: DateTime.now(),
-              updatedAt: DateTime.now(),
-              financialYear: financialYear,
-              orderId: orderId,
-              description: 'Order Payment - $dmText',
-              metadata: {
-                'tripId': tripId,
-                if (dmNumber != null) 'dmNumber': dmNumber,
-              },
-            ),
-          );
-        }
-      }
+      // DEPRECATED: Credit transactions should NOT be created here.
+      // Order Credit transaction should already exist from DM generation (dispatch).
+      // This code should never execute in the active flow, but kept for reference.
+      // Removing the credit transaction creation logic to prevent duplicate transactions.
+      // For pay_later: Credit was created at dispatch via DM generation.
+      // For pay_on_delivery: Credit was created at dispatch via DM generation.
 
       // Update local state
       setState(() {
@@ -1728,14 +1710,14 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           id: '',
           organizationId: organization.id,
           clientId: clientId,
-          type: TransactionType.payment,
+          type: TransactionType.debit,
           category: TransactionCategory.income,
           amount: amount,
           status: TransactionStatus.completed,
           paymentAccountId: payment['paymentAccountId'] as String?,
           paymentAccountType: payment['paymentAccountType'] as String?,
           orderId: orderId,
-          description: 'Payment - $dmText',
+          description: 'Trip Payment - $dmText',
           metadata: {
             'tripId': tripId,
             if (dmNumber != null) 'dmNumber': dmNumber,
@@ -1758,17 +1740,17 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       );
 
       // Create payment transactions (debit) for pay_on_delivery
-      // Note: Credit transaction should already exist from trip creation
+      // Note: Order Credit transaction was already created at DM generation (dispatch)
       for (int i = 0; i < newPayments.length; i++) {
         await createPaymentTransaction(newPayments[i], i);
       }
 
-      // For pay_on_delivery: Credit transaction was created at trip scheduling
-      // Debit transactions (payments) are created above
+      // For pay_on_delivery: Order Credit transaction was created at DM generation (dispatch)
+      // Trip Payment (debit) transactions are created above when payment is received on return
       // If partial payment, the remaining amount is already covered by the credit transaction
       
-      // For pay_later: Credit transaction was created at trip scheduling
-      // No additional transactions needed at return
+      // For pay_later: Order Credit transaction was created at DM generation (dispatch)
+      // No additional transactions needed at return (customer pays later via manual Debit Payment)
 
       // Update trip with status + payment info
       final repository = context.read<ScheduledTripsRepository>();
@@ -2375,7 +2357,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
           id: '',
           organizationId: organization.id,
           clientId: clientId,
-          type: TransactionType.payment,
+          type: TransactionType.debit,
           category: TransactionCategory.income,
           amount: amount,
           status: TransactionStatus.completed,
@@ -2386,7 +2368,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
           paymentAccountId: account.id,
           paymentAccountType: account.type.name,
           orderId: orderId,
-          description: 'Order Payment - $dmText',
+          description: 'Trip Payment - $dmText',
           metadata: {
             'tripId': tripId,
             if (dmNumber != null) 'dmNumber': dmNumber,

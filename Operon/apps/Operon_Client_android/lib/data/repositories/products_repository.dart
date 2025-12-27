@@ -1,5 +1,5 @@
-import 'package:dash_mobile/data/datasources/products_data_source.dart';
-import 'package:dash_mobile/domain/entities/organization_product.dart';
+import 'package:core_datasources/core_datasources.dart';
+import 'package:core_models/core_models.dart';
 
 class ProductsRepository {
   ProductsRepository({required ProductsDataSource dataSource})

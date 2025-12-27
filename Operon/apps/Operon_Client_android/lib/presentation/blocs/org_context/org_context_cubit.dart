@@ -1,6 +1,6 @@
 import 'package:dash_mobile/data/services/org_context_persistence_service.dart';
 import 'package:dash_mobile/domain/entities/organization_membership.dart';
-import 'package:dash_mobile/domain/entities/organization_role.dart';
+import 'package:core_models/core_models.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class OrganizationContextState {

@@ -1,7 +1,7 @@
 import 'package:dash_mobile/data/repositories/clients_repository.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/repositories/products_repository.dart';
-import 'package:dash_mobile/data/repositories/roles_repository.dart';
+import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/repositories/users_repository.dart';
 import 'package:dash_mobile/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
@@ -32,6 +32,7 @@ import 'package:dash_mobile/presentation/views/clients_page.dart';
 import 'package:dash_mobile/presentation/views/clients_page/client_detail_page.dart';
 import 'package:dash_mobile/presentation/views/vehicles_page.dart';
 import 'package:dash_mobile/presentation/views/access_control_page.dart';
+import 'package:dash_mobile/presentation/views/delivery_memos_page.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -441,6 +442,24 @@ GoRouter buildRouter() {
               ),
               child: const AccessControlPage(),
             ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/delivery-memos',
+        name: 'delivery-memos',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: const DeliveryMemosPage(),
           );
         },
       ),
