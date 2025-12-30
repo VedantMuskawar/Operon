@@ -125,8 +125,8 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
       builder: (dialogContext) => _AddRegionDialog(
         cities: state.cities,
         initialCity: state.selectedCity,
-        onCreateRegion: (city, region) async {
-          cubit.addPendingRegion(city: city, region: region);
+        onCreateRegion: (city, region, roundtripKm) async {
+          cubit.addPendingRegion(city: city, region: region, roundtripKm: roundtripKm);
           // Dialog will close itself, no need to pop here
         },
       ),
@@ -403,7 +403,7 @@ class _AddRegionDialog extends StatefulWidget {
 
   final List<DeliveryCity> cities;
   final String? initialCity;
-  final Future<void> Function(String city, String region) onCreateRegion;
+  final Future<void> Function(String city, String region, double roundtripKm) onCreateRegion;
 
   @override
   State<_AddRegionDialog> createState() => _AddRegionDialogState();
@@ -413,6 +413,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   final _formKey = GlobalKey<FormState>();
   late String? _selectedCity;
   final _regionController = TextEditingController();
+  final _roundtripKmController = TextEditingController();
   bool _submitting = false;
 
   @override
@@ -425,6 +426,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   @override
   void dispose() {
     _regionController.dispose();
+    _roundtripKmController.dispose();
     super.dispose();
   }
 
@@ -479,6 +481,31 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                     validator: (value) =>
                         (value == null || value.trim().isEmpty) ? 'Enter a region' : null,
                   ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _roundtripKmController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Round Trip Distance (KM)',
+                      hintText: 'e.g., 25.5',
+                      prefixIcon: Icon(Icons.straighten, color: Colors.white54),
+                      filled: true,
+                      fillColor: Color(0xFF1B1B2C),
+                      labelStyle: TextStyle(color: Colors.white70),
+                      border: OutlineInputBorder(borderSide: BorderSide.none),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Enter round trip distance';
+                      }
+                      final km = double.tryParse(value.trim());
+                      if (km == null || km <= 0) {
+                        return 'Enter a valid positive number';
+                      }
+                      return null;
+                    },
+                  ),
                 ],
               ),
             ),
@@ -495,9 +522,11 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                   if (_selectedCity == null) return;
                   setState(() => _submitting = true);
                   try {
+                    final roundtripKm = double.parse(_roundtripKmController.text.trim());
                     await widget.onCreateRegion(
                       _selectedCity!,
                       _regionController.text.trim(),
+                      roundtripKm,
                     );
                     if (mounted) Navigator.of(context).pop();
                   } catch (err) {

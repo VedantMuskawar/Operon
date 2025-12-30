@@ -46,6 +46,18 @@ class HomeOverviewView extends StatelessWidget {
         route: '/delivery-memos',
       ));
     }
+    // Transactions - accessible to all users
+    tiles.add(const _OverviewTile(
+      icon: Icons.payment_outlined,
+      label: 'Transactions',
+      route: '/transactions',
+    ));
+    // Fuel Ledger - accessible to all users
+    tiles.add(const _OverviewTile(
+      icon: Icons.local_gas_station,
+      label: 'Fuel Ledger',
+      route: '/fuel-ledger',
+    ));
 
     return GridView.count(
       shrinkWrap: true,

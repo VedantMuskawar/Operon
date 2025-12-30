@@ -103,74 +103,50 @@ async function rebuildClientLedger(organizationId, clientId, financialYear) {
     const openingBalance = await getOpeningBalance(organizationId, clientId, financialYear);
     // Get FY date range
     const fyDates = getFinancialYearDates(financialYear);
-    // Get all transactions for this client in this FY (from subcollection)
+    // Get all monthly transaction documents for this client in this FY
+    // Documents are stored as: TRANSACTIONS/{yearMonth} where yearMonth = YYYYMM
     const transactionsSubRef = ledgerRef.collection('TRANSACTIONS');
-    const transactionsSnapshot = await transactionsSubRef
-        .orderBy('transactionDate', 'asc')
-        .get();
+    const monthlyDocsSnapshot = await transactionsSubRef.get();
+    // Extract all transactions from monthly documents and flatten into single array
+    const allTransactions = [];
+    monthlyDocsSnapshot.forEach((monthlyDoc) => {
+        const monthlyData = monthlyDoc.data();
+        const transactions = monthlyData.transactions || [];
+        allTransactions.push(...transactions);
+    });
+    // Sort transactions by transactionDate (ascending)
+    allTransactions.sort((a, b) => {
+        var _a, _b, _c, _d;
+        const dateA = (_b = (_a = a.transactionDate) === null || _a === void 0 ? void 0 : _a.toDate()) !== null && _b !== void 0 ? _b : new Date(0);
+        const dateB = (_d = (_c = b.transactionDate) === null || _c === void 0 ? void 0 : _c.toDate()) !== null && _d !== void 0 ? _d : new Date(0);
+        return dateA.getTime() - dateB.getTime();
+    });
     let currentBalance = openingBalance;
-    let totalIncome = 0;
-    let totalExpense = 0;
-    const incomeByType = {};
+    let totalReceivables = 0; // Total receivables (credit transactions - what client owes us)
     let transactionCount = 0;
-    let completedTransactionCount = 0;
-    let pendingTransactionCount = 0;
-    let completedTransactionAmount = 0;
-    let pendingTransactionAmount = 0;
     const transactionIds = [];
     let lastTransactionId;
     let lastTransactionDate;
     let lastTransactionAmount;
     let firstTransactionDate;
-    transactionsSnapshot.forEach((doc) => {
-        const tx = doc.data();
-        const status = tx.status;
-        const category = tx.category;
+    allTransactions.forEach((tx) => {
         const type = tx.type;
         const amount = tx.amount;
-        const isIncome = category === 'income';
+        const ledgerType = tx.ledgerType || 'clientLedger';
         // Use ledgerDelta logic (same as in updateClientLedger)
-        const ledgerDelta = (() => {
-            switch (type) {
-                case 'credit':
-                    return amount;
-                case 'payment':
-                    return -amount;
-                case 'advance':
-                    return -amount;
-                case 'refund':
-                    return -amount;
-                case 'debit':
-                    return -amount;
-                case 'adjustment':
-                    return amount;
-                default:
-                    return 0;
-            }
-        })();
+        // For ClientLedger: Credit = increment receivable, Debit = decrement receivable
+        const ledgerDelta = ledgerType === 'clientLedger'
+            ? (type === 'credit' ? amount : -amount)
+            : (type === 'credit' ? amount : -amount); // Default to same semantics
         transactionIds.push(tx.transactionId);
         transactionCount++;
         // All transactions in database are active (cancelled ones are deleted)
         currentBalance += ledgerDelta;
-        if (isIncome) {
-            totalIncome += amount;
-            // Track income by type
-            if (!incomeByType[type]) {
-                incomeByType[type] = 0;
-            }
-            incomeByType[type] += amount;
-        }
-        else {
-            totalExpense += amount;
-        }
-        // Track status-based counts and amounts
-        if (status === 'completed') {
-            completedTransactionCount++;
-            completedTransactionAmount += amount;
-        }
-        else if (status === 'pending') {
-            pendingTransactionCount++;
-            pendingTransactionAmount += amount;
+        // Track total receivables (only credit transactions)
+        // Credit = client owes us (receivables)
+        // Debit = client paid us (reduces receivables, but not tracked as receivables)
+        if (type === 'credit') {
+            totalReceivables += amount;
         }
         lastTransactionId = tx.transactionId;
         lastTransactionDate = tx.transactionDate;
@@ -181,6 +157,7 @@ async function rebuildClientLedger(organizationId, clientId, financialYear) {
         }
     });
     // Update or create ledger document
+    // For ClientLedger: Only track receivables (currentBalance), not expenses/income
     await ledgerRef.set({
         ledgerId,
         organizationId,
@@ -189,15 +166,9 @@ async function rebuildClientLedger(organizationId, clientId, financialYear) {
         fyStartDate: admin.firestore.Timestamp.fromDate(fyDates.start),
         fyEndDate: admin.firestore.Timestamp.fromDate(fyDates.end),
         openingBalance,
-        currentBalance,
-        totalIncome,
-        totalExpense,
-        incomeByType,
+        currentBalance, // Total receivables balance (what client owes)
+        totalReceivables, // Total receivables created (credit transactions)
         transactionCount,
-        completedTransactionCount,
-        pendingTransactionCount,
-        completedTransactionAmount,
-        pendingTransactionAmount,
         transactionIds,
         lastTransactionId: lastTransactionId || null,
         lastTransactionDate: lastTransactionDate || admin.firestore.FieldValue.serverTimestamp(),

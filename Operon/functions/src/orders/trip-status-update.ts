@@ -178,6 +178,9 @@ export const onTripStatusUpdated = onDocumentUpdated(
         });
       });
 
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trip-status-update.ts:181',message:'Checking status for DM update',data:{tripId,afterStatus,beforeStatus,isReturned:afterStatus==='returned'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       // If status is delivered, update DELIVERY_MEMO document
       if (afterStatus === 'delivered') {
         await _updateDeliveryMemo(tripId, after);
@@ -186,9 +189,14 @@ export const onTripStatusUpdated = onDocumentUpdated(
         await _revertDeliveryMemo(tripId);
       }
 
-      // If status is returned, let onTripReturnedCreateDM handle updating the existing DM
-      // Note: onTripReturnedCreateDM will update the DM document with return details
-      if (beforeStatus === 'returned' && afterStatus !== 'returned') {
+      // If status is returned, update DELIVERY_MEMO document with tripStatus
+      // #region agent log
+      console.log('[DEBUG] Checking if status is returned for DM update', {tripId, afterStatus, isReturned: afterStatus === 'returned', hypothesisId: 'A'});
+      fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trip-status-update.ts:189',message:'Returned status check',data:{tripId,afterStatus,isReturned:afterStatus==='returned'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      if (afterStatus === 'returned') {
+        await _updateDeliveryMemoForReturn(tripId, after);
+      } else if (beforeStatus === 'returned' && afterStatus !== 'returned') {
         // If status changed FROM returned to something else, revert return fields in DELIVERY_MEMO
         await _revertDeliveryMemoReturn(tripId);
       }
@@ -307,8 +315,94 @@ async function _revertDeliveryMemo(tripId: string): Promise<void> {
   }
 }
 
-// Removed _updateDeliveryMemoForReturn - we now create a new DM on return via onTripReturnedCreateDM
-// This ensures a fresh delivery memo document is created for returns, not an update to existing DM
+async function _updateDeliveryMemoForReturn(
+  tripId: string,
+  tripData: any,
+): Promise<void> {
+  try {
+    // #region agent log
+    console.log('[DEBUG] _updateDeliveryMemoForReturn called', {tripId, tripStatus: tripData.tripStatus, hypothesisId: 'A'});
+    fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trip-status-update.ts:314',message:'_updateDeliveryMemoForReturn called',data:{tripId,tripStatus:tripData.tripStatus},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    // Find DELIVERY_MEMO document by tripId
+    // Only update dispatch DMs (source !== 'trip_return_trigger'), not return DMs
+    const dmQuery = await db
+      .collection(DELIVERY_MEMOS_COLLECTION)
+      .where('tripId', '==', tripId)
+      .limit(10) // Get multiple to filter by source
+      .get();
+    
+    // #region agent log
+    console.log('[DEBUG] DM query for return', {tripId, docCount: dmQuery.docs.length, hypothesisId: 'B'});
+    fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trip-status-update.ts:322',message:'DM query for return',data:{tripId,docCount:dmQuery.docs.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
+    // Filter to only dispatch DMs (exclude return DMs)
+    const dispatchDMs = dmQuery.docs.filter((doc) => {
+      const data = doc.data();
+      return data.source !== 'trip_return_trigger';
+    });
+    
+    if (dispatchDMs.length === 0) {
+      console.log('[Trip Status Update] No dispatch delivery memo found for trip return', {
+        tripId,
+      });
+      return;
+    }
+    
+    const dispatchDmDoc = dispatchDMs[0];
+    const updateData: any = {
+      tripStatus: tripData.tripStatus || 'returned',
+      orderStatus: tripData.orderStatus || '',
+      returnedAt: tripData.returnedAt || new Date(),
+      returnedBy: tripData.returnedBy || null,
+      returnedByRole: tripData.returnedByRole || null,
+      meters: {
+        initialReading: tripData.initialReading ?? null,
+        finalReading: tripData.finalReading ?? null,
+        distanceTravelled: tripData.distanceTravelled ?? null,
+      },
+      updatedAt: new Date(),
+    };
+
+    // If Pay on Delivery, add payment details
+    const paymentType = (tripData.paymentType as string)?.toLowerCase() || '';
+    if (paymentType === 'pay_on_delivery') {
+      const paymentDetails = tripData.paymentDetails || [];
+      updateData.paymentDetails = paymentDetails;
+      updateData.paymentStatus = tripData.paymentStatus || 'pending';
+      updateData.totalPaidOnReturn = tripData.totalPaidOnReturn ?? null;
+      updateData.remainingAmount = tripData.remainingAmount ?? null;
+    }
+
+    // #region agent log
+    console.log('[DEBUG] About to update DM with return data', {tripId, dmId: dispatchDmDoc.id, updateDataTripStatus: updateData.tripStatus, hypothesisId: 'C'});
+    fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trip-status-update.ts:350',message:'About to update DM with return data',data:{tripId,dmId:dispatchDmDoc.id,updateDataTripStatus:updateData.tripStatus},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
+    await dispatchDmDoc.ref.update(updateData);
+
+    // #region agent log
+    console.log('[DEBUG] DM updated with return status SUCCESS', {tripId, dmId: dispatchDmDoc.id, hypothesisId: 'C'});
+    fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trip-status-update.ts:356',message:'DM updated with return status SUCCESS',data:{tripId,dmId:dispatchDmDoc.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+
+    console.log('[Trip Status Update] Delivery memo updated for return', {
+      tripId,
+      dmId: dispatchDmDoc.id,
+    });
+  } catch (error) {
+    // #region agent log
+    console.error('[DEBUG] DM update for return FAILED', {tripId, error: (error as any)?.message, hypothesisId: 'C'});
+    fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trip-status-update.ts:365',message:'DM update for return FAILED',data:{tripId,error:(error as any)?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    console.error('[Trip Status Update] Error updating delivery memo for return', {
+      tripId,
+      error,
+    });
+    // Don't throw - delivery memo update failure shouldn't block trip status update
+  }
+}
 
 async function _revertDeliveryMemoReturn(tripId: string): Promise<void> {
   try {

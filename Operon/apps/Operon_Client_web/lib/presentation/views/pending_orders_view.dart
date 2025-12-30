@@ -184,11 +184,11 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                   ),
                 ] else if (!_isLoading && _orders.isEmpty) ...[
                   const SizedBox(height: 48),
-                  _EmptyStateCard(
+                  const _EmptyStateCard(
                     icon: Icons.pending_actions_outlined,
                     title: 'No Pending Orders',
                     description: 'All orders have been processed or there are no orders yet.',
-                    color: const Color(0xFFFF9800),
+                    color: Color(0xFFFF9800),
                   ),
                 ],
               ],

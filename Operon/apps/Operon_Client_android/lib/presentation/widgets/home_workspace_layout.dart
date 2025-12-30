@@ -1,13 +1,13 @@
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/domain/entities/organization_membership.dart';
-import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/home_sections/pending_orders_view.dart';
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/permissions_section.dart';
+import 'package:dash_mobile/presentation/widgets/record_purchase_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -160,9 +160,12 @@ class _HomeWorkspaceLayoutState extends State<HomeWorkspaceLayout> {
                 canManageRoles: isAdminRole,
                 canManageProducts:
                     role?.canCreate('products') ?? isAdminRole,
+                canManageRawMaterials:
+                    role?.canCreate('rawMaterials') ?? isAdminRole,
                 onClose: () => setState(() => _isSettingsOpen = false),
                 onOpenRoles: () => context.go('/roles'),
                 onOpenProducts: () => context.go('/products'),
+                onOpenRawMaterials: () => context.go('/raw-materials'),
                 onOpenPaymentAccounts: isAdminRole ? () => context.go('/payment-accounts') : null,
               ),
             ),
@@ -172,6 +175,26 @@ class _HomeWorkspaceLayoutState extends State<HomeWorkspaceLayout> {
                 right: 40,
                 bottom: 100,
                 actions: [
+                  QuickActionItem(
+                    icon: Icons.payment,
+                    label: 'Payments',
+                    onTap: () {
+                      context.go('/record-payment');
+                    },
+                  ),
+                  QuickActionItem(
+                    icon: Icons.shopping_cart,
+                    label: 'Record Purchase',
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (dialogContext) => BlocProvider.value(
+                          value: context.read<OrganizationContextCubit>(),
+                          child: const RecordPurchaseDialog(),
+                        ),
+                      );
+                    },
+                  ),
                   QuickActionItem(
                     icon: Icons.add_shopping_cart_outlined,
                     label: 'Create Order',
@@ -440,17 +463,21 @@ class _SettingsSideSheet extends StatelessWidget {
   const _SettingsSideSheet({
     required this.canManageRoles,
     required this.canManageProducts,
+    required this.canManageRawMaterials,
     required this.onClose,
     required this.onOpenRoles,
     required this.onOpenProducts,
+    required this.onOpenRawMaterials,
     this.onOpenPaymentAccounts,
   });
 
   final bool canManageRoles;
   final bool canManageProducts;
+  final bool canManageRawMaterials;
   final VoidCallback onClose;
   final VoidCallback onOpenRoles;
   final VoidCallback onOpenProducts;
+  final VoidCallback onOpenRawMaterials;
   final VoidCallback? onOpenPaymentAccounts;
 
   @override
@@ -516,6 +543,15 @@ class _SettingsSideSheet extends StatelessWidget {
                 onTap: () {
                   onClose();
                   onOpenProducts();
+                },
+              ),
+              const SizedBox(height: 12),
+              _SettingsTile(
+                label: 'Raw Materials',
+                subtitle: canManageRawMaterials ? null : 'Read only',
+                onTap: () {
+                  onClose();
+                  onOpenRawMaterials();
                 },
               ),
               const SizedBox(height: 12),

@@ -280,6 +280,7 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
   void addPendingRegion({
     required String city,
     required String region,
+    required double roundtripKm,
   }) {
     // Find city by name to get cityId
     final cityObj = state.cities.firstWhere(
@@ -295,6 +296,7 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
       region: region,
       prices: {},
       isActive: true,
+      roundtripKm: roundtripKm,
     );
     
     // Auto-select the pending zone
@@ -414,6 +416,8 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
             'city_id': state.pendingNewZone!.cityId,
             'city_name': state.pendingNewZone!.cityName,
             'region': state.pendingNewZone!.region,
+            if (state.pendingNewZone!.roundtripKm != null)
+              'roundtrip_km': state.pendingNewZone!.roundtripKm,
             'is_active': true,
             'prices': pricesMap,
             'created_at': FieldValue.serverTimestamp(),

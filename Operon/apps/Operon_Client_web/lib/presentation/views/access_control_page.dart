@@ -147,7 +147,7 @@ class _AccessControlPageState extends State<AccessControlPage> {
                         Expanded(
                           flex: 2,
                           child: _selectedRoleId == null
-                              ? _EmptyPermissionPanel()
+                              ? const _EmptyPermissionPanel()
                               : _PermissionAssignmentPanel(
                                   roleId: _selectedRoleId!,
                                   roles: state.roles,
@@ -497,7 +497,7 @@ class _RoleCard extends StatelessWidget {
                           children: [
                             Text(
                               role.name,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 15,
@@ -955,7 +955,7 @@ class _SectionPermissionItem extends StatelessWidget {
           Switch(
             value: hasAccess,
             onChanged: onChanged,
-            activeColor: item.color,
+            activeThumbColor: item.color,
           ),
         ],
       ),

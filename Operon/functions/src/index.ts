@@ -8,4 +8,6 @@ export * from './clients/client-analytics';
 export * from './clients/client-whatsapp';
 export * from './transactions';
 export * from './orders';
+export * from './vendors';
+export * from './raw-materials/stock-handlers';
 export * from './cleanup';

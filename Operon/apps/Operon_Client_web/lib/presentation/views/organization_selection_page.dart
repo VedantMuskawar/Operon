@@ -176,7 +176,7 @@ class _OrganizationSelectionPageState
                                           orElse: () => appRoles.isNotEmpty
                                               ? appRoles.first
                                               : AppAccessRole(
-                                                  id: '${org.id}-${roleId}',
+                                                  id: '${org.id}-$roleId',
                                                   name: roleId,
                                                   description: 'Default role',
                                                   colorHex: '#6F4BFF',
@@ -191,7 +191,7 @@ class _OrganizationSelectionPageState
                                 // Fallback if fetch fails
                                 final roleId = org.appAccessRoleId ?? org.role;
                                 appAccessRole = AppAccessRole(
-                                  id: '${org.id}-${roleId}',
+                                  id: '${org.id}-$roleId',
                                   name: roleId,
                                   description: 'Default role',
                                   colorHex: '#6F4BFF',

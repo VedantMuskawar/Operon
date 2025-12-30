@@ -10,4 +10,7 @@ export 'client_ledger/client_ledger_data_source.dart';
 export 'client_ledger/client_ledger_repository.dart';
 export 'access_control/roles_data_source.dart';
 export 'access_control/roles_repository.dart';
+export 'vendors/vendors_data_source.dart';
+export 'vendors/vendors_repository.dart';
+export 'raw_materials/raw_materials_data_source.dart';
 

@@ -1,23 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Ledger types for transactions
+enum LedgerType {
+  clientLedger,
+  vendorLedger,
+  // Future: bankLedger, etc.
+}
+
+/// Simplified transaction types
+/// Credit = Increases receivable (client owes us)
+/// Debit = Decreases receivable (client paid us)
 enum TransactionType {
-  advance,
-  payment,
-  refund,
-  adjustment,
   credit,
   debit,
 }
 
+/// Transaction categories for context
 enum TransactionCategory {
-  income,
-  expense,
-}
-
-enum TransactionStatus {
-  pending,
-  completed,
-  cancelled,
+  advance,          // Advance payment on order
+  clientCredit,     // Client owes (PayLater order)
+  tripPayment,      // Payment collected on delivery
+  clientPayment,    // General payment recorded manually
+  refund,           // Refund given to client
+  adjustment,       // Manual adjustment
+  vendorPurchase,   // Purchase from vendor (credit transaction)
 }
 
 class Transaction {
@@ -25,10 +31,11 @@ class Transaction {
     required this.id,
     required this.organizationId,
     required this.clientId,
+    this.vendorId,
+    required this.ledgerType,
     required this.type,
     required this.category,
     required this.amount,
-    required this.status,
     required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -39,9 +46,6 @@ class Transaction {
     this.orderId,
     this.description,
     this.metadata,
-    this.cancelledAt,
-    this.cancelledBy,
-    this.cancellationReason,
     this.balanceBefore,
     this.balanceAfter,
   });
@@ -49,10 +53,11 @@ class Transaction {
   final String id;
   final String organizationId;
   final String clientId;
+  final String? vendorId; // For vendor ledger transactions
+  final LedgerType ledgerType;
   final TransactionType type;
   final TransactionCategory category;
   final double amount;
-  final TransactionStatus status;
   final String? paymentAccountId;
   final String? paymentAccountType; // "bank" | "cash" | "upi" | "other"
   final String? referenceNumber;
@@ -62,9 +67,6 @@ class Transaction {
   final String createdBy;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-  final DateTime? cancelledAt;
-  final String? cancelledBy;
-  final String? cancellationReason;
   final String financialYear;
   final double? balanceBefore;
   final double? balanceAfter;
@@ -74,10 +76,11 @@ class Transaction {
       'transactionId': id,
       'organizationId': organizationId,
       'clientId': clientId,
+      if (vendorId != null) 'vendorId': vendorId,
+      'ledgerType': ledgerType.name,
       'type': type.name,
       'category': category.name,
       'amount': amount,
-      'status': status.name,
       'currency': 'INR',
       if (paymentAccountId != null) 'paymentAccountId': paymentAccountId,
       if (paymentAccountType != null) 'paymentAccountType': paymentAccountType,
@@ -88,9 +91,6 @@ class Transaction {
       'createdBy': createdBy,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
-      if (cancelledAt != null) 'cancelledAt': Timestamp.fromDate(cancelledAt!),
-      if (cancelledBy != null) 'cancelledBy': cancelledBy,
-      if (cancellationReason != null) 'cancellationReason': cancellationReason,
       'financialYear': financialYear,
       if (balanceBefore != null) 'balanceBefore': balanceBefore,
       if (balanceAfter != null) 'balanceAfter': balanceAfter,
@@ -102,19 +102,20 @@ class Transaction {
       id: json['transactionId'] as String? ?? docId,
       organizationId: json['organizationId'] as String? ?? '',
       clientId: json['clientId'] as String? ?? '',
+      vendorId: json['vendorId'] as String?,
+      ledgerType: LedgerType.values.firstWhere(
+        (l) => l.name == json['ledgerType'],
+        orElse: () => LedgerType.clientLedger, // Default to ClientLedger for backward compatibility
+      ),
       type: TransactionType.values.firstWhere(
         (t) => t.name == json['type'],
-        orElse: () => TransactionType.advance,
+        orElse: () => TransactionType.debit, // Default fallback
       ),
       category: TransactionCategory.values.firstWhere(
         (c) => c.name == json['category'],
-        orElse: () => TransactionCategory.income,
+        orElse: () => TransactionCategory.clientPayment, // Default fallback
       ),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      status: TransactionStatus.values.firstWhere(
-        (s) => s.name == json['status'],
-        orElse: () => TransactionStatus.pending,
-      ),
       paymentAccountId: json['paymentAccountId'] as String?,
       paymentAccountType: json['paymentAccountType'] as String?,
       referenceNumber: json['referenceNumber'] as String?,
@@ -124,9 +125,6 @@ class Transaction {
       createdBy: json['createdBy'] as String? ?? '',
       createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
-      cancelledAt: (json['cancelledAt'] as Timestamp?)?.toDate(),
-      cancelledBy: json['cancelledBy'] as String?,
-      cancellationReason: json['cancellationReason'] as String?,
       financialYear: json['financialYear'] as String? ?? '',
       balanceBefore: (json['balanceBefore'] as num?)?.toDouble(),
       balanceAfter: (json['balanceAfter'] as num?)?.toDouble(),
@@ -137,10 +135,11 @@ class Transaction {
     String? id,
     String? organizationId,
     String? clientId,
+    String? vendorId,
+    LedgerType? ledgerType,
     TransactionType? type,
     TransactionCategory? category,
     double? amount,
-    TransactionStatus? status,
     String? paymentAccountId,
     String? paymentAccountType,
     String? referenceNumber,
@@ -150,9 +149,6 @@ class Transaction {
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
-    DateTime? cancelledAt,
-    String? cancelledBy,
-    String? cancellationReason,
     String? financialYear,
     double? balanceBefore,
     double? balanceAfter,
@@ -161,10 +157,11 @@ class Transaction {
       id: id ?? this.id,
       organizationId: organizationId ?? this.organizationId,
       clientId: clientId ?? this.clientId,
+      vendorId: vendorId ?? this.vendorId,
+      ledgerType: ledgerType ?? this.ledgerType,
       type: type ?? this.type,
       category: category ?? this.category,
       amount: amount ?? this.amount,
-      status: status ?? this.status,
       paymentAccountId: paymentAccountId ?? this.paymentAccountId,
       paymentAccountType: paymentAccountType ?? this.paymentAccountType,
       referenceNumber: referenceNumber ?? this.referenceNumber,
@@ -174,13 +171,12 @@ class Transaction {
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      cancelledAt: cancelledAt ?? this.cancelledAt,
-      cancelledBy: cancelledBy ?? this.cancelledBy,
-      cancellationReason: cancellationReason ?? this.cancellationReason,
       financialYear: financialYear ?? this.financialYear,
       balanceBefore: balanceBefore ?? this.balanceBefore,
       balanceAfter: balanceAfter ?? this.balanceAfter,
     );
   }
 }
+
+
 

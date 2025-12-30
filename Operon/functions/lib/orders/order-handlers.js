@@ -494,10 +494,10 @@ exports.onPendingOrderCreated = functions.firestore
         const transactionData = {
             organizationId,
             clientId,
-            type: 'advance',
-            category: 'income',
+            ledgerType: 'clientLedger',
+            type: 'debit', // Debit = client paid upfront (decreases receivable)
+            category: 'advance', // Advance payment on order
             amount: advanceAmount,
-            status: 'completed',
             paymentAccountId: advancePaymentAccountId,
             paymentAccountType: paymentAccountType,
             orderId: orderId,

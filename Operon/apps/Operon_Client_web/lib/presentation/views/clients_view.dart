@@ -1,7 +1,7 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
-import 'package:dash_web/presentation/widgets/client_detail_panel.dart';
+import 'package:dash_web/presentation/widgets/client_detail_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -32,8 +32,6 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
   _ClientSortOption _sortOption = _ClientSortOption.nameAsc;
   _ClientFilterType _filterType = _ClientFilterType.all;
   bool _isListView = false;
-  Client? _selectedClient;
-  bool _isPanelOpen = false;
 
   @override
   void initState() {
@@ -140,10 +138,7 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
 
         final filtered = _applyFiltersAndSort(allClients);
 
-        return Stack(
-          children: [
-            // Main content
-            Column(
+        return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
             // Statistics Dashboard
@@ -476,36 +471,24 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                   );
                 },
               ),
-              ],
-            ),
-            
-            // Client Detail Panel (positioned absolutely)
-            if (_isPanelOpen && _selectedClient != null)
-              ClientDetailPanel(
-                client: _selectedClient!,
-                onClose: () {
-                  setState(() {
-                    _isPanelOpen = false;
-                    _selectedClient = null;
-                  });
-                },
-                onClientChanged: (client) {
-                  setState(() {
-                    _selectedClient = client;
-                  });
-                },
-              ),
-          ],
-        );
+            ],
+          );
       },
     );
   }
 
   void _openClientDetail(Client client) {
-    setState(() {
-      _selectedClient = client;
-      _isPanelOpen = true;
-    });
+    showDialog(
+      context: context,
+      builder: (dialogContext) => ClientDetailModal(
+        client: client,
+        onClientChanged: (updatedClient) {
+          // Refresh clients list if needed
+          context.read<ClientsCubit>().loadClients();
+        },
+        onEdit: () => _showClientDialog(context, client),
+      ),
+    );
   }
 }
 
@@ -591,12 +574,12 @@ class _ClientCardState extends State<_ClientCard>
               scale: 1.0 + (_controller.value * 0.02),
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF1F1F33),
-                      const Color(0xFF1A1A28),
+                      Color(0xFF1F1F33),
+                      Color(0xFF1A1A28),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(20),
@@ -1028,12 +1011,12 @@ class _ClientDialogState extends State<_ClientDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF11111B),
-              const Color(0xFF0D0D15),
+              Color(0xFF11111B),
+              Color(0xFF0D0D15),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
@@ -1056,12 +1039,12 @@ class _ClientDialogState extends State<_ClientDialog> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF1B1C2C),
-                    const Color(0xFF161622),
+                    Color(0xFF1B1C2C),
+                    Color(0xFF161622),
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1483,12 +1466,12 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1F1F33),
-            const Color(0xFF1A1A28),
+            Color(0xFF1F1F33),
+            Color(0xFF1A1A28),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
@@ -1849,12 +1832,12 @@ class _ClientListView extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF1F1F33),
-                const Color(0xFF1A1A28),
+                Color(0xFF1F1F33),
+                Color(0xFF1A1A28),
               ],
             ),
             borderRadius: BorderRadius.circular(16),

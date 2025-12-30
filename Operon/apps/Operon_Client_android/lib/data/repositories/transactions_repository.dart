@@ -1,5 +1,5 @@
 import 'package:dash_mobile/data/datasources/transactions_data_source.dart';
-import 'package:dash_mobile/domain/entities/transaction.dart';
+import 'package:core_models/core_models.dart';
 
 class TransactionsRepository {
   TransactionsRepository({required TransactionsDataSource dataSource})
@@ -20,8 +20,8 @@ class TransactionsRepository {
   /// Cancel a transaction
   Future<void> cancelTransaction({
     required String transactionId,
-    required String cancelledBy,
-    required String cancellationReason,
+    String? cancelledBy,
+    String? cancellationReason,
   }) {
     return _dataSource.cancelTransaction(
       transactionId: transactionId,
@@ -49,13 +49,11 @@ class TransactionsRepository {
   Future<List<Transaction>> getOrganizationTransactions({
     required String organizationId,
     String? financialYear,
-    TransactionStatus? status,
     int? limit,
   }) {
     return _dataSource.getOrganizationTransactions(
       organizationId: organizationId,
       financialYear: financialYear,
-      status: status,
       limit: limit,
     );
   }

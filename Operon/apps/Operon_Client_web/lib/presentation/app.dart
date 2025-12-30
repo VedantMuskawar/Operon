@@ -14,6 +14,7 @@ import 'package:dash_web/data/repositories/auth_repository.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
+import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:dash_web/data/repositories/app_access_roles_repository.dart';
 import 'package:dash_web/data/repositories/job_roles_repository.dart';
 import 'package:dash_web/data/repositories/user_organization_repository.dart';
@@ -23,8 +24,6 @@ import 'package:dash_web/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
-import 'package:dash_web/data/repositories/delivery_memo_repository.dart';
-import 'package:core_datasources/core_datasources.dart' hide DeliveryMemoRepository;
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:dash_web/presentation/blocs/app_initialization/app_initialization_cubit.dart';
@@ -67,6 +66,11 @@ class DashWebApp extends StatelessWidget {
             dataSource: ProductsDataSource(),
           ),
         ),
+        RepositoryProvider<RawMaterialsRepository>(
+          create: (_) => RawMaterialsRepository(
+            dataSource: RawMaterialsDataSource(),
+          ),
+        ),
         RepositoryProvider<PaymentAccountsRepository>(
           create: (_) => PaymentAccountsRepository(
             dataSource: PaymentAccountsDataSource(),
@@ -80,6 +84,11 @@ class DashWebApp extends StatelessWidget {
         RepositoryProvider<EmployeesRepository>(
           create: (_) => EmployeesRepository(
             dataSource: EmployeesDataSource(),
+          ),
+        ),
+        RepositoryProvider<VendorsRepository>(
+          create: (_) => VendorsRepository(
+            dataSource: VendorsDataSource(),
           ),
         ),
         RepositoryProvider<VehiclesRepository>(

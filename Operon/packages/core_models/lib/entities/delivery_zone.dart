@@ -10,6 +10,7 @@ class DeliveryZone {
     required this.region,
     required this.prices,
     this.isActive = true,
+    this.roundtripKm,
   });
 
   final String id;
@@ -19,6 +20,7 @@ class DeliveryZone {
   final String region;
   final Map<String, DeliveryZonePrice> prices;
   final bool isActive;
+  final double? roundtripKm;
 
   factory DeliveryZone.fromMap(Map<String, dynamic> map, String id) {
     final pricesMap = map['prices'] as Map<String, dynamic>? ?? {};
@@ -40,6 +42,7 @@ class DeliveryZone {
       region: map['region'] as String? ?? '',
       prices: prices,
       isActive: map['is_active'] as bool? ?? true,
+      roundtripKm: (map['roundtrip_km'] as num?)?.toDouble(),
     );
   }
 
@@ -49,6 +52,7 @@ class DeliveryZone {
       'city_name': cityName,
       'region': region,
       'is_active': isActive,
+      if (roundtripKm != null) 'roundtrip_km': roundtripKm,
       'prices': prices.map(
         (key, value) => MapEntry(key, {
           'unit_price': value.unitPrice,
@@ -67,6 +71,7 @@ class DeliveryZone {
     String? region,
     Map<String, DeliveryZonePrice>? prices,
     bool? isActive,
+    double? roundtripKm,
   }) {
     return DeliveryZone(
       id: id ?? this.id,
@@ -76,6 +81,7 @@ class DeliveryZone {
       region: region ?? this.region,
       prices: prices ?? this.prices,
       isActive: isActive ?? this.isActive,
+      roundtripKm: roundtripKm ?? this.roundtripKm,
     );
   }
 

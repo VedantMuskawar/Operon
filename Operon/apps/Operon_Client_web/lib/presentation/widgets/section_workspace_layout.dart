@@ -5,6 +5,7 @@ import 'package:dash_web/domain/entities/organization_membership.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
+import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/repositories/users_repository.dart';
 import 'package:dash_web/data/repositories/app_access_roles_repository.dart';
@@ -15,6 +16,7 @@ import 'package:dash_web/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:dash_web/presentation/blocs/job_roles/job_roles_cubit.dart';
 import 'package:dash_web/presentation/blocs/products/products_cubit.dart';
+import 'package:dash_web/presentation/blocs/raw_materials/raw_materials_cubit.dart';
 import 'package:dash_web/presentation/blocs/payment_accounts/payment_accounts_cubit.dart';
 import 'package:dash_web/presentation/blocs/users/users_cubit.dart';
 import 'package:dash_web/presentation/blocs/employees/employees_cubit.dart';
@@ -22,6 +24,7 @@ import 'package:dash_web/presentation/blocs/vehicles/vehicles_cubit.dart';
 import 'package:dash_web/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
 import 'package:dash_web/presentation/views/roles_page.dart';
 import 'package:dash_web/presentation/views/products_page.dart';
+import 'package:dash_web/presentation/views/raw_materials_page.dart';
 import 'package:dash_web/presentation/views/payment_accounts_page.dart';
 import 'package:dash_web/presentation/views/users_view.dart';
 import 'package:dash_web/presentation/views/employees_view.dart';
@@ -29,6 +32,8 @@ import 'package:dash_web/presentation/views/vehicles_view.dart';
 import 'package:dash_web/presentation/views/zones_view.dart';
 import 'package:dash_web/presentation/widgets/quick_action_menu.dart';
 import 'package:dash_web/presentation/widgets/select_client_dialog.dart';
+import 'package:dash_web/presentation/widgets/record_payment_dialog.dart';
+import 'package:dash_web/presentation/widgets/record_purchase_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -64,7 +69,7 @@ class SectionWorkspaceLayout extends StatefulWidget {
   State<SectionWorkspaceLayout> createState() => _SectionWorkspaceLayoutState();
 }
 
-enum ContentPage { none, roles, products, paymentAccounts, users, employees, vehicles, zones }
+enum ContentPage { none, roles, products, rawMaterials, paymentAccounts, users, employees, vehicles, zones }
 
 class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
   bool _isProfileOpen = false;
@@ -95,7 +100,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
     final media = MediaQuery.of(context);
 
     const scaffoldColor =
-        kDebugMode ? const Color(0xFF121226) : const Color(0xFF010104);
+        kDebugMode ? Color(0xFF121226) : Color(0xFF010104);
 
     return Scaffold(
       backgroundColor: scaffoldColor,
@@ -117,11 +122,11 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   ),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
-                    BoxShadow(
-                      color: const Color(0x66000000),
+                    const BoxShadow(
+                      color: Color(0x66000000),
                       blurRadius: 60,
                       spreadRadius: -10,
-                      offset: const Offset(0, 30),
+                      offset: Offset(0, 30),
                     ),
                     BoxShadow(
                       color: const Color(0xFF6F4BFF).withValues(alpha: 0.1),
@@ -248,6 +253,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                 canManageUsers: canManageUsers,
                 canManageVehicles: canManageVehicles,
                 canManageProducts: appAccessRole?.canCreate('products') ?? isAdminRole,
+                canManageRawMaterials: appAccessRole?.canCreate('rawMaterials') ?? isAdminRole,
                 onClose: () => setState(() => _isSettingsOpen = false),
                 onOpenUsers: canManageUsers
                     ? () => setState(() {
@@ -269,6 +275,10 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   _isSettingsOpen = false;
                   _contentPage = ContentPage.products;
                 }),
+                onOpenRawMaterials: () => setState(() {
+                  _isSettingsOpen = false;
+                  _contentPage = ContentPage.rawMaterials;
+                }),
                 onOpenPaymentAccounts: isAdminRole
                     ? () => setState(() {
                         _isSettingsOpen = false;
@@ -284,9 +294,11 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
               child: _ContentSideSheet(
                 page: _contentPage,
                 onClose: () => setState(() => _contentPage = ContentPage.none),
+                orgId: organization?.id,
                 appAccessRole: appAccessRole,
                 isAdminRole: isAdminRole,
                 canManageProducts: appAccessRole?.canCreate('products') ?? isAdminRole,
+                canManageRawMaterials: appAccessRole?.canCreate('rawMaterials') ?? isAdminRole,
                 ),
               ),
 
@@ -299,6 +311,52 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                 right: 40,
                 bottom: 40, // 40px from bottom of viewport (accounts for content panel bottom: 24 + spacing)
                 actions: [
+                  // Payments - Available on both Overview and Pending Orders (opens Record Payment modal)
+                  QuickActionItem(
+                    icon: Icons.payment,
+                    label: 'Payments',
+                    onTap: () {
+                      final orgState = context.read<OrganizationContextCubit>().state;
+                      final organization = orgState.organization;
+                      if (organization == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please select an organization first')),
+                        );
+                        return;
+                      }
+                      showDialog(
+                        context: context,
+                        barrierColor: Colors.black.withValues(alpha: 0.7),
+                        builder: (dialogContext) => BlocProvider.value(
+                          value: context.read<OrganizationContextCubit>(),
+                          child: const RecordPaymentDialog(),
+                        ),
+                      );
+                    },
+                  ),
+                  // Record Purchase - Available on both Overview and Pending Orders
+                  QuickActionItem(
+                    icon: Icons.shopping_cart,
+                    label: 'Record Purchase',
+                    onTap: () {
+                      final orgState = context.read<OrganizationContextCubit>().state;
+                      final organization = orgState.organization;
+                      if (organization == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please select an organization first')),
+                        );
+                        return;
+                      }
+                      showDialog(
+                        context: context,
+                        barrierColor: Colors.black.withValues(alpha: 0.7),
+                        builder: (dialogContext) => BlocProvider.value(
+                          value: context.read<OrganizationContextCubit>(),
+                          child: const RecordPurchaseDialog(),
+                        ),
+                      );
+                    },
+                  ),
                   // Create Order - Available on both Overview and Pending Orders
                   QuickActionItem(
                     icon: Icons.add_shopping_cart_outlined,
@@ -616,7 +674,7 @@ class _AnimatedSectionSwitcherState extends State<_AnimatedSectionSwitcher>
       // Determine slide direction based on index change
       final direction = widget.currentIndex > oldWidget.currentIndex ? 1.0 : -1.0;
       final slideBegin = Offset(direction * 40.0, 0.0);
-      final scaleBegin = 0.95;
+      const scaleBegin = 0.95;
       
       _setupAnimations(slideBegin: slideBegin, scaleBegin: scaleBegin);
       _controller.reset();
@@ -652,12 +710,12 @@ class _AnimatedSectionSwitcherState extends State<_AnimatedSectionSwitcher>
                     Container(
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            const Color(0xFF1B1C2C),
-                            const Color(0xFF161622),
+                            Color(0xFF1B1C2C),
+                            Color(0xFF161622),
                           ],
                         ),
                         border: Border(
@@ -945,12 +1003,12 @@ class _AnimatedNavItemState extends State<_AnimatedNavItem>
                       ),
                       decoration: BoxDecoration(
                         gradient: value > 0.1
-                            ? LinearGradient(
+                            ? const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  const Color(0xFF6F4BFF),
-                                  const Color(0xFF5A3FE0),
+                                  Color(0xFF6F4BFF),
+                                  Color(0xFF5A3FE0),
                                 ],
                               )
                             : null,
@@ -1323,12 +1381,12 @@ class _ProfileSideSheet extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF11111B),
-                const Color(0xFF0D0D15),
+                Color(0xFF11111B),
+                Color(0xFF0D0D15),
               ],
             ),
             borderRadius: const BorderRadius.only(
@@ -1511,11 +1569,13 @@ class _SettingsSideSheet extends StatelessWidget {
     required this.canManageUsers,
     required this.canManageVehicles,
     required this.canManageProducts,
+    required this.canManageRawMaterials,
     required this.onClose,
     this.onOpenUsers,
     this.onOpenVehicles,
     required this.onOpenRoles,
     required this.onOpenProducts,
+    required this.onOpenRawMaterials,
     this.onOpenPaymentAccounts,
   });
 
@@ -1523,11 +1583,13 @@ class _SettingsSideSheet extends StatelessWidget {
   final bool canManageUsers;
   final bool canManageVehicles;
   final bool canManageProducts;
+  final bool canManageRawMaterials;
   final VoidCallback onClose;
   final VoidCallback? onOpenUsers;
   final VoidCallback? onOpenVehicles;
   final VoidCallback onOpenRoles;
   final VoidCallback onOpenProducts;
+  final VoidCallback onOpenRawMaterials;
   final VoidCallback? onOpenPaymentAccounts;
 
   @override
@@ -1614,6 +1676,15 @@ class _SettingsSideSheet extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
+              _SettingsTile(
+                label: 'Raw Materials',
+                subtitle: canManageRawMaterials ? null : 'Read only',
+                onTap: () {
+                  onClose();
+                  onOpenRawMaterials();
+                },
+              ),
+              const SizedBox(height: 12),
               if (onOpenPaymentAccounts != null)
                 _SettingsTile(
                   label: 'Payment Accounts',
@@ -1687,23 +1758,25 @@ class _ContentSideSheet extends StatelessWidget {
   const _ContentSideSheet({
     required this.page,
     required this.onClose,
+    this.orgId,
     required this.appAccessRole,
     required this.isAdminRole,
     required this.canManageProducts,
+    required this.canManageRawMaterials,
   });
 
   final ContentPage page;
   final VoidCallback onClose;
+  final String? orgId;
   final AppAccessRole? appAccessRole;
   final bool isAdminRole;
   final bool canManageProducts;
+  final bool canManageRawMaterials;
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final width = (screenWidth * 0.65).clamp(350.0, 600.0);
-    final orgState = context.watch<OrganizationContextCubit>().state;
-    final orgId = orgState.organization?.id;
 
     String title;
     Widget content;
@@ -1714,10 +1787,11 @@ class _ContentSideSheet extends StatelessWidget {
         if (orgId == null) {
           content = const Center(child: Text('No organization selected'));
         } else {
+          final orgIdNonNull = orgId!;
           content = BlocProvider(
             create: (context) => JobRolesCubit(
               repository: context.read<JobRolesRepository>(),
-              orgId: orgId,
+              orgId: orgIdNonNull,
             )..load(),
             child: const RolesPageContent(),
           );
@@ -1728,15 +1802,36 @@ class _ContentSideSheet extends StatelessWidget {
         if (orgId == null || appAccessRole == null) {
           content = const Center(child: Text('No organization selected'));
         } else {
+          final orgIdNonNull = orgId!;
+          final appAccessRoleNonNull = appAccessRole!;
           content = BlocProvider(
             create: (context) => ProductsCubit(
               repository: context.read<ProductsRepository>(),
-              orgId: orgId,
+              orgId: orgIdNonNull,
               canCreate: canManageProducts,
-              canEdit: appAccessRole!.canEdit('products'),
-              canDelete: appAccessRole!.canDelete('products'),
+              canEdit: appAccessRoleNonNull.canEdit('products'),
+              canDelete: appAccessRoleNonNull.canDelete('products'),
             )..load(),
             child: ProductsPageContent(canCreate: canManageProducts),
+          );
+        }
+        break;
+      case ContentPage.rawMaterials:
+        title = 'Raw Materials';
+        if (orgId == null || appAccessRole == null) {
+          content = const Center(child: Text('No organization selected'));
+        } else {
+          final orgIdNonNull = orgId!;
+          final appAccessRoleNonNull = appAccessRole!;
+          content = BlocProvider(
+            create: (context) => RawMaterialsCubit(
+              repository: context.read<RawMaterialsRepository>(),
+              orgId: orgIdNonNull,
+              canCreate: canManageRawMaterials,
+              canEdit: appAccessRoleNonNull.canEdit('rawMaterials'),
+              canDelete: appAccessRoleNonNull.canDelete('rawMaterials'),
+            )..loadRawMaterials(),
+            child: RawMaterialsPageContent(canCreate: canManageRawMaterials),
           );
         }
         break;
@@ -1745,11 +1840,12 @@ class _ContentSideSheet extends StatelessWidget {
         if (orgId == null) {
           content = const Center(child: Text('No organization selected'));
         } else {
+          final orgIdNonNull = orgId!;
           content = BlocProvider(
             create: (context) => PaymentAccountsCubit(
               repository: context.read<PaymentAccountsRepository>(),
               qrCodeService: context.read<QrCodeService>(),
-              orgId: orgId,
+              orgId: orgIdNonNull,
             )..loadAccounts(),
             child: const PaymentAccountsPageContent(),
           );
@@ -1760,20 +1856,24 @@ class _ContentSideSheet extends StatelessWidget {
         if (orgId == null) {
           content = const Center(child: Text('No organization selected'));
         } else {
-          final organization = orgState.organization;
-          if (organization == null) {
-            content = const Center(child: Text('No organization selected'));
-          } else {
-            content = BlocProvider(
-              create: (context) => UsersCubit(
-                repository: context.read<UsersRepository>(),
-                appAccessRolesRepository: context.read<AppAccessRolesRepository>(),
-                organizationId: organization.id,
-                organizationName: organization.name,
-              )..load(),
-              child: const UsersPageContent(),
-            );
-          }
+          content = Builder(
+            builder: (context) {
+              final orgState = context.read<OrganizationContextCubit>().state;
+              final organization = orgState.organization;
+              if (organization == null) {
+                return const Center(child: Text('No organization selected'));
+              }
+              return BlocProvider(
+                create: (context) => UsersCubit(
+                  repository: context.read<UsersRepository>(),
+                  appAccessRolesRepository: context.read<AppAccessRolesRepository>(),
+                  organizationId: organization.id,
+                  organizationName: organization.name,
+                )..load(),
+                child: const UsersPageContent(),
+              );
+            },
+          );
         }
         break;
       case ContentPage.employees:
@@ -1781,11 +1881,12 @@ class _ContentSideSheet extends StatelessWidget {
         if (orgId == null) {
           content = const Center(child: Text('No organization selected'));
         } else {
+          final orgIdNonNull = orgId!;
           content = BlocProvider(
             create: (context) => EmployeesCubit(
               repository: context.read<EmployeesRepository>(),
               jobRolesRepository: context.read<JobRolesRepository>(),
-              orgId: orgId,
+              orgId: orgIdNonNull,
             )..loadEmployees(),
             child: const EmployeesPageContent(),
           );
@@ -1796,10 +1897,11 @@ class _ContentSideSheet extends StatelessWidget {
         if (orgId == null) {
           content = const Center(child: Text('No organization selected'));
         } else {
+          final orgIdNonNull = orgId!;
           content = BlocProvider(
             create: (context) => VehiclesCubit(
               repository: context.read<VehiclesRepository>(),
-              orgId: orgId,
+              orgId: orgIdNonNull,
             )..loadVehicles(),
             child: const VehiclesPageContent(),
           );
@@ -1810,6 +1912,7 @@ class _ContentSideSheet extends StatelessWidget {
         if (orgId == null || appAccessRole == null) {
           content = const Center(child: Text('No organization selected'));
         } else {
+          final orgIdNonNull = orgId!;
           final appAccessRoleNonNull = appAccessRole!;
           final zonesCityPerm = ZoneCrudPermission(
             canCreate: appAccessRoleNonNull.canCreate('zonesCity'),
@@ -1830,7 +1933,7 @@ class _ContentSideSheet extends StatelessWidget {
             create: (context) => DeliveryZonesCubit(
               repository: context.read<DeliveryZonesRepository>(),
               productsRepository: context.read<ProductsRepository>(),
-              orgId: orgId,
+              orgId: orgIdNonNull,
             )..loadZones(),
             child: ZonesPageContent(
               cityPermission: zonesCityPerm,
@@ -1864,12 +1967,12 @@ class _ContentSideSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        const Color(0xFF1B1C2C),
-                        const Color(0xFF161622),
+                        Color(0xFF1B1C2C),
+                        Color(0xFF161622),
                       ],
                     ),
                     border: Border(

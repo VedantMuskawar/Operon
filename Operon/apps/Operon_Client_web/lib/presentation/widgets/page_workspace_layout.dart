@@ -112,7 +112,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
 
     // Brighter scaffold in debug for visibility
     const scaffoldColor =
-        kDebugMode ? const Color(0xFF121226) : const Color(0xFF010104);
+        kDebugMode ? Color(0xFF121226) : Color(0xFF010104);
 
     return Scaffold(
       backgroundColor: scaffoldColor,

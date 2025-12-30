@@ -1,11 +1,13 @@
 import 'package:dash_web/data/repositories/app_access_roles_repository.dart';
 import 'package:dash_web/data/repositories/job_roles_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
+import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_web/presentation/blocs/access_control/access_control_cubit.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/products/products_cubit.dart';
+import 'package:dash_web/presentation/blocs/raw_materials/raw_materials_cubit.dart';
 import 'package:dash_web/presentation/views/home_page.dart';
 import 'package:dash_web/presentation/views/organization_selection_page.dart';
 import 'package:dash_web/presentation/views/otp_verification_page.dart';
@@ -14,11 +16,14 @@ import 'package:dash_web/presentation/views/splash_screen.dart';
 import 'package:dash_web/presentation/views/access_control_page.dart';
 import 'package:dash_web/presentation/views/payment_accounts_page.dart';
 import 'package:dash_web/presentation/views/products_page.dart';
+import 'package:dash_web/presentation/views/raw_materials_page.dart';
 import 'package:dash_web/presentation/views/roles_page.dart';
 import 'package:dash_web/presentation/views/users_view.dart';
 import 'package:dash_web/presentation/views/employees_view.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/presentation/blocs/employees/employees_cubit.dart';
+import 'package:dash_web/presentation/views/vendors_view.dart';
+import 'package:dash_web/presentation/blocs/vendors/vendors_cubit.dart';
 import 'package:dash_web/presentation/views/zones_view.dart';
 import 'package:dash_web/presentation/views/create_order_page.dart';
 import 'package:dash_web/data/repositories/delivery_zones_repository.dart';
@@ -30,6 +35,10 @@ import 'package:dash_web/presentation/views/client_detail_page.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/views/delivery_memos_view.dart';
+import 'package:dash_web/presentation/views/transactions_page.dart';
+import 'package:dash_web/presentation/views/purchases_page.dart';
+import 'package:dash_web/presentation/views/record_payment_page.dart';
+import 'package:dash_web/presentation/views/fuel_ledger_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -155,6 +164,26 @@ GoRouter buildRouter() {
         ),
       ),
       GoRoute(
+        path: '/vendors',
+        name: 'vendors',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) => _buildTransitionPage(
+          key: state.pageKey,
+          routePath: state.uri.path,
+          child: const _VendorsPageWrapper(),
+        ),
+      ),
+      GoRoute(
         path: '/roles',
         name: 'roles',
         redirect: (context, state) {
@@ -204,6 +233,38 @@ GoRouter buildRouter() {
                 canDelete: appAccessRole.canDelete('products'),
               )..load(),
               child: const ProductsPage(),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/raw-materials',
+        name: 'raw-materials',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          final appAccessRole = orgState.appAccessRole;
+          if (organization == null || appAccessRole == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          final rawMaterialsRepository = context.read<RawMaterialsRepository>();
+
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: BlocProvider(
+              create: (_) => RawMaterialsCubit(
+                repository: rawMaterialsRepository,
+                orgId: organization.id,
+                canCreate: appAccessRole.canCreate('rawMaterials'),
+                canEdit: appAccessRole.canEdit('rawMaterials'),
+                canDelete: appAccessRole.canDelete('rawMaterials'),
+              )..loadRawMaterials(),
+              child: const RawMaterialsPage(),
             ),
           );
         },
@@ -451,6 +512,137 @@ GoRouter buildRouter() {
           );
         },
       ),
+      GoRoute(
+        path: '/transactions',
+        name: 'transactions',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const TransactionsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/purchases',
+        name: 'purchases',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const PurchasesPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/fuel-ledger',
+        name: 'fuel-ledger',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const FuelLedgerPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/record-payment',
+        name: 'record-payment',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          final clientsRepository = context.read<ClientsRepository>();
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: BlocProvider(
+              create: (_) => ClientsCubit(
+                repository: clientsRepository,
+                orgId: organization.id,
+              ),
+              child: const RecordPaymentPage(),
+            ),
+          );
+        },
+      ),
     ],
   );
 }
@@ -483,6 +675,38 @@ class _EmployeesPageWrapper extends StatelessWidget {
         currentIndex: -1,
         onNavTap: (index) => context.go('/home?section=$index'),
         child: const EmployeesPageContent(),
+      ),
+    );
+  }
+}
+
+class _VendorsPageWrapper extends StatelessWidget {
+  const _VendorsPageWrapper();
+
+  @override
+  Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    final org = orgState.organization;
+    if (org == null) {
+      return const Scaffold(
+        body: Center(child: Text('No organization selected')),
+      );
+    }
+
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<VendorsCubit>(
+          create: (_) => VendorsCubit(
+            repository: context.read<VendorsRepository>(),
+            organizationId: org.id,
+          )..loadVendors(),
+        ),
+      ],
+      child: SectionWorkspaceLayout(
+        panelTitle: 'Vendors',
+        currentIndex: -1,
+        onNavTap: (index) => context.go('/home?section=$index'),
+        child: const VendorsPageContent(),
       ),
     );
   }
@@ -560,10 +784,13 @@ CustomTransitionPage<dynamic> _buildTransitionPage({
           routePath.startsWith('/roles') ||
           routePath.startsWith('/users') ||
           routePath.startsWith('/employees') ||
+          routePath.startsWith('/vendors') ||
           routePath.startsWith('/products') ||
+          routePath.startsWith('/raw-materials') ||
           routePath.startsWith('/zones') ||
           (routePath.startsWith('/clients') && !routePath.startsWith('/clients/detail')) ||
-          routePath.startsWith('/access-control'));
+          routePath.startsWith('/access-control') ||
+          routePath.startsWith('/fuel-ledger'));
   
   final isAuthRoute = routePath != null &&
       (routePath.startsWith('/login') ||

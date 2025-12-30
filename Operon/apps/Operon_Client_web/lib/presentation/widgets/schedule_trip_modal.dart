@@ -462,7 +462,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         const SizedBox(height: 10),
         if (!_isAddingNewPhone) ...[
           DropdownButtonFormField<String>(
-            value: _selectedPhoneNumber,
+            initialValue: _selectedPhoneNumber,
             decoration: InputDecoration(
               filled: true,
               fillColor: const Color(0xFF13131E),
@@ -744,7 +744,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           )
         else
           DropdownButtonFormField<Vehicle>(
-            value: _selectedVehicle,
+            initialValue: _selectedVehicle,
             decoration: InputDecoration(
               filled: true,
               fillColor: const Color(0xFF13131E),

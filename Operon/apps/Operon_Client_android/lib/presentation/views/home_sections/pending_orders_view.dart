@@ -362,7 +362,6 @@ class _CompactActionButton extends StatelessWidget {
     required this.label,
     required this.color,
     required this.onTap,
-    this.isLoading = false,
   });
 
   final IconData icon;

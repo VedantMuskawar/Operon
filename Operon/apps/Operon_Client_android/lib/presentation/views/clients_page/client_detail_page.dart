@@ -646,9 +646,9 @@ class _OverviewSectionState extends State<_OverviewSection> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: _SummaryCard(
-                                label: 'Total Expense',
+                                label: 'Total Receivables',
                                 value: _formatCurrency(
-                                  (_ledger!['totalExpense'] as num?)?.toDouble() ?? 0.0,
+                                  (_ledger!['totalReceivables'] as num?)?.toDouble() ?? 0.0,
                                 ),
                                 color: const Color(0xFFEF5350),
                               ),
@@ -659,8 +659,8 @@ class _OverviewSectionState extends State<_OverviewSection> {
                         _SummaryCard(
                           label: 'Net Balance',
                           value: _formatCurrency(
-                            ((_ledger!['totalIncome'] as num?)?.toDouble() ?? 0.0) -
-                                ((_ledger!['totalExpense'] as num?)?.toDouble() ?? 0.0),
+                            (_ledger!['netBalance'] as num?)?.toDouble() ??
+                                (_ledger!['currentBalance'] as num?)?.toDouble() ?? 0.0,
                           ),
                           color: const Color(0xFF6F4BFF),
                         ),
@@ -669,7 +669,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                         _TransactionSummaryCard(
                           total: _ledger!['transactionCount'] as int? ?? 0,
                           completed: _ledger!['completedTransactionCount'] as int? ?? 0,
-                          pending: _ledger!['pendingTransactionCount'] as int? ?? 0,
+                          pending: 0, // No pending status in new transaction model
                           cancelled: _ledger!['cancelledTransactionCount'] as int? ?? 0,
                         ),
                         const SizedBox(height: 16),
@@ -1683,36 +1683,14 @@ class _TransactionListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final type = (transaction['type'] as String? ?? 'N/A').toLowerCase();
     final amount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
-    final status = transaction['status'] as String? ?? 'N/A';
     final transactionDate = transaction['transactionDate'];
     final metadata = transaction['metadata'] as Map<String, dynamic>? ?? {};
     final dmNumber = metadata['dmNumber'] ?? transaction['dmNumber'];
 
-    double signedAmount;
-    switch (type) {
-      case 'credit':
-        signedAmount = amount; // client owes us
-        break;
-      case 'payment':
-      case 'advance':
-      case 'refund':
-      case 'debit':
-        signedAmount = -amount; // client paid or we paid back
-        break;
-      case 'adjustment':
-        signedAmount = amount;
-        break;
-      default:
-        signedAmount = amount;
-    }
-
+    // Calculate signed amount based on type (credit = positive, debit = negative)
+    final signedAmount = type == 'credit' ? amount : -amount;
     final isPositive = signedAmount > 0;
     final color = isPositive ? Colors.orangeAccent : const Color(0xFF4CAF50);
-    final statusColor = status == 'completed'
-        ? const Color(0xFF4CAF50)
-        : status == 'pending'
-            ? Colors.orange
-            : Colors.red;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1762,23 +1740,8 @@ class _TransactionListItem extends StatelessWidget {
                         fontSize: 11,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        status.toUpperCase(),
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                    ),
-            ),
-      ),
                     if (dmNumber != null) ...[
+                      const SizedBox(width: 8),
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1828,9 +1791,8 @@ class _LedgerTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visible = transactions
-        .where((tx) => (tx['status'] as String? ?? '').toLowerCase() != 'cancelled')
-        .toList();
+    // Show all transactions (status field removed, transactions are deleted when cancelled)
+    final visible = transactions;
     if (visible.isEmpty) {
       return const Text(
         'No transactions found.',
@@ -1851,7 +1813,8 @@ class _LedgerTable extends StatelessWidget {
       }
     });
 
-    // Combine payments by dmNumber for display (but keep sums correct)
+    // Group transactions by DM number (cumulative amounts)
+    // If no DM number, show category instead
     final List<_LedgerRowModel> rows = [];
     double running = 0;
 
@@ -1862,42 +1825,72 @@ class _LedgerTable extends StatelessWidget {
       final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
       final metadata = tx['metadata'] as Map<String, dynamic>? ?? {};
       final dmNumber = metadata['dmNumber'] ?? tx['dmNumber'];
+      final category = tx['category'] as String?;
       final date = tx['transactionDate'];
 
-      if (type == 'payment') {
-        // group consecutive payments with same dmNumber/date
+      // Group all transactions with the same DM number
+      if (dmNumber != null) {
+        double totalCredit = 0;
+        double totalDebit = 0;
+        dynamic earliestDate = date;
         final List<_PaymentPart> parts = [];
-        double totalPay = 0;
         int j = i;
+        
         while (j < visible.length) {
           final next = visible[j];
-          final nt = (next['type'] as String? ?? '').toLowerCase();
           final nMeta = next['metadata'] as Map<String, dynamic>? ?? {};
           final nDm = nMeta['dmNumber'] ?? next['dmNumber'];
-          final nDate = next['transactionDate'];
-          if (nt != 'payment' ||
-              nDm != dmNumber ||
-              _dateKey(nDate) != _dateKey(date)) {
-            break;
-          }
+          
+          // Stop if DM number doesn't match
+          if (nDm != dmNumber) break;
+          
+          final nt = (next['type'] as String? ?? '').toLowerCase();
           final nAmt = (next['amount'] as num?)?.toDouble() ?? 0.0;
-          totalPay += nAmt;
-          final acctType = (next['paymentAccountType'] as String?) ?? '';
-          parts.add(_PaymentPart(amount: nAmt, accountType: acctType));
+          final nDate = next['transactionDate'];
+          
+          // Track earliest date
+          try {
+            final currentDate = earliestDate is Timestamp ? earliestDate.toDate() : (earliestDate as DateTime);
+            final nextDate = nDate is Timestamp ? nDate.toDate() : (nDate as DateTime);
+            if (nextDate.isBefore(currentDate)) {
+              earliestDate = nDate;
+            }
+          } catch (_) {}
+          
+          // Calculate credit/debit
+          if (nt == 'credit') {
+            totalCredit += nAmt;
+          } else if (nt == 'payment' || nt == 'debit') {
+            totalDebit += nAmt;
+            if (nt == 'payment') {
+              final acctType = (next['paymentAccountType'] as String?) ?? '';
+              parts.add(_PaymentPart(amount: nAmt, accountType: acctType));
+            }
+          } else if (nt == 'refund' || nt == 'advance') {
+            totalDebit += nAmt;
+          } else {
+            // For other types, treat as credit if positive
+            totalCredit += nAmt;
+          }
+          
           j++;
         }
-        running -= totalPay;
+        
+        final delta = totalCredit - totalDebit;
+        running += delta;
+        
         rows.add(_LedgerRowModel(
-          date: date,
+          date: earliestDate,
           dmNumber: dmNumber,
-          credit: 0,
-          debit: totalPay,
+          credit: totalCredit,
+          debit: totalDebit,
           balanceAfter: running,
           paymentParts: parts,
         ));
+        
         i = j;
       } else {
-        // credit/advance/refund/debit/adjustment
+        // No DM number - show as individual transaction with category
         double delta = 0;
         switch (type) {
           case 'credit':
@@ -1916,12 +1909,14 @@ class _LedgerTable extends StatelessWidget {
             delta = amount;
         }
         running += delta;
+        
         rows.add(_LedgerRowModel(
           date: date,
-          dmNumber: dmNumber,
+          dmNumber: null,
           credit: delta > 0 ? delta : 0,
           debit: delta < 0 ? -delta : 0,
           balanceAfter: running,
+          category: category, // Store category for display
         ));
         i++;
       }
@@ -1961,14 +1956,6 @@ class _LedgerTable extends StatelessWidget {
     );
   }
 
-  String _dateKey(dynamic ts) {
-    try {
-      final d = ts is Timestamp ? ts.toDate() : (ts as DateTime);
-      return '${d.year}-${d.month}-${d.day}';
-    } catch (_) {
-      return '';
-    }
-  }
 }
 
 class _LedgerRowModel {
@@ -1979,6 +1966,7 @@ class _LedgerRowModel {
     required this.debit,
     required this.balanceAfter,
     this.paymentParts = const [],
+    this.category,
   });
 
   final dynamic date;
@@ -1987,6 +1975,22 @@ class _LedgerRowModel {
   final double debit;
   final double balanceAfter;
   final List<_PaymentPart> paymentParts;
+  final String? category; // Category when DM number is not available
+}
+
+// Helper function to format category name (capitalize and add spaces)
+String _formatCategoryName(String? category) {
+  if (category == null || category.isEmpty) return '';
+  // Convert camelCase to Title Case with spaces
+  // e.g., "clientCredit" -> "Client Credit"
+  return category
+      .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
+      .split(' ')
+      .map((word) => word.isEmpty
+          ? ''
+          : word[0].toUpperCase() + word.substring(1).toLowerCase())
+      .join(' ')
+      .trim();
 }
 
 class _PaymentPart {
@@ -2069,10 +2073,26 @@ class _LedgerTableRow extends StatelessWidget {
                       ),
                     ),
                   )
-                : const Text(
-                    '-',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
+                : row.category != null
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _formatCategoryName(row.category),
+                          style: const TextStyle(
+                            color: Colors.purpleAccent,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    : const Text(
+                        '-',
+                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                      ),
           ),
           Expanded(
             child: Text(
@@ -2148,7 +2168,7 @@ class _LedgerBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentBalance = (ledger['currentBalance'] as num?)?.toDouble() ?? 0.0;
     final totalIncome = (ledger['totalIncome'] as num?)?.toDouble() ?? 0.0;
-    final totalExpense = (ledger['totalExpense'] as num?)?.toDouble() ?? 0.0;
+    final totalReceivables = (ledger['totalReceivables'] as num?)?.toDouble() ?? 0.0;
 
     final isReceivable = currentBalance > 0;
     final isPayable = currentBalance < 0;
@@ -2207,7 +2227,7 @@ class _LedgerBalanceCard extends StatelessWidget {
           const SizedBox(height: 10),
           _LedgerRow(label: 'Current Balance', value: formatCurrency(currentBalance.abs())),
           _LedgerRow(label: 'Total Income', value: formatCurrency(totalIncome)),
-          _LedgerRow(label: 'Total Expense', value: formatCurrency(totalExpense)),
+          _LedgerRow(label: 'Total Receivables', value: formatCurrency(totalReceivables)),
           if (ledger['dmNumbers'] != null &&
               (ledger['dmNumbers'] as List).isNotEmpty) ...[
             const SizedBox(height: 10),

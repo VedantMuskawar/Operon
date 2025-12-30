@@ -77,7 +77,7 @@ class CallerIdService {
     }
   }
 
-  /// Fetch recent completed orders from client ledger
+  /// Fetch recent completed orders from client ledger (from monthly documents)
   Future<List<Map<String, dynamic>>> _fetchRecentCompletedOrders(
     String organizationId,
     String clientId, {
@@ -87,25 +87,61 @@ class CallerIdService {
       final financialYear = _clientLedgerRepository.getCurrentFinancialYear();
       final ledgerId = '${clientId}_$financialYear';
 
-      final transactionsSnapshot = await FirebaseFirestore.instance
+      // Get all monthly transaction documents
+      final monthlyDocsSnapshot = await FirebaseFirestore.instance
           .collection('CLIENT_LEDGERS')
           .doc(ledgerId)
           .collection('TRANSACTIONS')
-          .where('status', isEqualTo: 'completed')
-          .orderBy('transactionDate', descending: true)
-          .limit(limit)
           .get();
 
-      return transactionsSnapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          ...data,
-        };
-      }).toList();
+      // Flatten transactions from all monthly documents
+      final allTransactions = <Map<String, dynamic>>[];
+      
+      for (final monthlyDoc in monthlyDocsSnapshot.docs) {
+        final monthlyData = monthlyDoc.data();
+        final transactions = monthlyData['transactions'] as List<dynamic>?;
+        
+        if (transactions != null) {
+          for (final tx in transactions) {
+            if (tx is Map<String, dynamic>) {
+              // Filter by category if needed (e.g., clientCredit for order credits)
+              // Since status field is removed, we'll include all transactions
+              allTransactions.add(tx);
+            }
+          }
+        }
+      }
+
+      // Sort by transactionDate descending (most recent first)
+      allTransactions.sort((a, b) {
+        final dateA = _getTransactionDate(a);
+        final dateB = _getTransactionDate(b);
+        return dateB.compareTo(dateA); // Descending order
+      });
+
+      // Return only the requested limit
+      return allTransactions.take(limit).toList();
     } catch (e) {
       return [];
     }
+  }
+  
+  /// Helper to extract transaction date from transaction map
+  DateTime _getTransactionDate(Map<String, dynamic> transaction) {
+    final transactionDate = transaction['transactionDate'];
+    if (transactionDate is Timestamp) {
+      return transactionDate.toDate();
+    } else if (transactionDate is DateTime) {
+      return transactionDate;
+    }
+    // Fallback to createdAt if transactionDate is missing
+    final createdAt = transaction['createdAt'];
+    if (createdAt is Timestamp) {
+      return createdAt.toDate();
+    } else if (createdAt is DateTime) {
+      return createdAt;
+    }
+    return DateTime.now(); // Default fallback
   }
 }
 

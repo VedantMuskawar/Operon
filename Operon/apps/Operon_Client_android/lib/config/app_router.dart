@@ -1,6 +1,7 @@
 import 'package:dash_mobile/data/repositories/clients_repository.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/repositories/products_repository.dart';
+import 'package:dash_mobile/data/repositories/raw_materials_repository.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/repositories/users_repository.dart';
 import 'package:dash_mobile/data/repositories/delivery_zones_repository.dart';
@@ -12,6 +13,7 @@ import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/employees/employees_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/products/products_cubit.dart';
+import 'package:dash_mobile/presentation/blocs/raw_materials/raw_materials_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/roles/roles_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/users/users_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
@@ -23,8 +25,11 @@ import 'package:dash_mobile/presentation/views/otp_verification_page.dart';
 import 'package:dash_mobile/presentation/views/phone_input_page.dart';
 import 'package:dash_mobile/presentation/views/splash_screen.dart';
 import 'package:dash_mobile/presentation/views/products_page.dart';
+import 'package:dash_mobile/presentation/views/raw_materials_page.dart';
 import 'package:dash_mobile/presentation/views/roles_page.dart';
 import 'package:dash_mobile/presentation/views/employees_page.dart';
+import 'package:dash_mobile/presentation/views/vendors_page.dart';
+import 'package:dash_mobile/presentation/blocs/vendors/vendors_cubit.dart';
 import 'package:dash_mobile/presentation/views/users_page.dart';
 import 'package:dash_mobile/presentation/views/zones_page.dart';
 import 'package:dash_mobile/presentation/views/payment_accounts_page.dart';
@@ -33,6 +38,12 @@ import 'package:dash_mobile/presentation/views/clients_page/client_detail_page.d
 import 'package:dash_mobile/presentation/views/vehicles_page.dart';
 import 'package:dash_mobile/presentation/views/access_control_page.dart';
 import 'package:dash_mobile/presentation/views/delivery_memos_page.dart';
+import 'package:dash_mobile/presentation/views/payments/record_payment_page.dart';
+import 'package:dash_mobile/presentation/views/payments/transactions_page.dart';
+import 'package:dash_mobile/presentation/views/purchases/purchases_page.dart';
+import 'package:dash_mobile/presentation/views/fuel_ledger/fuel_ledger_page.dart';
+import 'package:dash_mobile/presentation/blocs/payments/payments_cubit.dart';
+import 'package:dash_mobile/data/repositories/transactions_repository.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -155,6 +166,36 @@ GoRouter buildRouter() {
         },
       ),
       GoRoute(
+        path: '/raw-materials',
+        name: 'raw-materials',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          final role = orgState.role;
+          if (organization == null || role == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          final rawMaterialsRepository = context.read<RawMaterialsRepository>();
+
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: BlocProvider(
+              create: (_) => RawMaterialsCubit(
+                repository: rawMaterialsRepository,
+                orgId: organization.id,
+                canCreate: role.canCreate('rawMaterials'),
+                canEdit: role.canEdit('rawMaterials'),
+                canDelete: role.canDelete('rawMaterials'),
+              )..loadRawMaterials(),
+              child: const RawMaterialsPage(),
+            ),
+          );
+        },
+      ),
+      GoRoute(
         path: '/employees',
         name: 'employees',
         pageBuilder: (context, state) {
@@ -182,6 +223,36 @@ GoRouter buildRouter() {
                 canDelete: role.canDelete('employees'),
               )..load(),
               child: const EmployeesPage(),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/vendors',
+        name: 'vendors',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          final role = orgState.role;
+          if (organization == null || role == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          final vendorsRepository = context.read<VendorsRepository>();
+          
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: BlocProvider(
+              create: (_) => VendorsCubit(
+                repository: vendorsRepository,
+                organizationId: organization.id,
+                canCreate: role.canCreate('vendors'),
+                canEdit: role.canEdit('vendors'),
+                canDelete: role.canDelete('vendors'),
+              )..load(),
+              child: const VendorsPage(),
             ),
           );
         },
@@ -460,6 +531,106 @@ GoRouter buildRouter() {
           return _buildTransitionPage(
             key: state.pageKey,
             child: const DeliveryMemosPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/record-payment',
+        name: 'record-payment',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          final clientsRepository = context.read<ClientsRepository>();
+          final transactionsRepository = context.read<TransactionsRepository>();
+          final clientLedgerRepository = context.read<ClientLedgerRepository>();
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider(
+                  create: (_) => ClientsCubit(
+                    repository: clientsRepository,
+                  )..subscribeToRecent(),
+                ),
+                BlocProvider(
+                  create: (_) => PaymentsCubit(
+                    transactionsRepository: transactionsRepository,
+                    clientLedgerRepository: clientLedgerRepository,
+                    organizationId: organization.id,
+                  ),
+                ),
+              ],
+              child: const RecordPaymentPage(),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/transactions',
+        name: 'transactions',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          final transactionsRepository = context.read<TransactionsRepository>();
+          final clientLedgerRepository = context.read<ClientLedgerRepository>();
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: BlocProvider(
+              create: (context) => PaymentsCubit(
+                transactionsRepository: transactionsRepository,
+                clientLedgerRepository: clientLedgerRepository,
+                organizationId: organization.id,
+              )..loadRecentPayments(),
+              child: const TransactionsPage(),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/purchases',
+        name: 'purchases',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: const PurchasesPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/fuel-ledger',
+        name: 'fuel-ledger',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: const FuelLedgerPage(),
           );
         },
       ),

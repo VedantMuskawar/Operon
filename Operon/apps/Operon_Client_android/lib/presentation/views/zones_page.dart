@@ -634,6 +634,8 @@ class _RegionColumn extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  Row(
+                    children: [
                   Text(
                               zone.isActive ? 'Active' : 'Inactive',
                               style: TextStyle(
@@ -643,6 +645,24 @@ class _RegionColumn extends StatelessWidget {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
+                      ),
+                      if (zone.roundtripKm != null) ...[
+                        const SizedBox(width: 12),
+                        const Icon(
+                          Icons.straighten,
+                          size: 14,
+                          color: Colors.white54,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${zone.roundtripKm!.toStringAsFixed(1)} km',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -751,6 +771,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   final _formKey = GlobalKey<FormState>();
   late String? _selectedCity;
   final _regionController = TextEditingController();
+  final _roundtripKmController = TextEditingController();
   bool _submitting = false;
 
   @override
@@ -762,6 +783,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   @override
   void dispose() {
     _regionController.dispose();
+    _roundtripKmController.dispose();
     super.dispose();
   }
 
@@ -816,6 +838,31 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                     validator: (value) =>
                         (value == null || value.trim().isEmpty) ? 'Enter a region' : null,
                   ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _roundtripKmController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Round Trip Distance (KM)',
+                      hintText: 'e.g., 25.5',
+                      prefixIcon: Icon(Icons.straighten, color: Colors.white54),
+                      filled: true,
+                      fillColor: Color(0xFF1B1B2C),
+                      labelStyle: TextStyle(color: Colors.white70),
+                      border: OutlineInputBorder(borderSide: BorderSide.none),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Enter round trip distance';
+                      }
+                      final km = double.tryParse(value.trim());
+                      if (km == null || km <= 0) {
+                        return 'Enter a valid positive number';
+                      }
+                      return null;
+                    },
+                  ),
                 ],
               ),
             ),
@@ -832,9 +879,11 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                   if (_selectedCity == null) return;
                   setState(() => _submitting = true);
                   try {
+                    final roundtripKm = double.parse(_roundtripKmController.text.trim());
                     await context.read<DeliveryZonesCubit>().createRegion(
                           city: _selectedCity!,
                           region: _regionController.text.trim(),
+                          roundtripKm: roundtripKm,
                         );
                     if (mounted) Navigator.of(context).pop();
                   } catch (err) {
@@ -1082,6 +1131,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _cityController;
   late final TextEditingController _regionController;
+  late final TextEditingController _roundtripKmController;
   bool _isActive = true;
 
   @override
@@ -1090,7 +1140,18 @@ class _ZoneDialogState extends State<_ZoneDialog> {
     final zone = widget.zone;
     _cityController = TextEditingController(text: zone?.cityName ?? '');
     _regionController = TextEditingController(text: zone?.region ?? '');
+    _roundtripKmController = TextEditingController(
+      text: zone?.roundtripKm?.toString() ?? '',
+    );
     _isActive = zone?.isActive ?? true;
+  }
+
+  @override
+  void dispose() {
+    _cityController.dispose();
+    _regionController.dispose();
+    _roundtripKmController.dispose();
+    super.dispose();
   }
 
   @override
@@ -1143,6 +1204,24 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                       : null,
             ),
             const SizedBox(height: 12),
+            TextFormField(
+              controller: _roundtripKmController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDecoration('Round Trip Distance (KM)'),
+              enabled: canEditRegionField,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Enter round trip distance';
+                }
+                final km = double.tryParse(value.trim());
+                if (km == null || km <= 0) {
+                  return 'Enter a valid positive number';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
             SwitchListTile(
               value: _isActive,
               onChanged: canToggleActive
@@ -1188,6 +1267,15 @@ class _ZoneDialogState extends State<_ZoneDialog> {
             final organizationId = widget.zone?.organizationId ?? 
                 (state.zones.isNotEmpty ? state.zones.first.organizationId : cubit.orgId);
             
+            // Parse roundtripKm
+            final roundtripKmText = _roundtripKmController.text.trim();
+            final roundtripKm = roundtripKmText.isEmpty
+                ? null
+                : double.tryParse(roundtripKmText);
+            if (roundtripKm != null && roundtripKm <= 0) {
+              throw Exception('Round trip distance must be a positive number');
+            }
+            
             // ID will be auto-generated by Firestore for new zones
             final zone = DeliveryZone(
               id: widget.zone?.id ?? '', // Empty for new zones, Firestore will generate
@@ -1197,6 +1285,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
               region: _regionController.text.trim(),
               prices: widget.zone?.prices ?? {},
               isActive: _isActive,
+              roundtripKm: roundtripKm,
             );
                   try {
             if (isEditing) {

@@ -76,7 +76,8 @@ class ClientLedgerDataSource {
     };
   }
 
-  /// Watch last N transactions from ledger subcollection
+  /// Watch last N transactions from ledger subcollection (monthly documents)
+  /// Transactions are stored in monthly documents as arrays: TRANSACTIONS/{yearMonth}
   Stream<List<Map<String, dynamic>>> watchRecentTransactions(
     String organizationId,
     String clientId,
@@ -89,18 +90,52 @@ class ClientLedgerDataSource {
         .collection(_collection)
         .doc(ledgerId)
         .collection('TRANSACTIONS')
-        .orderBy('transactionDate', descending: true)
-        .limit(limit)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'id': doc.id,
-          ...data,
-        };
-      }).toList();
+      // Flatten transactions from all monthly documents
+      final allTransactions = <Map<String, dynamic>>[];
+      
+      for (final monthlyDoc in snapshot.docs) {
+        final monthlyData = monthlyDoc.data();
+        final transactions = monthlyData['transactions'] as List<dynamic>?;
+        
+        if (transactions != null) {
+          for (final tx in transactions) {
+            if (tx is Map<String, dynamic>) {
+              allTransactions.add(tx);
+            }
+          }
+        }
+      }
+      
+      // Sort by transactionDate descending (most recent first)
+      allTransactions.sort((a, b) {
+        final dateA = _getTransactionDate(a);
+        final dateB = _getTransactionDate(b);
+        return dateB.compareTo(dateA); // Descending order
+      });
+      
+      // Return only the requested limit
+      return allTransactions.take(limit).toList();
     });
+  }
+  
+  /// Helper to extract transaction date from transaction map
+  DateTime _getTransactionDate(Map<String, dynamic> transaction) {
+    final transactionDate = transaction['transactionDate'];
+    if (transactionDate is Timestamp) {
+      return transactionDate.toDate();
+    } else if (transactionDate is DateTime) {
+      return transactionDate;
+    }
+    // Fallback to createdAt if transactionDate is missing
+    final createdAt = transaction['createdAt'];
+    if (createdAt is Timestamp) {
+      return createdAt.toDate();
+    } else if (createdAt is DateTime) {
+      return createdAt;
+    }
+    return DateTime.now(); // Default fallback
   }
 }
 

@@ -138,6 +138,15 @@ class _HomeOverviewView extends StatelessWidget {
         onTap: () => context.go('/employees'),
       ));
     }
+    if (isAdmin || appAccessRole?.canCreate('vendors') == true || appAccessRole?.canAccessPage('vendors') == true) {
+      tiles.add(_OverviewTile(
+        icon: Icons.store_outlined,
+        label: 'Vendors',
+        description: 'Manage vendors',
+        color: const Color(0xFF9C27B0),
+        onTap: () => context.go('/vendors'),
+      ));
+    }
     if (isAdmin ||
         appAccessRole?.canAccessPage('zonesCity') == true ||
         appAccessRole?.canAccessPage('zonesRegion') == true ||
@@ -171,6 +180,30 @@ class _HomeOverviewView extends StatelessWidget {
         onTap: () => context.go('/delivery-memos'),
       ));
     }
+    // Transactions - accessible to all authenticated users
+    tiles.add(_OverviewTile(
+      icon: Icons.receipt_long_outlined,
+      label: 'Transactions',
+      description: 'View transactions',
+      color: const Color(0xFF4CAF50),
+      onTap: () => context.go('/transactions'),
+    ));
+    // Purchases - accessible to all authenticated users
+    tiles.add(_OverviewTile(
+      icon: Icons.shopping_cart,
+      label: 'Purchases',
+      description: 'View purchases',
+      color: const Color(0xFFFF9800),
+      onTap: () => context.go('/purchases'),
+    ));
+    // Fuel Ledger - accessible to all authenticated users
+    tiles.add(_OverviewTile(
+      icon: Icons.local_gas_station,
+      label: 'Fuel Ledger',
+      description: 'Track fuel purchases',
+      color: const Color(0xFFFF5722),
+      onTap: () => context.go('/fuel-ledger'),
+    ));
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -314,12 +347,12 @@ class _OverviewTileState extends State<_OverviewTile>
                 height: 160,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF1F1F33),
-                      const Color(0xFF1A1A28),
+                      Color(0xFF1F1F33),
+                      Color(0xFF1A1A28),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(24),
@@ -348,6 +381,7 @@ class _OverviewTileState extends State<_OverviewTile>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       width: 56,
@@ -362,28 +396,35 @@ class _OverviewTileState extends State<_OverviewTile>
                         color: widget.color,
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.label,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 18,
-                            letterSpacing: -0.5,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.label,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 18,
+                              letterSpacing: -0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.description,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.description,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -425,10 +466,10 @@ class _OrdersMapView extends StatelessWidget {
                   color: const Color(0xFF5AD8A4).withValues(alpha: 0.3),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'Coming Soon',
                 style: TextStyle(
-                  color: const Color(0xFF5AD8A4),
+                  color: Color(0xFF5AD8A4),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -437,11 +478,11 @@ class _OrdersMapView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 32),
-        _EmptyStateCard(
+        const _EmptyStateCard(
           icon: Icons.map_outlined,
           title: 'Orders Map',
           description: 'Visualize order locations and delivery routes',
-          color: const Color(0xFF5AD8A4),
+          color: Color(0xFF5AD8A4),
         ),
       ],
     );
@@ -453,12 +494,12 @@ class _AnalyticsPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: _EmptyStateCard(
         icon: Icons.dashboard_outlined,
         title: 'Analytics Dashboard',
         description: 'View insights and performance metrics',
-        color: const Color(0xFF6F4BFF),
+        color: Color(0xFF6F4BFF),
         isCentered: true,
       ),
     );

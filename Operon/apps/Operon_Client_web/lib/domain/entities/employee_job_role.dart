@@ -1,4 +1,3 @@
-import 'package:dash_web/domain/entities/organization_job_role.dart';
 
 /// Employee Job Role Assignment
 /// 

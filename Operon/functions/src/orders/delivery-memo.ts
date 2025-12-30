@@ -196,13 +196,15 @@ export const generateDM = onCall(async (request) => {
         try {
           // Create credit transaction with DM number
           const transactionRef = db.collection(TRANSACTIONS_COLLECTION).doc();
+          const transactionId = transactionRef.id;
           const transactionData = {
+            transactionId, // Include transactionId field for consistency
             organizationId,
             clientId: tripData.clientId || '',
-            type: 'credit',
-            category: 'income',
+            ledgerType: 'clientLedger',
+            type: 'credit', // Credit = client owes us (increases receivable)
+            category: 'clientCredit', // Client owes (PayLater order)
             amount: tripTotal,
-            status: 'completed',
             orderId: tripData.orderId || '',
             description: `Order Credit - DM-${result.dmNumber} (${paymentType === 'pay_later' ? 'Pay Later' : 'Pay on Delivery'})`,
             metadata: {
@@ -297,6 +299,12 @@ export const cancelDM = onCall(async (request) => {
     // Update existing DM document status to 'cancelled'
     const dmDoc = dmQuery.docs[0];
 
+    // Get trip document to retrieve creditTransactionId before updating
+    const tripRef = db.collection(SCHEDULE_TRIPS_COLLECTION).doc(tripId);
+    const tripDoc = await tripRef.get();
+    const tripData = tripDoc.exists ? tripDoc.data() : null;
+    const creditTransactionId = tripData?.creditTransactionId as string | undefined;
+
     // Update DM document status to 'cancelled'
     await dmDoc.ref.update({
       status: 'cancelled',
@@ -306,13 +314,51 @@ export const cancelDM = onCall(async (request) => {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // Remove dmNumber from SCHEDULE_TRIPS
-    const tripRef = db.collection(SCHEDULE_TRIPS_COLLECTION).doc(tripId);
+    // Remove dmNumber and creditTransactionId from SCHEDULE_TRIPS
     await tripRef.update({
       dmNumber: null,
       dmId: null,
+      creditTransactionId: admin.firestore.FieldValue.delete(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    // Delete the credit transaction if it exists
+    // This will trigger onTransactionDeleted Cloud Function to reverse the ledger and analytics
+    if (creditTransactionId) {
+      try {
+        const transactionRef = db.collection(TRANSACTIONS_COLLECTION).doc(creditTransactionId);
+        const transactionDoc = await transactionRef.get();
+        
+        if (transactionDoc.exists) {
+          await transactionRef.delete();
+          console.log('[DM Cancellation] Credit transaction deleted', {
+            tripId,
+            dmId,
+            transactionId: creditTransactionId,
+          });
+        } else {
+          console.warn('[DM Cancellation] Credit transaction not found (may have been already deleted)', {
+            tripId,
+            dmId,
+            transactionId: creditTransactionId,
+          });
+        }
+      } catch (txnError) {
+        console.error('[DM Cancellation] Error deleting credit transaction', {
+          tripId,
+          dmId,
+          transactionId: creditTransactionId,
+          error: txnError,
+        });
+        // Don't throw - transaction deletion failure shouldn't prevent DM cancellation
+        // The DM is already marked as cancelled and trip is updated
+      }
+    } else {
+      console.log('[DM Cancellation] No credit transaction to delete (payment type may not have required it)', {
+        tripId,
+        dmId,
+      });
+    }
 
     return {
       success: true,

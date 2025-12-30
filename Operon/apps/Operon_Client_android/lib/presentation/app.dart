@@ -21,9 +21,7 @@ import 'package:dash_mobile/data/repositories/transactions_repository.dart';
 import 'package:dash_mobile/data/datasources/transactions_data_source.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/datasources/scheduled_trips_data_source.dart';
-import 'package:dash_mobile/data/repositories/delivery_memo_repository.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:core_datasources/core_datasources.dart' hide DeliveryMemoRepository;
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/data/services/analytics_service.dart';
 import 'package:dash_mobile/data/services/qr_code_service.dart';
@@ -65,6 +63,12 @@ class DashMobileApp extends StatelessWidget {
 
     final employeesRepository = EmployeesRepository(
       dataSource: EmployeesDataSource(
+        firestore: authRepository.firestore,
+      ),
+    );
+
+    final vendorsRepository = VendorsRepository(
+      dataSource: VendorsDataSource(
         firestore: authRepository.firestore,
       ),
     );
@@ -127,6 +131,7 @@ class DashMobileApp extends StatelessWidget {
       dataSource: ScheduledTripsDataSource(firestore: authRepository.firestore),
     );
 
+    // Initialize Firebase Functions - matching web app pattern exactly
     final deliveryMemoRepository = DeliveryMemoRepository(
       dataSource: DeliveryMemoDataSource(
         firestore: authRepository.firestore,
@@ -152,6 +157,7 @@ class DashMobileApp extends StatelessWidget {
         RepositoryProvider.value(value: rolesRepository),
         RepositoryProvider.value(value: productsRepository),
         RepositoryProvider.value(value: employeesRepository),
+        RepositoryProvider.value(value: vendorsRepository),
         RepositoryProvider.value(value: usersRepository),
         RepositoryProvider.value(value: deliveryZonesRepository),
         RepositoryProvider.value(value: paymentAccountsRepository),

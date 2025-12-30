@@ -679,7 +679,7 @@ class _RoleDialogState extends State<_RoleDialog> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<WageType?>(
-                  value: _defaultWageType,
+                  initialValue: _defaultWageType,
                   dropdownColor: const Color(0xFF1B1B2C),
                   style: const TextStyle(color: Colors.white),
                   decoration: _inputDecoration('Default Wage Type (optional)'),

@@ -155,7 +155,7 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                                         : null,
                                   ),
                                 ),
-                                SizedBox(width: columnSpacing),
+                                const SizedBox(width: columnSpacing),
                                 // Column 2: Region header + Add button + Region list (when a city is selected)
                                 Expanded(
                                   flex: 2,
@@ -176,11 +176,11 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                                           canEditZone: widget.regionPermission.canEdit,
                                           canDeleteZone: widget.regionPermission.canDelete,
                                         )
-                                      : _EmptyRegionState(
+                                      : const _EmptyRegionState(
                                           message: 'Select a city to view regions',
                                         ),
                                 ),
-                                SizedBox(width: columnSpacing),
+                                const SizedBox(width: columnSpacing),
                                 // Column 3: Unit Price CRUD (shown when both city and region are selected)
                                 Expanded(
                                   flex: 3,
@@ -511,14 +511,14 @@ class _CitySelectionColumn extends StatelessWidget {
                   child: InkWell(
                     onTap: onAddCity,
                     borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.add, size: 16, color: Color(0xFF6F4BFF)),
-                          const SizedBox(width: 6),
-                          const Text(
+                          Icon(Icons.add, size: 16, color: Color(0xFF6F4BFF)),
+                          SizedBox(width: 6),
+                          Text(
                             'Add City',
                             style: TextStyle(
                               color: Color(0xFF6F4BFF),
@@ -610,10 +610,10 @@ class _RegionSelectionColumn extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(
+            const Expanded(
               child: Text(
                 'Regions',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
@@ -634,14 +634,14 @@ class _RegionSelectionColumn extends StatelessWidget {
                   child: InkWell(
                     onTap: onAddRegion,
                     borderRadius: BorderRadius.circular(10),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.add, size: 16, color: Color(0xFF5AD8A4)),
-                          const SizedBox(width: 6),
-                          const Text(
+                          Icon(Icons.add, size: 16, color: Color(0xFF5AD8A4)),
+                          SizedBox(width: 6),
+                          Text(
                             'Add Region',
                             style: TextStyle(
                               color: Color(0xFF5AD8A4),
@@ -794,12 +794,12 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF1F1F33),
-                const Color(0xFF1A1A28),
+                Color(0xFF1F1F33),
+                Color(0xFF1A1A28),
               ],
             ),
             borderRadius: BorderRadius.circular(20),
@@ -1009,7 +1009,7 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                 )
               else ...[
                 DropdownButtonFormField<String>(
-                  value: effectiveProductId,
+                  initialValue: effectiveProductId,
                   dropdownColor: const Color(0xFF1B1B2C),
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
@@ -1197,12 +1197,12 @@ class _AddCityDialogState extends State<_AddCityDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 450),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF11111B),
-              const Color(0xFF0D0D15),
+              Color(0xFF11111B),
+              Color(0xFF0D0D15),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
@@ -1225,12 +1225,12 @@ class _AddCityDialogState extends State<_AddCityDialog> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF1B1C2C),
-                    const Color(0xFF161622),
+                    Color(0xFF1B1C2C),
+                    Color(0xFF161622),
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1431,6 +1431,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   final _formKey = GlobalKey<FormState>();
   late String? _selectedCity;
   final _regionController = TextEditingController();
+  final _roundtripKmController = TextEditingController();
   bool _submitting = false;
 
   @override
@@ -1443,6 +1444,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   @override
   void dispose() {
     _regionController.dispose();
+    _roundtripKmController.dispose();
     super.dispose();
   }
 
@@ -1453,12 +1455,12 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 450),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF11111B),
-              const Color(0xFF0D0D15),
+              Color(0xFF11111B),
+              Color(0xFF0D0D15),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
@@ -1481,12 +1483,12 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF1B1C2C),
-                    const Color(0xFF161622),
+                    Color(0xFF1B1C2C),
+                    Color(0xFF161622),
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1570,7 +1572,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           DropdownButtonFormField<String>(
-                            value: _selectedCity,
+                            initialValue: _selectedCity,
                             dropdownColor: const Color(0xFF1B1B2C),
                             style: const TextStyle(color: Colors.white),
                             decoration: InputDecoration(
@@ -1667,6 +1669,60 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                             validator: (value) =>
                                 (value == null || value.trim().isEmpty) ? 'Enter a region' : null,
                           ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _roundtripKmController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            style: const TextStyle(color: Colors.white),
+                            decoration: InputDecoration(
+                              labelText: 'Round Trip Distance (KM)',
+                              hintText: 'e.g., 25.5',
+                              prefixIcon: const Icon(Icons.straighten, color: Colors.white54, size: 20),
+                              filled: true,
+                              fillColor: const Color(0xFF1B1B2C),
+                              labelStyle: const TextStyle(color: Colors.white70),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Color(0xFF5AD8A4),
+                                  width: 2,
+                                ),
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Colors.redAccent,
+                                ),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: Colors.redAccent,
+                                  width: 2,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Enter round trip distance';
+                              }
+                              final km = double.tryParse(value.trim());
+                              if (km == null || km <= 0) {
+                                return 'Enter a valid positive number';
+                              }
+                              return null;
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -1719,9 +1775,11 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                             if (_selectedCity == null) return;
                             setState(() => _submitting = true);
                             try {
+                              final roundtripKm = double.parse(_roundtripKmController.text.trim());
                               await context.read<DeliveryZonesCubit>().createRegion(
                                     city: _selectedCity!,
                                     region: _regionController.text.trim(),
+                                    roundtripKm: roundtripKm,
                                   );
                               if (mounted) Navigator.of(context).pop();
                             } catch (err) {
@@ -2084,12 +2142,12 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1F1F33),
-            const Color(0xFF1A1A28),
+            Color(0xFF1F1F33),
+            Color(0xFF1A1A28),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
@@ -2199,12 +2257,12 @@ class _CityCardState extends State<_CityCard> with SingleTickerProviderStateMixi
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF1F1F33),
-                      const Color(0xFF1A1A28),
+                      Color(0xFF1F1F33),
+                      Color(0xFF1A1A28),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -2348,12 +2406,12 @@ class _RegionCardState extends State<_RegionCard> with SingleTickerProviderState
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFF1F1F33),
-                      const Color(0xFF1A1A28),
+                      Color(0xFF1F1F33),
+                      Color(0xFF1A1A28),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -2417,6 +2475,26 @@ class _RegionCardState extends State<_RegionCard> with SingleTickerProviderState
                                   fontSize: 12,
                                 ),
                               ),
+                              if (widget.zone.roundtripKm != null) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.straighten,
+                                      size: 12,
+                                      color: Colors.white.withValues(alpha: 0.5),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${widget.zone.roundtripKm!.toStringAsFixed(1)} km',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(alpha: 0.5),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -2794,6 +2872,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _cityController;
   late final TextEditingController _regionController;
+  late final TextEditingController _roundtripKmController;
   bool _isActive = true;
 
   @override
@@ -2802,6 +2881,9 @@ class _ZoneDialogState extends State<_ZoneDialog> {
     final zone = widget.zone;
     _cityController = TextEditingController(text: zone?.cityName ?? '');
     _regionController = TextEditingController(text: zone?.region ?? '');
+    _roundtripKmController = TextEditingController(
+      text: zone?.roundtripKm?.toString() ?? '',
+    );
     _isActive = zone?.isActive ?? true;
   }
 
@@ -2809,6 +2891,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
   void dispose() {
     _cityController.dispose();
     _regionController.dispose();
+    _roundtripKmController.dispose();
     super.dispose();
   }
 
@@ -2860,6 +2943,24 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                       : null,
             ),
             const SizedBox(height: 12),
+            TextFormField(
+              controller: _roundtripKmController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white),
+              decoration: _inputDecoration('Round Trip Distance (KM)'),
+              enabled: canEditRegionField,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Enter round trip distance';
+                }
+                final km = double.tryParse(value.trim());
+                if (km == null || km <= 0) {
+                  return 'Enter a valid positive number';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
             SwitchListTile(
               value: _isActive,
               onChanged: canToggleActive
@@ -2904,6 +3005,15 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                   final organizationId = widget.zone?.organizationId ?? 
                       (state.zones.isNotEmpty ? state.zones.first.organizationId : cubit.orgId);
                   
+                  // Parse roundtripKm
+                  final roundtripKmText = _roundtripKmController.text.trim();
+                  final roundtripKm = roundtripKmText.isEmpty
+                      ? null
+                      : double.tryParse(roundtripKmText);
+                  if (roundtripKm != null && roundtripKm <= 0) {
+                    throw Exception('Round trip distance must be a positive number');
+                  }
+                  
                   // ID will be auto-generated by Firestore for new zones
                   final zone = DeliveryZone(
                     id: widget.zone?.id ?? '', // Empty for new zones, Firestore will generate
@@ -2913,6 +3023,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                     region: _regionController.text.trim(),
                     prices: widget.zone?.prices ?? {},
                     isActive: _isActive,
+                    roundtripKm: roundtripKm,
                   );
                   try {
                     if (isEditing) {

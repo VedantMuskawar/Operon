@@ -299,6 +299,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
   Future<void> createRegion({
     required String city,
     required String region,
+    required double roundtripKm,
   }) async {
     final normalizedCity = city.trim();
     final normalizedRegion = region.trim();
@@ -330,6 +331,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       region: normalizedRegion,
       prices: {},
       isActive: true,
+      roundtripKm: roundtripKm,
     );
     await createZone(zone);
   }

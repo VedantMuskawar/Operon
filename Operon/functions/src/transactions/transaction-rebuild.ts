@@ -95,54 +95,45 @@ async function rebuildClientLedger(
   // Get FY date range
   const fyDates = getFinancialYearDates(financialYear);
   
-  // Get all transactions for this client in this FY (from subcollection)
+  // Get all monthly transaction documents for this client in this FY
+  // Documents are stored as: TRANSACTIONS/{yearMonth} where yearMonth = YYYYMM
   const transactionsSubRef = ledgerRef.collection('TRANSACTIONS');
-  const transactionsSnapshot = await transactionsSubRef
-    .orderBy('transactionDate', 'asc')
-    .get();
+  const monthlyDocsSnapshot = await transactionsSubRef.get();
+  
+  // Extract all transactions from monthly documents and flatten into single array
+  const allTransactions: any[] = [];
+  monthlyDocsSnapshot.forEach((monthlyDoc) => {
+    const monthlyData = monthlyDoc.data();
+    const transactions = (monthlyData.transactions as any[]) || [];
+    allTransactions.push(...transactions);
+  });
+  
+  // Sort transactions by transactionDate (ascending)
+  allTransactions.sort((a, b) => {
+    const dateA = (a.transactionDate as admin.firestore.Timestamp)?.toDate() ?? new Date(0);
+    const dateB = (b.transactionDate as admin.firestore.Timestamp)?.toDate() ?? new Date(0);
+    return dateA.getTime() - dateB.getTime();
+  });
   
   let currentBalance = openingBalance;
-  let totalIncome = 0;
-  let totalExpense = 0;
-  const incomeByType: Record<string, number> = {};
+  let totalReceivables = 0; // Total receivables (credit transactions - what client owes us)
   let transactionCount = 0;
-  let completedTransactionCount = 0;
-  let pendingTransactionCount = 0;
-  let completedTransactionAmount = 0;
-  let pendingTransactionAmount = 0;
   const transactionIds: string[] = [];
   let lastTransactionId: string | undefined;
   let lastTransactionDate: admin.firestore.Timestamp | undefined;
   let lastTransactionAmount: number | undefined;
   let firstTransactionDate: admin.firestore.Timestamp | undefined;
   
-  transactionsSnapshot.forEach((doc) => {
-    const tx = doc.data();
-    const status = tx.status as string;
-    const category = tx.category as string;
+  allTransactions.forEach((tx) => {
     const type = tx.type as string;
     const amount = tx.amount as number;
-    const isIncome = category === 'income';
+    const ledgerType = (tx.ledgerType as string) || 'clientLedger';
     
     // Use ledgerDelta logic (same as in updateClientLedger)
-    const ledgerDelta = (() => {
-      switch (type) {
-        case 'credit':
-          return amount;
-        case 'payment':
-          return -amount;
-        case 'advance':
-          return -amount;
-        case 'refund':
-          return -amount;
-        case 'debit':
-          return -amount;
-        case 'adjustment':
-          return amount;
-        default:
-          return 0;
-      }
-    })();
+    // For ClientLedger: Credit = increment receivable, Debit = decrement receivable
+    const ledgerDelta = ledgerType === 'clientLedger'
+      ? (type === 'credit' ? amount : -amount)
+      : (type === 'credit' ? amount : -amount); // Default to same semantics
     
     transactionIds.push(tx.transactionId as string);
     transactionCount++;
@@ -150,24 +141,11 @@ async function rebuildClientLedger(
     // All transactions in database are active (cancelled ones are deleted)
     currentBalance += ledgerDelta;
     
-    if (isIncome) {
-      totalIncome += amount;
-      // Track income by type
-      if (!incomeByType[type]) {
-        incomeByType[type] = 0;
-      }
-      incomeByType[type] += amount;
-    } else {
-      totalExpense += amount;
-    }
-    
-    // Track status-based counts and amounts
-    if (status === 'completed') {
-      completedTransactionCount++;
-      completedTransactionAmount += amount;
-    } else if (status === 'pending') {
-      pendingTransactionCount++;
-      pendingTransactionAmount += amount;
+    // Track total receivables (only credit transactions)
+    // Credit = client owes us (receivables)
+    // Debit = client paid us (reduces receivables, but not tracked as receivables)
+    if (type === 'credit') {
+      totalReceivables += amount;
     }
     
     lastTransactionId = tx.transactionId as string;
@@ -181,6 +159,7 @@ async function rebuildClientLedger(
   });
   
   // Update or create ledger document
+  // For ClientLedger: Only track receivables (currentBalance), not expenses/income
   await ledgerRef.set({
     ledgerId,
     organizationId,
@@ -189,15 +168,9 @@ async function rebuildClientLedger(
     fyStartDate: admin.firestore.Timestamp.fromDate(fyDates.start),
     fyEndDate: admin.firestore.Timestamp.fromDate(fyDates.end),
     openingBalance,
-    currentBalance,
-    totalIncome,
-    totalExpense,
-    incomeByType,
+    currentBalance, // Total receivables balance (what client owes)
+    totalReceivables, // Total receivables created (credit transactions)
     transactionCount,
-    completedTransactionCount,
-    pendingTransactionCount,
-    completedTransactionAmount,
-    pendingTransactionAmount,
     transactionIds,
     lastTransactionId: lastTransactionId || null,
     lastTransactionDate: lastTransactionDate || admin.firestore.FieldValue.serverTimestamp(),

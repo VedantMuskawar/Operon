@@ -394,7 +394,7 @@ class _UserDialogState extends State<_UserDialog> {
               
               // App Access Role Dropdown
               DropdownButtonFormField<AppAccessRole>(
-                value: _currentAppAccessRole(),
+                initialValue: _currentAppAccessRole(),
                 dropdownColor: const Color(0xFF1B1B2C),
                 style: const TextStyle(color: Colors.white),
                 items: _appAccessRoles
@@ -481,7 +481,7 @@ class _UserDialogState extends State<_UserDialog> {
                 )
               else
                 DropdownButtonFormField<String>(
-                  value: _selectedEmployeeId,
+                  initialValue: _selectedEmployeeId,
                   dropdownColor: const Color(0xFF1B1B2C),
                   style: const TextStyle(color: Colors.white),
                   items: _employees

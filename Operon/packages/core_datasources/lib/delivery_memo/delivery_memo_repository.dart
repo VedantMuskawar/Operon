@@ -59,5 +59,38 @@ class DeliveryMemoRepository {
       cancellationReason: cancellationReason,
     );
   }
+
+  /// Get returned delivery memos for a specific vehicle from past 3 days
+  Future<List<Map<String, dynamic>>> getReturnedDMsForVehicle({
+    required String organizationId,
+    required String vehicleNumber,
+  }) {
+    return _dataSource.getReturnedDMsForVehicle(
+      organizationId: organizationId,
+      vehicleNumber: vehicleNumber,
+    );
+  }
+
+  /// Update multiple delivery memos with fuel voucher ID (batch update)
+  Future<void> updateMultipleDMsWithFuelVoucher({
+    required List<String> dmIds,
+    required String fuelVoucherId,
+  }) {
+    return _dataSource.updateMultipleDMsWithFuelVoucher(
+      dmIds: dmIds,
+      fuelVoucherId: fuelVoucherId,
+    );
+  }
+
+  /// Update a single delivery memo with fuel voucher ID
+  Future<void> updateDeliveryMemoWithFuelVoucher({
+    required String dmId,
+    required String fuelVoucherId,
+  }) {
+    return _dataSource.updateDeliveryMemoWithFuelVoucher(
+      dmId: dmId,
+      fuelVoucherId: fuelVoucherId,
+    );
+  }
 }
 

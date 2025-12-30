@@ -92,6 +92,7 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
           onBack: () => context.go('/home'),
           onNavTap: (value) => context.go('/home', extra: value),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Search Bar
@@ -101,9 +102,7 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
               _buildFilters(),
               const SizedBox(height: 20),
               // Delivery Memos List
-              Expanded(
-                child: _buildDeliveryMemosList(),
-              ),
+              _buildDeliveryMemosList(),
             ],
           ),
         ),
@@ -197,6 +196,8 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
         }
 
         return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.only(bottom: 20),
           itemCount: filteredMemos.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),

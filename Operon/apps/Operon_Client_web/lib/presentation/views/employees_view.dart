@@ -8,7 +8,7 @@ import 'package:dash_web/domain/entities/wage_type.dart';
 import 'package:dash_web/presentation/blocs/employees/employees_cubit.dart';
 import 'package:dash_web/presentation/blocs/job_roles/job_roles_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_web/presentation/widgets/employee_detail_panel.dart';
+import 'package:dash_web/presentation/widgets/employee_detail_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -38,8 +38,6 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
   _SortOption _sortOption = _SortOption.nameAsc;
   String? _selectedRoleFilter;
   bool _isListView = false;
-  OrganizationEmployee? _selectedEmployee;
-  bool _isPanelOpen = false;
 
   List<OrganizationEmployee> _applyFiltersAndSort(
     List<OrganizationEmployee> employees,
@@ -116,10 +114,7 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
         
         final filtered = _applyFiltersAndSort(employees, uniqueRoles);
 
-        return Stack(
-          children: [
-            // Main content
-            Column(
+        return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
             // Statistics Dashboard
@@ -422,37 +417,24 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                   );
                 },
               ),
-              ],
-            ),
-            
-            // Employee Detail Panel (positioned absolutely)
-            if (_isPanelOpen && _selectedEmployee != null)
-              EmployeeDetailPanel(
-                employee: _selectedEmployee!,
-                onClose: () {
-                  setState(() {
-                    _isPanelOpen = false;
-                    _selectedEmployee = null;
-                  });
-                },
-                onEmployeeChanged: (employee) {
-                  setState(() {
-                    _selectedEmployee = employee;
-                  });
-                },
-                onEdit: () => _showEmployeeDialog(context, _selectedEmployee),
-              ),
-          ],
-        );
+            ],
+          );
       },
     );
   }
 
   void _openEmployeeDetail(OrganizationEmployee employee) {
-    setState(() {
-      _selectedEmployee = employee;
-      _isPanelOpen = true;
-    });
+    showDialog(
+      context: context,
+      builder: (dialogContext) => EmployeeDetailModal(
+        employee: employee,
+        onEmployeeChanged: (updatedEmployee) {
+          // Refresh employees list if needed
+          context.read<EmployeesCubit>().loadEmployees();
+        },
+        onEdit: () => _showEmployeeDialog(context, employee),
+      ),
+    );
   }
 }
 
@@ -557,12 +539,12 @@ class _EmployeeCardState extends State<_EmployeeCard>
               scale: 1.0 + (_controller.value * 0.02),
               child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF1F1F33),
-                    const Color(0xFF1A1A28),
+                    Color(0xFF1F1F33),
+                    Color(0xFF1A1A28),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
@@ -1043,12 +1025,12 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF11111B),
-              const Color(0xFF0D0D15),
+              Color(0xFF11111B),
+              Color(0xFF0D0D15),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
@@ -1071,12 +1053,12 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF1B1C2C),
-                    const Color(0xFF161622),
+                    Color(0xFF1B1C2C),
+                    Color(0xFF161622),
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1212,9 +1194,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                                   if (checked == true) {
                                     _selectedJobRoleIds.add(jobRole.id);
                                     // If no primary yet, set this as primary
-                                    if (_primaryJobRoleId == null) {
-                                      _primaryJobRoleId = jobRole.id;
-                                    }
+                                    _primaryJobRoleId ??= jobRole.id;
                                   } else {
                                     _selectedJobRoleIds.remove(jobRole.id);
                                     // If removing primary, assign new primary
@@ -1280,7 +1260,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       
                       // Wage Type Selection
                       DropdownButtonFormField<WageType>(
-                        value: _selectedWageType,
+                        initialValue: _selectedWageType,
                         dropdownColor: const Color(0xFF1B1B2C),
                         style: const TextStyle(color: Colors.white),
                         decoration: _inputDecoration('Wage Type', Icons.payments_outlined),
@@ -1656,12 +1636,12 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1F1F33),
-            const Color(0xFF1A1A28),
+            Color(0xFF1F1F33),
+            Color(0xFF1A1A28),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
@@ -2055,12 +2035,12 @@ class _EmployeeListView extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                const Color(0xFF1F1F33),
-                const Color(0xFF1A1A28),
+                Color(0xFF1F1F33),
+                Color(0xFF1A1A28),
               ],
             ),
             borderRadius: BorderRadius.circular(16),

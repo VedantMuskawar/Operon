@@ -7,7 +7,12 @@ class DeliveryMemoDataSource {
     FirebaseFirestore? firestore,
     FirebaseFunctions? functions,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? FirebaseFunctions.instanceFor(region: 'us-central1');
+        _functions = functions ?? _initializeFunctions();
+
+  static FirebaseFunctions _initializeFunctions() {
+    // Match web app initialization exactly
+    return FirebaseFunctions.instanceFor(region: 'us-central1');
+  }
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
@@ -53,11 +58,13 @@ class DeliveryMemoDataSource {
       // 2. Update trip with dmNumber
       // 3. Create Order Credit transaction (for pay_later and pay_on_delivery)
       // 4. Store DM number in Client Ledger
-      final callable = _functions.httpsCallable('generateDM');
       
       // Serialize tripData: Convert all Timestamp objects to serializable format
       // The cloud_functions package requires JSON-serializable data
       final serializedTripData = _serializeMap(Map<String, dynamic>.from(tripData));
+
+      // Call cloud function - matching web app implementation exactly
+      final callable = _functions.httpsCallable('generateDM');
 
       final result = await callable.call({
         'organizationId': organizationId,
@@ -227,6 +234,74 @@ class DeliveryMemoDataSource {
       }
     } catch (e) {
       throw Exception('Failed to cancel DM: $e');
+    }
+  }
+
+  /// Get returned delivery memos for a specific vehicle from past 3 days
+  /// Used for fuel voucher trip linking (optional)
+  Future<List<Map<String, dynamic>>> getReturnedDMsForVehicle({
+    required String organizationId,
+    required String vehicleNumber,
+  }) async {
+    try {
+      // Get date 3 days ago
+      final threeDaysAgo = DateTime.now().subtract(const Duration(days: 3));
+      final threeDaysAgoTimestamp = Timestamp.fromDate(threeDaysAgo);
+
+      Query<Map<String, dynamic>> query = _firestore
+          .collection(_deliveryMemosCollection)
+          .where('organizationId', isEqualTo: organizationId)
+          .where('status', isEqualTo: 'returned')
+          .where('vehicleNumber', isEqualTo: vehicleNumber)
+          .where('scheduledDate', isGreaterThanOrEqualTo: threeDaysAgoTimestamp)
+          .orderBy('scheduledDate', descending: true);
+
+      final snapshot = await query.get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return <String, dynamic>{
+          'dmId': doc.id,
+          ...data,
+        };
+      }).toList();
+    } catch (e) {
+      throw Exception('Failed to fetch returned DMs for vehicle: $e');
+    }
+  }
+
+  /// Update multiple delivery memos with fuel voucher ID (batch update)
+  Future<void> updateMultipleDMsWithFuelVoucher({
+    required List<String> dmIds,
+    required String fuelVoucherId,
+  }) async {
+    try {
+      final batch = _firestore.batch();
+      for (final dmId in dmIds) {
+        final dmRef = _firestore.collection(_deliveryMemosCollection).doc(dmId);
+        batch.update(dmRef, {
+          'fuelVoucherId': fuelVoucherId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to update delivery memos with fuel voucher: $e');
+    }
+  }
+
+  /// Update a single delivery memo with fuel voucher ID
+  Future<void> updateDeliveryMemoWithFuelVoucher({
+    required String dmId,
+    required String fuelVoucherId,
+  }) async {
+    try {
+      await _firestore.collection(_deliveryMemosCollection).doc(dmId).update({
+        'fuelVoucherId': fuelVoucherId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('Failed to update delivery memo with fuel voucher: $e');
     }
   }
 }

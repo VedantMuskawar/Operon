@@ -6,7 +6,7 @@ import 'package:dash_mobile/data/repositories/transactions_repository.dart';
 import 'package:dash_mobile/data/services/storage_service.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
-import 'package:dash_mobile/domain/entities/transaction.dart';
+import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/delivery_photo_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/return_payment_dialog.dart';
@@ -1710,10 +1710,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           id: '',
           organizationId: organization.id,
           clientId: clientId,
-          type: TransactionType.debit,
-          category: TransactionCategory.income,
+          ledgerType: LedgerType.clientLedger,
+          type: TransactionType.debit, // Debit = client paid on delivery (decreases receivable)
+          category: TransactionCategory.tripPayment, // Payment collected on delivery
           amount: amount,
-          status: TransactionStatus.completed,
           paymentAccountId: payment['paymentAccountId'] as String?,
           paymentAccountType: payment['paymentAccountType'] as String?,
           orderId: orderId,
@@ -2357,10 +2357,10 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
           id: '',
           organizationId: organization.id,
           clientId: clientId,
-          type: TransactionType.debit,
-          category: TransactionCategory.income,
+          ledgerType: LedgerType.clientLedger,
+          type: TransactionType.debit, // Debit = client paid on delivery (decreases receivable)
+          category: TransactionCategory.tripPayment, // Payment collected on delivery
           amount: amount,
-          status: TransactionStatus.completed,
           createdBy: currentUser.uid,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
