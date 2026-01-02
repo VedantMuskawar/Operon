@@ -218,6 +218,51 @@ class UsersDataSource {
     
     return null;
   }
+
+  Future<OrganizationUser?> fetchCurrentUser({
+    required String orgId,
+    required String userId,
+    String? phoneNumber,
+  }) async {
+    try {
+      // First try direct lookup by userId (document ID)
+      final doc = await _orgUsersCollection(orgId).doc(userId).get();
+      if (doc.exists && doc.data() != null) {
+        return OrganizationUser.fromMap(doc.data()!, doc.id, orgId);
+      }
+      
+      // If direct lookup fails and phone number is provided, try querying by phone
+      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+        final query = await _orgUsersCollection(orgId)
+            .where('phone', isEqualTo: phoneNumber)
+            .limit(1)
+            .get();
+        
+        if (query.docs.isNotEmpty) {
+          final doc = query.docs.first;
+          return OrganizationUser.fromMap(doc.data(), doc.id, orgId);
+        }
+      }
+      
+      // If userId might be Firebase Auth UID, try to find user in USERS collection first
+      final userDoc = await _usersCollection
+          .where('uid', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      if (userDoc.docs.isNotEmpty) {
+        final actualUserId = userDoc.docs.first.id;
+        final orgUserDoc = await _orgUsersCollection(orgId).doc(actualUserId).get();
+        if (orgUserDoc.exists && orgUserDoc.data() != null) {
+          return OrganizationUser.fromMap(orgUserDoc.data()!, orgUserDoc.id, orgId);
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 }
 
 class _UserLookupResult {

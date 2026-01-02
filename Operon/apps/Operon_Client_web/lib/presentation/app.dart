@@ -128,6 +128,21 @@ class DashWebApp extends StatelessWidget {
             ),
           ),
         ),
+        RepositoryProvider<EmployeeWagesRepository>(
+          create: (_) => EmployeeWagesRepository(
+            dataSource: EmployeeWagesDataSource(),
+          ),
+        ),
+        RepositoryProvider<TransactionsRepository>(
+          create: (_) => TransactionsRepository(
+            dataSource: TransactionsDataSource(),
+          ),
+        ),
+        RepositoryProvider<ExpenseSubCategoriesRepository>(
+          create: (_) => ExpenseSubCategoriesRepository(
+            dataSource: ExpenseSubCategoriesDataSource(),
+          ),
+        ),
         RepositoryProvider<QrCodeService>(
           create: (_) => QrCodeService(),
         ),

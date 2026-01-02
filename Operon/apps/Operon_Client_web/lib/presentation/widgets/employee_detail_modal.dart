@@ -1,9 +1,9 @@
+import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/domain/entities/wage_type.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/detail_modal_base.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -636,129 +636,135 @@ class _TransactionsSection extends StatefulWidget {
 }
 
 class _TransactionsSectionState extends State<_TransactionsSection> {
-  List<Map<String, dynamic>> _transactions = [];
-  bool _isLoading = true;
-  String? _error;
-  String? _currentOrgId;
-
   @override
-  void initState() {
-    super.initState();
-    _loadTransactions();
-  }
-
-  Future<void> _loadTransactions() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      final orgState = context.read<OrganizationContextCubit>().state;
+  Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
       final organization = orgState.organization;
 
       if (organization == null) {
-        setState(() {
-          _error = 'No organization selected';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final orgId = organization.id;
-      if (_currentOrgId == orgId && _transactions.isNotEmpty && !_isLoading) {
-        return;
-      }
-
-      _currentOrgId = orgId;
-
-      // Query transactions for this employee
-      // Note: Employee transactions may be stored in metadata or a separate field
-      // For now, we'll query all transactions and filter by employeeId in metadata if available
-      Query query = FirebaseFirestore.instance
-          .collection('TRANSACTIONS')
-          .where('organizationId', isEqualTo: orgId)
-          .orderBy('createdAt', descending: true)
-          .limit(100);
-
-      QuerySnapshot snapshot;
-      try {
-        snapshot = await query.get();
-      } catch (e) {
-        final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('index') || errorStr.contains('requires an index')) {
-          final fallbackQuery = FirebaseFirestore.instance
-              .collection('TRANSACTIONS')
-              .where('organizationId', isEqualTo: orgId)
-              .limit(100);
-          snapshot = await fallbackQuery.get();
-        } else {
-          rethrow;
-        }
-      }
-
-      // Filter transactions that might be related to this employee
-      // This is a placeholder - adjust based on how employee transactions are stored
-      final allTransactions = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return <String, dynamic>{
-          'id': doc.id,
-          ...data,
-        };
-      }).toList();
-
-      // Filter by employeeId in metadata if available, otherwise show empty
-      final transactions = allTransactions.where((tx) {
-        final metadata = tx['metadata'] as Map<String, dynamic>?;
-        if (metadata != null) {
-          final employeeIdInMetadata = metadata['employeeId'] as String?;
-          return employeeIdInMetadata == widget.employee.id;
-        }
-        return false;
-      }).toList();
-
-      // Sort in memory by transactionDate or createdAt
-      transactions.sort((a, b) {
-        final dateA = a['transactionDate'] ?? a['createdAt'];
-        final dateB = b['transactionDate'] ?? b['createdAt'];
-        if (dateA == null && dateB == null) return 0;
-        if (dateA == null) return 1;
-        if (dateB == null) return -1;
-        
-        Timestamp? tsA;
-        Timestamp? tsB;
-        if (dateA is Timestamp) {
-          tsA = dateA;
-        } else if (dateA is DateTime) {
-          tsA = Timestamp.fromDate(dateA);
-        }
-        if (dateB is Timestamp) {
-          tsB = dateB;
-        } else if (dateB is DateTime) {
-          tsB = Timestamp.fromDate(dateB);
-        }
-        
-        if (tsA == null && tsB == null) return 0;
-        if (tsA == null) return 1;
-        if (tsB == null) return -1;
-        
-        return tsB.compareTo(tsA); // Descending
-      });
-
-      if (mounted) {
-        setState(() {
-          _transactions = transactions;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = 'Failed to load transactions: ${e.toString()}';
-          _isLoading = false;
-        });
-      }
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            'No organization selected',
+            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          ),
+        ),
+      );
     }
+
+    final repository = context.read<EmployeeWagesRepository>();
+
+    return StreamBuilder<Map<String, dynamic>?>(
+      stream: repository.watchEmployeeLedger(employeeId: widget.employee.id),
+      builder: (context, ledgerSnapshot) {
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: repository.watchEmployeeLedgerTransactions(
+            employeeId: widget.employee.id,
+            limit: 100,
+          ),
+          builder: (context, transactionsSnapshot) {
+            if (ledgerSnapshot.connectionState == ConnectionState.waiting ||
+                transactionsSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF6F4BFF),
+                ),
+              );
+            }
+
+            if (ledgerSnapshot.hasError || transactionsSnapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red.withOpacity(0.7),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to load ledger: ${ledgerSnapshot.error ?? transactionsSnapshot.error}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final ledger = ledgerSnapshot.data;
+            final transactions = transactionsSnapshot.data ?? [];
+
+            if (transactions.isEmpty && ledger == null) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.receipt_long_outlined,
+                          size: 64,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No Transactions',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No ledger entries found for this employee',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _LedgerBalanceCard(
+                    employee: widget.employee,
+                    ledger: ledger,
+                    formatCurrency: _formatCurrency,
+                  ),
+                  const SizedBox(height: 20),
+                  _LedgerTable(
+                    transactions: transactions,
+                    formatCurrency: _formatCurrency,
+                    formatDate: _formatDate,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   String _formatCurrency(double amount) {
@@ -774,134 +780,38 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
       DateTime date;
       if (timestamp is DateTime) {
         date = timestamp;
-      } else if (timestamp is Timestamp) {
-        date = timestamp.toDate();
       } else {
-        return 'N/A';
+        // Try to call toDate() if it's a Firestore Timestamp
+        try {
+          date = (timestamp as dynamic).toDate() as DateTime;
+        } catch (_) {
+          return 'N/A';
+        }
       }
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year.toString().substring(2)}';
     } catch (e) {
       return 'N/A';
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocListener<OrganizationContextCubit, OrganizationContextState>(
-      listener: (context, state) {
-        if (state.organization != null && state.organization!.id != _currentOrgId) {
-          _currentOrgId = null;
-          _loadTransactions();
-        }
-      },
-      child: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF6F4BFF),
-              ),
-            )
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red.withOpacity(0.7),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadTransactions,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : _transactions.isEmpty
-                  ? SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.receipt_long_outlined,
-                                size: 64,
-                                color: Colors.white.withOpacity(0.3),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'No Transactions',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'No ledger entries found for this employee',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _LedgerBalanceCard(
-                            employee: widget.employee,
-                            formatCurrency: _formatCurrency,
-                          ),
-                          const SizedBox(height: 20),
-                          _LedgerTable(
-                            transactions: _transactions,
-                            formatCurrency: _formatCurrency,
-                            formatDate: _formatDate,
-                          ),
-                        ],
-                      ),
-                    ),
-    );
-  }
 }
 
 class _LedgerBalanceCard extends StatelessWidget {
   const _LedgerBalanceCard({
     required this.employee,
+    required this.ledger,
     required this.formatCurrency,
   });
 
   final OrganizationEmployee employee;
+  final Map<String, dynamic>? ledger;
   final String Function(double) formatCurrency;
 
   @override
   Widget build(BuildContext context) {
-    final currentBalance = employee.currentBalance;
+    // Use ledger data if available, otherwise fall back to employee data
+    final currentBalance = (ledger?['currentBalance'] as num?)?.toDouble() ?? employee.currentBalance;
     final openingBalance = employee.openingBalance;
+    final totalCredited = (ledger?['totalCredited'] as num?)?.toDouble() ?? (currentBalance - openingBalance);
     final isReceivable = currentBalance > 0;
     final isPayable = currentBalance < 0;
 
@@ -916,10 +826,6 @@ class _LedgerBalanceCard extends StatelessWidget {
       if (isPayable) return 'We owe employee';
       return 'Settled';
     }
-
-    // Calculate total payments (sum of all debit transactions)
-    // This would need to be calculated from transactions, but for now we'll use a placeholder
-    final totalPayments = currentBalance < openingBalance ? (openingBalance - currentBalance) : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -963,7 +869,7 @@ class _LedgerBalanceCard extends StatelessWidget {
           const SizedBox(height: 10),
           _LedgerRow(label: 'Current Balance', value: formatCurrency(currentBalance.abs())),
           _LedgerRow(label: 'Opening Balance', value: formatCurrency(openingBalance)),
-          _LedgerRow(label: 'Total Payments', value: formatCurrency(totalPayments)),
+          _LedgerRow(label: 'Total Credited', value: formatCurrency(totalCredited)),
         ],
       ),
     );

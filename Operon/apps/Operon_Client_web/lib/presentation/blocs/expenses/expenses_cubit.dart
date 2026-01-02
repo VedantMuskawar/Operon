@@ -1,0 +1,242 @@
+import 'package:core_bloc/core_bloc.dart';
+import 'package:core_datasources/core_datasources.dart';
+import 'package:core_models/core_models.dart';
+import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
+import 'package:dash_web/data/repositories/employees_repository.dart';
+import 'package:dash_web/data/utils/financial_year_utils.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'expenses_state.dart';
+
+class ExpensesCubit extends Cubit<ExpensesState> {
+  ExpensesCubit({
+    required TransactionsRepository transactionsRepository,
+    required VendorsRepository vendorsRepository,
+    required EmployeesRepository employeesRepository,
+    required ExpenseSubCategoriesRepository subCategoriesRepository,
+    required PaymentAccountsDataSource paymentAccountsDataSource,
+    required String organizationId,
+    required String userId,
+  })  : _transactionsRepository = transactionsRepository,
+        _vendorsRepository = vendorsRepository,
+        _employeesRepository = employeesRepository,
+        _subCategoriesRepository = subCategoriesRepository,
+        _paymentAccountsDataSource = paymentAccountsDataSource,
+        _organizationId = organizationId,
+        _userId = userId,
+        super(const ExpensesState());
+
+  final TransactionsRepository _transactionsRepository;
+  final VendorsRepository _vendorsRepository;
+  final EmployeesRepository _employeesRepository;
+  final ExpenseSubCategoriesRepository _subCategoriesRepository;
+  final PaymentAccountsDataSource _paymentAccountsDataSource;
+  final String _organizationId;
+  final String _userId;
+
+  String get organizationId => _organizationId;
+
+  /// Load all expenses and related data
+  Future<void> load({String? financialYear}) async {
+    emit(state.copyWith(status: ViewStatus.loading, message: null));
+    try {
+      final fy = financialYear ?? FinancialYearUtils.getCurrentFinancialYear();
+
+      // Load all expense types in parallel
+      final vendorExpenses = await _transactionsRepository.getVendorExpenses(
+        organizationId: _organizationId,
+        financialYear: fy,
+      );
+
+      final employeeExpenses = await _transactionsRepository.getEmployeeExpenses(
+        organizationId: _organizationId,
+        financialYear: fy,
+      );
+
+      final generalExpenses = await _transactionsRepository.getGeneralExpenses(
+        organizationId: _organizationId,
+        financialYear: fy,
+      );
+
+      // Load related data
+      final vendors = await _vendorsRepository.fetchVendors(_organizationId);
+      final employees = await _employeesRepository.fetchEmployees(_organizationId);
+      final subCategories = await _subCategoriesRepository.fetchSubCategories(_organizationId);
+      final paymentAccounts = await _paymentAccountsDataSource.fetchAccounts(_organizationId);
+
+      // Combine all expenses
+      final allExpenses = [
+        ...vendorExpenses,
+        ...employeeExpenses,
+        ...generalExpenses,
+      ];
+      allExpenses.sort((a, b) {
+        final aDate = a.createdAt ?? DateTime(1970);
+        final bDate = b.createdAt ?? DateTime(1970);
+        return bDate.compareTo(aDate); // Descending order
+      });
+
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        vendorExpenses: vendorExpenses,
+        employeeExpenses: employeeExpenses,
+        generalExpenses: generalExpenses,
+        allExpenses: allExpenses,
+        vendors: vendors,
+        employees: employees,
+        subCategories: subCategories,
+        paymentAccounts: paymentAccounts,
+      ));
+    } catch (e) {
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Unable to load expenses: $e',
+      ));
+    }
+  }
+
+  /// Select expense type (filter view)
+  void selectExpenseType(ExpenseType? type) {
+    emit(state.copyWith(selectedExpenseType: type));
+  }
+
+  /// Search expenses
+  void search(String query) {
+    emit(state.copyWith(searchQuery: query));
+  }
+
+  /// Filter by sub-category (for general expenses)
+  void filterBySubCategory(String? subCategoryId) {
+    emit(state.copyWith(selectedSubCategoryId: subCategoryId));
+  }
+
+  /// Create a vendor payment expense
+  Future<void> createVendorPayment({
+    required String vendorId,
+    required double amount,
+    required String paymentAccountId,
+    required DateTime date,
+    String? description,
+    String? referenceNumber,
+  }) async {
+    emit(state.copyWith(status: ViewStatus.loading, message: null));
+    try {
+      final financialYear = FinancialYearUtils.getFinancialYear(date);
+
+      final transaction = Transaction(
+        id: '', // Will be set by data source
+        organizationId: _organizationId,
+        vendorId: vendorId,
+        ledgerType: LedgerType.vendorLedger,
+        type: TransactionType.debit,
+        category: TransactionCategory.vendorPayment,
+        amount: amount,
+        createdBy: _userId,
+        createdAt: date,
+        updatedAt: DateTime.now(),
+        financialYear: financialYear,
+        paymentAccountId: paymentAccountId,
+        description: description,
+        referenceNumber: referenceNumber,
+      );
+
+      await _transactionsRepository.createTransaction(transaction);
+      await load();
+    } catch (e) {
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Unable to create vendor payment: $e',
+      ));
+    }
+  }
+
+  /// Create a salary debit expense
+  Future<void> createSalaryDebit({
+    required String employeeId,
+    required double amount,
+    required String paymentAccountId,
+    required DateTime date,
+    String? description,
+    String? referenceNumber,
+  }) async {
+    emit(state.copyWith(status: ViewStatus.loading, message: null));
+    try {
+      final financialYear = FinancialYearUtils.getFinancialYear(date);
+
+      final transaction = Transaction(
+        id: '', // Will be set by data source
+        organizationId: _organizationId,
+        employeeId: employeeId,
+        ledgerType: LedgerType.employeeLedger,
+        type: TransactionType.debit,
+        category: TransactionCategory.salaryDebit,
+        amount: amount,
+        createdBy: _userId,
+        createdAt: date,
+        updatedAt: DateTime.now(),
+        financialYear: financialYear,
+        paymentAccountId: paymentAccountId,
+        description: description,
+        referenceNumber: referenceNumber,
+      );
+
+      await _transactionsRepository.createTransaction(transaction);
+      await load();
+    } catch (e) {
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Unable to create salary payment: $e',
+      ));
+    }
+  }
+
+  /// Create a general expense
+  Future<void> createGeneralExpense({
+    required String subCategoryId,
+    required double amount,
+    required String paymentAccountId,
+    required DateTime date,
+    required String description,
+    String? referenceNumber,
+  }) async {
+    emit(state.copyWith(status: ViewStatus.loading, message: null));
+    try {
+      final financialYear = FinancialYearUtils.getFinancialYear(date);
+      final subCategory = state.subCategories.firstWhere((sc) => sc.id == subCategoryId);
+
+      final transaction = Transaction(
+        id: '', // Will be set by data source
+        organizationId: _organizationId,
+        ledgerType: LedgerType.organizationLedger,
+        type: TransactionType.debit,
+        category: TransactionCategory.generalExpense,
+        amount: amount,
+        createdBy: _userId,
+        createdAt: date,
+        updatedAt: DateTime.now(),
+        financialYear: financialYear,
+        paymentAccountId: paymentAccountId,
+        description: description,
+        referenceNumber: referenceNumber,
+        metadata: {
+          'expenseCategory': 'general',
+          'subCategoryId': subCategoryId,
+          'subCategoryName': subCategory.name,
+        },
+      );
+
+      await _transactionsRepository.createTransaction(transaction);
+      await load();
+    } catch (e) {
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Unable to create general expense: $e',
+      ));
+    }
+  }
+
+  /// Refresh expenses
+  Future<void> refresh() async {
+    await load();
+  }
+}
+

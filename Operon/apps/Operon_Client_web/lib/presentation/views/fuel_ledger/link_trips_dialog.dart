@@ -64,8 +64,18 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
         _isLoading = false;
       });
     } catch (e) {
+      String errorMessage = 'Failed to load trips: $e';
+      
+      // Check if it's an index error and provide helpful message
+      final errorStr = e.toString();
+      if (errorStr.contains('index') || errorStr.contains('failed-precondition')) {
+        errorMessage = 'A database index is required for this query. '
+            'Please contact your administrator to create the required index, '
+            'or try again later.';
+      }
+      
       setState(() {
-        _error = 'Failed to load trips: $e';
+        _error = errorMessage;
         _isLoading = false;
       });
     }

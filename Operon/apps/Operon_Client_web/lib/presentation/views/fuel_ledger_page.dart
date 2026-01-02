@@ -562,35 +562,32 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                   },
                 )
               else
-                Expanded(
-                  child: Column(
-                    children: [
-                      // Table
-                      Expanded(
-                        child: _FuelPurchaseTable(
-                          purchases: _getPaginatedData(filtered),
-                  formatCurrency: _formatCurrency,
-                  formatDate: _formatDate,
-                  vendorNames: _vendorNames,
-                  getLinkedTripsCount: _getLinkedTripsCount,
-                  onLinkTrips: _showLinkTripsDialog,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Pagination Controls
-                      _PaginationControls(
-                        currentPage: _currentPage,
-                        totalPages: _getTotalPages(filtered.length),
-                        totalItems: filtered.length,
-                        itemsPerPage: _itemsPerPage,
-                        onPageChanged: (page) {
-                          setState(() {
-                            _currentPage = page;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Table
+                    _FuelPurchaseTable(
+                      purchases: _getPaginatedData(filtered),
+                      formatCurrency: _formatCurrency,
+                      formatDate: _formatDate,
+                      vendorNames: _vendorNames,
+                      getLinkedTripsCount: _getLinkedTripsCount,
+                      onLinkTrips: _showLinkTripsDialog,
+                    ),
+                    const SizedBox(height: 16),
+                    // Pagination Controls
+                    _PaginationControls(
+                      currentPage: _currentPage,
+                      totalPages: _getTotalPages(filtered.length),
+                      totalItems: filtered.length,
+                      itemsPerPage: _itemsPerPage,
+                      onPageChanged: (page) {
+                        setState(() {
+                          _currentPage = page;
+                        });
+                      },
+                    ),
+                  ],
                 ),
             ],
           );
@@ -1211,30 +1208,35 @@ class _PaginationControls extends StatelessWidget {
     final startItem = (currentPage * itemsPerPage) + 1;
     final endItem = ((currentPage + 1) * itemsPerPage).clamp(0, totalItems);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 600),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Items info
+            Text(
+              'Showing $startItem-$endItem of $totalItems',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 14,
               ),
             ),
-            child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            const SizedBox(width: 16),
+            // Pagination buttons
+            Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-          // Items info
-                      Text(
-            'Showing $startItem-$endItem of $totalItems',
-                        style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 14,
-            ),
-          ),
-          // Pagination buttons
-          Row(
-            mainAxisSize: MainAxisSize.min,
-                        children: [
               // First page
               IconButton(
                 icon: const Icon(Icons.first_page, size: 20),
@@ -1317,7 +1319,7 @@ class _PaginationControls extends StatelessWidget {
                 tooltip: 'Next page',
               ),
               // Last page
-                    IconButton(
+              IconButton(
                 icon: const Icon(Icons.last_page, size: 20),
                 color: currentPage >= totalPages - 1
                     ? Colors.white.withValues(alpha: 0.3)
@@ -1326,11 +1328,12 @@ class _PaginationControls extends StatelessWidget {
                     ? null
                     : () => onPageChanged(totalPages - 1),
                 tooltip: 'Last page',
-                    ),
-                  ],
-                ),
-              ],
+              ),
+            ],
           ),
+        ],
+      ),
+    ),
     );
   }
 }

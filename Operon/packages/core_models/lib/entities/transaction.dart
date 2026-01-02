@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum LedgerType {
   clientLedger,
   vendorLedger,
+  employeeLedger,
+  organizationLedger, // For general business expenses
   // Future: bankLedger, etc.
 }
 
@@ -24,14 +26,22 @@ enum TransactionCategory {
   refund,           // Refund given to client
   adjustment,       // Manual adjustment
   vendorPurchase,   // Purchase from vendor (credit transaction)
+  vendorPayment,    // Payment to vendor (debit on vendorLedger)
+  salaryCredit,     // Monthly salary credit to employee
+  salaryDebit,      // Salary payment to employee (debit on employeeLedger)
+  bonus,            // Bonus payment to employee
+  employeeAdvance,  // Advance payment to employee (future use)
+  employeeAdjustment, // Manual adjustment for employee
+  generalExpense,   // General business expense (debit on organizationLedger)
 }
 
 class Transaction {
   const Transaction({
     required this.id,
     required this.organizationId,
-    required this.clientId,
+    this.clientId,
     this.vendorId,
+    this.employeeId,
     required this.ledgerType,
     required this.type,
     required this.category,
@@ -52,8 +62,9 @@ class Transaction {
 
   final String id;
   final String organizationId;
-  final String clientId;
+  final String? clientId; // Optional for general expenses
   final String? vendorId; // For vendor ledger transactions
+  final String? employeeId; // For employee ledger transactions
   final LedgerType ledgerType;
   final TransactionType type;
   final TransactionCategory category;
@@ -75,8 +86,9 @@ class Transaction {
     return {
       'transactionId': id,
       'organizationId': organizationId,
-      'clientId': clientId,
+      if (clientId != null) 'clientId': clientId,
       if (vendorId != null) 'vendorId': vendorId,
+      if (employeeId != null) 'employeeId': employeeId,
       'ledgerType': ledgerType.name,
       'type': type.name,
       'category': category.name,
@@ -101,8 +113,9 @@ class Transaction {
     return Transaction(
       id: json['transactionId'] as String? ?? docId,
       organizationId: json['organizationId'] as String? ?? '',
-      clientId: json['clientId'] as String? ?? '',
+      clientId: json['clientId'] as String?,
       vendorId: json['vendorId'] as String?,
+      employeeId: json['employeeId'] as String?,
       ledgerType: LedgerType.values.firstWhere(
         (l) => l.name == json['ledgerType'],
         orElse: () => LedgerType.clientLedger, // Default to ClientLedger for backward compatibility
@@ -136,6 +149,7 @@ class Transaction {
     String? organizationId,
     String? clientId,
     String? vendorId,
+    String? employeeId,
     LedgerType? ledgerType,
     TransactionType? type,
     TransactionCategory? category,
@@ -158,6 +172,7 @@ class Transaction {
       organizationId: organizationId ?? this.organizationId,
       clientId: clientId ?? this.clientId,
       vendorId: vendorId ?? this.vendorId,
+      employeeId: employeeId ?? this.employeeId,
       ledgerType: ledgerType ?? this.ledgerType,
       type: type ?? this.type,
       category: category ?? this.category,

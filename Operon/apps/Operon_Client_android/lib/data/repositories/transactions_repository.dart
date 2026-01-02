@@ -1,61 +1,10 @@
-import 'package:dash_mobile/data/datasources/transactions_data_source.dart';
+// This file is deprecated - use TransactionsRepository from core_datasources package instead
+// Keeping this file for backward compatibility during migration
+// TODO: Remove this file after all usages are migrated to core_datasources
+
+import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
 
-class TransactionsRepository {
-  TransactionsRepository({required TransactionsDataSource dataSource})
-      : _dataSource = dataSource;
-
-  final TransactionsDataSource _dataSource;
-
-  /// Create a new transaction
-  Future<String> createTransaction(Transaction transaction) {
-    return _dataSource.createTransaction(transaction);
-  }
-
-  /// Get transaction by ID
-  Future<Transaction?> getTransaction(String transactionId) {
-    return _dataSource.getTransaction(transactionId);
-  }
-
-  /// Cancel a transaction
-  Future<void> cancelTransaction({
-    required String transactionId,
-    String? cancelledBy,
-    String? cancellationReason,
-  }) {
-    return _dataSource.cancelTransaction(
-      transactionId: transactionId,
-      cancelledBy: cancelledBy,
-      cancellationReason: cancellationReason,
-    );
-  }
-
-  /// Get transactions for a client in a financial year
-  Future<List<Transaction>> getClientTransactions({
-    required String organizationId,
-    required String clientId,
-    required String financialYear,
-    int? limit,
-  }) {
-    return _dataSource.getClientTransactions(
-      organizationId: organizationId,
-      clientId: clientId,
-      financialYear: financialYear,
-      limit: limit,
-    );
-  }
-
-  /// Get all transactions for an organization
-  Future<List<Transaction>> getOrganizationTransactions({
-    required String organizationId,
-    String? financialYear,
-    int? limit,
-  }) {
-    return _dataSource.getOrganizationTransactions(
-      organizationId: organizationId,
-      financialYear: financialYear,
-      limit: limit,
-    );
-  }
-}
+// Re-export the shared TransactionsRepository for backward compatibility
+export 'package:core_datasources/core_datasources.dart' show TransactionsRepository;
 

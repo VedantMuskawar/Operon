@@ -948,6 +948,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Checkbox(
                                   value: _unloadingHasGst,
@@ -959,9 +960,12 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                   },
                                   activeColor: const Color(0xFF6F4BFF),
                                 ),
-                                const Text(
-                                  'GST',
-                                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                                Flexible(
+                                  child: Text(
+                                    'GST',
+                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ],
                             ),

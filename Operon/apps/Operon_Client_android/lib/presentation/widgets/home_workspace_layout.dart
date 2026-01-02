@@ -7,7 +7,6 @@ import 'package:dash_mobile/presentation/views/home_sections/pending_orders_view
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/permissions_section.dart';
-import 'package:dash_mobile/presentation/widgets/record_purchase_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -118,6 +117,38 @@ class _HomeWorkspaceLayoutState extends State<HomeWorkspaceLayout> {
                 }),
               ),
             ),
+            // Organization name display (only on home page)
+            if (widget.currentIndex == 0 && organization != null)
+              Positioned(
+                top: 16,
+                left: 72, // Leave space for profile icon (48px + 16px margin + 8px gap)
+                right: 72, // Leave space for settings icon (48px + 16px margin + 8px gap)
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF11111B).withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                      ),
+                    ),
+                    child: Text(
+                      organization.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
             if (_isProfileOpen || _isSettingsOpen)
               Positioned.fill(
                 child: GestureDetector(
@@ -157,52 +188,64 @@ class _HomeWorkspaceLayoutState extends State<HomeWorkspaceLayout> {
               bottom: 0,
               right: _isSettingsOpen ? 0 : -media.size.width,
               child: _SettingsSideSheet(
+                context: context,
                 canManageRoles: isAdminRole,
                 canManageProducts:
                     role?.canCreate('products') ?? isAdminRole,
                 canManageRawMaterials:
                     role?.canCreate('rawMaterials') ?? isAdminRole,
+                canAccessVehicles: role?.canAccessPage('vehicles') ?? false,
                 onClose: () => setState(() => _isSettingsOpen = false),
                 onOpenRoles: () => context.go('/roles'),
                 onOpenProducts: () => context.go('/products'),
                 onOpenRawMaterials: () => context.go('/raw-materials'),
+                onOpenVehicles: () => context.go('/vehicles'),
                 onOpenPaymentAccounts: isAdminRole ? () => context.go('/payment-accounts') : null,
               ),
             ),
             // Quick Action Menu - visible on Home and Pending Orders pages
             if (widget.currentIndex == 0 || widget.currentIndex == 1)
-              QuickActionMenu(
-                right: 40,
-                bottom: 100,
-                actions: [
-                  QuickActionItem(
-                    icon: Icons.payment,
-                    label: 'Payments',
-                    onTap: () {
-                      context.go('/record-payment');
-                    },
-                  ),
-                  QuickActionItem(
-                    icon: Icons.shopping_cart,
-                    label: 'Record Purchase',
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (dialogContext) => BlocProvider.value(
-                          value: context.read<OrganizationContextCubit>(),
-                          child: const RecordPurchaseDialog(),
-                        ),
-                      );
-                    },
-                  ),
-                  QuickActionItem(
-                    icon: Icons.add_shopping_cart_outlined,
-                    label: 'Create Order',
-                    onTap: () {
-                      PendingOrdersView.showCustomerTypeDialog(context);
-                    },
-                  ),
-                ],
+              Builder(
+                builder: (context) {
+                  final media = MediaQuery.of(context);
+                  final bottomPadding = media.padding.bottom;
+                  // Nav bar height (~80px) + safe area bottom + spacing (20px)
+                  final bottomOffset = 80 + bottomPadding + 20;
+                  return QuickActionMenu(
+                    right: 40,
+                    bottom: bottomOffset,
+                    actions: [
+                      QuickActionItem(
+                        icon: Icons.receipt,
+                        label: 'Add Expense',
+                        onTap: () {
+                          context.go('/record-expense');
+                        },
+                      ),
+                      QuickActionItem(
+                        icon: Icons.payment,
+                        label: 'Payments',
+                        onTap: () {
+                          context.go('/record-payment');
+                        },
+                      ),
+                      QuickActionItem(
+                        icon: Icons.shopping_cart,
+                        label: 'Record Purchase',
+                        onTap: () {
+                          context.go('/record-purchase');
+                        },
+                      ),
+                      QuickActionItem(
+                        icon: Icons.add_shopping_cart_outlined,
+                        label: 'Create Order',
+                        onTap: () {
+                          PendingOrdersView.showCustomerTypeDialog(context);
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
           ],
         ),
@@ -247,7 +290,7 @@ class _SectionPanel extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -363,7 +406,7 @@ class _ProfileSideSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          user?.displayName ?? 'Workspace User',
+                          user?.displayName ?? 'User',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
@@ -464,20 +507,27 @@ class _SettingsSideSheet extends StatelessWidget {
     required this.canManageRoles,
     required this.canManageProducts,
     required this.canManageRawMaterials,
+    required this.canAccessVehicles,
     required this.onClose,
     required this.onOpenRoles,
     required this.onOpenProducts,
     required this.onOpenRawMaterials,
+    required this.onOpenVehicles,
     this.onOpenPaymentAccounts,
+    required this.context,
   });
+
+  final BuildContext context;
 
   final bool canManageRoles;
   final bool canManageProducts;
   final bool canManageRawMaterials;
+  final bool canAccessVehicles;
   final VoidCallback onClose;
   final VoidCallback onOpenRoles;
   final VoidCallback onOpenProducts;
   final VoidCallback onOpenRawMaterials;
+  final VoidCallback onOpenVehicles;
   final VoidCallback? onOpenPaymentAccounts;
 
   @override
@@ -555,6 +605,15 @@ class _SettingsSideSheet extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
+              if (canAccessVehicles)
+                _SettingsTile(
+                  label: 'Vehicles',
+                  onTap: () {
+                    onClose();
+                    onOpenVehicles();
+                  },
+                ),
+              const SizedBox(height: 12),
               if (onOpenPaymentAccounts != null)
                 _SettingsTile(
                   label: 'Payment Accounts',
@@ -568,6 +627,14 @@ class _SettingsSideSheet extends StatelessWidget {
                   'Payment accounts available for admins only.',
                   style: TextStyle(color: Colors.white38),
                 ),
+              const SizedBox(height: 12),
+              _SettingsTile(
+                label: 'Expense Sub-Categories',
+                onTap: () {
+                  onClose();
+                  context.go('/expense-sub-categories');
+                },
+              ),
             ],
           ),
         ),

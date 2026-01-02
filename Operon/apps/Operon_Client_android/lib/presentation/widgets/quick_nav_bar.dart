@@ -61,19 +61,31 @@ class QuickNavBar extends StatelessWidget {
                     onTap: () => onTap(index),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutCubic,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
-                        vertical: 10,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
                         color: isActive
                             ? const Color(0xFF6F4BFF)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
+                        boxShadow: isActive
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF6F4BFF)
+                                      .withOpacity(0.4),
+                                  blurRadius: 12,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Icon(
                         _items[index],
                         color: isActive ? Colors.white : Colors.white54,
+                        size: 24,
                       ),
                     ),
                   ),

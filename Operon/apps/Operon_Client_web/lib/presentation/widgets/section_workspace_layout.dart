@@ -4,10 +4,11 @@ import 'package:dash_web/domain/entities/app_access_role.dart';
 import 'package:dash_web/domain/entities/organization_membership.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_web/data/repositories/users_repository.dart';
+import 'package:dash_web/domain/entities/organization_user.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
 import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
-import 'package:dash_web/data/repositories/users_repository.dart';
 import 'package:dash_web/data/repositories/app_access_roles_repository.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/job_roles_repository.dart';
@@ -223,6 +224,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
               child: _ProfileSideSheet(
                 user: authState.userProfile,
                 organization: organization,
+                usersRepository: context.read<UsersRepository>(),
                 onClose: () => setState(() => _isProfileOpen = false),
                 onChangeOrg: () {
                   setState(() => _isProfileOpen = false);
@@ -1346,6 +1348,7 @@ class _ProfileSideSheet extends StatelessWidget {
   const _ProfileSideSheet({
     required this.user,
     required this.organization,
+    required this.usersRepository,
     required this.onClose,
     required this.onChangeOrg,
     this.onOpenPermissions,
@@ -1354,6 +1357,7 @@ class _ProfileSideSheet extends StatelessWidget {
 
   final UserProfile? user;
   final OrganizationMembership? organization;
+  final UsersRepository usersRepository;
   final VoidCallback onClose;
   final VoidCallback onChangeOrg;
   final VoidCallback? onOpenPermissions;
@@ -1427,14 +1431,38 @@ class _ProfileSideSheet extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          user?.displayName ?? 'Workspace User',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        FutureBuilder<OrganizationUser?>(
+                          future: (user?.id != null && organization?.id != null)
+                              ? usersRepository.fetchCurrentUser(
+                                  orgId: organization!.id,
+                                  userId: user!.id,
+                                  phoneNumber: user!.phoneNumber,
+                                )
+                              : Future.value(null),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white54,
+                                ),
+                              );
+                            }
+                            final userName = snapshot.data?.name ?? 
+                                            user?.displayName ?? 
+                                            'User';
+                            return Text(
+                              userName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            );
+                          },
                         ),
                         const SizedBox(height: 4),
                         Text(

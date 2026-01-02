@@ -11,9 +11,13 @@ class AnalyticsRepository {
   Future<ClientsAnalytics?> fetchClientsAnalytics({
     DateTime? asOf,
     String? financialYear,
+    String? organizationId,
   }) async {
     final fyLabel = financialYear ?? _financialYearForDate(asOf ?? DateTime.now());
-    final docId = 'clients_$fyLabel';
+    // Document ID format: clients_{organizationId}_{financialYear}
+    final docId = organizationId != null && organizationId.isNotEmpty
+        ? 'clients_${organizationId}_$fyLabel'
+        : 'clients_$fyLabel';
     debugPrint('[AnalyticsRepository] Fetching $docId');
     final payload = await _service.fetchAnalyticsDocument(docId);
     if (payload == null) {
@@ -46,12 +50,37 @@ class ClientsAnalytics {
         : (generatedAtRaw is DateTime ? generatedAtRaw : null);
 
     Map<String, double> extractSeries(String key) {
-      final values = map['metrics']?[key]?['values'];
+      // Try nested structure first: metrics[key][values]
+      var values = map['metrics']?[key]?['values'];
+      
+      // If not found, try flat dot-notation keys (Firestore style)
+      // Keys like: metrics.userOnboarding.values.2025-12
+      if (values == null || (values is Map && values.isEmpty)) {
+        final prefix = 'metrics.$key.values.';
+        final flatData = <String, double>{};
+        map.forEach((mapKey, mapValue) {
+          if (mapKey.startsWith(prefix)) {
+            final monthKey = mapKey.substring(prefix.length);
+            if (mapValue is num) {
+              flatData[monthKey] = mapValue.toDouble();
+            }
+          }
+        });
+        if (flatData.isNotEmpty) {
+          debugPrint('[ClientsAnalytics] Extracted $key from flat keys: ${flatData.keys.toList()}');
+          return flatData;
+        }
+      }
+      
       if (values is Map<String, dynamic>) {
-        return values.map(
+        final result = values.map(
           (k, v) => MapEntry(k, (v as num).toDouble()),
         );
+        debugPrint('[ClientsAnalytics] Extracted $key from nested structure: ${result.keys.toList()}');
+        return result;
       }
+      
+      debugPrint('[ClientsAnalytics] No values found for $key. Available keys: ${map.keys.where((k) => k.contains(key)).take(10).toList()}');
       return {};
     }
 

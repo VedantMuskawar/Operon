@@ -244,27 +244,77 @@ class DeliveryMemoDataSource {
     required String vehicleNumber,
   }) async {
     try {
-      // Get date 3 days ago
+      // Get date 3 days ago for filtering
       final threeDaysAgo = DateTime.now().subtract(const Duration(days: 3));
       final threeDaysAgoTimestamp = Timestamp.fromDate(threeDaysAgo);
 
+      // Simplified query: Only use organizationId, status, and vehicleNumber
+      // Filter by date in memory to avoid index requirement
       Query<Map<String, dynamic>> query = _firestore
           .collection(_deliveryMemosCollection)
           .where('organizationId', isEqualTo: organizationId)
           .where('status', isEqualTo: 'returned')
-          .where('vehicleNumber', isEqualTo: vehicleNumber)
-          .where('scheduledDate', isGreaterThanOrEqualTo: threeDaysAgoTimestamp)
-          .orderBy('scheduledDate', descending: true);
+          .where('vehicleNumber', isEqualTo: vehicleNumber);
 
       final snapshot = await query.get();
 
-      return snapshot.docs.map((doc) {
+      // Map documents to data and filter by date in memory
+      final results = snapshot.docs.map((doc) {
         final data = doc.data();
         return <String, dynamic>{
           'dmId': doc.id,
           ...data,
         };
+      }).where((item) {
+        // Filter by date in memory (last 3 days)
+        final scheduledDate = item['scheduledDate'];
+        if (scheduledDate == null) return false;
+        
+        Timestamp? ts;
+        if (scheduledDate is Timestamp) {
+          ts = scheduledDate;
+        } else if (scheduledDate is DateTime) {
+          ts = Timestamp.fromDate(scheduledDate);
+        } else {
+          return false;
+        }
+        
+        return ts.compareTo(threeDaysAgoTimestamp) >= 0;
       }).toList();
+
+      // Sort in memory by scheduledDate (descending - newest first)
+      results.sort((a, b) {
+        final dateA = a['scheduledDate'];
+        final dateB = b['scheduledDate'];
+        
+        if (dateA == null && dateB == null) return 0;
+        if (dateA == null) return 1;
+        if (dateB == null) return -1;
+        
+        Timestamp? tsA;
+        Timestamp? tsB;
+        
+        if (dateA is Timestamp) {
+          tsA = dateA;
+        } else if (dateA is DateTime) {
+          tsA = Timestamp.fromDate(dateA);
+        }
+        
+        if (dateB is Timestamp) {
+          tsB = dateB;
+        } else if (dateB is DateTime) {
+          tsB = Timestamp.fromDate(dateB);
+        }
+        
+        if (tsA == null && tsB == null) return 0;
+        if (tsA == null) return 1;
+        if (tsB == null) return -1;
+        
+        // Descending order (newest first)
+        return tsB.compareTo(tsA);
+      });
+
+      return results;
     } catch (e) {
       throw Exception('Failed to fetch returned DMs for vehicle: $e');
     }

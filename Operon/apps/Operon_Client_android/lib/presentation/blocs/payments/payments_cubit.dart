@@ -1,6 +1,5 @@
 import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:dash_mobile/data/repositories/transactions_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';

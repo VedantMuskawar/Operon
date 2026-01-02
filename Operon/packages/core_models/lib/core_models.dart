@@ -12,4 +12,5 @@ export 'entities/delivery_zone_price.dart';
 export 'entities/transaction.dart';
 export 'entities/raw_material.dart';
 export 'entities/stock_history_entry.dart';
+export 'entities/expense_sub_category.dart';
 export 'access_control/organization_role.dart';

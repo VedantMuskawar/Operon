@@ -13,4 +13,10 @@ export 'access_control/roles_repository.dart';
 export 'vendors/vendors_data_source.dart';
 export 'vendors/vendors_repository.dart';
 export 'raw_materials/raw_materials_data_source.dart';
+export 'employee_wages/employee_wages_data_source.dart';
+export 'employee_wages/employee_wages_repository.dart';
+export 'expense_sub_categories/expense_sub_categories_data_source.dart';
+export 'expense_sub_categories/expense_sub_categories_repository.dart';
+export 'transactions/transactions_data_source.dart';
+export 'transactions/transactions_repository.dart';
 

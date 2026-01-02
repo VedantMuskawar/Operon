@@ -64,3 +64,5 @@ firebase deploy --only functions
 4. Try to change status to "deleted" with non-zero balance - should be reverted
 
 
+
+

@@ -123,6 +123,16 @@ class RawMaterialsPage extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _openStockHistoryDialog(
+    BuildContext context,
+    RawMaterial material,
+  ) async {
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StockHistoryDialog(material: material),
+    );
+  }
 }
 
 class _RawMaterialTile extends StatelessWidget {

@@ -1,5 +1,8 @@
 import 'package:dash_mobile/data/repositories/analytics_repository.dart';
+import 'package:dash_mobile/data/services/client_service.dart';
+import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -37,8 +40,15 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
       final orgContext = context.read<OrganizationContextCubit>().state;
       final repository = AnalyticsRepository();
       final canonicalFy = _canonicalFy(orgContext.financialYear);
+      final organizationId = orgContext.organization?.id;
+      
+      if (kDebugMode) {
+        print('[ClientAnalyticsPage] Loading analytics for org: $organizationId, FY: $canonicalFy');
+      }
+      
       final analytics = await repository.fetchClientsAnalytics(
         financialYear: canonicalFy.isNotEmpty ? canonicalFy : null,
+        organizationId: organizationId,
       );
       if (mounted) {
         setState(() {
@@ -104,6 +114,13 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Statistics Header
+        BlocBuilder<ClientsCubit, ClientsState>(
+          builder: (context, state) {
+            return _ClientsStatsHeader(clients: state.recentClients);
+          },
+        ),
+        const SizedBox(height: 24),
         // Info Tiles
         Row(
           children: [
@@ -279,6 +296,16 @@ class _LineChartPainter extends CustomPainter {
     final chartHeight = size.height - padding - 30;
     final dataPoints = data.values.toList();
     final dataKeys = data.keys.toList();
+    
+    // Guard against invalid sizes
+    if (chartWidth <= 0 || chartHeight <= 0) return;
+    
+    // Guard against empty data
+    if (dataPoints.isEmpty) return;
+    
+    // Handle case where all values are the same (flat line)
+    final valueRange = maxValue - minValue;
+    final normalizedValueRange = valueRange > 0 ? valueRange : 1.0; // Use 1.0 to avoid division by zero
 
     // Draw grid lines
     final gridPaint = Paint()
@@ -300,7 +327,14 @@ class _LineChartPainter extends CustomPainter {
       fontSize: 11,
     );
     for (int i = 0; i <= 4; i++) {
-      final value = maxValue - (maxValue - minValue) * (i / 4);
+      final value = valueRange > 0 
+          ? maxValue - valueRange * (i / 4)
+          : maxValue; // Handle case where maxValue == minValue
+      final yPos = padding + (chartHeight / 4) * i;
+      
+      // Guard against NaN
+      if (yPos.isNaN || !yPos.isFinite) continue;
+      
       final textPainter = TextPainter(
         text: TextSpan(
           text: value.toInt().toString(),
@@ -309,13 +343,23 @@ class _LineChartPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
+      
+      // Guard against invalid textPainter dimensions
+      if (textPainter.height.isNaN || !textPainter.height.isFinite) continue;
+      
+      final offsetY = yPos - textPainter.height / 2;
+      if (offsetY.isNaN || !offsetY.isFinite) continue;
+      
       textPainter.paint(
         canvas,
-        Offset(0, padding + (chartHeight / 4) * i - textPainter.height / 2),
+        Offset(0, offsetY),
       );
     }
 
-    // Draw line
+    // Draw line and points
+    final divisor = (dataPoints.length - 1);
+    final chartDivisor = divisor > 0 ? divisor : 1.0; // Avoid division by zero for single point
+    
     if (dataPoints.length > 1) {
       final path = Path();
       final pointPaint = Paint()
@@ -324,9 +368,12 @@ class _LineChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke;
 
       for (int i = 0; i < dataPoints.length; i++) {
-        final x = padding + (chartWidth / (dataPoints.length - 1)) * i;
-        final normalizedValue = (dataPoints[i] - minValue) / (maxValue - minValue);
+        final x = padding + (chartWidth / chartDivisor) * i;
+        final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
         final y = padding + chartHeight - (normalizedValue * chartHeight);
+        
+        // Guard against NaN values
+        if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
         if (i == 0) {
           path.moveTo(x, y);
@@ -343,9 +390,12 @@ class _LineChartPainter extends CustomPainter {
         ..style = PaintingStyle.fill;
 
       for (int i = 0; i < dataPoints.length; i++) {
-        final x = padding + (chartWidth / (dataPoints.length - 1)) * i;
-        final normalizedValue = (dataPoints[i] - minValue) / (maxValue - minValue);
+        final x = padding + (chartWidth / chartDivisor) * i;
+        final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
         final y = padding + chartHeight - (normalizedValue * chartHeight);
+        
+        // Guard against NaN values
+        if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
         canvas.drawCircle(Offset(x, y), 4, pointPaint2);
         canvas.drawCircle(Offset(x, y), 2, Paint()..color = Colors.white);
@@ -354,9 +404,12 @@ class _LineChartPainter extends CustomPainter {
       // Draw value labels
       for (int i = 0; i < dataPoints.length; i++) {
         if (i % ((dataPoints.length / 6).ceil()) == 0 || i == dataPoints.length - 1) {
-          final x = padding + (chartWidth / (dataPoints.length - 1)) * i;
-          final normalizedValue = (dataPoints[i] - minValue) / (maxValue - minValue);
+          final x = padding + (chartWidth / chartDivisor) * i;
+          final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
           final y = padding + chartHeight - (normalizedValue * chartHeight);
+          
+          // Guard against NaN values
+          if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
           final valueText = TextPainter(
             text: TextSpan(
@@ -370,19 +423,46 @@ class _LineChartPainter extends CustomPainter {
             textDirection: TextDirection.ltr,
           );
           valueText.layout();
+          final offsetX = x - valueText.width / 2;
+          final offsetY = y - 20;
+          
+          // Final guard before painting
+          if (offsetX.isNaN || offsetY.isNaN || !offsetX.isFinite || !offsetY.isFinite) continue;
+          
           valueText.paint(
             canvas,
-            Offset(x - valueText.width / 2, y - 20),
+            Offset(offsetX, offsetY),
           );
         }
+      }
+    } else if (dataPoints.length == 1) {
+      // Handle single data point - just draw a point
+      final pointPaint2 = Paint()
+        ..color = const Color(0xFF6F4BFF)
+        ..style = PaintingStyle.fill;
+      
+      final x = padding + chartWidth / 2;
+      final normalizedValue = (dataPoints[0] - minValue) / normalizedValueRange;
+      final y = padding + chartHeight - (normalizedValue * chartHeight);
+      
+      if (!x.isNaN && !y.isNaN && x.isFinite && y.isFinite) {
+        canvas.drawCircle(Offset(x, y), 4, pointPaint2);
+        canvas.drawCircle(Offset(x, y), 2, Paint()..color = Colors.white);
       }
     }
 
     // Draw X-axis labels
+    if (dataKeys.length > 1) {
     final xAxisLabelCount = (dataKeys.length / 4).ceil();
+      final xAxisDivisor = dataKeys.length - 1;
+      
     for (int i = 0; i < dataKeys.length; i++) {
       if (i % xAxisLabelCount == 0 || i == dataKeys.length - 1) {
-        final x = padding + (chartWidth / (dataKeys.length - 1)) * i;
+          final x = padding + (chartWidth / xAxisDivisor) * i;
+          
+          // Guard against NaN values
+          if (x.isNaN || !x.isFinite) continue;
+          
         final label = _formatXAxisLabel(dataKeys[i]);
         final labelText = TextPainter(
           text: TextSpan(
@@ -395,9 +475,39 @@ class _LineChartPainter extends CustomPainter {
           textDirection: TextDirection.ltr,
         );
         labelText.layout();
+          final offsetX = x - labelText.width / 2;
+          final offsetY = size.height - 25;
+          
+          // Final guard before painting
+          if (offsetX.isNaN || offsetY.isNaN || !offsetX.isFinite || !offsetY.isFinite) continue;
+          
+          labelText.paint(
+            canvas,
+            Offset(offsetX, offsetY),
+          );
+        }
+      }
+    } else if (dataKeys.length == 1) {
+      // Handle single data point case
+      final label = _formatXAxisLabel(dataKeys[0]);
+      final labelText = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.6),
+            fontSize: 10,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      labelText.layout();
+      final offsetX = padding + chartWidth / 2 - labelText.width / 2;
+      final offsetY = size.height - 25;
+      
+      if (!offsetX.isNaN && !offsetY.isNaN && offsetX.isFinite && offsetY.isFinite) {
         labelText.paint(
           canvas,
-          Offset(x - labelText.width / 2, size.height - 25),
+          Offset(offsetX, offsetY),
         );
       }
     }
@@ -547,6 +657,151 @@ class _StatChip extends StatelessWidget {
                 ),
               ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClientsStatsHeader extends StatelessWidget {
+  const _ClientsStatsHeader({required this.clients});
+
+  final List<ClientRecord> clients;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalClients = clients.length;
+    final corporateCount = clients.where((c) => c.isCorporate).length;
+    final individualCount = totalClients - corporateCount;
+    final totalOrders = clients.fold<int>(
+      0,
+      (sum, client) => sum + ((client.stats['orders'] as num?)?.toInt() ?? 0),
+    );
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                icon: Icons.people_outline,
+                label: 'Total',
+                value: totalClients.toString(),
+                color: const Color(0xFF6F4BFF),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                icon: Icons.business_outlined,
+                label: 'Corporate',
+                value: corporateCount.toString(),
+                color: const Color(0xFF5AD8A4),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                icon: Icons.person_outline,
+                label: 'Individual',
+                value: individualCount.toString(),
+                color: const Color(0xFFFF9800),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                icon: Icons.shopping_bag_outlined,
+                label: 'Orders',
+                value: totalOrders.toString(),
+                color: const Color(0xFF2196F3),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1F1F33),
+            Color(0xFF1A1A28),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

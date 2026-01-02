@@ -14,10 +14,17 @@ class ClientsPage extends StatefulWidget {
   State<ClientsPage> createState() => _ClientsPageState();
 }
 
+enum _ClientFilterType {
+  all,
+  corporate,
+  individual,
+}
+
 class _ClientsPageState extends State<ClientsPage> {
   late final TextEditingController _searchController;
   late final PageController _pageController;
   double _currentPage = 0;
+  _ClientFilterType _filterType = _ClientFilterType.all;
 
   @override
   void initState() {
@@ -56,6 +63,17 @@ class _ClientsPageState extends State<ClientsPage> {
         fullscreenDialog: true,
       ),
     );
+  }
+
+  List<ClientRecord> _applyFilter(List<ClientRecord> clients) {
+    switch (_filterType) {
+      case _ClientFilterType.corporate:
+        return clients.where((c) => c.isCorporate).toList();
+      case _ClientFilterType.individual:
+        return clients.where((c) => !c.isCorporate).toList();
+      case _ClientFilterType.all:
+        return clients;
+    }
   }
 
   @override
@@ -99,20 +117,53 @@ class _ClientsPageState extends State<ClientsPage> {
                       children: [
                         BlocBuilder<ClientsCubit, ClientsState>(
                           builder: (context, state) {
+                            final allClients = state.recentClients;
+                            final filteredClients = _applyFilter(allClients);
+                            
                             return SingleChildScrollView(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  // Search Bar
                                   _buildSearchBar(state),
-                                  const SizedBox(height: 20),
+                                  const SizedBox(height: 16),
+                                  // Filter Chips
+                                  _ClientFilterChips(
+                                    selectedFilter: _filterType,
+                                    onFilterChanged: (filter) {
+                                      setState(() => _filterType = filter);
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Results count
+                                  if (state.searchQuery.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 12),
+                                      child: Text(
+                                        '${filteredClients.length} ${filteredClients.length == 1 ? 'client' : 'clients'}',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.6),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  // Search Results or Recent Clients
                                   if (state.searchQuery.isNotEmpty)
                                     _SearchResultsCard(
                                       state: state,
                                       onClear: _clearSearch,
+                                    )
+                                  else if (filteredClients.isEmpty && !state.isRecentLoading)
+                                    _EmptyClientsState(
+                                      onAddClient: _openContactPage,
+                                    )
+                                  else
+                                    _RecentClientsList(
+                                      state: state,
+                                      clients: filteredClients,
                                     ),
-                                  const SizedBox(height: 12),
-                                  _RecentClientsList(state: state),
                                 ],
                               ),
                             );
@@ -131,9 +182,15 @@ class _ClientsPageState extends State<ClientsPage> {
         ),
         // Floating Action Button - only visible on Clients page
         if (_currentPage.round() == 0)
-          Positioned(
+          Builder(
+            builder: (context) {
+              final media = MediaQuery.of(context);
+              final bottomPadding = media.padding.bottom;
+              // Nav bar height (~80px) + safe area bottom + spacing (20px)
+              final bottomOffset = 80 + bottomPadding + 20;
+              return Positioned(
             right: 40,
-            bottom: 120, // Fixed position: 80px (nav bar) + 20px (spacing)
+                bottom: bottomOffset,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -157,6 +214,8 @@ class _ClientsPageState extends State<ClientsPage> {
                 ),
               ),
             ),
+              );
+            },
           ),
       ],
     );
@@ -236,10 +295,7 @@ class _SearchResultsCard extends StatelessWidget {
               ),
             )
           else if (state.searchResults.isEmpty)
-            Text(
-              'No clients found for "${state.searchQuery}".',
-              style: const TextStyle(color: Colors.white60),
-            )
+            _EmptySearchState(query: state.searchQuery)
           else
             ListView.separated(
               shrinkWrap: true,
@@ -258,9 +314,13 @@ class _SearchResultsCard extends StatelessWidget {
 }
 
 class _RecentClientsList extends StatelessWidget {
-  const _RecentClientsList({required this.state});
+  const _RecentClientsList({
+    required this.state,
+    required this.clients,
+  });
 
   final ClientsState state;
+  final List<ClientRecord> clients;
 
   @override
   Widget build(BuildContext context) {
@@ -288,19 +348,16 @@ class _RecentClientsList extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        if (state.recentClients.isEmpty && !state.isRecentLoading)
-          const Text(
-            'You haven\'t added any clients yet. Tap the + button to get started.',
-            style: TextStyle(color: Colors.white60),
-          )
+        if (clients.isEmpty && !state.isRecentLoading)
+          const SizedBox.shrink()
         else
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: state.recentClients.length,
+            itemCount: clients.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final client = state.recentClients[index];
+              final client = clients[index];
               return _ClientTile(client: client);
             },
           ),
@@ -314,13 +371,34 @@ class _ClientTile extends StatelessWidget {
 
   final ClientRecord client;
 
+  Color _getClientColor() {
+    if (client.isCorporate) {
+      return const Color(0xFF6F4BFF);
+    }
+    final hash = client.name.hashCode;
+    final colors = [
+      const Color(0xFF5AD8A4),
+      const Color(0xFFFF9800),
+      const Color(0xFF2196F3),
+      const Color(0xFFE91E63),
+    ];
+    return colors[hash.abs() % colors.length];
+  }
+
+  String _getInitials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final clientColor = _getClientColor();
     final phoneLabel = client.primaryPhone ??
-        (client.phones.isNotEmpty ? client.phones.first['number'] as String : '-');
-    final createdAtLabel = client.createdAt != null
-        ? _formatDate(client.createdAt!)
-        : 'Recently added';
+        (client.phones.isNotEmpty ? (client.phones.first['e164'] as String?) ?? '-' : '-');
+    final orderCount = (client.stats['orders'] as num?)?.toInt() ?? 0;
 
     return InkWell(
       onTap: () => context.pushNamed('client-detail', extra: client),
@@ -328,10 +406,67 @@ class _ClientTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F0F1F),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFF1F1F33).withOpacity(0.6),
+              const Color(0xFF1A1A28).withOpacity(0.8),
+            ],
+          ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white10),
+          border: Border.all(
+            color: clientColor.withOpacity(0.2),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Avatar
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        clientColor,
+                        clientColor.withOpacity(0.7),
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: clientColor.withOpacity(0.4),
+                        blurRadius: 8,
+                        spreadRadius: -1,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      _getInitials(client.name),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -343,25 +478,248 @@ class _ClientTile extends StatelessWidget {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (client.isCorporate)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: clientColor.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: clientColor.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.business,
+                                    size: 12,
+                                    color: Color(0xFF6F4BFF),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Corporate',
+                                    style: TextStyle(
+                                      color: clientColor,
                       fontWeight: FontWeight.w600,
-                    ),
+                                      fontSize: 10,
                   ),
                 ),
-                Text(
-                  createdAtLabel,
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      // Phone
+                      if (phoneLabel != '-')
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.phone_outlined,
+                              size: 14,
+                              color: Colors.white.withOpacity(0.7),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                phoneLabel,
                   style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            // Tags and Stats
+            if (client.tags.isNotEmpty || orderCount > 0) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  // Tags
+                  if (client.tags.isNotEmpty)
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: client.tags.take(2).map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.1),
+                              ),
+                            ),
+                            child: Text(
+                              tag,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  // Order Count
+                  if (orderCount > 0) ...[
+                    if (client.tags.isNotEmpty) const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF5AD8A4).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFF5AD8A4).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 14,
+                            color: Color(0xFF5AD8A4),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '$orderCount ${orderCount == 1 ? 'order' : 'orders'}',
+                            style: const TextStyle(
+                              color: Color(0xFF5AD8A4),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ClientFilterChips extends StatelessWidget {
+  const _ClientFilterChips({
+    required this.selectedFilter,
+    required this.onFilterChanged,
+  });
+
+  final _ClientFilterType selectedFilter;
+  final ValueChanged<_ClientFilterType> onFilterChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _FilterChip(
+            label: 'All',
+            icon: Icons.people,
+            isSelected: selectedFilter == _ClientFilterType.all,
+            onTap: () => onFilterChanged(_ClientFilterType.all),
+          ),
+          const SizedBox(width: 8),
+          _FilterChip(
+            label: 'Corporate',
+            icon: Icons.business,
+            isSelected: selectedFilter == _ClientFilterType.corporate,
+            onTap: () => onFilterChanged(_ClientFilterType.corporate),
+          ),
+          const SizedBox(width: 8),
+          _FilterChip(
+            label: 'Individual',
+            icon: Icons.person,
+            isSelected: selectedFilter == _ClientFilterType.individual,
+            onTap: () => onFilterChanged(_ClientFilterType.individual),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF6F4BFF).withOpacity(0.2)
+              : const Color(0xFF1B1B2C).withOpacity(0.6),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF6F4BFF)
+                : Colors.white.withOpacity(0.1),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected
+                  ? const Color(0xFF6F4BFF)
+                  : Colors.white.withOpacity(0.7),
+            ),
+            const SizedBox(width: 6),
             Text(
-              phoneLabel,
-              style: const TextStyle(
-                color: Colors.white70,
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
                 fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
           ],
@@ -369,16 +727,126 @@ class _ClientTile extends StatelessWidget {
       ),
     );
   }
+}
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-    if (difference.inDays == 0) {
-      return 'Today';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
+class _EmptyClientsState extends StatelessWidget {
+  const _EmptyClientsState({required this.onAddClient});
+
+  final VoidCallback onAddClient;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF1B1B2C).withOpacity(0.6),
+            const Color(0xFF161622).withOpacity(0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6F4BFF).withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.people_outline,
+              size: 32,
+              color: Color(0xFF6F4BFF),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'No clients yet',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Start by adding your first client to the system',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text('Add Client'),
+            onPressed: onAddClient,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6F4BFF),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 14,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
     }
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}';
+}
+
+class _EmptySearchState extends StatelessWidget {
+  const _EmptySearchState({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: 48,
+            color: Colors.white.withOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'No results found',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No clients match "$query"',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
   }
 }
 

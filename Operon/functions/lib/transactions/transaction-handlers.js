@@ -126,6 +126,30 @@ async function getVendorOpeningBalance(organizationId, vendorId, currentFY) {
     return 0;
 }
 /**
+ * Get opening balance from previous financial year (for employees)
+ */
+async function getEmployeeOpeningBalance(organizationId, employeeId, currentFY) {
+    try {
+        const previousFY = getPreviousFinancialYear(currentFY);
+        const previousLedgerId = `${employeeId}_${previousFY}`;
+        const previousLedgerRef = db.collection(constants_1.EMPLOYEE_LEDGERS_COLLECTION).doc(previousLedgerId);
+        const previousLedgerDoc = await previousLedgerRef.get();
+        if (previousLedgerDoc.exists) {
+            const previousLedgerData = previousLedgerDoc.data();
+            return previousLedgerData.currentBalance || 0;
+        }
+    }
+    catch (error) {
+        console.warn('[Employee Ledger] Error fetching previous FY balance, defaulting to 0', {
+            organizationId,
+            employeeId,
+            currentFY,
+            error,
+        });
+    }
+    return 0;
+}
+/**
  * Get financial year date range
  */
 function getFinancialYearDates(financialYear) {
@@ -173,6 +197,20 @@ function getLedgerDelta(ledgerType, type, amount) {
             amount,
             delta,
             explanation: type === 'credit' ? 'Credit: purchase from vendor (+amount, we owe them)' : 'Debit: payment to vendor (-amount, we paid them)',
+        });
+        return delta;
+    }
+    if (ledgerType === 'employeeLedger') {
+        // For EmployeeLedger: Credit = increment payable (we owe employee), Debit = decrement payable (we paid employee)
+        // Credit means salary/bonus credited (increases payable/balance - we owe more)
+        // Debit means payment/advance to employee (decreases payable/balance - we paid/owe less)
+        const delta = type === 'credit' ? amount : -amount;
+        console.log('[Transaction] getLedgerDelta calculation (employeeLedger)', {
+            ledgerType,
+            type,
+            amount,
+            delta,
+            explanation: type === 'credit' ? 'Credit: salary/bonus credited (+amount, we owe employee)' : 'Debit: payment/advance to employee (-amount, we paid employee)',
         });
         return delta;
     }
@@ -722,6 +760,210 @@ async function updateVendorLedger(organizationId, vendorId, financialYear, trans
     return { balanceBefore, balanceAfter };
 }
 /**
+ * Update employee ledger when transaction is created or cancelled
+ * Returns the balanceBefore and balanceAfter values for the transaction
+ */
+async function updateEmployeeLedger(organizationId, employeeId, financialYear, transaction, transactionId, snapshot, isCancellation = false) {
+    const ledgerId = `${employeeId}_${financialYear}`;
+    const ledgerRef = db.collection(constants_1.EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
+    const amount = transaction.amount;
+    const ledgerType = transaction.ledgerType || 'employeeLedger';
+    const type = transaction.type;
+    const multiplier = isCancellation ? -1 : 1;
+    // Calculate ledger delta
+    const ledgerDelta = getLedgerDelta(ledgerType, type, amount);
+    console.log('[Employee Ledger] updateEmployeeLedger called', {
+        transactionId,
+        ledgerId,
+        ledgerType,
+        type,
+        amount,
+        ledgerDelta,
+        multiplier,
+        isCancellation,
+    });
+    const transactionDate = getTransactionDate(snapshot);
+    const yearMonth = getYearMonth(transactionDate);
+    const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
+    let balanceBefore = 0;
+    let balanceAfter = 0;
+    // Build transaction data for monthly subcollection - NO undefined values
+    const now = admin.firestore.Timestamp.now();
+    const transactionData = {
+        transactionId,
+        organizationId,
+        employeeId,
+        ledgerType: ledgerType || 'employeeLedger',
+        type,
+        category: transaction.category,
+        amount,
+        financialYear,
+        transactionDate: admin.firestore.Timestamp.fromDate(transactionDate),
+        updatedAt: now,
+    };
+    // Add optional fields only if they exist
+    if (transaction.createdAt) {
+        transactionData.createdAt = transaction.createdAt;
+    }
+    else {
+        transactionData.createdAt = now;
+    }
+    if (transaction.paymentAccountId) {
+        transactionData.paymentAccountId = transaction.paymentAccountId;
+    }
+    if (transaction.paymentAccountType) {
+        transactionData.paymentAccountType = transaction.paymentAccountType;
+    }
+    if (transaction.referenceNumber) {
+        transactionData.referenceNumber = transaction.referenceNumber;
+    }
+    if (transaction.description) {
+        transactionData.description = transaction.description;
+    }
+    if (transaction.metadata) {
+        transactionData.metadata = transaction.metadata;
+    }
+    if (transaction.createdBy) {
+        transactionData.createdBy = transaction.createdBy;
+    }
+    // Update ledger and monthly subcollection atomically
+    await db.runTransaction(async (tx) => {
+        // Read all documents FIRST (Firestore requirement: all reads before writes)
+        const ledgerDoc = await tx.get(ledgerRef);
+        const monthlyDoc = await tx.get(monthlyRef);
+        if (!ledgerDoc.exists && !isCancellation) {
+            // Create new ledger
+            const openingBalance = await getEmployeeOpeningBalance(organizationId, employeeId, financialYear);
+            balanceBefore = openingBalance;
+            const currentBalance = openingBalance + (ledgerDelta * multiplier);
+            balanceAfter = currentBalance;
+            transactionData.balanceBefore = balanceBefore;
+            transactionData.balanceAfter = balanceAfter;
+            console.log('[Employee Ledger] Creating new ledger', {
+                transactionId,
+                openingBalance,
+                ledgerDelta,
+                currentBalance,
+                balanceBefore,
+                balanceAfter,
+            });
+            // Calculate totalCredited (only for credit transactions = salary/bonus)
+            const totalCredited = type === 'credit' ? (amount * multiplier) : 0;
+            const totalTransactions = 1;
+            const ledgerData = {
+                ledgerId,
+                employeeId,
+                organizationId,
+                financialYear,
+                openingBalance,
+                currentBalance,
+                totalCredited,
+                totalTransactions,
+                createdAt: now,
+                updatedAt: now,
+            };
+            tx.set(ledgerRef, ledgerData);
+            // Create monthly document
+            const monthlyData = {
+                yearMonth,
+                transactions: [transactionData],
+                transactionCount: 1,
+                totalCredit: type === 'credit' ? amount : 0,
+                totalDebit: type === 'debit' ? amount : 0,
+            };
+            tx.set(monthlyRef, monthlyData);
+        }
+        else if (ledgerDoc.exists) {
+            // Update existing ledger
+            const ledgerData = ledgerDoc.data();
+            balanceBefore = ledgerData.currentBalance || 0;
+            const newBalance = balanceBefore + (ledgerDelta * multiplier);
+            balanceAfter = newBalance;
+            transactionData.balanceBefore = balanceBefore;
+            transactionData.balanceAfter = balanceAfter;
+            const currentTotalCredited = ledgerData.totalCredited || 0;
+            const totalCredited = type === 'credit'
+                ? currentTotalCredited + (amount * multiplier)
+                : currentTotalCredited;
+            const currentTotalTransactions = ledgerData.totalTransactions || 0;
+            const totalTransactions = Math.max(0, currentTotalTransactions + multiplier);
+            tx.update(ledgerRef, {
+                currentBalance: newBalance,
+                totalCredited,
+                totalTransactions: Math.max(0, totalTransactions),
+                updatedAt: now,
+            });
+            // Update monthly document
+            if (monthlyDoc.exists) {
+                const monthlyData = monthlyDoc.data();
+                const transactions = monthlyData.transactions || [];
+                // Clean transaction data
+                const cleanData = removeUndefinedFields(transactionData);
+                const index = transactions.findIndex((t) => t.transactionId === transactionId);
+                if (index >= 0) {
+                    transactions[index] = cleanData;
+                    console.log('[Employee Ledger] Updated existing transaction in monthly array', {
+                        transactionId,
+                        yearMonth,
+                        index,
+                    });
+                }
+                else {
+                    transactions.push(cleanData);
+                    console.log('[Employee Ledger] Added transaction to monthly array', {
+                        transactionId,
+                        yearMonth,
+                        arrayLength: transactions.length,
+                    });
+                }
+                const transactionCount = transactions.length;
+                const totalCredit = transactions
+                    .filter((t) => t.type === 'credit')
+                    .reduce((sum, t) => sum + (t.amount || 0), 0);
+                const totalDebit = transactions
+                    .filter((t) => t.type === 'debit')
+                    .reduce((sum, t) => sum + (t.amount || 0), 0);
+                tx.update(monthlyRef, {
+                    transactions,
+                    transactionCount,
+                    totalCredit,
+                    totalDebit,
+                });
+            }
+            else {
+                // Create monthly document if it doesn't exist
+                const monthlyData = {
+                    yearMonth,
+                    transactions: [transactionData],
+                    transactionCount: 1,
+                    totalCredit: type === 'credit' ? amount : 0,
+                    totalDebit: type === 'debit' ? amount : 0,
+                };
+                tx.set(monthlyRef, monthlyData);
+            }
+            // Update employee document currentBalance
+            const employeeRef = db.collection(constants_1.EMPLOYEES_COLLECTION).doc(employeeId);
+            tx.update(employeeRef, {
+                currentBalance: newBalance,
+                updatedAt: now,
+            });
+        }
+        else {
+            // Cancellation but ledger doesn't exist
+            console.warn('[Employee Ledger] Cancellation but ledger does not exist', { transactionId, ledgerId });
+            balanceBefore = 0;
+            balanceAfter = 0;
+        }
+    });
+    console.log('[Employee Ledger] Successfully updated ledger and monthly subcollection atomically', {
+        transactionId,
+        balanceBefore,
+        balanceAfter,
+        yearMonth,
+    });
+    return { balanceBefore, balanceAfter };
+}
+/**
  * Update analytics when transaction is created or cancelled
  */
 async function updateTransactionAnalytics(organizationId, financialYear, transaction, transactionDate, isCancellation = false) {
@@ -968,6 +1210,21 @@ exports.onTransactionCreated = functions.firestore
             balanceBefore = result.balanceBefore;
             balanceAfter = result.balanceAfter;
         }
+        else if (ledgerType === 'employeeLedger') {
+            const employeeId = transaction === null || transaction === void 0 ? void 0 : transaction.employeeId;
+            if (!employeeId) {
+                console.error('[Transaction] Missing employeeId for employeeLedger transaction', {
+                    transactionId,
+                    organizationId,
+                    employeeId,
+                });
+                return;
+            }
+            // Update employee ledger and get balances
+            const result = await updateEmployeeLedger(organizationId, employeeId, financialYear, transaction, transactionId, snapshot, false);
+            balanceBefore = result.balanceBefore;
+            balanceAfter = result.balanceAfter;
+        }
         else {
             // Default to clientLedger
             const clientId = transaction === null || transaction === void 0 ? void 0 : transaction.clientId;
@@ -1060,6 +1317,21 @@ exports.onTransactionDeleted = functions.firestore
             }
             // Reverse in vendor ledger
             const result = await updateVendorLedger(organizationId, vendorId, financialYear, transaction, transactionId, snapshot, true);
+            balanceBefore = result.balanceBefore;
+            balanceAfter = result.balanceAfter;
+        }
+        else if (ledgerType === 'employeeLedger') {
+            const employeeId = transaction === null || transaction === void 0 ? void 0 : transaction.employeeId;
+            if (!employeeId) {
+                console.error('[Transaction] Missing employeeId for employeeLedger transaction deletion', {
+                    transactionId,
+                    organizationId,
+                    employeeId,
+                });
+                return;
+            }
+            // Reverse in employee ledger
+            const result = await updateEmployeeLedger(organizationId, employeeId, financialYear, transaction, transactionId, snapshot, true);
             balanceBefore = result.balanceBefore;
             balanceAfter = result.balanceAfter;
         }

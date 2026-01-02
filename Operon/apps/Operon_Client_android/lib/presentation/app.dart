@@ -2,7 +2,6 @@ import 'package:dash_mobile/config/app_router.dart';
 import 'package:dash_mobile/config/app_theme.dart';
 import 'package:dash_mobile/data/repositories/auth_repository.dart';
 import 'package:dash_mobile/data/datasources/employees_data_source.dart';
-import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/datasources/user_organization_data_source.dart';
 import 'package:dash_mobile/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_mobile/data/datasources/users_data_source.dart';
@@ -17,10 +16,9 @@ import 'package:dash_mobile/data/repositories/user_organization_repository.dart'
 import 'package:dash_mobile/data/repositories/users_repository.dart';
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
-import 'package:dash_mobile/data/repositories/transactions_repository.dart';
-import 'package:dash_mobile/data/datasources/transactions_data_source.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/datasources/scheduled_trips_data_source.dart';
+import 'package:core_datasources/core_datasources.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/data/services/analytics_service.dart';
@@ -115,8 +113,26 @@ class DashMobileApp extends StatelessWidget {
       ),
     );
 
+    final transactionsDataSource = TransactionsDataSource(
+      firestore: authRepository.firestore,
+    );
+    
     final transactionsRepository = TransactionsRepository(
-      dataSource: TransactionsDataSource(
+      dataSource: transactionsDataSource,
+    );
+    
+    final paymentAccountsDataSource = PaymentAccountsDataSource(
+      firestore: authRepository.firestore,
+    );
+    
+    final expenseSubCategoriesRepository = ExpenseSubCategoriesRepository(
+      dataSource: ExpenseSubCategoriesDataSource(
+        firestore: authRepository.firestore,
+      ),
+    );
+
+    final employeeWagesRepository = EmployeeWagesRepository(
+      dataSource: EmployeeWagesDataSource(
         firestore: authRepository.firestore,
       ),
     );
@@ -166,10 +182,14 @@ class DashMobileApp extends StatelessWidget {
         RepositoryProvider.value(value: clientsRepository),
         RepositoryProvider.value(value: analyticsRepository),
         RepositoryProvider.value(value: transactionsRepository),
+        RepositoryProvider.value(value: employeeWagesRepository),
         RepositoryProvider.value(value: clientLedgerRepository),
         RepositoryProvider.value(value: scheduledTripsRepository),
         RepositoryProvider.value(value: deliveryMemoRepository),
         RepositoryProvider.value(value: qrCodeService),
+        RepositoryProvider.value(value: transactionsDataSource),
+        RepositoryProvider.value(value: paymentAccountsDataSource),
+        RepositoryProvider.value(value: expenseSubCategoriesRepository),
       ],
       child: MultiBlocProvider(
         providers: [

@@ -39,4 +39,16 @@ class UsersRepository {
       employeeId: employeeId,
     );
   }
+
+  Future<OrganizationUser?> fetchCurrentUser({
+    required String orgId,
+    required String userId,
+    String? phoneNumber,
+  }) {
+    return _dataSource.fetchCurrentUser(
+      orgId: orgId,
+      userId: userId,
+      phoneNumber: phoneNumber,
+    );
+  }
 }

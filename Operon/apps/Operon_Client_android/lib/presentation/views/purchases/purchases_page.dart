@@ -1,10 +1,11 @@
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 
 class PurchasesPage extends StatefulWidget {
   const PurchasesPage({super.key});
@@ -18,6 +19,21 @@ class _PurchasesPageState extends State<PurchasesPage> {
   final Map<String, String> _vendorNames = {};
   bool _isLoading = true;
   String? _error;
+  DateTime? _startDate;
+  DateTime? _endDate;
+
+  List<Transaction> _filterByDateRange(List<Transaction> purchases) {
+    if (_startDate == null && _endDate == null) return purchases;
+    
+    return purchases.where((tx) {
+      final txDate = tx.createdAt ?? DateTime(1970);
+      final start = _startDate ?? DateTime(1970);
+      final end = _endDate ?? DateTime.now();
+      
+      return txDate.isAfter(start.subtract(const Duration(days: 1))) &&
+             txDate.isBefore(end.add(const Duration(days: 1)));
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -191,6 +207,8 @@ class _PurchasesPageState extends State<PurchasesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredPurchases = _filterByDateRange(_purchases);
+    
     return PageWorkspaceLayout(
       title: 'Purchases',
       currentIndex: 0,
@@ -262,63 +280,100 @@ class _PurchasesPageState extends State<PurchasesPage> {
               ),
             ),
           ),
-          // Purchases List
+          // Date Range Picker
+          DateRangePicker(
+            startDate: _startDate,
+            endDate: _endDate,
+            onStartDateChanged: (date) {
+              setState(() => _startDate = date);
+            },
+            onEndDateChanged: (date) {
+              setState(() => _endDate = date);
+            },
+          ),
+          const SizedBox(height: 16),
+          // Purchases Table
           _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
               : _error != null
                   ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _error!,
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: _loadPurchases,
-                            child: const Text('Retry'),
-                          ),
-                        ],
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: Colors.redAccent.withOpacity(0.7),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _error!,
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadPurchases,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF6F4BFF),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
                       ),
                     )
-                  : _purchases.isEmpty
+                  : filteredPurchases.isEmpty
                       ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.shopping_cart_outlined,
-                                size: 64,
-                                color: Colors.white24,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No purchases found',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
-                                  fontSize: 16,
+                          child: Padding(
+                            padding: const EdgeInsets.all(40),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(
+                                  Icons.shopping_cart_outlined,
+                                  size: 64,
+                                  color: Colors.white24,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 16),
+                                Text(
+                                  'No purchases found',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.6),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                if (_startDate != null || _endDate != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Try adjusting the date range',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.4),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
                         )
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.only(bottom: 20),
-                          itemCount: _purchases.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final purchase = _purchases[index];
-                            return _PurchaseTile(
-                              purchase: purchase,
-                              formatCurrency: _formatCurrency,
-                              formatDate: _formatDate,
-                              vendorName: _vendorNames[purchase.vendorId ?? ''] ?? 'Loading...',
-                              onDelete: () => _showDeleteConfirmation(context, purchase),
-                            );
-                          },
+                      : SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: _PurchasesTable(
+                            purchases: filteredPurchases,
+                            vendorNames: _vendorNames,
+                            formatCurrency: _formatCurrency,
+                            formatDate: _formatDate,
+                            onDelete: (purchase) => _showDeleteConfirmation(context, purchase),
+                          ),
                         ),
         ],
       ),
@@ -326,150 +381,206 @@ class _PurchasesPageState extends State<PurchasesPage> {
   }
 }
 
-class _PurchaseTile extends StatelessWidget {
-  const _PurchaseTile({
-    required this.purchase,
+class _PurchasesTable extends StatelessWidget {
+  const _PurchasesTable({
+    required this.purchases,
+    required this.vendorNames,
     required this.formatCurrency,
     required this.formatDate,
-    required this.vendorName,
-    this.onDelete,
+    required this.onDelete,
   });
 
-  final Transaction purchase;
+  final List<Transaction> purchases;
+  final Map<String, String> vendorNames;
   final String Function(double) formatCurrency;
   final String Function(DateTime) formatDate;
-  final String vendorName;
-  final VoidCallback? onDelete;
+  final void Function(Transaction) onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final date = purchase.createdAt ?? DateTime.now();
-    final invoiceNumber = purchase.referenceNumber ?? purchase.metadata?['invoiceNumber'] ?? 'N/A';
-    final description = purchase.description;
-
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 100),
+      constraints: const BoxConstraints(minWidth: 910),
       decoration: BoxDecoration(
-        color: const Color(0xFF13131E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1F1F33),
+            Color(0xFF1A1A28),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.orange.withOpacity(0.5)),
-                          ),
-                          child: const Text(
-                            'Credit',
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            'Purchase',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      vendorName != 'Loading...' ? vendorName : 'Unknown Vendor',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      formatCurrency(purchase.amount),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      formatDate(date),
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                    if (invoiceNumber != 'N/A') ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Invoice: $invoiceNumber',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                    if (description != null && description.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        description,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 12,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (onDelete != null)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  onPressed: onDelete,
-                  tooltip: 'Delete',
-                ),
-            ],
+      child: Table(
+        columnWidths: const {
+          0: FixedColumnWidth(120), // Date
+          1: FixedColumnWidth(150), // Vendor
+          2: FixedColumnWidth(120), // Invoice
+          3: FixedColumnWidth(120), // Amount
+          4: FixedColumnWidth(200), // Description
+          5: FixedColumnWidth(120), // Balance After
+          6: FixedColumnWidth(80), // Actions
+        },
+        border: TableBorder(
+          horizontalInside: BorderSide(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
           ),
-          if (purchase.balanceAfter != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet, size: 16, color: Colors.white54),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Balance after: ${formatCurrency(purchase.balanceAfter!)}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                ],
+        ),
+        children: [
+          // Header Row
+          TableRow(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
               ),
             ),
-          ],
+            children: [
+              _TableHeaderCell('Date'),
+              _TableHeaderCell('Vendor'),
+              _TableHeaderCell('Invoice'),
+              _TableHeaderCell('Amount'),
+              _TableHeaderCell('Description'),
+              _TableHeaderCell('Balance'),
+              _TableHeaderCell('Actions'),
+            ],
+          ),
+          // Data Rows
+          ...purchases.asMap().entries.map((entry) {
+            final index = entry.key;
+            final purchase = entry.value;
+            final date = purchase.createdAt ?? DateTime.now();
+            final vendorName = vendorNames[purchase.vendorId ?? ''] ?? 'Loading...';
+            final invoiceNumber = purchase.referenceNumber ?? purchase.metadata?['invoiceNumber'] ?? 'N/A';
+            final description = purchase.description ?? '-';
+            final isLast = index == purchases.length - 1;
+
+            return TableRow(
+              decoration: BoxDecoration(
+                color: index % 2 == 0
+                    ? Colors.transparent
+                    : Colors.white.withOpacity(0.02),
+                borderRadius: isLast
+                    ? const BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                      )
+                    : null,
+              ),
+              children: [
+                _TableDataCell(
+                  formatDate(date),
+                  alignment: Alignment.centerLeft,
+                ),
+                _TableDataCell(
+                  vendorName != 'Loading...' ? vendorName : 'Unknown',
+                  alignment: Alignment.centerLeft,
+                ),
+                _TableDataCell(
+                  invoiceNumber,
+                  alignment: Alignment.centerLeft,
+                ),
+                _TableDataCell(
+                  formatCurrency(purchase.amount),
+                  alignment: Alignment.centerRight,
+                  isAmount: true,
+                ),
+                _TableDataCell(
+                  description,
+                  alignment: Alignment.centerLeft,
+                ),
+                _TableDataCell(
+                  purchase.balanceAfter != null
+                      ? formatCurrency(purchase.balanceAfter!)
+                      : '-',
+                  alignment: Alignment.centerRight,
+                ),
+                _TableActionCell(
+                  onDelete: () => onDelete(purchase),
+                ),
+              ],
+            );
+          }),
         ],
+      ),
+    );
+  }
+}
+
+class _TableHeaderCell extends StatelessWidget {
+  const _TableHeaderCell(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _TableDataCell extends StatelessWidget {
+  const _TableDataCell(
+    this.text, {
+    required this.alignment,
+    this.isAmount = false,
+  });
+
+  final String text;
+  final Alignment alignment;
+  final bool isAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      child: Align(
+        alignment: alignment,
+        child: Text(
+          text,
+          style: TextStyle(
+            color: isAmount ? const Color(0xFFFF9800) : Colors.white70,
+            fontSize: 13,
+            fontWeight: isAmount ? FontWeight.w700 : FontWeight.w500,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+}
+
+class _TableActionCell extends StatelessWidget {
+  const _TableActionCell({required this.onDelete});
+
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Center(
+        child: IconButton(
+          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+          onPressed: onDelete,
+          tooltip: 'Delete',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
       ),
     );
   }

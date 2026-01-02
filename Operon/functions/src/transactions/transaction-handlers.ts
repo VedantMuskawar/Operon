@@ -5,6 +5,10 @@ import {
   CLIENT_LEDGERS_COLLECTION,
   VENDOR_LEDGERS_COLLECTION,
   VENDORS_COLLECTION,
+  EMPLOYEES_COLLECTION,
+  EMPLOYEE_LEDGERS_COLLECTION,
+  ORGANIZATION_LEDGERS_COLLECTION,
+  EXPENSE_SUB_CATEGORIES_COLLECTION,
   ANALYTICS_COLLECTION,
   TRANSACTIONS_SOURCE_KEY,
 } from '../shared/constants';
@@ -116,6 +120,36 @@ async function getVendorOpeningBalance(
 }
 
 /**
+ * Get opening balance from previous financial year (for employees)
+ */
+async function getEmployeeOpeningBalance(
+  organizationId: string,
+  employeeId: string,
+  currentFY: string
+): Promise<number> {
+  try {
+    const previousFY = getPreviousFinancialYear(currentFY);
+    const previousLedgerId = `${employeeId}_${previousFY}`;
+    const previousLedgerRef = db.collection(EMPLOYEE_LEDGERS_COLLECTION).doc(previousLedgerId);
+    const previousLedgerDoc = await previousLedgerRef.get();
+    
+    if (previousLedgerDoc.exists) {
+      const previousLedgerData = previousLedgerDoc.data()!;
+      return (previousLedgerData.currentBalance as number) || 0;
+    }
+  } catch (error) {
+    console.warn('[Employee Ledger] Error fetching previous FY balance, defaulting to 0', {
+      organizationId,
+      employeeId,
+      currentFY,
+      error,
+    });
+  }
+  
+  return 0;
+}
+
+/**
  * Get financial year date range
  */
 function getFinancialYearDates(financialYear: string): { start: Date; end: Date } {
@@ -168,6 +202,36 @@ function getLedgerDelta(ledgerType: string, type: string, amount: number): numbe
       amount,
       delta,
       explanation: type === 'credit' ? 'Credit: purchase from vendor (+amount, we owe them)' : 'Debit: payment to vendor (-amount, we paid them)',
+    });
+    return delta;
+  }
+  
+  if (ledgerType === 'employeeLedger') {
+    // For EmployeeLedger: Credit = increment payable (we owe employee), Debit = decrement payable (we paid employee)
+    // Credit means salary/bonus credited (increases payable/balance - we owe more)
+    // Debit means payment/advance to employee (decreases payable/balance - we paid/owe less)
+    const delta = type === 'credit' ? amount : -amount;
+    console.log('[Transaction] getLedgerDelta calculation (employeeLedger)', {
+      ledgerType,
+      type,
+      amount,
+      delta,
+      explanation: type === 'credit' ? 'Credit: salary/bonus credited (+amount, we owe employee)' : 'Debit: payment/advance to employee (-amount, we paid employee)',
+    });
+    return delta;
+  }
+  
+  if (ledgerType === 'organizationLedger') {
+    // For OrganizationLedger: Credit = refund/adjustment (decreases expense total), Debit = expense (increases expense total)
+    // Credit means refund/adjustment (decreases expense total/balance)
+    // Debit means expense (increases expense total/balance - we spent more)
+    const delta = type === 'credit' ? -amount : amount;
+    console.log('[Transaction] getLedgerDelta calculation (organizationLedger)', {
+      ledgerType,
+      type,
+      amount,
+      delta,
+      explanation: type === 'credit' ? 'Credit: refund/adjustment (-amount, decreases expense)' : 'Debit: expense (+amount, increases expense)',
     });
     return delta;
   }
@@ -795,6 +859,533 @@ async function updateVendorLedger(
 }
 
 /**
+ * Update employee ledger when transaction is created or cancelled
+ * Returns the balanceBefore and balanceAfter values for the transaction
+ */
+async function updateEmployeeLedger(
+  organizationId: string,
+  employeeId: string,
+  financialYear: string,
+  transaction: any,
+  transactionId: string,
+  snapshot: FirebaseFirestore.DocumentSnapshot,
+  isCancellation: boolean = false
+): Promise<{ balanceBefore: number; balanceAfter: number }> {
+  const ledgerId = `${employeeId}_${financialYear}`;
+  const ledgerRef = db.collection(EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
+  
+  const amount = transaction.amount as number;
+  const ledgerType = (transaction.ledgerType as string) || 'employeeLedger';
+  const type = transaction.type as string;
+  const multiplier = isCancellation ? -1 : 1;
+
+  // Calculate ledger delta
+  const ledgerDelta = getLedgerDelta(ledgerType, type, amount);
+  
+  console.log('[Employee Ledger] updateEmployeeLedger called', {
+    transactionId,
+    ledgerId,
+    ledgerType,
+    type,
+    amount,
+    ledgerDelta,
+    multiplier,
+    isCancellation,
+  });
+  
+  const transactionDate = getTransactionDate(snapshot);
+  const yearMonth = getYearMonth(transactionDate);
+  const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
+  
+  let balanceBefore: number = 0;
+  let balanceAfter: number = 0;
+  
+  // Build transaction data for monthly subcollection - NO undefined values
+  const now = admin.firestore.Timestamp.now();
+  const transactionData: any = {
+    transactionId,
+    organizationId,
+    employeeId,
+    ledgerType: ledgerType || 'employeeLedger',
+    type,
+    category: transaction.category,
+    amount,
+    financialYear,
+    transactionDate: admin.firestore.Timestamp.fromDate(transactionDate),
+    updatedAt: now,
+  };
+  
+  // Add optional fields only if they exist
+  if (transaction.createdAt) {
+    transactionData.createdAt = transaction.createdAt;
+  } else {
+    transactionData.createdAt = now;
+  }
+  if (transaction.paymentAccountId) {
+    transactionData.paymentAccountId = transaction.paymentAccountId;
+  }
+  if (transaction.paymentAccountType) {
+    transactionData.paymentAccountType = transaction.paymentAccountType;
+  }
+  if (transaction.referenceNumber) {
+    transactionData.referenceNumber = transaction.referenceNumber;
+  }
+  if (transaction.description) {
+    transactionData.description = transaction.description;
+  }
+  if (transaction.metadata) {
+    transactionData.metadata = transaction.metadata;
+  }
+  if (transaction.createdBy) {
+    transactionData.createdBy = transaction.createdBy;
+  }
+  
+  // Update ledger and monthly subcollection atomically
+  await db.runTransaction(async (tx) => {
+    // Read all documents FIRST (Firestore requirement: all reads before writes)
+    const ledgerDoc = await tx.get(ledgerRef);
+    const monthlyDoc = await tx.get(monthlyRef);
+    
+    if (!ledgerDoc.exists && !isCancellation) {
+      // Create new ledger
+      const openingBalance = await getEmployeeOpeningBalance(organizationId, employeeId, financialYear);
+      balanceBefore = openingBalance;
+      const currentBalance = openingBalance + (ledgerDelta * multiplier);
+      balanceAfter = currentBalance;
+      
+      transactionData.balanceBefore = balanceBefore;
+      transactionData.balanceAfter = balanceAfter;
+      
+      console.log('[Employee Ledger] Creating new ledger', {
+        transactionId,
+        openingBalance,
+        ledgerDelta,
+        currentBalance,
+        balanceBefore,
+        balanceAfter,
+      });
+      
+      // Calculate totalCredited (only for credit transactions = salary/bonus)
+      const totalCredited = type === 'credit' ? (amount * multiplier) : 0;
+      const totalTransactions = 1;
+      
+      const ledgerData = {
+        ledgerId,
+        employeeId,
+        organizationId,
+        financialYear,
+        openingBalance,
+        currentBalance,
+        totalCredited,
+        totalTransactions,
+        createdAt: now,
+        updatedAt: now,
+      };
+      
+      tx.set(ledgerRef, ledgerData);
+      
+      // Create monthly document
+      const monthlyData = {
+        yearMonth,
+        transactions: [transactionData],
+        transactionCount: 1,
+        totalCredit: type === 'credit' ? amount : 0,
+        totalDebit: type === 'debit' ? amount : 0,
+      };
+      tx.set(monthlyRef, monthlyData);
+      
+    } else if (ledgerDoc.exists) {
+      // Update existing ledger
+      const ledgerData = ledgerDoc.data()!;
+      balanceBefore = (ledgerData.currentBalance as number) || 0;
+      const newBalance = balanceBefore + (ledgerDelta * multiplier);
+      balanceAfter = newBalance;
+      
+      transactionData.balanceBefore = balanceBefore;
+      transactionData.balanceAfter = balanceAfter;
+      
+      const currentTotalCredited = (ledgerData.totalCredited as number) || 0;
+      const totalCredited = type === 'credit' 
+        ? currentTotalCredited + (amount * multiplier)
+        : currentTotalCredited;
+      
+      const currentTotalTransactions = (ledgerData.totalTransactions as number) || 0;
+      const totalTransactions = Math.max(0, currentTotalTransactions + multiplier);
+      
+      tx.update(ledgerRef, {
+        currentBalance: newBalance,
+        totalCredited,
+        totalTransactions: Math.max(0, totalTransactions),
+        updatedAt: now,
+      });
+      
+      // Update monthly document
+      if (monthlyDoc.exists) {
+        const monthlyData = monthlyDoc.data()!;
+        const transactions = (monthlyData.transactions as any[]) || [];
+        
+        // Clean transaction data
+        const cleanData = removeUndefinedFields(transactionData);
+        
+        const index = transactions.findIndex((t: any) => t.transactionId === transactionId);
+        
+        if (index >= 0) {
+          transactions[index] = cleanData;
+          console.log('[Employee Ledger] Updated existing transaction in monthly array', {
+            transactionId,
+            yearMonth,
+            index,
+          });
+        } else {
+          transactions.push(cleanData);
+          console.log('[Employee Ledger] Added transaction to monthly array', {
+            transactionId,
+            yearMonth,
+            arrayLength: transactions.length,
+          });
+        }
+        
+        const transactionCount = transactions.length;
+        const totalCredit = transactions
+          .filter((t: any) => t.type === 'credit')
+          .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+        const totalDebit = transactions
+          .filter((t: any) => t.type === 'debit')
+          .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+        
+        tx.update(monthlyRef, {
+          transactions,
+          transactionCount,
+          totalCredit,
+          totalDebit,
+        });
+      } else {
+        // Create monthly document if it doesn't exist
+        const monthlyData = {
+          yearMonth,
+          transactions: [transactionData],
+          transactionCount: 1,
+          totalCredit: type === 'credit' ? amount : 0,
+          totalDebit: type === 'debit' ? amount : 0,
+        };
+        tx.set(monthlyRef, monthlyData);
+      }
+      
+      // Update employee document currentBalance
+      const employeeRef = db.collection(EMPLOYEES_COLLECTION).doc(employeeId);
+      tx.update(employeeRef, {
+        currentBalance: newBalance,
+        updatedAt: now,
+      });
+      
+    } else {
+      // Cancellation but ledger doesn't exist
+      console.warn('[Employee Ledger] Cancellation but ledger does not exist', { transactionId, ledgerId });
+      balanceBefore = 0;
+      balanceAfter = 0;
+    }
+  });
+  
+  console.log('[Employee Ledger] Successfully updated ledger and monthly subcollection atomically', {
+    transactionId,
+    balanceBefore,
+    balanceAfter,
+    yearMonth,
+  });
+  
+  return { balanceBefore, balanceAfter };
+}
+
+/**
+ * Update organization ledger when transaction is created or cancelled
+ * Returns the balanceBefore and balanceAfter values for the transaction
+ */
+async function updateOrganizationLedger(
+  organizationId: string,
+  financialYear: string,
+  transaction: any,
+  transactionId: string,
+  snapshot: FirebaseFirestore.DocumentSnapshot,
+  isCancellation: boolean = false
+): Promise<{ balanceBefore: number; balanceAfter: number }> {
+  const ledgerId = `${organizationId}_${financialYear}`;
+  const ledgerRef = db.collection(ORGANIZATION_LEDGERS_COLLECTION).doc(ledgerId);
+  
+  const amount = transaction.amount as number;
+  const ledgerType = (transaction.ledgerType as string) || 'organizationLedger';
+  const type = transaction.type as string;
+  const multiplier = isCancellation ? -1 : 1;
+
+  // Calculate ledger delta
+  const ledgerDelta = getLedgerDelta(ledgerType, type, amount);
+  
+  console.log('[Organization Ledger] updateOrganizationLedger called', {
+    transactionId,
+    ledgerId,
+    ledgerType,
+    type,
+    amount,
+    ledgerDelta,
+    multiplier,
+    isCancellation,
+  });
+  
+  const fyDates = getFinancialYearDates(financialYear);
+  const transactionDate = getTransactionDate(snapshot);
+  const yearMonth = getYearMonth(transactionDate);
+  const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
+  
+  let balanceBefore: number = 0;
+  let balanceAfter: number = 0;
+  
+  // Build transaction data for monthly subcollection
+  const now = admin.firestore.Timestamp.now();
+  const transactionData: any = {
+    transactionId,
+    organizationId,
+    ledgerType: ledgerType || 'organizationLedger',
+    type,
+    category: transaction.category,
+    amount,
+    financialYear,
+    transactionDate: admin.firestore.Timestamp.fromDate(transactionDate),
+    updatedAt: now,
+  };
+  
+  // Add optional fields only if they exist
+  if (transaction.createdAt) {
+    transactionData.createdAt = transaction.createdAt;
+  } else {
+    transactionData.createdAt = now;
+  }
+  if (transaction.paymentAccountId) {
+    transactionData.paymentAccountId = transaction.paymentAccountId;
+  }
+  if (transaction.paymentAccountType) {
+    transactionData.paymentAccountType = transaction.paymentAccountType;
+  }
+  if (transaction.referenceNumber) {
+    transactionData.referenceNumber = transaction.referenceNumber;
+  }
+  if (transaction.description) {
+    transactionData.description = transaction.description;
+  }
+  if (transaction.metadata) {
+    transactionData.metadata = transaction.metadata;
+  }
+  if (transaction.createdBy) {
+    transactionData.createdBy = transaction.createdBy;
+  }
+  
+  // Update ledger and monthly subcollection atomically
+  await db.runTransaction(async (tx) => {
+    // Read all documents FIRST
+    const ledgerDoc = await tx.get(ledgerRef);
+    const monthlyDoc = await tx.get(monthlyRef);
+    
+    if (!ledgerDoc.exists && !isCancellation) {
+      // Create new ledger
+      balanceBefore = 0;
+      const currentBalance = balanceBefore + (ledgerDelta * multiplier);
+      balanceAfter = currentBalance;
+      
+      transactionData.balanceBefore = balanceBefore;
+      transactionData.balanceAfter = balanceAfter;
+      
+      const totalExpenses = type === 'debit' ? (amount * multiplier) : 0;
+      const totalRefunds = type === 'credit' ? (amount * multiplier) : 0;
+      
+      const ledgerData = {
+        ledgerId,
+        organizationId,
+        financialYear,
+        fyStartDate: admin.firestore.Timestamp.fromDate(fyDates.start),
+        fyEndDate: admin.firestore.Timestamp.fromDate(fyDates.end),
+        openingBalance: 0,
+        currentBalance,
+        totalExpenses,
+        totalRefunds,
+        transactionCount: 1,
+        transactionIds: [transactionId],
+        lastTransactionId: transactionId,
+        lastTransactionDate: admin.firestore.Timestamp.fromDate(transactionDate),
+        lastTransactionAmount: amount,
+        firstTransactionDate: admin.firestore.Timestamp.fromDate(transactionDate),
+        metadata: {},
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      
+      tx.set(ledgerRef, ledgerData);
+      
+      // Create monthly transaction document
+      const cleanData = removeUndefinedFields(transactionData);
+      tx.set(monthlyRef, {
+        yearMonth,
+        transactions: [cleanData],
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      
+    } else if (ledgerDoc.exists) {
+      // Update existing ledger
+      const ledgerData = ledgerDoc.data()!;
+      const currentBalance = (ledgerData.currentBalance as number) || 0;
+      
+      balanceBefore = currentBalance;
+      const newBalance = currentBalance + (ledgerDelta * multiplier);
+      balanceAfter = newBalance;
+      
+      transactionData.balanceBefore = balanceBefore;
+      transactionData.balanceAfter = balanceAfter;
+      
+      // Get current totals
+      const currentTotalExpenses = (ledgerData.totalExpenses as number) || 0;
+      const currentTotalRefunds = (ledgerData.totalRefunds as number) || 0;
+      
+      // Update totals based on transaction type
+      const expensesChange = type === 'debit' ? (amount * multiplier) : 0;
+      const refundsChange = type === 'credit' ? (amount * multiplier) : 0;
+      const newTotalExpenses = currentTotalExpenses + expensesChange;
+      const newTotalRefunds = currentTotalRefunds + refundsChange;
+      
+      const updates: any = {
+        currentBalance: newBalance,
+        totalExpenses: newTotalExpenses,
+        totalRefunds: newTotalRefunds,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      
+      if (isCancellation) {
+        updates.transactionCount = Math.max(0, ((ledgerData.transactionCount as number) || 0) - 1);
+        updates.transactionIds = admin.firestore.FieldValue.arrayRemove(transactionId);
+      } else {
+        updates.transactionCount = ((ledgerData.transactionCount as number) || 0) + 1;
+        const transactionIds = (ledgerData.transactionIds as string[]) || [];
+        if (!transactionIds.includes(transactionId)) {
+          updates.transactionIds = admin.firestore.FieldValue.arrayUnion(transactionId);
+        }
+        updates.lastTransactionId = transactionId;
+        updates.lastTransactionDate = admin.firestore.Timestamp.fromDate(transactionDate);
+        updates.lastTransactionAmount = amount;
+      }
+      
+      tx.update(ledgerRef, updates);
+      
+      // Update monthly transaction document
+      const cleanData = removeUndefinedFields(transactionData);
+      
+      if (isCancellation) {
+        if (monthlyDoc.exists) {
+          const monthlyData = monthlyDoc.data()!;
+          const transactions = (monthlyData.transactions as any[]) || [];
+          const filtered = transactions.filter((t: any) => t.transactionId !== transactionId);
+          
+          if (filtered.length === 0) {
+            tx.delete(monthlyRef);
+          } else {
+            tx.update(monthlyRef, {
+              transactions: filtered,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+          }
+        }
+      } else {
+        if (!monthlyDoc.exists) {
+          tx.set(monthlyRef, {
+            yearMonth,
+            transactions: [cleanData],
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          const monthlyData = monthlyDoc.data()!;
+          const transactions = (monthlyData.transactions as any[]) || [];
+          const index = transactions.findIndex((t: any) => t.transactionId === transactionId);
+          
+          if (index >= 0) {
+            transactions[index] = cleanData;
+          } else {
+            transactions.push(cleanData);
+          }
+          
+          tx.update(monthlyRef, {
+            transactions,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    } else {
+      // Cancellation but ledger doesn't exist
+      console.warn('[Organization Ledger] Cancellation but ledger does not exist', { transactionId, ledgerId });
+      balanceBefore = 0;
+      balanceAfter = 0;
+    }
+  });
+  
+  console.log('[Organization Ledger] Successfully updated ledger and monthly subcollection atomically', {
+    transactionId,
+    balanceBefore,
+    balanceAfter,
+    yearMonth,
+  });
+  
+  return { balanceBefore, balanceAfter };
+}
+
+/**
+ * Update expense sub-category analytics when transaction is created or cancelled
+ */
+async function updateExpenseSubCategoryAnalytics(
+  organizationId: string,
+  subCategoryId: string,
+  amount: number,
+  transactionDate: Date,
+  isCancellation: boolean = false
+): Promise<void> {
+  if (!subCategoryId) return;
+  
+  const subCategoryRef = db
+    .collection(ORGANIZATIONS_COLLECTION)
+    .doc(organizationId)
+    .collection(EXPENSE_SUB_CATEGORIES_COLLECTION)
+    .doc(subCategoryId);
+  
+  const multiplier = isCancellation ? -1 : 1;
+  
+  await db.runTransaction(async (tx) => {
+    const subCategoryDoc = await tx.get(subCategoryRef);
+    
+    if (!subCategoryDoc.exists) {
+      console.warn('[Sub-Category Analytics] Sub-category not found', { subCategoryId });
+      return;
+    }
+    
+    const subCategoryData = subCategoryDoc.data()!;
+    const currentTransactionCount = (subCategoryData.transactionCount as number) || 0;
+    const currentTotalAmount = (subCategoryData.totalAmount as number) || 0;
+    
+    const updates: any = {
+      transactionCount: Math.max(0, currentTransactionCount + multiplier),
+      totalAmount: Math.max(0, currentTotalAmount + (amount * multiplier)),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    
+    if (!isCancellation) {
+      updates.lastUsedAt = admin.firestore.Timestamp.fromDate(transactionDate);
+    }
+    
+    tx.update(subCategoryRef, updates);
+  });
+  
+  console.log('[Sub-Category Analytics] Updated analytics', {
+    subCategoryId,
+    amount,
+    isCancellation,
+  });
+}
+
+/**
  * Update analytics when transaction is created or cancelled
  */
 async function updateTransactionAnalytics(
@@ -1077,6 +1668,57 @@ export const onTransactionCreated = functions.firestore
         );
         balanceBefore = result.balanceBefore;
         balanceAfter = result.balanceAfter;
+      } else if (ledgerType === 'employeeLedger') {
+        const employeeId = transaction?.employeeId as string;
+        if (!employeeId) {
+          console.error('[Transaction] Missing employeeId for employeeLedger transaction', {
+            transactionId,
+            organizationId,
+            employeeId,
+          });
+          return;
+        }
+        
+        // Update employee ledger and get balances
+        const result = await updateEmployeeLedger(
+          organizationId,
+          employeeId,
+          financialYear,
+          transaction,
+          transactionId,
+          snapshot,
+          false
+        );
+        balanceBefore = result.balanceBefore;
+        balanceAfter = result.balanceAfter;
+      } else if (ledgerType === 'organizationLedger') {
+        // Update organization ledger and get balances
+        const result = await updateOrganizationLedger(
+          organizationId,
+          financialYear,
+          transaction,
+          transactionId,
+          snapshot,
+          false
+        );
+        balanceBefore = result.balanceBefore;
+        balanceAfter = result.balanceAfter;
+        
+        // Update expense sub-category analytics if this is a general expense
+        const category = transaction.category as string;
+        if (category === 'generalExpense') {
+          const metadata = transaction.metadata as any;
+          const subCategoryId = metadata?.subCategoryId as string | undefined;
+          if (subCategoryId) {
+            await updateExpenseSubCategoryAnalytics(
+              organizationId,
+              subCategoryId,
+              amount,
+              transactionDate,
+              false
+            );
+          }
+        }
       } else {
         // Default to clientLedger
         const clientId = transaction?.clientId as string;
@@ -1205,6 +1847,57 @@ export const onTransactionDeleted = functions.firestore
         );
         balanceBefore = result.balanceBefore;
         balanceAfter = result.balanceAfter;
+      } else if (ledgerType === 'employeeLedger') {
+        const employeeId = transaction?.employeeId as string;
+        if (!employeeId) {
+          console.error('[Transaction] Missing employeeId for employeeLedger transaction deletion', {
+            transactionId,
+            organizationId,
+            employeeId,
+          });
+          return;
+        }
+        
+        // Reverse in employee ledger
+        const result = await updateEmployeeLedger(
+          organizationId,
+          employeeId,
+          financialYear,
+          transaction,
+          transactionId,
+          snapshot,
+          true
+        );
+        balanceBefore = result.balanceBefore;
+        balanceAfter = result.balanceAfter;
+      } else if (ledgerType === 'organizationLedger') {
+        // Reverse in organization ledger
+        const result = await updateOrganizationLedger(
+          organizationId,
+          financialYear,
+          transaction,
+          transactionId,
+          snapshot,
+          true
+        );
+        balanceBefore = result.balanceBefore;
+        balanceAfter = result.balanceAfter;
+        
+        // Update expense sub-category analytics if this is a general expense
+        const category = transaction.category as string;
+        if (category === 'generalExpense') {
+          const metadata = transaction.metadata as any;
+          const subCategoryId = metadata?.subCategoryId as string | undefined;
+          if (subCategoryId) {
+            await updateExpenseSubCategoryAnalytics(
+              organizationId,
+              subCategoryId,
+              amount,
+              transactionDate,
+              true
+            );
+          }
+        }
       } else {
         // Default to clientLedger
         const clientId = transaction.clientId as string;

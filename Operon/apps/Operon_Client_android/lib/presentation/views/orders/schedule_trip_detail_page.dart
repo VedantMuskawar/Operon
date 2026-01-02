@@ -2,7 +2,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
-import 'package:dash_mobile/data/repositories/transactions_repository.dart';
 import 'package:dash_mobile/data/services/storage_service.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';

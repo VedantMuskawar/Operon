@@ -74,7 +74,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _ClientHeader(
-            name: client.name,
+                client: client,
             phone: _primaryPhone,
             onEdit: _selectPrimaryContact,
             onDelete: _confirmDelete,
@@ -97,23 +97,16 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                 children: [
                     Expanded(
                       child: _TabButton(
-                        label: 'Overview',
-                        isSelected: _selectedTabIndex == 0,
-                        onTap: () => setState(() => _selectedTabIndex = 0                    ),
-                ),
-      ),
-                    Expanded(
-                      child: _TabButton(
                         label: 'Orders',
-                        isSelected: _selectedTabIndex == 1,
-                        onTap: () => setState(() => _selectedTabIndex = 1                    ),
+                        isSelected: _selectedTabIndex == 0,
+                        onTap: () => setState(() => _selectedTabIndex = 0),
                 ),
       ),
                     Expanded(
                       child: _TabButton(
                         label: 'Ledger',
-                        isSelected: _selectedTabIndex == 2,
-                        onTap: () => setState(() => _selectedTabIndex = 2                    ),
+                        isSelected: _selectedTabIndex == 1,
+                        onTap: () => setState(() => _selectedTabIndex = 1),
                 ),
       ),
                     ],
@@ -126,7 +119,6 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
               child: IndexedStack(
                 index: _selectedTabIndex,
                 children: [
-                  _OverviewSection(clientId: widget.client.id),
                   _PendingOrdersSection(clientId: widget.client.id),
                   _AnalyticsSection(clientId: widget.client.id),
               ],
@@ -255,64 +247,278 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
 
 class _ClientHeader extends StatelessWidget {
   const _ClientHeader({
-    required this.name,
+    required this.client,
     required this.phone,
     required this.onEdit,
     required this.onDelete,
   });
 
-  final String name;
+  final ClientRecord client;
   final String phone;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  Color _getClientColor() {
+    if (client.isCorporate) {
+      return const Color(0xFF6F4BFF);
+    }
+    final hash = client.name.hashCode;
+    final colors = [
+      const Color(0xFF5AD8A4),
+      const Color(0xFFFF9800),
+      const Color(0xFF2196F3),
+      const Color(0xFFE91E63),
+      const Color(0xFF9C27B0),
+    ];
+    return colors[hash.abs() % colors.length];
+  }
+
+  String _getInitials() {
+    final words = client.name.trim().split(' ');
+    if (words.isEmpty) return '?';
+    if (words.length == 1) {
+      return words[0].isNotEmpty ? words[0][0].toUpperCase() : '?';
+    }
+    return '${words[0][0]}${words[words.length - 1][0]}'.toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final clientColor = _getClientColor();
+    final orderCount = (client.stats['orders'] as num?)?.toInt() ?? 0;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF352E65), Color(0xFF1B1B2C)],
+        gradient: LinearGradient(
+          colors: [
+            clientColor.withOpacity(0.3),
+            const Color(0xFF1B1B2C),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: clientColor.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Avatar
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      clientColor.withOpacity(0.4),
+                      clientColor.withOpacity(0.2),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: clientColor.withOpacity(0.3),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    _getInitials(),
+                    style: TextStyle(
+                      color: clientColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Name and Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
             children: [
               Expanded(
                 child: Text(
-                  name,
+                            client.name,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                              fontSize: 22,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
+                        // Order Count Badge
+                        if (orderCount > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6F4BFF).withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFF6F4BFF).withOpacity(0.5),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 12,
+                                  color: Color(0xFF6F4BFF),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  orderCount.toString(),
+                                  style: const TextStyle(
+                                    color: Color(0xFF6F4BFF),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Phone with edit
+                    GestureDetector(
+                      onTap: onEdit,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.phone_outlined,
+                            size: 16,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              phone,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.edit,
+                            size: 14,
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Action Buttons
               IconButton(
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                tooltip: 'Delete',
               ),
               IconButton(
                 onPressed: onEdit,
                 icon: const Icon(Icons.edit, color: Colors.white70),
+                tooltip: 'Edit',
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Primary: $phone',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+          // Tags and Corporate Badge
+          if (client.tags.isNotEmpty || client.isCorporate) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                // Corporate Badge
+                if (client.isCorporate)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6F4BFF).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF6F4BFF).withOpacity(0.5),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.business,
+                          size: 14,
+                          color: Color(0xFF6F4BFF),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          'Corporate',
+                          style: TextStyle(
+                            color: Color(0xFF6F4BFF),
+                            fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
           ),
+                      ],
+                    ),
+                  ),
+                // Tags
+                ...client.tags.take(5).map((tag) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Text(
+                      tag,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -490,523 +696,6 @@ class _DeleteClientSheet extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _OverviewSection extends StatefulWidget {
-  const _OverviewSection({required this.clientId});
-
-  final String clientId;
-
-  @override
-  State<_OverviewSection> createState() => _OverviewSectionState();
-}
-
-class _OverviewSectionState extends State<_OverviewSection> {
-  StreamSubscription<Map<String, dynamic>?>? _ledgerSubscription;
-  Map<String, dynamic>? _ledger;
-  bool _isLoading = true;
-  String? _currentOrgId;
-
-  @override
-  void initState() {
-    super.initState();
-    _subscribeToLedger();
-  }
-
-  Future<void> _subscribeToLedger() async {
-    final orgContext = context.read<OrganizationContextCubit>().state;
-    final organization = orgContext.organization;
-
-    if (organization == null) {
-      await _ledgerSubscription?.cancel();
-      _ledgerSubscription = null;
-      _currentOrgId = null;
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _ledger = null;
-        });
-      }
-      return;
-    }
-
-    final orgId = organization.id;
-    if (_currentOrgId == orgId && _ledgerSubscription != null) {
-      return;
-    }
-
-    _currentOrgId = orgId;
-    final repository = context.read<ClientLedgerRepository>();
-
-    await _ledgerSubscription?.cancel();
-    _ledgerSubscription = repository.watchClientLedger(orgId, widget.clientId).listen(
-      (ledger) {
-        if (mounted) {
-          setState(() {
-            _ledger = ledger;
-            _isLoading = false;
-          });
-        }
-      },
-      onError: (_) {
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _ledgerSubscription?.cancel();
-    super.dispose();
-  }
-
-  String _formatCurrency(double amount) {
-    return '₹${amount.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
-        )}';
-  }
-
-  String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return 'N/A';
-    try {
-      DateTime date;
-      if (timestamp is DateTime) {
-        date = timestamp;
-      } else {
-        date = (timestamp as Timestamp).toDate();
-      }
-      final now = DateTime.now();
-      final difference = now.difference(date);
-      
-      if (difference.inDays == 0) {
-        return 'Today';
-      } else if (difference.inDays == 1) {
-        return 'Yesterday';
-      } else if (difference.inDays < 7) {
-        return '${difference.inDays} days ago';
-      } else {
-        return '${date.day}/${date.month}/${date.year.toString().substring(2)}';
-      }
-    } catch (e) {
-      return 'N/A';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocListener<OrganizationContextCubit, OrganizationContextState>(
-      listener: (context, state) {
-        if (state.organization != null) {
-          _currentOrgId = null;
-          _subscribeToLedger();
-        }
-      },
-      child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF6F4BFF),
-                ),
-              )
-            : _ledger == null
-                ? const Center(
-        child: Text(
-                      'No financial data available for this client.',
-          style: TextStyle(color: Colors.white54),
-        ),
-                  )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Current Balance Card
-                        _BalanceCard(
-                          currentBalance: (_ledger!['currentBalance'] as num?)?.toDouble() ?? 0.0,
-                          openingBalance: (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
-                        ),
-                        const SizedBox(height: 16),
-                        // Financial Summary Cards
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _SummaryCard(
-                                label: 'Total Income',
-                                value: _formatCurrency(
-                                  (_ledger!['totalIncome'] as num?)?.toDouble() ?? 0.0,
-                                ),
-                                color: const Color(0xFF4CAF50),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _SummaryCard(
-                                label: 'Total Receivables',
-                                value: _formatCurrency(
-                                  (_ledger!['totalReceivables'] as num?)?.toDouble() ?? 0.0,
-                                ),
-                                color: const Color(0xFFEF5350),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryCard(
-                          label: 'Net Balance',
-                          value: _formatCurrency(
-                            (_ledger!['netBalance'] as num?)?.toDouble() ??
-                                (_ledger!['currentBalance'] as num?)?.toDouble() ?? 0.0,
-                          ),
-                          color: const Color(0xFF6F4BFF),
-                        ),
-                        const SizedBox(height: 16),
-                        // Transaction Summary
-                        _TransactionSummaryCard(
-                          total: _ledger!['transactionCount'] as int? ?? 0,
-                          completed: _ledger!['completedTransactionCount'] as int? ?? 0,
-                          pending: 0, // No pending status in new transaction model
-                          cancelled: _ledger!['cancelledTransactionCount'] as int? ?? 0,
-                        ),
-                        const SizedBox(height: 16),
-                        // Recent Activity
-                        if (_ledger!['lastTransactionDate'] != null)
-                          _RecentActivityCard(
-                            lastTransactionDate: _ledger!['lastTransactionDate'],
-                            lastTransactionAmount: (_ledger!['lastTransactionAmount'] as num?)?.toDouble() ?? 0.0,
-                            formatDate: _formatDate,
-                            formatCurrency: _formatCurrency,
-                          ),
-                      ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BalanceCard extends StatelessWidget {
-  const _BalanceCard({
-    required this.currentBalance,
-    required this.openingBalance,
-  });
-
-  final double currentBalance;
-  final double openingBalance;
-
-  @override
-  Widget build(BuildContext context) {
-    final change = currentBalance - openingBalance;
-    final isPositive = change >= 0;
-
-    String _formatCurrency(double amount) {
-      return '₹${amount.toStringAsFixed(0).replaceAllMapped(
-            RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-            (Match m) => '${m[1]},',
-          )}';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isPositive
-              ? [const Color(0xFF4CAF50).withOpacity(0.2), const Color(0xFF4CAF50).withOpacity(0.05)]
-              : [const Color(0xFFEF5350).withOpacity(0.2), const Color(0xFFEF5350).withOpacity(0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: (isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350)).withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Current Balance',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _formatCurrency(currentBalance),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                isPositive ? Icons.trending_up : Icons.trending_down,
-                size: 16,
-                color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${isPositive ? '+' : ''}${_formatCurrency(change.abs())} from opening',
-                style: TextStyle(
-                  color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionSummaryCard extends StatelessWidget {
-  const _TransactionSummaryCard({
-    required this.total,
-    required this.completed,
-    required this.pending,
-    required this.cancelled,
-  });
-
-  final int total;
-  final int completed;
-  final int pending;
-  final int cancelled;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131324),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Transactions',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _TransactionStatItem(
-                  label: 'Total',
-                  value: total.toString(),
-                  color: Colors.white70,
-                ),
-              ),
-              Expanded(
-                child: _TransactionStatItem(
-                  label: 'Completed',
-                  value: completed.toString(),
-                  color: const Color(0xFF4CAF50                    ),
-                ),
-      ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _TransactionStatItem(
-                  label: 'Pending',
-                  value: pending.toString(),
-                  color: Colors.orange,
-                ),
-              ),
-              Expanded(
-                child: _TransactionStatItem(
-                  label: 'Cancelled',
-                  value: cancelled.toString(),
-                  color: Colors.red,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionStatItem extends StatelessWidget {
-  const _TransactionStatItem({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white60,
-            fontSize: 11,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RecentActivityCard extends StatelessWidget {
-  const _RecentActivityCard({
-    required this.lastTransactionDate,
-    required this.lastTransactionAmount,
-    required this.formatDate,
-    required this.formatCurrency,
-  });
-
-  final dynamic lastTransactionDate;
-  final double lastTransactionAmount;
-  final String Function(dynamic) formatDate;
-  final String Function(double) formatCurrency;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131324),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Recent Activity',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(
-                Icons.history,
-                size: 16,
-                color: Colors.white60,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Last transaction: ${formatDate(lastTransactionDate)}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      formatCurrency(lastTransactionAmount),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
