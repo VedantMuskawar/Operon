@@ -2,6 +2,7 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/domain/entities/order_item.dart';
 import 'package:dash_mobile/presentation/blocs/create_order/create_order_cubit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ProductSelectionSection extends StatefulWidget {
@@ -71,12 +72,14 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
               _TripQuantitySelector(
                 trips: _estimatedTrips,
                 onIncrement: () {
+                  HapticFeedback.selectionClick();
                   setState(() {
                     _estimatedTrips++;
                   });
                 },
                 onDecrement: () {
                   if (_estimatedTrips > 1) {
+                    HapticFeedback.selectionClick();
                     setState(() {
                       _estimatedTrips--;
                     });
@@ -157,12 +160,25 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
               ),
             ),
             const SizedBox(height: 12),
-            ...state.selectedItems.map((item) => _OrderItemTile(
-                  item: item,
-                  onIncrement: () => cubit.incrementItemTrips(item.productId),
-                  onDecrement: () => cubit.decrementItemTrips(item.productId),
-                  onRemove: () => cubit.removeProductItem(item.productId),
-                )),
+            ...state.selectedItems.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              return _OrderItemTile(
+                key: ValueKey('${item.productId}_$index'),
+                item: item,
+                onIncrement: () {
+                  HapticFeedback.selectionClick();
+                  cubit.incrementItemTrips(item.productId);
+                },
+                onDecrement: () {
+                  if (item.estimatedTrips > 1) {
+                    HapticFeedback.selectionClick();
+                    cubit.decrementItemTrips(item.productId);
+                  }
+                },
+                onRemove: () => cubit.removeProductItem(item.productId),
+              );
+            }),
           ],
         ],
       ],
@@ -275,78 +291,82 @@ class _TripQuantitySelector extends StatelessWidget {
           style: TextStyle(color: Colors.white70, fontSize: 14),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            // Decrement Button
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: trips > 1 ? onDecrement : null,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: trips > 1
-                        ? const Color(0xFF1B1B2C)
-                        : Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Row(
+            key: ValueKey(trips),
+            children: [
+              // Decrement Button
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: trips > 1 ? onDecrement : null,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
                       color: trips > 1
-                          ? Colors.white24
-                          : Colors.white.withOpacity(0.1),
+                          ? const Color(0xFF1B1B2C)
+                          : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: trips > 1
+                            ? Colors.white24
+                            : Colors.white.withOpacity(0.1),
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.remove,
+                      color: trips > 1 ? Colors.white : Colors.white38,
                     ),
                   ),
-                  child: Icon(
-                    Icons.remove,
-                    color: trips > 1 ? Colors.white : Colors.white38,
-                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            // Trip Count Display
-            Container(
-              width: 80,
-              height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white24),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                trips.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              // Trip Count Display
+              Container(
+                width: 80,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B1B2C),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white24),
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Increment Button
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onIncrement,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: const Icon(
-                    Icons.add,
+                alignment: Alignment.center,
+                child: Text(
+                  trips.toString(),
+                  style: const TextStyle(
                     color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              // Increment Button
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onIncrement,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1B1B2C),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: const Icon(
+                      Icons.add,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -355,6 +375,7 @@ class _TripQuantitySelector extends StatelessWidget {
 
 class _OrderItemTile extends StatelessWidget {
   const _OrderItemTile({
+    super.key,
     required this.item,
     required this.onIncrement,
     required this.onDecrement,
@@ -373,7 +394,7 @@ class _OrderItemTile extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
+          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

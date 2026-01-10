@@ -3,8 +3,9 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/expenses/expenses_state.dart';
 import 'package:dash_mobile/presentation/views/expenses/record_expense_page.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -61,12 +62,20 @@ class _ExpensesPageState extends State<ExpensesPage>
       },
       child: Stack(
         children: [
-          PageWorkspaceLayout(
-            title: 'Expenses',
-            currentIndex: 0,
-            onBack: () => context.go('/home'),
-            onNavTap: (value) => context.go('/home', extra: value),
-            child: Column(
+          Scaffold(
+            backgroundColor: const Color(0xFF000000),
+            appBar: const ModernPageHeader(
+              title: 'Expenses',
+            ),
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -142,29 +151,44 @@ class _ExpensesPageState extends State<ExpensesPage>
               },
             ),
           ],
-            ),
-          ),
-          // Quick Action Menu
-          Builder(
-            builder: (context) {
-              final media = MediaQuery.of(context);
-              final bottomPadding = media.padding.bottom;
-              // Nav bar height (~80px) + safe area bottom + spacing (20px)
-              final bottomOffset = 80 + bottomPadding + 20;
-              return QuickActionMenu(
-                right: 40,
-                bottom: bottomOffset,
-                actions: [
-                  QuickActionItem(
-                    icon: Icons.add,
-                    label: 'Add Expense',
-                    onTap: () => _navigateToRecordExpense(),
+                        ),
+                      ),
+                    ),
+                  QuickNavBar(
+                    currentIndex: 0,
+                    onTap: (value) => context.go('/home', extra: value),
                   ),
                 ],
-              );
-            },
+              ),
+              // Quick Action Menu
+              Builder(
+                builder: (context) {
+                  final media = MediaQuery.of(context);
+                  final bottomPadding = media.padding.bottom;
+                  // Nav bar height (~80px) + safe area bottom + spacing (20px)
+                  final bottomOffset = 80 + bottomPadding + 20;
+                  return Positioned(
+                    right: 40,
+                    bottom: bottomOffset,
+                    child: QuickActionMenu(
+                      right: 0,
+                      bottom: 0,
+                      actions: [
+                        QuickActionItem(
+                          icon: Icons.add,
+                          label: 'Add Expense',
+                          onTap: () => _navigateToRecordExpense(),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+      ],
       ),
     );
   }

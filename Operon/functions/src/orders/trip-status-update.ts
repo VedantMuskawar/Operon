@@ -101,11 +101,17 @@ export const onTripStatusUpdated = onDocumentUpdated(
         
         const scheduledTrips = (orderData.scheduledTrips as any[]) || [];
 
+        // Get itemIndex and productId from trip data
+        const tripItemIndex = (after.itemIndex as number) ?? 0;
+        const tripProductId = (after.productId as string) || null;
+        
         // Find and update the trip in the scheduledTrips array
         const updatedScheduledTrips = scheduledTrips.map((trip) => {
           if (trip.tripId === tripId) {
             return {
               ...trip,
+              itemIndex: tripItemIndex, // ✅ Ensure itemIndex is set
+              productId: tripProductId || trip.productId || null, // ✅ Ensure productId is set
               tripStatus: afterStatus,
               // Include dispatch-related fields if status is dispatched
               ...(afterStatus === 'dispatched' && {

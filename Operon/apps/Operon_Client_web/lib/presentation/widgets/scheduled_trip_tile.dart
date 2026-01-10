@@ -1,8 +1,11 @@
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/data/repositories/delivery_memo_repository.dart';
+import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/schedule_trip_modal.dart';
+import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -174,6 +177,71 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to cancel DM: $e')),
+      );
+    }
+  }
+
+  Future<void> _showPrintDialog(BuildContext context) async {
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final organization = orgContext.organization;
+
+    if (organization == null) {
+      DashSnackbar.show(
+        context,
+        message: 'Organization not found',
+        isError: true,
+      );
+      return;
+    }
+
+    final dmNumber = widget.trip['dmNumber'] as int?;
+    final dmId = widget.trip['dmId'] as String?;
+
+    if (dmNumber == null && dmId == null) {
+      DashSnackbar.show(
+        context,
+        message: 'DM number or ID not found',
+        isError: true,
+      );
+      return;
+    }
+
+    try {
+      final printService = context.read<DmPrintService>();
+      
+      // Load full DM document from Firestore
+      final dmData = await printService.fetchDmByNumberOrId(
+        organizationId: organization.id,
+        dmNumber: dmNumber,
+        dmId: dmId,
+      );
+
+      if (dmData == null) {
+        DashSnackbar.show(
+          context,
+          message: 'DM not found',
+          isError: true,
+        );
+        return;
+      }
+
+      // Show print dialog
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (context) => DmPrintDialog(
+          dmPrintService: printService,
+          organizationId: organization.id,
+          dmData: dmData,
+          dmNumber: dmNumber ?? 0,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      DashSnackbar.show(
+        context,
+        message: 'Failed to load DM: ${e.toString()}',
+        isError: true,
       );
     }
   }
@@ -688,35 +756,39 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                   const SizedBox(height: 12),
                 ],
                 
-                // DM Information - Status Indicator
+                // DM Information - Clickable DM Number (access point for printing)
                 if (hasDM) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.blue.withValues(alpha: 0.3),
+                  InkWell(
+                    onTap: () => _showPrintDialog(context),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue.withValues(alpha: 0.3),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.receipt_long,
-                          size: 14,
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'DM Generated: $dmNumber',
-                          style: const TextStyle(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.receipt_long,
+                            size: 14,
                             color: Colors.blue,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          Text(
+                            'DM Generated: $dmNumber',
+                            style: const TextStyle(
+                              color: Colors.blue,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),

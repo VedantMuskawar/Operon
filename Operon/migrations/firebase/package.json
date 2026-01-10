@@ -7,17 +7,27 @@
     "build": "tsc -p .",
     "start": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-clients.ts",
     "delete-old-clients": "TS_NODE_PROJECT=tsconfig.json ts-node src/delete-old-clients.ts",
+    "migrate-employees": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-employees.ts",
+    "migrate-schedule-trips": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-schedule-trips.ts",
+    "migrate-delivery-memos": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-delivery-memos.ts",
+    "migrate-location-pricing": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-location-pricing.ts",
     "migrate-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-app-access-roles.ts",
     "migrate-user-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-user-app-access-roles.ts",
     "verify-user-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/verify-user-app-access-roles.ts",
     "verify-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/verify-app-access-roles.ts",
     "show-admin-role": "TS_NODE_PROJECT=tsconfig.json ts-node src/show-admin-role.ts",
     "show-user-org-documents": "TS_NODE_PROJECT=tsconfig.json ts-node src/show-user-org-documents.ts",
+    "export-clients": "TS_NODE_PROJECT=tsconfig.json ts-node src/export-clients.ts",
+    "export-delivery-memos": "TS_NODE_PROJECT=tsconfig.json ts-node src/export-delivery-memos.ts",
+    "export-sch-orders": "TS_NODE_PROJECT=tsconfig.json ts-node src/export-sch-orders.ts",
+    "export-vehicles": "TS_NODE_PROJECT=tsconfig.json ts-node src/export-vehicles.ts",
+    "export-employees": "TS_NODE_PROJECT=tsconfig.json ts-node src/export-employees.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "firebase-admin": "^13.6.0"
+    "firebase-admin": "^13.6.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",

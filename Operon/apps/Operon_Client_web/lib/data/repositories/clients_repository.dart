@@ -7,7 +7,7 @@ class ClientsRepository {
 
   final ClientsDataSource _dataSource;
 
-  Future<List<Client>> fetchClients({int limit = 100}) {
+  Future<List<Client>> fetchClients({int limit = 20}) {
     return _dataSource.fetchClients(limit: limit);
   }
 

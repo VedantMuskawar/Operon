@@ -10,8 +10,8 @@ class LoginPageShell extends StatelessWidget {
   final Widget child;
   final String title;
 
-  static const _outerBackground = Color(0xFF020205);
-  static const _panelColor = Color(0xFF0B0B12);
+  static const _outerBackground = Color(0xFF000000);
+  static const _panelColor = Color(0xFF0A0A0A);
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -230,7 +230,7 @@ class _MobileLoginShell extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0B0B12),
+            color: const Color(0xFF0A0A0A),
             borderRadius: BorderRadius.circular(32),
             boxShadow: const [
               BoxShadow(

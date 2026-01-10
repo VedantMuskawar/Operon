@@ -243,6 +243,20 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
       color: const Color(0xFFFF5722),
       onTap: () => context.go('/fuel-ledger'),
     ));
+    financialTiles.add(_OverviewTileData(
+      icon: Icons.construction_outlined,
+      label: 'Production Wages',
+      description: 'Batch wages',
+      color: const Color(0xFF00BCD4),
+      onTap: () => context.go('/production-batches'),
+    ));
+    financialTiles.add(_OverviewTileData(
+      icon: Icons.local_shipping_outlined,
+      label: 'Trip Wages',
+      description: 'Loading/unloading',
+      color: const Color(0xFF3F51B5),
+      onTap: () => context.go('/trip-wages'),
+    ));
     
     // Operations
     if (isAdmin ||

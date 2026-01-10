@@ -5,8 +5,9 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_state.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/credit_salary_dialog.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/record_bonus_dialog.dart';
@@ -239,7 +240,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text(
           'Delete Transaction',
           style: TextStyle(color: Colors.white),
@@ -303,12 +304,20 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
               );
             }
           },
-          child: PageWorkspaceLayout(
-            title: 'Employee Wages',
-            currentIndex: 0,
-            onNavTap: (value) => context.go('/home', extra: value),
-            onBack: () => context.go('/home'),
-            child: Builder(
+          child: Scaffold(
+            backgroundColor: const Color(0xFF000000),
+            appBar: const ModernPageHeader(
+              title: 'Employee Wages',
+            ),
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Builder(
               builder: (context) {
                 final media = MediaQuery.of(context);
                 final screenHeight = media.size.height;
@@ -494,34 +503,45 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                 );
               },
             ),
-          ),
-        ),
-        // Quick Action Menu - only show on transactions page
-        if (_currentPage == 0)
-          Builder(
-            builder: (context) {
-              final media = MediaQuery.of(context);
-              final bottomPadding = media.padding.bottom;
-              // Nav bar height (~80px) + safe area bottom + spacing (20px)
-              final bottomOffset = 80 + bottomPadding + 20;
-              return QuickActionMenu(
-                right: 40,
-                bottom: bottomOffset,
-                actions: [
-                  QuickActionItem(
-                    icon: Icons.payments,
-                    label: 'Credit Salary',
-                    onTap: _openCreditSalaryDialog,
-                  ),
-                  QuickActionItem(
-                    icon: Icons.card_giftcard,
-                    label: 'Record Bonus',
-                    onTap: _openRecordBonusDialog,
+                      ),
+                    ),
+                  QuickNavBar(
+                    currentIndex: 0,
+                    onTap: (value) => context.go('/home', extra: value),
                   ),
                 ],
-              );
-            },
+              ),
+              // Quick Action Menu - only show on transactions page
+              if (_currentPage == 0)
+                Builder(
+                  builder: (context) {
+                    final media = MediaQuery.of(context);
+                    final bottomPadding = media.padding.bottom;
+                    // Nav bar height (~80px) + safe area bottom + spacing (20px)
+                    final bottomOffset = 80 + bottomPadding + 20;
+                    return QuickActionMenu(
+                      right: 40,
+                      bottom: bottomOffset,
+                      actions: [
+                        QuickActionItem(
+                          icon: Icons.payments,
+                          label: 'Credit Salary',
+                          onTap: _openCreditSalaryDialog,
+                        ),
+                        QuickActionItem(
+                          icon: Icons.card_giftcard,
+                          label: 'Record Bonus',
+                          onTap: _openRecordBonusDialog,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+            ],
           ),
+        ),
+      ),
+      ),
       ],
     );
   }

@@ -40,7 +40,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
   Widget build(BuildContext context) {
     final client = widget.client;
     return Scaffold(
-      backgroundColor: const Color(0xFF010104),
+      backgroundColor: const Color(0xFF000000),
       body: SafeArea(
       child: Column(
         children: [

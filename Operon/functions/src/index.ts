@@ -11,3 +11,4 @@ export * from './orders';
 export * from './vendors';
 export * from './raw-materials/stock-handlers';
 export * from './cleanup';
+export * from './maintenance';

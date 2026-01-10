@@ -1,5 +1,6 @@
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
+import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/presentation/blocs/payment_accounts/payment_accounts_cubit.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
@@ -83,6 +84,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
         create: (_) => ClientsCubit(
           repository: clientsRepository,
           orgId: organization.id,
+          analyticsRepository: context.read<AnalyticsRepository>(),
         )..loadRecentClients(),
         child: _ClientSelectionDialog(organizationId: organization.id),
       ),

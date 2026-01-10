@@ -21,7 +21,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   Widget build(BuildContext context) {
     final employee = widget.employee;
     return Scaffold(
-      backgroundColor: const Color(0xFF010104),
+      backgroundColor: const Color(0xFF000000),
       body: SafeArea(
         child: Column(
           children: [
@@ -835,7 +835,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     final selectedRole = _findSelectedRole(roles);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         isEditing ? 'Edit Employee' : 'Add Employee',
         style: const TextStyle(color: Colors.white),

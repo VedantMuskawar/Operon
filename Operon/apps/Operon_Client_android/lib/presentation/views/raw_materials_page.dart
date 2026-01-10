@@ -2,7 +2,8 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/raw_materials/raw_materials_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/stock_history_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,11 +23,17 @@ class RawMaterialsPage extends StatelessWidget {
           );
         }
       },
-      child: PageWorkspaceLayout(
-        title: 'Raw Materials',
-        currentIndex: 4,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'Raw Materials',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -105,7 +112,16 @@ class RawMaterialsPage extends StatelessWidget {
               },
             ),
           ],
+                ),
+                      ),
+                    ),
+            QuickNavBar(
+              currentIndex: 4,
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
         ),
+      ),
       ),
     );
   }
@@ -161,7 +177,7 @@ class _RawMaterialTile extends StatelessWidget {
         gradient: LinearGradient(
           colors: isLowStock
               ? [const Color(0xFF2A1A1A), const Color(0xFF1A1111)]
-              : [const Color(0xFF1A1A2A), const Color(0xFF11111B)],
+              : [const Color(0xFF1A1A2A), const Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -342,7 +358,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
     final canEdit = cubit.canEdit;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         isEditing ? 'Edit Raw Material' : 'Add Raw Material',
         style: const TextStyle(color: Colors.white),

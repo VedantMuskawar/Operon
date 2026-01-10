@@ -1,7 +1,10 @@
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/views/orders/create_order_page.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -53,61 +56,61 @@ class _SelectCustomerPageState extends State<SelectCustomerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PageWorkspaceLayout(
-      title: 'Select Customer',
-      currentIndex: 1,
-      onBack: () => Navigator.of(context).pop(),
-      onNavTap: (value) => context.go('/home', extra: value),
-      child: BlocBuilder<ClientsCubit, ClientsState>(
-        builder: (context, state) {
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildSearchBar(state),
-                const SizedBox(height: 20),
-                if (state.searchQuery.isNotEmpty)
-                  _SearchResultsSection(
-                    state: state,
-                    onClear: _clearSearch,
-                    onClientSelected: _onClientSelected,
-                  )
-                else
-                  _RecentClientsSection(
-                    state: state,
-                    onClientSelected: _onClientSelected,
-                  ),
-              ],
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: ModernPageHeader(
+        title: 'Select Customer',
+        onBack: () => Navigator.of(context).pop(),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: BlocBuilder<ClientsCubit, ClientsState>(
+                builder: (context, state) {
+                  return SingleChildScrollView(
+                    padding: AppSpacing.pagePaddingAll,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildSearchBar(state),
+                        const SizedBox(height: AppSpacing.sectionSpacing),
+                        if (state.searchQuery.isNotEmpty)
+                          _SearchResultsSection(
+                            state: state,
+                            onClear: _clearSearch,
+                            onClientSelected: _onClientSelected,
+                          )
+                        else
+                          _RecentClientsSection(
+                            state: state,
+                            onClientSelected: _onClientSelected,
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          );
-        },
+            QuickNavBar(
+              currentIndex: -1, // -1 means no selection when on this page
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSearchBar(ClientsState state) {
-    return TextField(
+    return StandardSearchBar(
       controller: _searchController,
-      autofocus: true,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.search, color: Colors.white54),
-        suffixIcon: state.searchQuery.isNotEmpty
-            ? IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54),
-                onPressed: _clearSearch,
-              )
-            : null,
-        hintText: 'Search clients by name or phone',
-        hintStyle: const TextStyle(color: Colors.white38),
-        filled: true,
-        fillColor: const Color(0xFF1B1B2C),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-      ),
+      hintText: 'Search clients by name or phone',
+      onChanged: (value) {
+        // The search is handled by the controller listener
+      },
+      onClear: _clearSearch,
     );
   }
 }
@@ -141,11 +144,7 @@ class _SearchResultsSection extends StatelessWidget {
               const Expanded(
                 child: Text(
                   'Search Results',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: AppTypography.h4,
                 ),
               ),
               TextButton(
@@ -165,21 +164,19 @@ class _SearchResultsSection extends StatelessWidget {
           else if (state.searchResults.isEmpty)
             Text(
               'No clients found for "${state.searchQuery}".',
-              style: const TextStyle(color: Colors.white60),
+              style: AppTypography.body.copyWith(color: AppColors.textTertiary),
             )
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: state.searchResults.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final client = state.searchResults[index];
-                return _ClientTile(
-                  client: client,
-                  onTap: () => onClientSelected(client),
-                );
-              },
+            Column(
+              children: [
+                for (int i = 0; i < state.searchResults.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  _ClientTile(
+                    client: state.searchResults[i],
+                    onTap: () => onClientSelected(state.searchResults[i]),
+                  ),
+                ],
+              ],
             ),
         ],
       ),
@@ -206,11 +203,7 @@ class _RecentClientsSection extends StatelessWidget {
             const Expanded(
               child: Text(
                 'Recent Clients',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTypography.h4,
               ),
             ),
             if (state.isRecentLoading)
@@ -223,23 +216,21 @@ class _RecentClientsSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         if (state.recentClients.isEmpty && !state.isRecentLoading)
-          const Text(
+          Text(
             'No clients found. Create a new client to get started.',
-            style: TextStyle(color: Colors.white60),
+            style: AppTypography.body.copyWith(color: AppColors.textTertiary),
           )
         else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: state.recentClients.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final client = state.recentClients[index];
-              return _ClientTile(
-                client: client,
-                onTap: () => onClientSelected(client),
-              );
-            },
+          Column(
+            children: [
+              for (int i = 0; i < state.recentClients.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                _ClientTile(
+                  client: state.recentClients[i],
+                  onTap: () => onClientSelected(state.recentClients[i]),
+                ),
+              ],
+            ],
           ),
       ],
     );
@@ -266,52 +257,45 @@ class _ClientTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F0F1F),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white10),
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          border: Border.all(color: AppColors.borderDefault),
         ),
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: AppSpacing.avatarMD,
+              height: AppSpacing.avatarMD,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.primary.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.person,
-                color: Color(0xFF6F4BFF),
-                size: 24,
+                color: AppColors.primary,
+                size: AppSpacing.iconLG,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.itemSpacing),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     client.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.h4,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.paddingXS),
                   Text(
                     phoneLabel,
-                    style: const TextStyle(
-                      color: Colors.white60,
-                      fontSize: 14,
-                    ),
+                    style: AppTypography.bodySmall,
                   ),
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right,
-              color: Colors.white54,
+              color: AppColors.textTertiary,
             ),
           ],
         ),

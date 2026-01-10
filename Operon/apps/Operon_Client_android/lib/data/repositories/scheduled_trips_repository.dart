@@ -25,10 +25,12 @@ class ScheduledTripsRepository {
     required String slotName,
     required Map<String, dynamic> deliveryZone,
     required List<dynamic> items,
-    required Map<String, dynamic> pricing,
-    required bool includeGstInTotal,
+    Map<String, dynamic>? pricing, // ✅ Made optional
+    bool? includeGstInTotal, // ✅ Made optional
     required String priority,
     required String createdBy,
+    int? itemIndex, // ✅ Optional: which item this trip belongs to
+    String? productId, // ✅ Optional: product ID
   }) {
     return _dataSource.createScheduledTrip(
       organizationId: organizationId,
@@ -53,6 +55,8 @@ class ScheduledTripsRepository {
       includeGstInTotal: includeGstInTotal,
       priority: priority,
       createdBy: createdBy,
+      itemIndex: itemIndex,
+      productId: productId,
     );
   }
 

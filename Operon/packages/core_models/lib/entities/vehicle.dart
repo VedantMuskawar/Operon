@@ -105,6 +105,7 @@ class Vehicle {
     this.driver,
     this.isActive = true,
     this.notes,
+    this.tag,
     this.createdAt,
     this.updatedAt,
   });
@@ -122,6 +123,7 @@ class Vehicle {
   final VehicleDriverInfo? driver;
   final bool isActive;
   final String? notes;
+  final String? tag;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -142,6 +144,7 @@ class Vehicle {
       if (driver != null) 'driver': driver!.toJson(),
       'isActive': isActive,
       if (notes != null) 'notes': notes,
+      if (tag != null) 'tag': tag,
       if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt!),
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
@@ -171,6 +174,7 @@ class Vehicle {
       driver: VehicleDriverInfo.fromJson(json['driver'] as Map<String, dynamic>?),
       isActive: json['isActive'] as bool? ?? true,
       notes: json['notes'] as String?,
+      tag: json['tag'] as String?,
       createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
       updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -190,6 +194,7 @@ class Vehicle {
     VehicleDriverInfo? driver,
     bool? isActive,
     String? notes,
+    String? tag,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -207,6 +212,7 @@ class Vehicle {
       driver: driver ?? this.driver,
       isActive: isActive ?? this.isActive,
       notes: notes ?? this.notes,
+      tag: tag ?? this.tag,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

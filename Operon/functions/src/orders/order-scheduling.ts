@@ -633,7 +633,9 @@ async function autoScheduleOrder(
  * Cloud Function: Triggered when an order is created
  * Automatically calculates ETA and suggests vehicle assignment
  */
-export const onOrderCreatedAutoSchedule = functions.firestore
+export const onOrderCreatedAutoSchedule = functions
+  .region('asia-south1')
+  .firestore
   .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
   .onCreate(async (snapshot, context) => {
     const orderId = context.params.orderId;

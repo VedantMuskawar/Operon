@@ -1,6 +1,7 @@
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -174,7 +175,7 @@ class _PurchasesPageState extends State<PurchasesPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text(
           'Delete Purchase',
           style: TextStyle(color: Colors.white),
@@ -209,12 +210,18 @@ class _PurchasesPageState extends State<PurchasesPage> {
   Widget build(BuildContext context) {
     final filteredPurchases = _filterByDateRange(_purchases);
     
-    return PageWorkspaceLayout(
-      title: 'Purchases',
-      currentIndex: 0,
-      onNavTap: (value) => context.go('/home', extra: value),
-      onBack: () => context.go('/home'),
-      child: Column(
+    return Scaffold(
+      backgroundColor: const Color(0xFF000000),
+      appBar: const ModernPageHeader(
+        title: 'Purchases',
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -376,6 +383,15 @@ class _PurchasesPageState extends State<PurchasesPage> {
                           ),
                         ),
         ],
+                ),
+                      ),
+                    ),
+            QuickNavBar(
+              currentIndex: 0,
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -30,6 +30,7 @@ enum TransactionCategory {
   salaryCredit,     // Monthly salary credit to employee
   salaryDebit,      // Salary payment to employee (debit on employeeLedger)
   bonus,            // Bonus payment to employee
+  wageCredit,       // Wage credit for production batches or trip wages
   employeeAdvance,  // Advance payment to employee (future use)
   employeeAdjustment, // Manual adjustment for employee
   generalExpense,   // General business expense (debit on organizationLedger)

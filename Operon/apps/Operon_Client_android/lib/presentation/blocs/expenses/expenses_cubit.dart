@@ -117,10 +117,29 @@ class ExpensesCubit extends Cubit<ExpensesState> {
     required DateTime date,
     String? description,
     String? referenceNumber,
+    List<String>? linkedInvoiceIds,
+    String? paymentMode,
+    DateTime? dateRangeStart,
+    DateTime? dateRangeEnd,
   }) async {
     emit(state.copyWith(status: ViewStatus.loading, message: null));
     try {
       final financialYear = FinancialYearUtils.getFinancialYear(date);
+
+      // Build metadata for invoice linking
+      Map<String, dynamic>? metadata;
+      if (linkedInvoiceIds != null && linkedInvoiceIds.isNotEmpty) {
+        metadata = {
+          'linkedInvoiceIds': linkedInvoiceIds,
+          'paymentMode': paymentMode ?? 'manualSelection',
+        };
+        if (dateRangeStart != null && dateRangeEnd != null) {
+          metadata['dateRange'] = {
+            'startDate': dateRangeStart.toIso8601String(),
+            'endDate': dateRangeEnd.toIso8601String(),
+          };
+        }
+      }
 
       final transaction = Transaction(
         id: '', // Will be set by data source
@@ -138,6 +157,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         paymentAccountId: paymentAccountId,
         description: description,
         referenceNumber: referenceNumber,
+        metadata: metadata,
       );
 
       await _transactionsDataSource.createTransaction(transaction);

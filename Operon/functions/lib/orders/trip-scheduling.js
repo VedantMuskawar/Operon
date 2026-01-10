@@ -40,16 +40,33 @@ const admin = __importStar(require("firebase-admin"));
 const constants_1 = require("../shared/constants");
 const db = (0, firestore_2.getFirestore)();
 const TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
+// Function configuration for v2 functions
+// TEMPORARY: Using us-central1 to avoid Eventarc service identity errors in asia-south1
+// TODO: Switch back to 'asia-south1' after enabling Eventarc API and setting IAM permissions
+// See functions/DEPLOYMENT_FIX.md for details
+const functionOptions = {
+    region: 'us-central1', // Temporary: Changed from asia-south1 to avoid Eventarc issues
+    timeoutSeconds: 60,
+    maxInstances: 10,
+};
 /**
  * When a trip is scheduled:
  * 1. Update PENDING_ORDER: Add to scheduledTrips array, increment totalScheduledTrips, decrement estimatedTrips
  * 2. If estimatedTrips becomes 0: Set status to 'fully_scheduled' (don't delete order)
  */
-exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)('SCHEDULE_TRIPS/{tripId}', async (event) => {
+exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)(Object.assign({ document: 'SCHEDULE_TRIPS/{tripId}' }, functionOptions), async (event) => {
     var _a, _b;
     const tripData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!tripData) {
         console.error('[Trip Scheduling] No trip data found');
+        return;
+    }
+    // Skip validation for migrated trips
+    if (tripData._migrated === true) {
+        console.log('[Trip Scheduling] Skipping validation for migrated trip', {
+            tripId: event.params.tripId,
+            migrationSource: tripData._migrationSource || 'unknown',
+        });
         return;
     }
     const orderId = tripData.orderId;
@@ -96,30 +113,59 @@ exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)('SCHEDULE_TR
             await tripRef.delete();
             return;
         }
-        const preFirstItem = preItems[0];
-        const preEstimatedTrips = preFirstItem.estimatedTrips || 0;
-        if (preEstimatedTrips <= 0) {
-            console.warn('[Trip Scheduling] No trips remaining to schedule, deleting trip', {
+        // Get itemIndex and productId from trip data (required for multi-product support)
+        const itemIndex = (_b = tripData.itemIndex) !== null && _b !== void 0 ? _b : 0;
+        const productId = tripData.productId || null;
+        // Validate itemIndex
+        if (itemIndex < 0 || itemIndex >= preItems.length) {
+            console.warn('[Trip Scheduling] Invalid itemIndex, deleting trip', {
                 orderId,
                 tripId,
+                itemIndex,
+                itemsLength: preItems.length,
+            });
+            await tripRef.delete();
+            return;
+        }
+        // Get the specific item this trip belongs to
+        const preItem = preItems[itemIndex];
+        const preEstimatedTrips = preItem.estimatedTrips || 0;
+        const preScheduledTrips = preItem.scheduledTrips || 0;
+        // Validate productId matches if provided
+        if (productId && preItem.productId !== productId) {
+            console.warn('[Trip Scheduling] ProductId mismatch, deleting trip', {
+                orderId,
+                tripId,
+                tripProductId: productId,
+                itemProductId: preItem.productId,
+            });
+            await tripRef.delete();
+            return;
+        }
+        if (preEstimatedTrips <= 0) {
+            console.warn('[Trip Scheduling] No trips remaining to schedule for this item', {
+                orderId,
+                tripId,
+                itemIndex,
                 remaining: preEstimatedTrips,
             });
             await tripRef.delete();
             return;
         }
-        // Pre-check scheduledQuantity/unscheduledQuantity if present
-        const preUnscheduledQuantity = (_b = preData.unscheduledQuantity) !== null && _b !== void 0 ? _b : null;
-        if (preUnscheduledQuantity !== null && preUnscheduledQuantity <= 0) {
-            console.warn('[Trip Scheduling] No unscheduled quantity remaining, deleting trip', {
+        if (preScheduledTrips >= preEstimatedTrips) {
+            console.warn('[Trip Scheduling] All trips already scheduled for this item', {
                 orderId,
                 tripId,
-                preUnscheduledQuantity,
+                itemIndex,
+                scheduledTrips: preScheduledTrips,
+                estimatedTrips: preEstimatedTrips,
             });
             await tripRef.delete();
             return;
         }
         const orderRef = db.collection(constants_1.PENDING_ORDERS_COLLECTION).doc(orderId);
         await db.runTransaction(async (transaction) => {
+            var _a, _b;
             const orderDoc = await transaction.get(orderRef);
             if (!orderDoc.exists) {
                 console.warn('[Trip Scheduling] Order not found', { orderId });
@@ -132,18 +178,69 @@ exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)('SCHEDULE_TR
                 transaction.delete(tripRef);
                 return;
             }
-            // Get the first item (assuming single product per order for now)
-            const firstItem = items[0];
-            let estimatedTrips = firstItem.estimatedTrips || 0;
+            // Get itemIndex and productId from trip data (required for multi-product support)
+            const itemIndex = (_a = tripData.itemIndex) !== null && _a !== void 0 ? _a : 0;
+            const productId = tripData.productId || ((_b = items[itemIndex]) === null || _b === void 0 ? void 0 : _b.productId) || null;
+            // Validate itemIndex
+            if (itemIndex < 0 || itemIndex >= items.length) {
+                console.error('[Trip Scheduling] Invalid itemIndex', {
+                    orderId,
+                    tripId,
+                    itemIndex,
+                    itemsLength: items.length,
+                });
+                transaction.delete(tripRef);
+                return;
+            }
+            // Get the specific item this trip belongs to
+            const targetItem = items[itemIndex];
+            if (!targetItem) {
+                console.error('[Trip Scheduling] Item not found at index', { orderId, tripId, itemIndex });
+                transaction.delete(tripRef);
+                return;
+            }
+            // Validate productId matches if provided
+            if (productId && targetItem.productId !== productId) {
+                console.error('[Trip Scheduling] ProductId mismatch', {
+                    orderId,
+                    tripId,
+                    itemIndex,
+                    tripProductId: productId,
+                    itemProductId: targetItem.productId,
+                });
+                transaction.delete(tripRef);
+                return;
+            }
+            let estimatedTrips = targetItem.estimatedTrips || 0;
+            let scheduledTrips = targetItem.scheduledTrips || 0;
             if (estimatedTrips <= 0) {
-                console.warn('[Trip Scheduling] No trips remaining to schedule', { orderId, tripId });
+                console.warn('[Trip Scheduling] No trips remaining to schedule for this item', {
+                    orderId,
+                    tripId,
+                    itemIndex,
+                    productId,
+                });
+                transaction.delete(tripRef);
+                return;
+            }
+            if (scheduledTrips >= estimatedTrips) {
+                console.warn('[Trip Scheduling] All trips already scheduled for this item', {
+                    orderId,
+                    tripId,
+                    itemIndex,
+                    productId,
+                    scheduledTrips,
+                    estimatedTrips,
+                });
                 transaction.delete(tripRef);
                 return;
             }
             // Prepare trip entry for scheduledTrips array
             const tripEntry = {
                 tripId,
-                scheduleTripId: tripData.scheduleTripId || null, // Include scheduleTripId if available
+                scheduleTripId: tripData.scheduleTripId || null,
+                itemIndex: itemIndex, // ✅ Store which item this trip belongs to
+                productId: productId || targetItem.productId, // ✅ Store product reference
                 scheduledDate: tripData.scheduledDate,
                 scheduledDay: tripData.scheduledDay,
                 vehicleId: tripData.vehicleId,
@@ -158,22 +255,33 @@ exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)('SCHEDULE_TR
                 scheduledBy: tripData.createdBy,
             };
             // Get existing scheduledTrips array
-            const scheduledTrips = orderData.scheduledTrips || [];
+            const scheduledTripsArray = orderData.scheduledTrips || [];
             const totalScheduledTrips = orderData.totalScheduledTrips || 0;
             // Update order
             const updateData = {
-                scheduledTrips: [...scheduledTrips, tripEntry],
+                scheduledTrips: [...scheduledTripsArray, tripEntry],
                 totalScheduledTrips: totalScheduledTrips + 1,
                 updatedAt: new Date(),
             };
-            // Decrement estimatedTrips
+            // Update item-level trip counts
             estimatedTrips -= 1;
-            items[0].estimatedTrips = estimatedTrips;
+            scheduledTrips += 1;
+            targetItem.estimatedTrips = estimatedTrips;
+            targetItem.scheduledTrips = scheduledTrips;
             updateData.items = items;
-            // If estimatedTrips becomes 0, set status to 'fully_scheduled' instead of deleting
-            if (estimatedTrips === 0) {
+            // Check if all items are fully scheduled
+            const allItemsFullyScheduled = items.every((item) => {
+                const itemEstimatedTrips = item.estimatedTrips || 0;
+                return itemEstimatedTrips === 0;
+            });
+            // If all items are fully scheduled, set status to 'fully_scheduled'
+            if (allItemsFullyScheduled) {
                 updateData.status = 'fully_scheduled';
-                console.log('[Trip Scheduling] All trips scheduled, marking order as fully_scheduled', { orderId });
+                console.log('[Trip Scheduling] All trips scheduled for all items, marking order as fully_scheduled', {
+                    orderId,
+                    itemIndex,
+                    productId,
+                });
             }
             else {
                 // Ensure status is 'pending' if trips remain
@@ -182,9 +290,13 @@ exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)('SCHEDULE_TR
             transaction.update(orderRef, updateData);
             console.log('[Trip Scheduling] Order updated', {
                 orderId,
+                tripId,
+                itemIndex,
+                productId: productId || targetItem.productId,
                 remainingTrips: estimatedTrips,
+                scheduledTrips: scheduledTrips,
                 totalScheduled: totalScheduledTrips + 1,
-                status: estimatedTrips === 0 ? 'fully_scheduled' : 'pending',
+                status: allItemsFullyScheduled ? 'fully_scheduled' : 'pending',
             });
         });
     }
@@ -203,7 +315,7 @@ exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)('SCHEDULE_TR
  * 2. Update PENDING_ORDER: Remove from scheduledTrips, decrement totalScheduledTrips, increment estimatedTrips
  *    Note: Order always exists now (not deleted when fully scheduled), so no recreation needed
  */
-exports.onScheduledTripDeleted = (0, firestore_1.onDocumentDeleted)('SCHEDULE_TRIPS/{tripId}', async (event) => {
+exports.onScheduledTripDeleted = (0, firestore_1.onDocumentDeleted)(Object.assign({ document: 'SCHEDULE_TRIPS/{tripId}' }, functionOptions), async (event) => {
     var _a;
     const tripData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!tripData) {
@@ -235,31 +347,66 @@ exports.onScheduledTripDeleted = (0, firestore_1.onDocumentDeleted)('SCHEDULE_TR
             const items = orderData.items || [];
             const scheduledTrips = orderData.scheduledTrips || [];
             const totalScheduledTrips = orderData.totalScheduledTrips || 0;
+            // Find the trip being deleted to get its itemIndex
+            const deletedTrip = scheduledTrips.find((trip) => trip.tripId === tripId);
+            const itemIndex = (_a = deletedTrip === null || deletedTrip === void 0 ? void 0 : deletedTrip.itemIndex) !== null && _a !== void 0 ? _a : 0;
+            const productId = (deletedTrip === null || deletedTrip === void 0 ? void 0 : deletedTrip.productId) || null;
             // Remove cancelled trip from scheduledTrips array
             const updatedScheduledTrips = scheduledTrips.filter((trip) => trip.tripId !== tripId);
-            // Increment estimatedTrips
-            if (items.length > 0) {
-                const currentEstimatedTrips = items[0].estimatedTrips || 0;
-                items[0].estimatedTrips = currentEstimatedTrips + 1;
+            // Update item-level trip counts
+            if (items.length > 0 && itemIndex >= 0 && itemIndex < items.length) {
+                const targetItem = items[itemIndex];
+                if (targetItem) {
+                    // Validate productId if provided
+                    if (productId && targetItem.productId !== productId) {
+                        console.warn('[Trip Cancellation] ProductId mismatch, using itemIndex', {
+                            orderId,
+                            tripId,
+                            itemIndex,
+                            tripProductId: productId,
+                            itemProductId: targetItem.productId,
+                        });
+                    }
+                    const currentEstimatedTrips = targetItem.estimatedTrips || 0;
+                    const currentScheduledTrips = targetItem.scheduledTrips || 0;
+                    targetItem.estimatedTrips = currentEstimatedTrips + 1;
+                    targetItem.scheduledTrips = Math.max(0, currentScheduledTrips - 1);
+                }
             }
-            // Update status back to 'pending' if trips are now available
-            const newEstimatedTrips = ((_a = items[0]) === null || _a === void 0 ? void 0 : _a.estimatedTrips) || 0;
+            else if (items.length > 0) {
+                // Fallback to first item for backward compatibility
+                const currentEstimatedTrips = items[0].estimatedTrips || 0;
+                const currentScheduledTrips = items[0].scheduledTrips || 0;
+                items[0].estimatedTrips = currentEstimatedTrips + 1;
+                items[0].scheduledTrips = Math.max(0, currentScheduledTrips - 1);
+            }
+            // Check if any item has remaining trips
+            const hasRemainingTrips = items.some((item) => {
+                const itemEstimatedTrips = item.estimatedTrips || 0;
+                return itemEstimatedTrips > 0;
+            });
             const updateData = {
                 scheduledTrips: updatedScheduledTrips,
                 totalScheduledTrips: Math.max(0, totalScheduledTrips - 1),
                 items,
                 updatedAt: new Date(),
             };
-            // If estimatedTrips > 0, set status back to 'pending'
-            if (newEstimatedTrips > 0) {
+            // If any item has remaining trips, set status back to 'pending'
+            if (hasRemainingTrips) {
                 updateData.status = 'pending';
             }
             transaction.update(orderRef, updateData);
+            const targetItem = items[itemIndex] || items[0];
+            const newEstimatedTrips = (targetItem === null || targetItem === void 0 ? void 0 : targetItem.estimatedTrips) || 0;
             console.log('[Trip Cancellation] Order updated', {
                 orderId,
+                tripId,
+                itemIndex,
+                productId: productId || (targetItem === null || targetItem === void 0 ? void 0 : targetItem.productId),
                 remainingTrips: newEstimatedTrips,
+                scheduledTrips: (targetItem === null || targetItem === void 0 ? void 0 : targetItem.scheduledTrips) || 0,
                 totalScheduled: Math.max(0, totalScheduledTrips - 1),
-                status: newEstimatedTrips > 0 ? 'pending' : 'fully_scheduled',
+                status: hasRemainingTrips ? 'pending' : 'fully_scheduled',
             });
         });
         // Cancel credit transaction if it exists

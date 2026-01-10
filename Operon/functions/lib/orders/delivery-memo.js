@@ -116,6 +116,7 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
         const financialYear = fyContext.fyLabel; // e.g., "FY2425"
         // Use transaction for atomicity
         const result = await db.runTransaction(async (transaction) => {
+            var _a;
             // Get or create FY document
             const fyRef = db
                 .collection(ORGANIZATIONS_COLLECTION)
@@ -148,6 +149,23 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
             // Generate new DM number
             const newDMNumber = currentDMNumber + 1;
             const dmId = `DM/${financialYear}/${newDMNumber}`;
+            // Get itemIndex and productId from trip data (required for multi-product support)
+            const itemIndex = (_a = tripData.itemIndex) !== null && _a !== void 0 ? _a : 0;
+            const productId = tripData.productId || null;
+            // Extract tripPricing and conditionally include GST fields
+            const tripPricingData = tripData.tripPricing || {};
+            const tripPricing = {
+                subtotal: tripPricingData.subtotal || 0,
+                total: tripPricingData.total || 0,
+            };
+            // Only include gstAmount if it exists and is > 0
+            if (tripPricingData.gstAmount !== undefined && tripPricingData.gstAmount > 0) {
+                tripPricing.gstAmount = tripPricingData.gstAmount;
+            }
+            // Include advanceAmountDeducted if present
+            if (tripPricingData.advanceAmountDeducted !== undefined) {
+                tripPricing.advanceAmountDeducted = tripPricingData.advanceAmountDeducted;
+            }
             // Create DELIVERY_MEMOS document with all scheduled trip data
             const deliveryMemoData = {
                 dmId,
@@ -157,6 +175,8 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
                 financialYear,
                 organizationId,
                 orderId: tripData.orderId || '',
+                itemIndex: itemIndex, // ✅ Store which item this DM belongs to
+                productId: productId || '', // ✅ Store product reference
                 clientId: tripData.clientId || '',
                 clientName: tripData.clientName || '',
                 customerNumber: tripData.clientPhone || tripData.customerNumber || '',
@@ -171,8 +191,8 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
                 driverPhone: tripData.driverPhone || null,
                 deliveryZone: tripData.deliveryZone || {},
                 items: tripData.items || [],
-                pricing: tripData.pricing || {},
-                tripPricing: tripData.tripPricing || null,
+                // ❌ REMOVED: pricing snapshot (redundant, use tripPricing only)
+                tripPricing: tripPricing,
                 priority: tripData.priority || 'normal',
                 paymentType: tripData.paymentType || '',
                 tripStatus: 'scheduled',

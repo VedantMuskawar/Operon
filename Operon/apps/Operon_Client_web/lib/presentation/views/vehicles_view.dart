@@ -7,6 +7,7 @@ import 'package:dash_web/data/repositories/users_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/vehicles/vehicles_cubit.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -206,6 +207,27 @@ class _VehicleTile extends StatelessWidget {
                     letterSpacing: 0.4,
                   ),
                 ),
+                if (vehicle.tag != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Text(
+                      vehicle.tag!,
+                      style: const TextStyle(
+                        color: Color(0xFF6F4BFF),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   'Capacity: ${vehicle.vehicleCapacity?.toStringAsFixed(1) ?? '-'} • '
@@ -364,10 +386,20 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   late final TextEditingController _pucNumberController;
   DateTime? _pucExpiry;
   bool _isActive = true;
+  late final TextEditingController _customTagController;
+  String? _selectedTag;
+  bool _showCustomTag = false;
 
   List<OrganizationProduct> _products = const [];
   bool _isLoadingProducts = true;
   bool _isSubmitting = false;
+
+  static const _predefinedTags = [
+    'Delivery',
+    'Personal',
+    'Raw Material',
+    'Plant',
+  ];
 
   static const _weekdays = [
     'monday',
@@ -405,6 +437,19 @@ class _VehicleDialogState extends State<_VehicleDialog> {
     _fitnessExpiry = vehicle?.fitnessCertificate?.expiryDate;
     _pucExpiry = vehicle?.puc?.expiryDate;
     _isActive = vehicle?.isActive ?? true;
+    
+    // Initialize tag selection
+    final vehicleTag = vehicle?.tag;
+    if (vehicleTag != null && !_predefinedTags.contains(vehicleTag)) {
+      _selectedTag = 'Custom';
+      _showCustomTag = true;
+      _customTagController = TextEditingController(text: vehicleTag);
+    } else {
+      _selectedTag = vehicleTag;
+      _showCustomTag = false;
+      _customTagController = TextEditingController();
+    }
+    
     _loadProducts();
   }
 
@@ -438,6 +483,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
     _insuranceNumberController.dispose();
     _fitnessNumberController.dispose();
     _pucNumberController.dispose();
+    _customTagController.dispose();
     for (final controller in _weeklyControllers.values) {
       controller.dispose();
     }
@@ -532,6 +578,80 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                         ),
                       ],
                     ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Tag Section
+                _FormSection(
+                  title: 'Vehicle Tag',
+                  icon: Icons.label_outline,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ..._predefinedTags.map((tag) {
+                          final isSelected = _selectedTag == tag;
+                          return ChoiceChip(
+                            label: Text(tag),
+                            selected: isSelected,
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedTag = tag;
+                                _showCustomTag = false;
+                                _customTagController.clear();
+                              });
+                            },
+                            selectedColor: const Color(0xFF6F4BFF),
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white70,
+                            ),
+                            backgroundColor: const Color(0xFF2A2A3D),
+                          );
+                        }),
+                        ChoiceChip(
+                          label: const Text('Custom'),
+                          selected: _selectedTag == 'Custom',
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedTag = 'Custom';
+                              _showCustomTag = true;
+                            });
+                          },
+                          selectedColor: const Color(0xFF6F4BFF),
+                          labelStyle: TextStyle(
+                            color: _selectedTag == 'Custom' ? Colors.white : Colors.white70,
+                          ),
+                          backgroundColor: const Color(0xFF2A2A3D),
+                        ),
+                        if (_selectedTag == null)
+                          ChoiceChip(
+                            label: const Text('None'),
+                            selected: true,
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedTag = null;
+                                _showCustomTag = false;
+                                _customTagController.clear();
+                              });
+                            },
+                            selectedColor: const Color(0xFF2A2A3D),
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            backgroundColor: const Color(0xFF2A2A3D),
+                          ),
+                      ],
+                    ),
+                    if (_showCustomTag) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _customTagController,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        decoration: _compactInputDecoration('Custom Tag'),
+                        onChanged: (_) {
+                          // Tag will be read from controller on submit
+                        },
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -701,6 +821,15 @@ class _VehicleDialogState extends State<_VehicleDialog> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isSubmitting = true);
     try {
+      // Determine tag value
+      String? tagValue;
+      if (_selectedTag == 'Custom') {
+        final customTag = _customTagController.text.trim();
+        tagValue = customTag.isEmpty ? null : customTag;
+      } else {
+        tagValue = _selectedTag;
+      }
+
       final vehicle = Vehicle(
         id: widget.vehicle?.id ??
             DateTime.now().millisecondsSinceEpoch.toString(),
@@ -726,6 +855,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        tag: tagValue,
       );
 
       final cubit = context.read<VehiclesCubit>();
@@ -852,7 +982,26 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
 
   Future<void> _loadEmployees() async {
     try {
-      final employees = await widget.employeesRepository.fetchEmployees(widget.orgId);
+      // Driver role ID from migration mapping
+      const driverRoleId = '1766649058877';
+      
+      // Try to fetch only employees with driver role
+      List<OrganizationEmployee> employees;
+      try {
+        employees = await widget.employeesRepository.fetchEmployeesByJobRole(
+          widget.orgId,
+          driverRoleId,
+        );
+      } catch (e) {
+        // If query fails (e.g., index not ready), fallback to filtering in memory
+        debugPrint('Warning: fetchEmployeesByJobRole failed, filtering in memory: $e');
+        final allEmployees = await widget.employeesRepository.fetchEmployees(widget.orgId);
+        employees = allEmployees
+            .where((emp) => emp.jobRoleIds.contains(driverRoleId))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+      }
+      
       OrganizationEmployee? currentDriver;
       if (widget.vehicle.driver?.id != null) {
         for (final employee in employees) {
@@ -861,13 +1010,24 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
             break;
           }
         }
+        // If current driver not found in filtered list, fetch them separately
+        if (currentDriver == null) {
+          final allEmployees = await widget.employeesRepository.fetchEmployees(widget.orgId);
+          for (final employee in allEmployees) {
+            if (employee.id == widget.vehicle.driver?.id) {
+              currentDriver = employee;
+              break;
+            }
+          }
+        }
       }
       setState(() {
         _employees = employees;
         _selectedEmployee = currentDriver;
         _isLoading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error loading employees: $e');
       setState(() {
         _employees = const [];
         _isLoading = false;

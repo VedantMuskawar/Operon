@@ -6,6 +6,8 @@ import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dar
 import 'package:dash_mobile/presentation/views/orders/sections/delivery_zone_selection_section.dart';
 import 'package:dash_mobile/presentation/views/orders/sections/order_summary_section.dart';
 import 'package:dash_mobile/presentation/views/orders/sections/product_selection_section.dart';
+import 'package:dash_mobile/shared/constants/constants.dart';
+import 'package:dash_mobile/presentation/widgets/standard_page_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -31,9 +33,11 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     super.initState();
     _pageController = PageController()
       ..addListener(() {
+        if (mounted) {
         setState(() {
           _currentPage = _pageController.page ?? 0;
         });
+        }
       });
   }
 
@@ -50,40 +54,39 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
     
     if (organization == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFF010104),
+        backgroundColor: AppColors.background,
         body: SafeArea(
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.paddingXL,
+                  vertical: AppSpacing.itemSpacing,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: const Icon(Icons.close, color: AppColors.textSecondary),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.paddingSM),
                     const Expanded(
                       child: Text(
                         'Create Order',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: AppTypography.h2,
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    const SizedBox(width: 48),
+                    const SizedBox(width: AppSpacing.iconXL + AppSpacing.paddingLG),
                   ],
                 ),
               ),
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: Text(
                     'Please select an organization first',
-                    style: TextStyle(color: Colors.white70),
+                    style: AppTypography.body.copyWith(color: AppColors.textSecondary),
                   ),
                 ),
               ),
@@ -103,32 +106,33 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         organizationId: organization.id,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF010104),
+        backgroundColor: AppColors.background,
+        resizeToAvoidBottomInset: true,
         body: SafeArea(
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.paddingXL,
+                  vertical: AppSpacing.itemSpacing,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                      tooltip: 'Close',
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.paddingSM),
                     const Expanded(
                       child: Text(
                         'Create Order',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: AppTypography.h2,
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    const SizedBox(width: 48),
+                    const SizedBox(width: AppSpacing.iconXL + AppSpacing.paddingLG),
                   ],
                 ),
               ),
@@ -138,25 +142,37 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                     Expanded(
                       child: PageView(
                         controller: _pageController,
+                        physics: const PageScrollPhysics(),
+                        pageSnapping: true,
                         children: [
                           // Section 1: Product Selection
-                          const SingleChildScrollView(
-                            padding: EdgeInsets.fromLTRB(32, 0, 32, 0),
-                            child: ProductSelectionSection(),
+                          SingleChildScrollView(
+                            padding: EdgeInsets.fromLTRB(
+                              AppSpacing.paddingXXXL,
+                              0,
+                              AppSpacing.paddingXXXL,
+                              MediaQuery.of(context).viewInsets.bottom + AppSpacing.sectionSpacing,
+                            ),
+                            child: const ProductSelectionSection(),
                           ),
                           // Section 2: Delivery Zone Selection
                           const DeliveryZoneSelectionSection(),
                           // Section 3: Summary
                           SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(32, 0, 32, 0),
+                            padding: EdgeInsets.fromLTRB(
+                              AppSpacing.paddingXXXL,
+                              0,
+                              AppSpacing.paddingXXXL,
+                              MediaQuery.of(context).viewInsets.bottom + AppSpacing.sectionSpacing,
+                            ),
                             child: OrderSummarySection(client: widget.client),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _PageIndicator(pageCount: 3, currentIndex: _currentPage),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.itemSpacing),
+                    StandardPageIndicator(pageCount: 3, currentIndex: _currentPage),
+                    const SizedBox(height: AppSpacing.sectionSpacing),
                   ],
                 ),
               ),
@@ -168,38 +184,6 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
   }
 }
 
-class _PageIndicator extends StatelessWidget {
-  const _PageIndicator({
-    required this.pageCount,
-    required this.currentIndex,
-  });
-
-  final int pageCount;
-  final double currentIndex;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(
-        pageCount,
-        (index) {
-          final isActive = currentIndex.round() == index;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            width: isActive ? 18 : 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF6F4BFF) : Colors.white24,
-              borderRadius: BorderRadius.circular(999),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
 
 
 

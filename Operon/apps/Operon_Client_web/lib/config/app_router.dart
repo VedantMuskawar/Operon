@@ -29,6 +29,7 @@ import 'package:dash_web/presentation/views/create_order_page.dart';
 import 'package:dash_web/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_web/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
 import 'package:dash_web/presentation/views/clients_view.dart';
+import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_web/presentation/views/client_detail_page.dart';
@@ -44,6 +45,12 @@ import 'package:dash_web/presentation/views/employee_wages_page.dart';
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_web/presentation/views/expenses_page.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
+import 'package:dash_web/presentation/views/wage_settings_page.dart';
+import 'package:dash_web/presentation/views/production_batches_page.dart';
+import 'package:dash_web/presentation/views/production_wages_page.dart';
+import 'package:dash_web/presentation/views/trip_wages_page.dart';
+import 'package:dash_web/presentation/views/dm_settings_page.dart';
+import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -679,6 +686,7 @@ GoRouter buildRouter() {
               create: (_) => ClientsCubit(
                 repository: clientsRepository,
                 orgId: organization.id,
+                analyticsRepository: context.read<AnalyticsRepository>(),
               ),
               child: const RecordPaymentPage(),
             ),
@@ -731,6 +739,161 @@ GoRouter buildRouter() {
               )..load(),
               child: const ExpensesPage(),
             ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/wage-settings',
+        name: 'wage-settings',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const WageSettingsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/production-batches',
+        name: 'production-batches',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const ProductionBatchesPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/production-wages',
+        name: 'production-wages',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const ProductionWagesPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/trip-wages',
+        name: 'trip-wages',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const TripWagesPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/dm-settings',
+        name: 'dm-settings',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const DmSettingsPage(),
           );
         },
       ),
@@ -851,6 +1014,7 @@ class _ClientsPageWrapper extends StatelessWidget {
           create: (_) => ClientsCubit(
             repository: context.read<ClientsRepository>(),
             orgId: org.id,
+            analyticsRepository: context.read<AnalyticsRepository>(),
           ),
         ),
       ],

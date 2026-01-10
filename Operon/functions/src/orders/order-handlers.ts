@@ -106,7 +106,9 @@ async function markTripsAsOrderDeleted(
  * Cloud Function: Triggered when an order is deleted
  * Automatically deletes all associated transactions and marks trips for audit
  */
-export const onOrderDeleted = functions.firestore
+export const onOrderDeleted = functions
+  .region('asia-south1')
+  .firestore
   .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
   .onDelete(async (snapshot, context) => {
     const orderId = context.params.orderId;
@@ -347,7 +349,9 @@ async function generateOrderNumber(organizationId: string): Promise<string> {
  * Cloud Function: Triggered when an order is created
  * Generates order number and creates advance transaction if advance payment was provided
  */
-export const onPendingOrderCreated = functions.firestore
+export const onPendingOrderCreated = functions
+  .region('asia-south1')
+  .firestore
   .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
   .onCreate(async (snapshot, context) => {
     const orderId = context.params.orderId;
@@ -595,7 +599,9 @@ export const onPendingOrderCreated = functions.firestore
  * Cloud Function: Triggered when an order is updated
  * Cleans up auto-schedule data if order is cancelled
  */
-export const onOrderUpdated = functions.firestore
+export const onOrderUpdated = functions
+  .region('asia-south1')
+  .firestore
   .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
   .onUpdate(async (change, context) => {
     const orderId = context.params.orderId;

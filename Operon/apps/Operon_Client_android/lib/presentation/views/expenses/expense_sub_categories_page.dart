@@ -3,7 +3,8 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_state.dart';
 import 'package:dash_mobile/presentation/widgets/expense_sub_category_form_dialog.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -82,7 +83,7 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text(
           'Delete Sub-Category',
           style: TextStyle(color: Colors.white),
@@ -120,12 +121,18 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
           );
         }
       },
-      child: PageWorkspaceLayout(
-        title: 'Expense Sub-Categories',
-        currentIndex: 0,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-        child: Column(
+      child: Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'Expense Sub-Categories',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -175,7 +182,16 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
               },
             ),
           ],
+                ),
+                      ),
+                    ),
+            QuickNavBar(
+              currentIndex: 0,
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
         ),
+      ),
       ),
     );
   }

@@ -1,7 +1,8 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/access_control/access_control_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -52,12 +53,18 @@ class AccessControlPage extends StatelessWidget {
       },
       child: BlocBuilder<AccessControlCubit, AccessControlState>(
         builder: (context, state) {
-          return PageWorkspaceLayout(
-            title: 'Access Control',
-            currentIndex: 4,
-            onNavTap: (value) => context.go('/home', extra: value),
-            onBack: () => context.go('/home'),
-            child: Column(
+          return Scaffold(
+            backgroundColor: const Color(0xFF000000),
+            appBar: const ModernPageHeader(
+              title: 'Access Control',
+            ),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _ViewModeSelector(
@@ -118,7 +125,16 @@ class AccessControlPage extends StatelessWidget {
                     isSaving: state.isSaving,
                   ),
                 ],
-              ],
+                      ],
+                    ),
+                  ),
+                ),
+                  QuickNavBar(
+                    currentIndex: 4,
+                    onTap: (value) => context.go('/home', extra: value),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -523,7 +539,7 @@ class _PagePermissionCard extends StatelessWidget {
         gradient: const LinearGradient(
           colors: [
             Color(0xFF1A1A2A),
-            Color(0xFF11111B),
+            Color(0xFF0A0A0A),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -994,7 +1010,7 @@ class _RoleCard extends StatelessWidget {
         gradient: const LinearGradient(
           colors: [
             Color(0xFF1A1A2A),
-            Color(0xFF11111B),
+            Color(0xFF0A0A0A),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

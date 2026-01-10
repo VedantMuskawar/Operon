@@ -16,6 +16,10 @@ dependencies:
   firebase_storage: ^11.7.7
   shared_preferences: ^2.3.2
   file_picker: ^8.0.0+1
+  qr_flutter: ^4.1.0
+  pdf: ^3.11.1
+  printing: ^5.13.1
+  http: ^1.2.0
   core_bloc:
     path: ../../packages/core_bloc
   core_models:

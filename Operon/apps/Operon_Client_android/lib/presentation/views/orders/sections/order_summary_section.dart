@@ -140,7 +140,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
+          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

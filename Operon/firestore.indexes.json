@@ -9,6 +9,15 @@
       ]
     },
     {
+      "collectionGroup": "EMPLOYEES",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "jobRoleIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "employeeName", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "DELIVERY_ZONES",
       "queryScope": "COLLECTION",
       "fields": [
@@ -85,6 +94,13 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "CLIENTS",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
@@ -186,6 +202,18 @@
         { "fieldPath": "ledgerType", "order": "ASCENDING" },
         { "fieldPath": "category", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "TRANSACTIONS",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "vendorId", "order": "ASCENDING" },
+        { "fieldPath": "ledgerType", "order": "ASCENDING" },
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
     },
     {
@@ -315,6 +343,57 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "materialId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "PRODUCTION_BATCHES",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "batchDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "PRODUCTION_BATCHES",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "batchDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "PRODUCTION_BATCHES",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "methodId", "order": "ASCENDING" },
+        { "fieldPath": "batchDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "TRIP_WAGES",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "TRIP_WAGES",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "dmId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "TRIP_WAGES",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     }

@@ -22,10 +22,14 @@ import 'package:dash_web/data/repositories/users_repository.dart';
 import 'package:dash_web/data/repositories/vehicles_repository.dart';
 import 'package:dash_web/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
+import 'package:dash_web/data/repositories/analytics_repository.dart';
+import 'package:dash_web/data/datasources/analytics_data_source.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
+import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_web/data/services/qr_code_service.dart';
+import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/app_initialization/app_initialization_cubit.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
@@ -101,6 +105,11 @@ class DashWebApp extends StatelessWidget {
             dataSource: DeliveryZonesDataSource(),
           ),
         ),
+        RepositoryProvider<AnalyticsRepository>(
+          create: (_) => AnalyticsRepository(
+            dataSource: AnalyticsDataSource(),
+          ),
+        ),
         RepositoryProvider<ClientsRepository>(
           create: (_) => ClientsRepository(
             dataSource: ClientsDataSource(),
@@ -143,8 +152,40 @@ class DashWebApp extends StatelessWidget {
             dataSource: ExpenseSubCategoriesDataSource(),
           ),
         ),
+        RepositoryProvider<WageSettingsRepository>(
+          create: (_) => WageSettingsRepository(
+            dataSource: WageSettingsDataSource(),
+          ),
+        ),
+        RepositoryProvider<ProductionBatchesRepository>(
+          create: (_) => ProductionBatchesRepository(
+            dataSource: ProductionBatchesDataSource(),
+          ),
+        ),
+        RepositoryProvider<ProductionBatchTemplatesRepository>(
+          create: (_) => ProductionBatchTemplatesRepository(
+            dataSource: ProductionBatchTemplatesDataSource(),
+          ),
+        ),
+        RepositoryProvider<TripWagesRepository>(
+          create: (_) => TripWagesRepository(
+            dataSource: TripWagesDataSource(),
+          ),
+        ),
+        RepositoryProvider<DmSettingsRepository>(
+          create: (_) => DmSettingsRepository(
+            dataSource: DmSettingsDataSource(),
+          ),
+        ),
         RepositoryProvider<QrCodeService>(
           create: (_) => QrCodeService(),
+        ),
+        RepositoryProvider<DmPrintService>(
+          create: (context) => DmPrintService(
+            dmSettingsRepository: context.read<DmSettingsRepository>(),
+            paymentAccountsRepository: context.read<PaymentAccountsRepository>(),
+            qrCodeService: context.read<QrCodeService>(),
+          ),
         ),
       ],
       child: MultiBlocProvider(

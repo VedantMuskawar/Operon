@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:core_bloc/core_bloc.dart';
+import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:flutter/foundation.dart';
@@ -11,12 +12,15 @@ class ClientsCubit extends Cubit<ClientsState> {
   ClientsCubit({
     required ClientsRepository repository,
     required String orgId,
+    AnalyticsRepository? analyticsRepository,
   })  : _repository = repository,
         _orgId = orgId,
+        _analyticsRepository = analyticsRepository,
         super(const ClientsState());
 
   final ClientsRepository _repository;
   final String _orgId;
+  final AnalyticsRepository? _analyticsRepository;
   Timer? _searchDebounce;
 
   Future<void> loadClients() async {
@@ -30,12 +34,36 @@ class ClientsCubit extends Cubit<ClientsState> {
         clients: clients,
         message: null,
       ));
+      
+      // Load analytics in parallel
+      loadAnalytics();
     } catch (e, stackTrace) {
       debugPrint('[ClientsCubit] Error loading clients: $e');
       debugPrint('[ClientsCubit] Stack trace: $stackTrace');
       emit(state.copyWith(
         status: ViewStatus.failure,
         message: 'Failed to load clients: ${e.toString()}',
+      ));
+    }
+  }
+
+  Future<void> loadAnalytics() async {
+    final analyticsRepo = _analyticsRepository;
+    if (analyticsRepo == null) return;
+    
+    emit(state.copyWith(isAnalyticsLoading: true));
+    try {
+      final analytics = await analyticsRepo.fetchClientsAnalytics(
+        organizationId: _orgId,
+      );
+      emit(state.copyWith(
+        analytics: analytics,
+        isAnalyticsLoading: false,
+      ));
+    } catch (e) {
+      debugPrint('[ClientsCubit] Error loading analytics: $e');
+      emit(state.copyWith(
+        isAnalyticsLoading: false,
       ));
     }
   }

@@ -96,6 +96,7 @@ exports.onTripStatusUpdated = (0, firestore_1.onDocumentUpdated)(`${SCHEDULED_TR
     try {
         const orderRef = db.collection(constants_1.PENDING_ORDERS_COLLECTION).doc(orderId);
         await db.runTransaction(async (transaction) => {
+            var _a;
             const orderDoc = await transaction.get(orderRef);
             if (!orderDoc.exists) {
                 console.log('[Trip Status Update] Order not found - trip is independent', {
@@ -121,10 +122,13 @@ exports.onTripStatusUpdated = (0, firestore_1.onDocumentUpdated)(`${SCHEDULED_TR
                 return;
             }
             const scheduledTrips = orderData.scheduledTrips || [];
+            // Get itemIndex and productId from trip data
+            const tripItemIndex = (_a = after.itemIndex) !== null && _a !== void 0 ? _a : 0;
+            const tripProductId = after.productId || null;
             // Find and update the trip in the scheduledTrips array
             const updatedScheduledTrips = scheduledTrips.map((trip) => {
                 if (trip.tripId === tripId) {
-                    return Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, trip), { tripStatus: afterStatus }), (afterStatus === 'dispatched' && {
+                    return Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, trip), { itemIndex: tripItemIndex, productId: tripProductId || trip.productId || null, tripStatus: afterStatus }), (afterStatus === 'dispatched' && {
                         dispatchedAt: after.dispatchedAt || null,
                         initialReading: after.initialReading || null,
                         dispatchedBy: after.dispatchedBy || null,

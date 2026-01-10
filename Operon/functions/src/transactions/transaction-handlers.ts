@@ -8,6 +8,7 @@ import {
   EMPLOYEES_COLLECTION,
   EMPLOYEE_LEDGERS_COLLECTION,
   ORGANIZATION_LEDGERS_COLLECTION,
+  ORGANIZATIONS_COLLECTION,
   EXPENSE_SUB_CATEGORIES_COLLECTION,
   ANALYTICS_COLLECTION,
   TRANSACTIONS_SOURCE_KEY,
@@ -1615,6 +1616,186 @@ async function updateTransactionAnalytics(
 }
 
 /**
+ * Mark vendor invoices as paid when a payment transaction is created
+ */
+async function markInvoicesAsPaid(
+  organizationId: string,
+  paymentTransactionId: string,
+  paymentAmount: number,
+  linkedInvoiceIds: string[]
+): Promise<void> {
+  if (!linkedInvoiceIds || linkedInvoiceIds.length === 0) {
+    return; // No invoices to mark as paid
+  }
+
+  console.log('[Invoice Payment] Marking invoices as paid', {
+    paymentTransactionId,
+    paymentAmount,
+    linkedInvoiceIds,
+    invoiceCount: linkedInvoiceIds.length,
+  });
+
+  // Get all invoice transactions
+  const invoiceTransactions = await Promise.all(
+    linkedInvoiceIds.map(async (invoiceId) => {
+      const invoiceDoc = await db.collection(TRANSACTIONS_COLLECTION).doc(invoiceId).get();
+      if (!invoiceDoc.exists) {
+        console.warn('[Invoice Payment] Invoice not found', { invoiceId });
+        return null;
+      }
+      return { id: invoiceId, data: invoiceDoc.data()!, ref: invoiceDoc.ref };
+    })
+  );
+
+  const validInvoices = invoiceTransactions.filter((inv) => inv !== null) as Array<{
+    id: string;
+    data: any;
+    ref: admin.firestore.DocumentReference;
+  }>;
+
+  if (validInvoices.length === 0) {
+    console.warn('[Invoice Payment] No valid invoices found');
+    return;
+  }
+
+  // Calculate total invoice amount and distribute payment proportionally
+  let totalInvoiceAmount = 0;
+  for (const invoice of validInvoices) {
+    totalInvoiceAmount += (invoice.data.amount as number) || 0;
+  }
+
+  // Process each invoice
+  for (const invoice of validInvoices) {
+    const invoiceAmount = (invoice.data.amount as number) || 0;
+    const metadata = (invoice.data.metadata as any) || {};
+    const currentPaidAmount = (metadata.paidAmount as number) || 0;
+    const currentPaymentIds = (metadata.paymentIds as string[]) || [];
+    
+    // Calculate payment allocation for this invoice (proportional)
+    const paymentAllocation = totalInvoiceAmount > 0
+      ? (paymentAmount * invoiceAmount) / totalInvoiceAmount
+      : paymentAmount / validInvoices.length;
+    
+    const newPaidAmount = currentPaidAmount + paymentAllocation;
+    const newPaymentIds = [...currentPaymentIds, paymentTransactionId];
+    
+    // Determine new paid status
+    let newPaidStatus: string;
+    if (newPaidAmount >= invoiceAmount) {
+      newPaidStatus = 'paid';
+    } else if (newPaidAmount > 0) {
+      newPaidStatus = 'partial';
+    } else {
+      newPaidStatus = 'unpaid';
+    }
+
+    // Update invoice transaction metadata
+    await invoice.ref.update({
+      'metadata.paidStatus': newPaidStatus,
+      'metadata.paidAmount': newPaidAmount,
+      'metadata.paymentIds': newPaymentIds,
+      'updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log('[Invoice Payment] Updated invoice', {
+      invoiceId: invoice.id,
+      invoiceAmount,
+      paymentAllocation,
+      previousPaidAmount: currentPaidAmount,
+      newPaidAmount,
+      newPaidStatus,
+    });
+  }
+}
+
+/**
+ * Revert invoice payment status when a payment transaction is deleted
+ */
+async function revertInvoicePayment(
+  paymentTransactionId: string,
+  paymentAmount: number,
+  linkedInvoiceIds: string[]
+): Promise<void> {
+  if (!linkedInvoiceIds || linkedInvoiceIds.length === 0) {
+    return; // No invoices to revert
+  }
+
+  console.log('[Invoice Payment] Reverting invoice payment', {
+    paymentTransactionId,
+    paymentAmount,
+    linkedInvoiceIds,
+    invoiceCount: linkedInvoiceIds.length,
+  });
+
+  // Get all invoice transactions
+  const invoiceTransactions = await Promise.all(
+    linkedInvoiceIds.map(async (invoiceId) => {
+      const invoiceDoc = await db.collection(TRANSACTIONS_COLLECTION).doc(invoiceId).get();
+      if (!invoiceDoc.exists) {
+        console.warn('[Invoice Payment] Invoice not found for revert', { invoiceId });
+        return null;
+      }
+      return { id: invoiceId, data: invoiceDoc.data()!, ref: invoiceDoc.ref };
+    })
+  );
+
+  const validInvoices = invoiceTransactions.filter((inv) => inv !== null) as Array<{
+    id: string;
+    data: any;
+    ref: admin.firestore.DocumentReference;
+  }>;
+
+  // Calculate total invoice amount for proportional distribution
+  let totalInvoiceAmount = 0;
+  for (const invoice of validInvoices) {
+    totalInvoiceAmount += (invoice.data.amount as number) || 0;
+  }
+
+  // Revert each invoice
+  for (const invoice of validInvoices) {
+    const invoiceAmount = (invoice.data.amount as number) || 0;
+    const metadata = (invoice.data.metadata as any) || {};
+    const currentPaidAmount = (metadata.paidAmount as number) || 0;
+    const currentPaymentIds = (metadata.paymentIds as string[]) || [];
+    
+    // Calculate payment allocation that was applied (proportional)
+    const paymentAllocation = totalInvoiceAmount > 0
+      ? (paymentAmount * invoiceAmount) / totalInvoiceAmount
+      : paymentAmount / validInvoices.length;
+    
+    const newPaidAmount = Math.max(0, currentPaidAmount - paymentAllocation);
+    const newPaymentIds = currentPaymentIds.filter((id) => id !== paymentTransactionId);
+    
+    // Determine new paid status
+    let newPaidStatus: string;
+    if (newPaidAmount >= invoiceAmount) {
+      newPaidStatus = 'paid';
+    } else if (newPaidAmount > 0) {
+      newPaidStatus = 'partial';
+    } else {
+      newPaidStatus = 'unpaid';
+    }
+
+    // Update invoice transaction metadata
+    await invoice.ref.update({
+      'metadata.paidStatus': newPaidStatus,
+      'metadata.paidAmount': newPaidAmount,
+      'metadata.paymentIds': newPaymentIds,
+      'updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log('[Invoice Payment] Reverted invoice', {
+      invoiceId: invoice.id,
+      invoiceAmount,
+      paymentAllocation,
+      previousPaidAmount: currentPaidAmount,
+      newPaidAmount,
+      newPaidStatus,
+    });
+  }
+}
+
+/**
  * Cloud Function: Triggered when a transaction is created
  */
 export const onTransactionCreated = functions.firestore
@@ -1668,6 +1849,21 @@ export const onTransactionCreated = functions.firestore
         );
         balanceBefore = result.balanceBefore;
         balanceAfter = result.balanceAfter;
+        
+        // If this is a vendor payment with linked invoices, mark invoices as paid
+        const category = transaction.category as string;
+        if (category === 'vendorPayment') {
+          const metadata = transaction.metadata as any;
+          const linkedInvoiceIds = metadata?.linkedInvoiceIds as string[] | undefined;
+          if (linkedInvoiceIds && linkedInvoiceIds.length > 0) {
+            await markInvoicesAsPaid(
+              organizationId,
+              transactionId,
+              amount,
+              linkedInvoiceIds
+            );
+          }
+        }
       } else if (ledgerType === 'employeeLedger') {
         const employeeId = transaction?.employeeId as string;
         if (!employeeId) {
@@ -1847,6 +2043,16 @@ export const onTransactionDeleted = functions.firestore
         );
         balanceBefore = result.balanceBefore;
         balanceAfter = result.balanceAfter;
+        
+        // If this was a vendor payment with linked invoices, revert invoice payment status
+        const category = transaction.category as string;
+        if (category === 'vendorPayment') {
+          const metadata = transaction.metadata as any;
+          const linkedInvoiceIds = metadata?.linkedInvoiceIds as string[] | undefined;
+          if (linkedInvoiceIds && linkedInvoiceIds.length > 0) {
+            await revertInvoicePayment(transactionId, amount, linkedInvoiceIds);
+          }
+        }
       } else if (ledgerType === 'employeeLedger') {
         const employeeId = transaction?.employeeId as string;
         if (!employeeId) {

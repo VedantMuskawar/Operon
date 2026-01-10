@@ -279,5 +279,65 @@ class TransactionsDataSource {
       rethrow;
     }
   }
+
+  /// Get unpaid vendor purchase invoices (credit transactions on vendorLedger)
+  /// Filters by vendorId, category vendorPurchase, and paidStatus != 'paid'
+  Future<List<Transaction>> fetchUnpaidVendorInvoices({
+    required String organizationId,
+    required String vendorId,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _transactionsRef()
+          .where('organizationId', isEqualTo: organizationId)
+          .where('vendorId', isEqualTo: vendorId)
+          .where('ledgerType', isEqualTo: LedgerType.vendorLedger.name)
+          .where('category', isEqualTo: TransactionCategory.vendorPurchase.name)
+          .where('type', isEqualTo: TransactionType.credit.name);
+
+      // Filter by date range if provided
+      if (startDate != null) {
+        query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      }
+      if (endDate != null) {
+        // Add one day to endDate to include the entire day
+        final endDateInclusive = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+        query = query.where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endDateInclusive));
+      }
+
+      query = query.orderBy('createdAt', descending: false); // Oldest first for invoice selection
+
+      final snapshot = await query.get();
+      
+      // Filter by paidStatus in memory (metadata field, can't query directly)
+      final allInvoices = snapshot.docs
+          .map((doc) {
+            try {
+              return Transaction.fromJson(doc.data(), doc.id);
+            } catch (e) {
+              return null;
+            }
+          })
+          .whereType<Transaction>()
+          .toList();
+
+      // Filter out fully paid invoices
+      final unpaidInvoices = allInvoices.where((invoice) {
+        final metadata = invoice.metadata;
+        if (metadata == null) {
+          // No metadata = no paidStatus = unpaid (backward compatibility)
+          return true;
+        }
+        final paidStatus = metadata['paidStatus'] as String?;
+        // Return true if paidStatus is null, 'unpaid', or 'partial'
+        return paidStatus != 'paid';
+      }).toList();
+
+      return unpaidInvoices;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 

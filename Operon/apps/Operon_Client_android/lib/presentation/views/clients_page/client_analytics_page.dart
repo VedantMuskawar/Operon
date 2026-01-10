@@ -110,7 +110,9 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
       );
     }
 
-    return Column(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -148,6 +150,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
         // Summary Stats
         _SummaryStats(data: _analytics!.onboardingMonthly),
       ],
+      ),
     );
   }
 

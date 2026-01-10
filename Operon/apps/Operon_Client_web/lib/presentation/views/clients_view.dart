@@ -1,4 +1,5 @@
 import 'package:core_bloc/core_bloc.dart';
+import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_web/presentation/widgets/client_detail_modal.dart';
@@ -142,7 +143,10 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
             // Statistics Dashboard
-            _ClientsStatsHeader(clients: state.clients),
+            _ClientsStatsHeader(
+              clients: state.clients,
+              analytics: state.analytics,
+            ),
             const SizedBox(height: 32),
             
             // Top Action Bar with Filters
@@ -1356,19 +1360,25 @@ class _ClientDialogState extends State<_ClientDialog> {
 }
 
 class _ClientsStatsHeader extends StatelessWidget {
-  const _ClientsStatsHeader({required this.clients});
+  const _ClientsStatsHeader({
+    required this.clients,
+    this.analytics,
+  });
 
   final List<Client> clients;
+  final ClientsAnalytics? analytics;
 
   @override
   Widget build(BuildContext context) {
-    final totalClients = clients.length;
+    // Use analytics data if available, otherwise fall back to client list
+    final totalClients = analytics?.latestActiveClients ?? clients.length;
     final corporateCount = clients.where((c) => c.isCorporate).length;
     final individualCount = totalClients - corporateCount;
-    final totalOrders = clients.fold<int>(
-      0,
-      (sum, client) => sum + ((client.stats?['orders'] as num?)?.toInt() ?? 0),
-    );
+    final totalOrders = analytics?.totalOrders ??
+        clients.fold<int>(
+          0,
+          (sum, client) => sum + ((client.stats?['orders'] as num?)?.toInt() ?? 0),
+        );
 
     return LayoutBuilder(
       builder: (context, constraints) {

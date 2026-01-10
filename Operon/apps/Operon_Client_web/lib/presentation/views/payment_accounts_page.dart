@@ -228,7 +228,7 @@ class PaymentAccountsPageContent extends StatelessWidget {
   }
 }
 
-class _AccountTile extends StatelessWidget {
+class _AccountTile extends StatefulWidget {
   const _AccountTile({
     required this.account,
     required this.onEdit,
@@ -243,8 +243,15 @@ class _AccountTile extends StatelessWidget {
   final VoidCallback onSetPrimary;
   final VoidCallback onUnsetPrimary;
 
+  @override
+  State<_AccountTile> createState() => _AccountTileState();
+}
+
+class _AccountTileState extends State<_AccountTile> {
+  bool _isExpanded = false;
+
   IconData get _typeIcon {
-    switch (account.type) {
+    switch (widget.account.type) {
       case PaymentAccountType.bank:
         return Icons.account_balance;
       case PaymentAccountType.cash:
@@ -257,7 +264,7 @@ class _AccountTile extends StatelessWidget {
   }
 
   Color get _typeColor {
-    switch (account.type) {
+    switch (widget.account.type) {
       case PaymentAccountType.bank:
         return const Color(0xFF2196F3);
       case PaymentAccountType.cash:
@@ -271,7 +278,7 @@ class _AccountTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradientColors = account.isPrimary
+    final gradientColors = widget.account.isPrimary
         ? [
             const Color(0xFF2C1F40),
             const Color(0xFF1C122D),
@@ -283,21 +290,28 @@ class _AccountTile extends StatelessWidget {
             const Color(0xFF0D0D14),
           ];
 
-    final borderColor = account.isPrimary
+    final borderColor = widget.account.isPrimary
         ? const Color(0xFFFFC857).withValues(alpha: 0.6)
-        : account.isActive
+        : widget.account.isActive
             ? _typeColor.withValues(alpha: 0.35)
             : Colors.white.withValues(alpha: 0.1);
 
-    final iconBackground = account.isPrimary
+    final iconBackground = widget.account.isPrimary
         ? const Color(0xFFFFC857).withValues(alpha: 0.15)
         : _typeColor.withValues(alpha: 0.2);
 
-    final iconBorderColor = account.isPrimary
+    final iconBorderColor = widget.account.isPrimary
         ? const Color(0xFFFFC857).withValues(alpha: 0.6)
         : _typeColor.withValues(alpha: 0.5);
 
-    return AnimatedContainer(
+    final shouldShowDetails = (widget.account.displayPreference == PaymentDisplayPreference.qrCode && 
+                                widget.account.qrCodeImageUrl != null) ||
+                              (widget.account.displayPreference == PaymentDisplayPreference.bankDetails &&
+                               (widget.account.accountNumber != null || widget.account.ifscCode != null));
+
+    return Column(
+      children: [
+        AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(20),
@@ -311,15 +325,20 @@ class _AccountTile extends StatelessWidget {
         border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: account.isPrimary
+            color: widget.account.isPrimary
                 ? const Color(0xFFFFC857).withValues(alpha: 0.3)
                 : Colors.black.withValues(alpha: 0.3),
-            blurRadius: account.isPrimary ? 25 : 20,
+            blurRadius: widget.account.isPrimary ? 25 : 20,
             offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Row(
+      child: InkWell(
+        onTap: shouldShowDetails
+            ? () => setState(() => _isExpanded = !_isExpanded)
+            : null,
+        borderRadius: BorderRadius.circular(20),
+        child: Row(
         children: [
           Container(
             width: 56,
@@ -344,7 +363,7 @@ class _AccountTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  account.name,
+                  widget.account.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -368,7 +387,7 @@ class _AccountTile extends StatelessWidget {
                       ),
                     ),
                     child: Text(
-                      account.type.name.toUpperCase(),
+                      widget.account.type.name.toUpperCase(),
                       style: TextStyle(
                         color: _typeColor,
                         fontSize: 10,
@@ -378,10 +397,11 @@ class _AccountTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (account.accountNumber != null) ...[
+                if (widget.account.accountNumber != null && 
+                    widget.account.displayPreference != PaymentDisplayPreference.qrCode) ...[
                   const SizedBox(height: 6),
                   Text(
-                    'Account: ${account.accountNumber}',
+                    'Account: ${widget.account.accountNumber}',
                     style: const TextStyle(
                       color: Colors.white54,
                       fontSize: 13,
@@ -389,10 +409,11 @@ class _AccountTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                if (account.upiId != null) ...[
+                if (widget.account.upiId != null && 
+                    widget.account.displayPreference != PaymentDisplayPreference.bankDetails) ...[
                   const SizedBox(height: 4),
                   Text(
-                    'UPI: ${account.upiId}',
+                    'UPI: ${widget.account.upiId}',
                     style: const TextStyle(
                       color: Colors.white54,
                       fontSize: 13,
@@ -400,22 +421,32 @@ class _AccountTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                if (account.qrCodeImageUrl != null) ...[
-                  const SizedBox(height: 6),
-                  const Row(
+                if (shouldShowDetails) ...[
+                  const SizedBox(height: 8),
+                  Row(
                     children: [
                       Icon(
-                        Icons.qr_code,
+                        widget.account.displayPreference == PaymentDisplayPreference.qrCode
+                            ? Icons.qr_code
+                            : Icons.account_balance,
                         size: 14,
                         color: Colors.white54,
                       ),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Text(
-                        'QR Code Available',
-                        style: TextStyle(
+                        widget.account.displayPreference == PaymentDisplayPreference.qrCode
+                            ? 'Tap to view QR Code'
+                            : 'Tap to view Bank Details',
+                        style: const TextStyle(
                           color: Colors.white54,
                           fontSize: 12,
                         ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        _isExpanded ? Icons.expand_less : Icons.expand_more,
+                        size: 16,
+                        color: Colors.white54,
                       ),
                     ],
                   ),
@@ -428,27 +459,154 @@ class _AccountTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               _ActionButton(
-                icon: account.isPrimary ? Icons.star : Icons.star_border,
+                icon: widget.account.isPrimary ? Icons.star : Icons.star_border,
                 color:
-                    account.isPrimary ? const Color(0xFFFFD700) : Colors.white54,
-                onPressed: account.isPrimary ? onUnsetPrimary : onSetPrimary,
+                    widget.account.isPrimary ? const Color(0xFFFFD700) : Colors.white54,
+                onPressed: widget.account.isPrimary ? widget.onUnsetPrimary : widget.onSetPrimary,
               ),
               const SizedBox(height: 8),
               _ActionButton(
                 icon: Icons.edit_outlined,
                 color: const Color(0xFF6F4BFF),
-                onPressed: onEdit,
+                onPressed: widget.onEdit,
               ),
               const SizedBox(height: 8),
               _ActionButton(
                 icon: Icons.delete_outline,
                 color: Colors.redAccent,
-                onPressed: onDelete,
+                onPressed: widget.onDelete,
               ),
             ],
           ),
         ],
       ),
+      ),
+      ),
+      if (_isExpanded && shouldShowDetails) ...[
+        const SizedBox(height: 12),
+        _buildExpandedContent(),
+      ],
+    ],
+    );
+  }
+
+  Widget _buildExpandedContent() {
+    if (widget.account.displayPreference == PaymentDisplayPreference.qrCode &&
+        widget.account.qrCodeImageUrl != null) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          children: [
+            const Text(
+              'QR Code',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Image.network(
+                widget.account.qrCodeImageUrl!,
+                width: 200,
+                height: 200,
+                errorBuilder: (context, error, stackTrace) {
+                  return const SizedBox(
+                    width: 200,
+                    height: 200,
+                    child: Center(
+                      child: Icon(Icons.error, color: Colors.red),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (widget.account.displayPreference == PaymentDisplayPreference.bankDetails) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bank Details',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (widget.account.accountNumber != null) ...[
+              _buildDetailRow('Account Number', widget.account.accountNumber!),
+              const SizedBox(height: 12),
+            ],
+            if (widget.account.ifscCode != null) ...[
+              _buildDetailRow('IFSC Code', widget.account.ifscCode!),
+            ],
+            if (widget.account.accountNumber == null && widget.account.ifscCode == null)
+              const Text(
+                'No bank details available',
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+          ],
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -510,6 +668,7 @@ class _AccountDialogState extends State<_AccountDialog> {
   late final TextEditingController _upiIdController;
 
   PaymentAccountType _type = PaymentAccountType.bank;
+  PaymentDisplayPreference? _displayPreference;
   bool _isActive = true;
   bool _isSubmitting = false;
 
@@ -523,6 +682,7 @@ class _AccountDialogState extends State<_AccountDialog> {
     _ifscCodeController = TextEditingController(text: account?.ifscCode ?? '');
     _upiIdController = TextEditingController(text: account?.upiId ?? '');
     _type = account?.type ?? PaymentAccountType.bank;
+    _displayPreference = account?.displayPreference;
     _isActive = account?.isActive ?? true;
   }
 
@@ -677,6 +837,33 @@ class _AccountDialogState extends State<_AccountDialog> {
                     ),
                   ),
                 ],
+                // Display preference for accounts with UPI or bank details
+                if (_type == PaymentAccountType.bank || _type == PaymentAccountType.upi) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<PaymentDisplayPreference?>(
+                    value: _displayPreference,
+                    dropdownColor: const Color(0xFF1B1B2C),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration('Display Preference'),
+                    hint: const Text(
+                      'Select display preference',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                    onChanged: (value) {
+                      setState(() => _displayPreference = value);
+                    },
+                    items: [
+                      const DropdownMenuItem(
+                        value: PaymentDisplayPreference.qrCode,
+                        child: Text('QR Code'),
+                      ),
+                      const DropdownMenuItem(
+                        value: PaymentDisplayPreference.bankDetails,
+                        child: Text('Bank Details'),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 12),
                 SwitchListTile(
                   title: const Text(
@@ -731,6 +918,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                       upiId: _upiIdController.text.trim().isEmpty
                           ? null
                           : _upiIdController.text.trim(),
+                      displayPreference: _displayPreference,
                       isActive: _isActive,
                     );
 

@@ -4,7 +4,6 @@ import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_state.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/widgets/record_expense_dialog.dart';
-import 'package:dash_web/presentation/widgets/quick_action_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -67,14 +66,11 @@ class _ExpensesPageState extends State<ExpensesPage>
         panelTitle: 'Expenses',
         currentIndex: -1,
         onNavTap: (index) => context.go('/home?section=$index'),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               // Summary Cards
               _buildSummaryCards(),
               const SizedBox(height: 24),
@@ -131,19 +127,7 @@ class _ExpensesPageState extends State<ExpensesPage>
                 ),
               ),
             ],
-                ),
-              ),
-            ),
-            QuickActionMenu(
-              actions: [
-                QuickActionItem(
-                  icon: Icons.add,
-                  label: 'Add Expense',
-                  onTap: () => _showRecordExpenseDialog(),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );

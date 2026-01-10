@@ -123,8 +123,29 @@ export const generateDM = onCall(async (request) => {
       const newDMNumber = currentDMNumber + 1;
       const dmId = `DM/${financialYear}/${newDMNumber}`;
 
+      // Get itemIndex and productId from trip data (required for multi-product support)
+      const itemIndex = (tripData.itemIndex as number) ?? 0;
+      const productId = (tripData.productId as string) || null;
+      
+      // Extract tripPricing and conditionally include GST fields
+      const tripPricingData = tripData.tripPricing || {};
+      const tripPricing: any = {
+        subtotal: tripPricingData.subtotal || 0,
+        total: tripPricingData.total || 0,
+      };
+      
+      // Only include gstAmount if it exists and is > 0
+      if (tripPricingData.gstAmount !== undefined && tripPricingData.gstAmount > 0) {
+        tripPricing.gstAmount = tripPricingData.gstAmount;
+      }
+      
+      // Include advanceAmountDeducted if present
+      if (tripPricingData.advanceAmountDeducted !== undefined) {
+        tripPricing.advanceAmountDeducted = tripPricingData.advanceAmountDeducted;
+      }
+
       // Create DELIVERY_MEMOS document with all scheduled trip data
-      const deliveryMemoData = {
+      const deliveryMemoData: any = {
         dmId,
         dmNumber: newDMNumber,
         tripId,
@@ -132,6 +153,8 @@ export const generateDM = onCall(async (request) => {
         financialYear,
         organizationId,
         orderId: tripData.orderId || '',
+        itemIndex: itemIndex, // ✅ Store which item this DM belongs to
+        productId: productId || '', // ✅ Store product reference
         
         clientId: tripData.clientId || '',
         clientName: tripData.clientName || '',
@@ -151,8 +174,8 @@ export const generateDM = onCall(async (request) => {
         deliveryZone: tripData.deliveryZone || {},
         
         items: tripData.items || [],
-        pricing: tripData.pricing || {},
-        tripPricing: tripData.tripPricing || null,
+        // ❌ REMOVED: pricing snapshot (redundant, use tripPricing only)
+        tripPricing: tripPricing,
         priority: tripData.priority || 'normal',
         paymentType: tripData.paymentType || '',
         

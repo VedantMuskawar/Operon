@@ -1,8 +1,11 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
-/// Simplified QR code service for web
-/// Note: QR code generation can be enhanced later with a web-compatible library
+/// QR code service for web
 class QrCodeService {
   QrCodeService({FirebaseStorage? storage})
       : _storage = storage ?? FirebaseStorage.instance;
@@ -10,14 +13,36 @@ class QrCodeService {
   final FirebaseStorage _storage;
 
   /// Generate QR code image from UPI data string
-  /// For web, this is a placeholder - can be enhanced with web-compatible QR library
-  /// Returns empty bytes for now - QR code generation can be added later
   Future<Uint8List> generateQrCodeImage(String data, {int size = 512}) async {
-    // TODO: Implement QR code generation for web
-    // For now, return empty bytes - QR code generation can be added later
-    // with a web-compatible library like qr_flutter (if it supports web) or another solution
-    // This allows accounts to be created without QR codes
-    return Uint8List(0);
+    try {
+      // Create a render object to paint the QR code
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      final paintSize = Size(size.toDouble(), size.toDouble());
+
+      // Paint the QR code using QrPainter with auto version
+      QrPainter(
+        data: data,
+        color: const Color(0xFF000000),
+        emptyColor: const Color(0xFFFFFFFF),
+        version: QrVersions.auto,
+        errorCorrectionLevel: QrErrorCorrectLevel.L,
+      ).paint(canvas, paintSize);
+
+      // Convert to image
+      final picture = recorder.endRecording();
+      final image = await picture.toImage(size, size);
+
+      // Convert image to PNG bytes
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        throw Exception('Failed to convert QR code to bytes');
+      }
+
+      return byteData.buffer.asUint8List();
+    } catch (e) {
+      throw Exception('Failed to generate QR code: $e');
+    }
   }
 
   /// Upload QR code image to Firebase Storage

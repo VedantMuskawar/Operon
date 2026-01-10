@@ -75,6 +75,49 @@ class EmployeeWagesDataSource {
     return docRef.id;
   }
 
+  /// Create a wage credit transaction
+  Future<String> createWageCreditTransaction({
+    required String organizationId,
+    required String employeeId,
+    required double amount,
+    required DateTime paymentDate,
+    required String createdBy,
+    String? paymentAccountId,
+    String? paymentAccountType,
+    String? referenceNumber,
+    String? description,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final financialYear = _getFinancialYear(paymentDate);
+    final docRef = _transactionsRef.doc();
+    
+    final transaction = Transaction(
+      id: docRef.id,
+      organizationId: organizationId,
+      clientId: '', // Not used for employee ledger
+      employeeId: employeeId,
+      ledgerType: LedgerType.employeeLedger,
+      type: TransactionType.credit,
+      category: TransactionCategory.wageCredit,
+      amount: amount,
+      createdBy: createdBy,
+      createdAt: paymentDate,
+      updatedAt: paymentDate,
+      financialYear: financialYear,
+      paymentAccountId: paymentAccountId,
+      paymentAccountType: paymentAccountType,
+      referenceNumber: referenceNumber,
+      description: description,
+      metadata: metadata,
+    );
+    
+    final transactionData = transaction.toJson();
+    transactionData['transactionId'] = docRef.id;
+    
+    await docRef.set(transactionData);
+    return docRef.id;
+  }
+
   /// Create a bonus transaction
   Future<String> createBonusTransaction({
     required String organizationId,

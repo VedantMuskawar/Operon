@@ -49,7 +49,7 @@ class _OrganizationSelectionPageState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF020205),
+      backgroundColor: const Color(0xFF000000),
       body: SafeArea(
         child: BlocConsumer<OrgSelectorCubit, OrgSelectorState>(
           listener: (context, state) {

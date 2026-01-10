@@ -1,3 +1,4 @@
+import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
@@ -15,28 +16,45 @@ class SelectClientDialog extends StatefulWidget {
 
 class _SelectClientDialogState extends State<SelectClientDialog> {
   late final TextEditingController _searchController;
+  BuildContext? _providerContext;
+  VoidCallback? _searchListener;
 
   @override
   void initState() {
     super.initState();
-    _searchController = TextEditingController()
-      ..addListener(_handleSearchChanged);
+    _searchController = TextEditingController();
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_handleSearchChanged);
+    if (_searchListener != null) {
+      _searchController.removeListener(_searchListener!);
+    }
     _searchController.dispose();
     super.dispose();
   }
 
-  void _handleSearchChanged() {
-    context.read<ClientsCubit>().search(_searchController.text);
+  void _setupListener(BuildContext providerContext) {
+    if (_providerContext == null) {
+      _providerContext = providerContext;
+      _searchListener = () {
+        try {
+          providerContext.read<ClientsCubit>().search(_searchController.text);
+        } catch (e) {
+          // Provider not available, ignore
+        }
+      };
+      _searchController.addListener(_searchListener!);
+    }
   }
 
-  void _clearSearch() {
+  void _clearSearch(BuildContext context) {
     _searchController.clear();
-    context.read<ClientsCubit>().search('');
+    try {
+      context.read<ClientsCubit>().search('');
+    } catch (e) {
+      // Provider not available yet, ignore
+    }
   }
 
   void _onClientSelected(Client client) {
@@ -80,85 +98,93 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
       create: (_) => ClientsCubit(
         repository: clientsRepository,
         orgId: organization.id,
+        analyticsRepository: context.read<AnalyticsRepository>(),
       )..loadRecentClients(),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Select Customer',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+      child: Builder(
+        builder: (providerContext) {
+          // Set up listener once we're inside the BlocProvider context
+          _setupListener(providerContext);
+          
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.all(24),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 40,
+                    offset: const Offset(0, 20),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              _buildSearchBar(),
-              const SizedBox(height: 20),
-              Expanded(
-                child: BlocBuilder<ClientsCubit, ClientsState>(
-                  builder: (context, state) {
-                    if (state.searchQuery.isNotEmpty) {
-                      return _SearchResultsSection(
-                        state: state,
-                        onClear: _clearSearch,
-                        onClientSelected: _onClientSelected,
-                      );
-                    } else {
-                      return _RecentClientsSection(
-                        state: state,
-                        onClientSelected: _onClientSelected,
-                      );
-                    }
-                  },
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Select Customer',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _buildSearchBar(providerContext),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: BlocBuilder<ClientsCubit, ClientsState>(
+                      builder: (context, state) {
+                        if (state.searchQuery.isNotEmpty) {
+                          return _SearchResultsSection(
+                            state: state,
+                            onClear: () => _clearSearch(providerContext),
+                            onClientSelected: _onClientSelected,
+                          );
+                        } else {
+                          return _RecentClientsSection(
+                            state: state,
+                            onClientSelected: _onClientSelected,
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(BuildContext providerContext) {
     return BlocBuilder<ClientsCubit, ClientsState>(
       builder: (context, state) {
         return TextField(
@@ -170,7 +196,7 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.close, color: Colors.white54),
-                    onPressed: _clearSearch,
+                    onPressed: () => _clearSearch(providerContext),
                   )
                 : null,
             hintText: 'Search clients by name or phone',

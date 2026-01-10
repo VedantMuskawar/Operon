@@ -6,12 +6,13 @@ import 'package:dash_mobile/data/utils/financial_year_utils.dart';
 import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 
 enum ExpenseFormType {
   vendorPayment,
@@ -56,6 +57,16 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   bool _isLoading = true;
   bool _isSubmitting = false;
 
+  // Invoice selection state
+  String _invoiceSelectionMode = 'manualSelection'; // 'dateRange' or 'manualSelection'
+  DateTime? _invoiceDateRangeStart;
+  DateTime? _invoiceDateRangeEnd;
+  final TextEditingController _fromInvoiceNumberController = TextEditingController();
+  final TextEditingController _toInvoiceNumberController = TextEditingController();
+  List<Transaction> _availableInvoices = [];
+  Set<String> _selectedInvoiceIds = {};
+  bool _isLoadingInvoices = false;
+
   @override
   void initState() {
     super.initState();
@@ -70,6 +81,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     _amountController.dispose();
     _descriptionController.dispose();
     _referenceNumberController.dispose();
+    _fromInvoiceNumberController.dispose();
+    _toInvoiceNumberController.dispose();
     super.dispose();
   }
 
@@ -162,6 +175,62 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     }
   }
 
+  Future<void> _loadUnpaidInvoices() async {
+    if (_selectedVendor == null) return;
+
+    setState(() => _isLoadingInvoices = true);
+    try {
+      final orgState = context.read<OrganizationContextCubit>().state;
+      final organizationId = orgState.organization?.id;
+      if (organizationId == null) return;
+
+      final transactionsDataSource = TransactionsDataSource();
+      final invoices = await transactionsDataSource.fetchUnpaidVendorInvoices(
+        organizationId: organizationId,
+        vendorId: _selectedVendor!.id,
+        startDate: _invoiceDateRangeStart,
+        endDate: _invoiceDateRangeEnd,
+      );
+
+      setState(() {
+        _availableInvoices = invoices;
+        if (_invoiceSelectionMode == 'dateRange') {
+          // Auto-select all invoices in date range mode
+          _selectedInvoiceIds = invoices.map((inv) => inv.id).toSet();
+        }
+        _updatePaymentAmount();
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading invoices: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingInvoices = false);
+      }
+    }
+  }
+
+  void _updatePaymentAmount() {
+    double total = 0;
+    for (final invoiceId in _selectedInvoiceIds) {
+      final invoice = _availableInvoices.firstWhere((inv) => inv.id == invoiceId);
+      final metadata = invoice.metadata;
+      final paidAmount = (metadata?['paidAmount'] as num?)?.toDouble() ?? 0;
+      final remainingAmount = invoice.amount - paidAmount;
+      total += remainingAmount;
+    }
+    _amountController.text = total.toStringAsFixed(2);
+  }
+
+  double _getInvoiceRemainingAmount(Transaction invoice) {
+    final metadata = invoice.metadata;
+    final paidAmount = (metadata?['paidAmount'] as num?)?.toDouble() ?? 0;
+    return invoice.amount - paidAmount;
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
@@ -208,6 +277,23 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             setState(() => _isSubmitting = false);
             return;
           }
+          // Build metadata for invoice linking
+          Map<String, dynamic>? metadata;
+          List<String>? linkedInvoiceIds;
+          if (_selectedInvoiceIds.isNotEmpty) {
+            linkedInvoiceIds = _selectedInvoiceIds.toList();
+            metadata = {
+              'linkedInvoiceIds': linkedInvoiceIds,
+              'paymentMode': _invoiceSelectionMode,
+            };
+            if (_invoiceDateRangeStart != null && _invoiceDateRangeEnd != null) {
+              metadata['dateRange'] = {
+                'startDate': _invoiceDateRangeStart!.toIso8601String(),
+                'endDate': _invoiceDateRangeEnd!.toIso8601String(),
+              };
+            }
+          }
+
           transaction = Transaction(
             id: '',
             organizationId: organizationId,
@@ -228,6 +314,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             referenceNumber: _referenceNumberController.text.trim().isEmpty
                 ? null
                 : _referenceNumberController.text.trim(),
+            metadata: metadata,
           );
           break;
         case ExpenseFormType.salaryDebit:
@@ -322,15 +409,20 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
 
   @override
   Widget build(BuildContext context) {
-    return PageWorkspaceLayout(
-      title: 'Record Expense',
-      currentIndex: 0,
-      onBack: () => context.go('/home'),
-      onNavTap: (value) => context.go('/home', extra: value),
-      child: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Form(
+    return Scaffold(
+      backgroundColor: const Color(0xFF000000),
+      appBar: const ModernPageHeader(
+        title: 'Record Expense',
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,6 +442,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     // Dynamic fields based on type
                     if (_selectedType == ExpenseFormType.vendorPayment) ...[
                       _buildVendorSelector(),
+                      const SizedBox(height: 24),
+                      _buildInvoiceSelectionSection(),
                     ] else if (_selectedType == ExpenseFormType.salaryDebit) ...[
                       _buildEmployeeSelector(),
                     ] else if (_selectedType == ExpenseFormType.generalExpense) ...[
@@ -462,8 +556,16 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     ),
                   ],
                 ),
-              ),
+                      ),
+                    ),
             ),
+            QuickNavBar(
+              currentIndex: 0,
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -548,6 +650,347 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     );
   }
 
+  Widget _buildInvoiceSelectionSection() {
+    if (_selectedVendor == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Invoice Selection',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Mode toggle
+        Row(
+          children: [
+            Expanded(
+              child: RadioListTile<String>(
+                title: const Text('Pay Selected Invoices', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                value: 'manualSelection',
+                groupValue: _invoiceSelectionMode,
+                onChanged: (value) {
+                  setState(() {
+                    _invoiceSelectionMode = value!;
+                    _invoiceDateRangeStart = null;
+                    _invoiceDateRangeEnd = null;
+                    _fromInvoiceNumberController.clear();
+                    _toInvoiceNumberController.clear();
+                    _selectedInvoiceIds.clear();
+                    _availableInvoices.clear();
+                  });
+                },
+                activeColor: const Color(0xFF6F4BFF),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+            Expanded(
+              child: RadioListTile<String>(
+                title: const Text('Pay by Date Range', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                value: 'dateRange',
+                groupValue: _invoiceSelectionMode,
+                onChanged: (value) {
+                  setState(() {
+                    _invoiceSelectionMode = value!;
+                    _selectedInvoiceIds.clear();
+                  });
+                  _loadUnpaidInvoices();
+                },
+                activeColor: const Color(0xFF6F4BFF),
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Date range picker (only for date range mode)
+        if (_invoiceSelectionMode == 'dateRange') ...[
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _invoiceDateRangeStart ?? DateTime.now().subtract(const Duration(days: 30)),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: Color(0xFF6F4BFF),
+                              onPrimary: Colors.white,
+                              surface: Color(0xFF1B1B2C),
+                              onSurface: Colors.white,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _invoiceDateRangeStart = picked;
+                      });
+                      _loadUnpaidInvoices();
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1B1B2C),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, color: Colors.white54, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          _invoiceDateRangeStart == null
+                              ? 'Start Date'
+                              : _formatDate(_invoiceDateRangeStart!),
+                          style: TextStyle(
+                            color: _invoiceDateRangeStart == null
+                                ? Colors.white54
+                                : Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _invoiceDateRangeEnd ?? DateTime.now(),
+                      firstDate: _invoiceDateRangeStart ?? DateTime(2020),
+                      lastDate: DateTime.now(),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: Color(0xFF6F4BFF),
+                              onPrimary: Colors.white,
+                              surface: Color(0xFF1B1B2C),
+                              onSurface: Colors.white,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _invoiceDateRangeEnd = picked;
+                      });
+                      _loadUnpaidInvoices();
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1B1B2C),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_today, color: Colors.white54, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          _invoiceDateRangeEnd == null
+                              ? 'End Date'
+                              : _formatDate(_invoiceDateRangeEnd!),
+                          style: TextStyle(
+                            color: _invoiceDateRangeEnd == null
+                                ? Colors.white54
+                                : Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+        // Invoice number range inputs (only for manual selection mode)
+        if (_invoiceSelectionMode == 'manualSelection') ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _fromInvoiceNumberController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('From Invoice Number'),
+                  onChanged: (_) {
+                    // Debounce or trigger search on field change
+                    Future.delayed(const Duration(milliseconds: 500), () {
+                      if (mounted) {
+                        _loadUnpaidInvoices();
+                      }
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _toInvoiceNumberController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('To Invoice Number'),
+                  onChanged: (_) {
+                    // Debounce or trigger search on field change
+                    Future.delayed(const Duration(milliseconds: 500), () {
+                      if (mounted) {
+                        _loadUnpaidInvoices();
+                      }
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: _loadUnpaidInvoices,
+            icon: const Icon(Icons.search, size: 18, color: Color(0xFF6F4BFF)),
+            label: const Text('Search Invoices', style: TextStyle(color: Color(0xFF6F4BFF))),
+          ),
+          const SizedBox(height: 16),
+        ],
+        // Invoice list / summary
+        if (_isLoadingInvoices)
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_invoiceSelectionMode == 'dateRange' && (_invoiceDateRangeStart == null || _invoiceDateRangeEnd == null))
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Select date range to view invoices',
+              style: const TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+          )
+        else if (_availableInvoices.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              _invoiceSelectionMode == 'manualSelection' && _fromInvoiceNumberController.text.trim().isEmpty && _toInvoiceNumberController.text.trim().isEmpty
+                  ? 'Enter invoice number range and click Search'
+                  : 'No unpaid invoices found',
+              style: const TextStyle(color: Colors.white54, fontSize: 14),
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1B1B2C),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Found ${_availableInvoices.length} invoice${_availableInvoices.length == 1 ? '' : 's'}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ..._availableInvoices.take(5).map((invoice) {
+                  final remainingAmount = _getInvoiceRemainingAmount(invoice);
+                  final invoiceNumber = invoice.referenceNumber ?? invoice.metadata?['invoiceNumber'] ?? 'N/A';
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                invoiceNumber,
+                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                              Text(
+                                '${_formatDate(invoice.createdAt ?? DateTime.now())} | ₹${remainingAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                if (_availableInvoices.length > 5)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '... and ${_availableInvoices.length - 5} more',
+                      style: const TextStyle(color: Colors.white54, fontSize: 12, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        // Total amount display
+        if (_selectedInvoiceIds.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6F4BFF).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF6F4BFF).withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Total Amount:',
+                  style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  '₹${_amountController.text.isEmpty ? "0.00" : _amountController.text}',
+                  style: const TextStyle(
+                    color: Color(0xFF6F4BFF),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildVendorSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,6 +1018,10 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           onChanged: (vendor) {
             setState(() {
               _selectedVendor = vendor;
+              _selectedInvoiceIds.clear();
+              _availableInvoices.clear();
+              _fromInvoiceNumberController.clear();
+              _toInvoiceNumberController.clear();
             });
           },
           validator: (value) => value == null ? 'Select a vendor' : null,
@@ -679,25 +1126,97 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           ),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<PaymentAccount>(
-          value: _selectedPaymentAccount,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration('Select payment account'),
-          items: _paymentAccounts.map((account) {
-            return DropdownMenuItem(
-              value: account,
-              child: Text(account.name),
-            );
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _paymentAccounts.map((account) {
+            return _buildPaymentAccountOption(account);
           }).toList(),
-          onChanged: (account) {
-            setState(() {
-              _selectedPaymentAccount = account;
-            });
-          },
-          validator: (value) => value == null ? 'Select a payment account' : null,
         ),
+        if (_selectedPaymentAccount == null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Select a payment account',
+              style: TextStyle(color: Colors.red.withOpacity(0.8), fontSize: 12),
+            ),
+          ),
       ],
+    );
+  }
+
+  Widget _buildPaymentAccountOption(PaymentAccount account) {
+    final isSelected = _selectedPaymentAccount?.id == account.id;
+    IconData icon;
+    switch (account.type) {
+      case PaymentAccountType.bank:
+        icon = Icons.account_balance;
+        break;
+      case PaymentAccountType.cash:
+        icon = Icons.money;
+        break;
+      case PaymentAccountType.upi:
+        icon = Icons.qr_code;
+        break;
+      case PaymentAccountType.other:
+        icon = Icons.payment;
+        break;
+    }
+    
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedPaymentAccount = account;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF6F4BFF).withOpacity(0.2)
+              : const Color(0xFF1B1B2C),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF6F4BFF)
+                : Colors.white.withOpacity(0.1),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: isSelected ? const Color(0xFF6F4BFF) : Colors.white54, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              account.name,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            if (account.isPrimary) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6F4BFF).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Primary',
+                  style: TextStyle(
+                    color: Color(0xFF6F4BFF),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 

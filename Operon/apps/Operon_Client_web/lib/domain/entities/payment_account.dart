@@ -1,4 +1,5 @@
 enum PaymentAccountType { bank, cash, upi, other }
+enum PaymentDisplayPreference { qrCode, bankDetails }
 
 class PaymentAccount {
   const PaymentAccount({
@@ -10,6 +11,7 @@ class PaymentAccount {
     this.ifscCode,
     this.upiId,
     this.qrCodeImageUrl,
+    this.displayPreference,
     this.isActive = true,
     this.isPrimary = false,
   });
@@ -22,6 +24,7 @@ class PaymentAccount {
   final String? ifscCode;
   final String? upiId;
   final String? qrCodeImageUrl; // Firebase Storage URL
+  final PaymentDisplayPreference? displayPreference;
   final bool isActive;
   final bool isPrimary;
 
@@ -49,12 +52,22 @@ class PaymentAccount {
       if (ifscCode != null) 'ifscCode': ifscCode,
       if (upiId != null) 'upiId': upiId,
       if (qrCodeImageUrl != null) 'qrCodeImageUrl': qrCodeImageUrl,
+      if (displayPreference != null) 'displayPreference': displayPreference!.name,
       'isActive': isActive,
       'isPrimary': isPrimary,
     };
   }
 
   factory PaymentAccount.fromJson(Map<String, dynamic> json, String docId) {
+    final displayPreferenceStr = json['displayPreference'] as String?;
+    PaymentDisplayPreference? displayPreference;
+    if (displayPreferenceStr != null) {
+      displayPreference = PaymentDisplayPreference.values.firstWhere(
+        (p) => p.name == displayPreferenceStr,
+        orElse: () => PaymentDisplayPreference.qrCode,
+      );
+    }
+
     return PaymentAccount(
       id: json['accountId'] as String? ?? docId,
       organizationId: json['organizationId'] as String? ?? '',
@@ -67,6 +80,7 @@ class PaymentAccount {
       ifscCode: json['ifscCode'] as String?,
       upiId: json['upiId'] as String?,
       qrCodeImageUrl: json['qrCodeImageUrl'] as String?,
+      displayPreference: displayPreference,
       isActive: json['isActive'] as bool? ?? true,
       isPrimary: json['isPrimary'] as bool? ?? false,
     );
@@ -81,6 +95,7 @@ class PaymentAccount {
     String? ifscCode,
     String? upiId,
     String? qrCodeImageUrl,
+    PaymentDisplayPreference? displayPreference,
     bool? isActive,
     bool? isPrimary,
   }) {
@@ -93,6 +108,7 @@ class PaymentAccount {
       ifscCode: ifscCode ?? this.ifscCode,
       upiId: upiId ?? this.upiId,
       qrCodeImageUrl: qrCodeImageUrl ?? this.qrCodeImageUrl,
+      displayPreference: displayPreference ?? this.displayPreference,
       isActive: isActive ?? this.isActive,
       isPrimary: isPrimary ?? this.isPrimary,
     );

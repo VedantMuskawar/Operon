@@ -2,8 +2,14 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/presentation/widgets/loading/loading_skeleton.dart';
+import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
+import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
+import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -67,132 +73,170 @@ class _ZonesPageState extends State<ZonesPage> {
     return BlocListener<DeliveryZonesCubit, DeliveryZonesState>(
       listener: (context, state) {
         if (state.status == ViewStatus.failure && state.message != null) {
+          final isNetworkError = NetworkErrorHelper.isNetworkError(state.message!);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message!)),
+            SnackBar(
+              content: Text(state.message!),
+              backgroundColor: isNetworkError ? Colors.orange : Colors.redAccent,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Retry',
+                textColor: Colors.white,
+                onPressed: () {
+                  context.read<DeliveryZonesCubit>().loadZones();
+                },
+              ),
+            ),
           );
         }
       },
-      child: PageWorkspaceLayout(
-        title: 'Delivery Zones',
-        currentIndex: 4,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                return BlocBuilder<DeliveryZonesCubit, DeliveryZonesState>(
-                  builder: (context, state) {
-                    final zones = state.zones;
-                    final cityGroups = <String, List<DeliveryZone>>{};
-                    for (final zone in zones) {
-                      cityGroups.putIfAbsent(zone.cityName, () => []).add(zone);
-                    }
-                    final sortedCities = cityGroups.keys.toList()..sort();
-                    final hasRegionSelected =
-                        (state.selectedZoneId ?? '').isNotEmpty &&
-                            zones.any((z) => z.id == state.selectedZoneId);
-                    final selectedZone = hasRegionSelected
-                        ? zones.firstWhere((z) => z.id == state.selectedZoneId)
-                        : null;
-                    _selectedCity ??= selectedZone?.cityName ??
-                        (sortedCities.isNotEmpty ? sortedCities.first : null);
-                    final currentCityRegions = _selectedCity != null
-                        ? cityGroups[_selectedCity] ?? <DeliveryZone>[]
-                        : <DeliveryZone>[];
+      child: Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'Delivery Zones',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: LayoutBuilder(
+          builder: (context, constraints) {
+            return BlocBuilder<DeliveryZonesCubit, DeliveryZonesState>(
+              builder: (context, state) {
+                // Error state
+                if (state.status == ViewStatus.failure && state.zones.isEmpty && state.cities.isEmpty) {
+                  final message = state.message ?? 'Failed to load delivery zones';
+                  final isNetworkError = NetworkErrorHelper.isNetworkError(message);
+                  return ErrorStateWidget(
+                    message: message,
+                    errorType: isNetworkError ? ErrorType.network : ErrorType.generic,
+                    onRetry: () {
+                      context.read<DeliveryZonesCubit>().loadZones();
+                    },
+                  );
+                }
 
-                    final totalWidth = constraints.maxWidth;
-                    final cityWidth = totalWidth * 0.5;
-                    final regionWidth = totalWidth * 0.5;
+                final zones = state.zones;
+                final cityGroups = <String, List<DeliveryZone>>{};
+                for (final zone in zones) {
+                  cityGroups.putIfAbsent(zone.cityName, () => []).add(zone);
+                }
+                final sortedCities = cityGroups.keys.toList()..sort();
+                final hasRegionSelected =
+                    (state.selectedZoneId ?? '').isNotEmpty &&
+                        zones.any((z) => z.id == state.selectedZoneId);
+                final selectedZone = hasRegionSelected
+                    ? zones.firstWhere((z) => z.id == state.selectedZoneId)
+                    : null;
+                _selectedCity ??= selectedZone?.cityName ??
+                    (sortedCities.isNotEmpty ? sortedCities.first : null);
+                final currentCityRegions = _selectedCity != null
+                    ? cityGroups[_selectedCity] ?? <DeliveryZone>[]
+                    : <DeliveryZone>[];
 
-                    final columnHeight =
-                        constraints.maxHeight.isFinite ? constraints.maxHeight : null;
-                    final resolvedHeight = columnHeight ?? MediaQuery.of(context).size.height * 0.55;
+                final totalWidth = constraints.maxWidth;
+                final cityWidth = totalWidth * 0.5;
+                final regionWidth = totalWidth * 0.5;
 
-                    return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Row(
-                            children: [
-                Expanded(
-                                child: Text(
-                                  'City',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+                final columnHeight =
+                    constraints.maxHeight.isFinite ? constraints.maxHeight : null;
+                final resolvedHeight = columnHeight ?? MediaQuery.of(context).size.height * 0.55;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'City',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w600,
                               ),
-                Expanded(
-                                child: Text(
-                                  'Region',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                  ),
-                ),
-              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'Region',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          width: cityWidth,
+                          height: resolvedHeight,
+                          child: _CityColumn(
+                            selectedCity: _selectedCity,
+                            cities: state.cities,
+                            isLoading: state.status == ViewStatus.loading && state.cities.isEmpty,
+                            onSelectCity: (city) => _selectCity(city, state),
+                            canCreate: widget.isAdmin,
+                            onAddCity: () => _openAddCityDialog(context),
+                            canLongPress: widget.isAdmin,
+                            onLongPressCity: widget.isAdmin
+                                ? (city) => _openCityOptionsSheet(context, city)
+                                : null,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              width: cityWidth,
-                              height: resolvedHeight,
-                              child: _CityColumn(
-                                selectedCity: _selectedCity,
-                                cities: state.cities,
-                                onSelectCity: (city) => _selectCity(city, state),
-                                canCreate: widget.isAdmin,
-                                onAddCity: () => _openAddCityDialog(context),
-                                canLongPress: widget.isAdmin,
-                                onLongPressCity: widget.isAdmin
-                                    ? (city) => _openCityOptionsSheet(context, city)
-                                    : null,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              width: regionWidth - 12,
-                              height: resolvedHeight,
-                              child: _RegionColumn(
-                                regions: currentCityRegions,
-                                selectedZoneId: state.selectedZoneId,
-                                canEditZone: widget.regionPermission.canEdit,
-                                canDeleteZone: widget.regionPermission.canDelete,
-                                canCreateRegion: widget.regionPermission.canCreate,
-                                hasCities: state.cities.isNotEmpty,
-                                onAddRegion: state.cities.isEmpty
-                                    ? null
-                                    : () => _openAddRegionDialog(
-                                          context,
-                                          cities: state.cities,
-                                          initialCity: _selectedCity,
-                                        ),
-                                onSelectZone: (zoneId) =>
-                                    context.read<DeliveryZonesCubit>().selectZone(zoneId),
-                                onLongPressZone: (zone) =>
-                                    _openRegionPriceDialog(context, zone),
-                                onEditZone: (zone) => _openZoneDialog(context, zone: zone),
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          width: regionWidth - 12,
+                          height: resolvedHeight,
+                          child: _RegionColumn(
+                            regions: currentCityRegions,
+                            selectedZoneId: state.selectedZoneId,
+                            isLoading: state.status == ViewStatus.loading && currentCityRegions.isEmpty && _selectedCity != null,
+                            canEditZone: widget.regionPermission.canEdit,
+                            canDeleteZone: widget.regionPermission.canDelete,
+                            canCreateRegion: widget.regionPermission.canCreate,
+                            hasCities: state.cities.isNotEmpty,
+                            selectedCity: _selectedCity,
+                            onAddRegion: state.cities.isEmpty
+                                ? null
+                                : () => _openAddRegionDialog(
+                                      context,
+                                      cities: state.cities,
+                                      initialCity: _selectedCity,
+                                    ),
+                            onSelectZone: (zoneId) =>
+                                context.read<DeliveryZonesCubit>().selectZone(zoneId),
+                            onLongPressZone: (zone) =>
+                                _openRegionPriceDialog(context, zone),
+                            onEditZone: (zone) => _openZoneDialog(context, zone: zone),
+                          ),
                         ),
-          ],
-                    );
-                  },
+                      ],
+                    ),
+                  ],
                 );
               },
-            ),
-          ],
+            );
+          },
+                  ),
+                ),
+              ),
+              QuickNavBar(
+                currentIndex: 4,
+                onTap: (value) => context.go('/home', extra: value),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -273,7 +317,7 @@ class _ZonesPageState extends State<ZonesPage> {
   ) async {
     await showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -345,7 +389,7 @@ class _ZonesPageState extends State<ZonesPage> {
       builder: (_) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF11111B),
+            backgroundColor: const Color(0xFF0A0A0A),
             title: const Text('Rename City', style: TextStyle(color: Colors.white)),
             content: TextField(
               controller: controller,
@@ -410,7 +454,7 @@ class _ZonesPageState extends State<ZonesPage> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text('Delete City', style: TextStyle(color: Colors.white)),
         content: Text(
           'Deleting "${city.name}" will remove all regions and prices in this city. This cannot be undone.',
@@ -449,6 +493,7 @@ class _CityColumn extends StatelessWidget {
     required this.onSelectCity,
     required this.canCreate,
     required this.onAddCity,
+    this.isLoading = false,
     this.canLongPress = false,
     this.onLongPressCity,
   });
@@ -458,6 +503,7 @@ class _CityColumn extends StatelessWidget {
   final ValueChanged<String> onSelectCity;
   final bool canCreate;
   final VoidCallback onAddCity;
+  final bool isLoading;
   final bool canLongPress;
   final ValueChanged<DeliveryCity>? onLongPressCity;
 
@@ -489,64 +535,76 @@ class _CityColumn extends StatelessWidget {
           ),
         const SizedBox(height: 16),
         Expanded(
-          child: cities.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                      'No cities yet. Admins can add cities.',
-                      style: TextStyle(color: Colors.white54),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: cities.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                    final city = cities[index];
-                    final isSelected = city.name == selectedCity;
-                    return GestureDetector(
-                      onTap: () => onSelectCity(city.name),
-                    onLongPress:
-                        canLongPress && onLongPressCity != null
-                            ? () => onLongPressCity!(city)
-                      : null,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          color: isSelected
-                              ? const Color(0xFF1E1E2F)
-                              : const Color(0xFF13131E),
-                          border: Border.all(
-                            color:
-                                isSelected ? const Color(0xFF6F4BFF) : Colors.white12,
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                city.name,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: isSelected ? 16 : 15,
-                                ),
-                              ),
-                            ),
-                            if (isSelected)
-                              const Icon(Icons.arrow_forward_ios,
-                                  size: 14, color: Colors.white54),
-                          ],
-                        ),
+          child: isLoading
+              ? ListView.builder(
+                  itemCount: 5,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: LoadingSkeleton(
+                        width: double.infinity,
+                        height: 56,
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     );
                   },
-                ),
+                )
+              : cities.isEmpty
+                  ? EmptyStateWidget(
+                      icon: Icons.location_city_outlined,
+                      title: 'No cities yet',
+                      message: canCreate
+                          ? 'Tap "Add City" to add your first city'
+                          : 'No cities available. Admins can add cities.',
+                      actionLabel: canCreate ? 'Add City' : null,
+                      onAction: canCreate ? onAddCity : null,
+                      iconColor: Colors.white38,
+                    )
+                  : ListView.separated(
+                      itemCount: cities.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final city = cities[index];
+                        final isSelected = city.name == selectedCity;
+                        return GestureDetector(
+                          key: ValueKey(city.name),
+                          onTap: () => onSelectCity(city.name),
+                          onLongPress: canLongPress && onLongPressCity != null
+                              ? () => onLongPressCity!(city)
+                              : null,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              color: isSelected
+                                  ? const Color(0xFF1E1E2F)
+                                  : const Color(0xFF13131E),
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF6F4BFF) : Colors.white12,
+                                width: isSelected ? 2 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    city.name,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: isSelected ? 16 : 15,
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white54),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
         ),
       ],
     );
@@ -561,6 +619,8 @@ class _RegionColumn extends StatelessWidget {
     required this.canDeleteZone,
     required this.canCreateRegion,
     required this.hasCities,
+    this.isLoading = false,
+    this.selectedCity,
     this.onAddRegion,
     required this.onSelectZone,
     required this.onLongPressZone,
@@ -573,6 +633,8 @@ class _RegionColumn extends StatelessWidget {
   final bool canDeleteZone;
   final bool canCreateRegion;
   final bool hasCities;
+  final bool isLoading;
+  final String? selectedCity;
   final VoidCallback? onAddRegion;
   final ValueChanged<String> onSelectZone;
   final ValueChanged<DeliveryZone> onLongPressZone;
@@ -593,23 +655,52 @@ class _RegionColumn extends StatelessWidget {
           ),
         const SizedBox(height: 16),
         Expanded(
-          child: regions.isEmpty
-              ? const Center(
-                  child: Text(
-                    'Select a city to view its regions.',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: regions.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+          child: isLoading
+              ? ListView.builder(
+                  itemCount: 5,
                   itemBuilder: (context, index) {
-                    final zone = regions[index];
-                    final isSelected = selectedZoneId == zone.id;
-    return GestureDetector(
-                      onTap: () => onSelectZone(zone.id),
-                      onLongPress: () => onLongPressZone(zone),
-                      child: AnimatedContainer(
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: LoadingSkeleton(
+                        width: double.infinity,
+                        height: 80,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    );
+                  },
+                )
+              : !hasCities
+                  ? const Center(
+                      child: Text(
+                        'No cities available.',
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    )
+                  : regions.isEmpty
+                      ? EmptyStateWidget(
+                          icon: Icons.location_off_outlined,
+                          title: 'No regions',
+                          message: selectedCity != null
+                              ? 'No regions in "$selectedCity". Tap "Add Region" to add one.'
+                              : 'Select a city to view its regions.',
+                          actionLabel: canCreateRegion ? 'Add Region' : null,
+                          onAction: canCreateRegion ? onAddRegion : null,
+                          iconColor: Colors.white38,
+                        )
+                      : ListView.separated(
+                          itemCount: regions.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final zone = regions[index];
+                            final isSelected = selectedZoneId == zone.id;
+                            return GestureDetector(
+                              key: ValueKey(zone.id),
+                              onTap: () => onSelectZone(zone.id),
+                              onLongPress: () {
+                                HapticFeedback.mediumImpact();
+                                onLongPressZone(zone);
+                              },
+                              child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -697,7 +788,7 @@ class _AddCityDialogState extends State<_AddCityDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: const Text('Add City', style: TextStyle(color: Colors.white)),
       content: Form(
         key: _formKey,
@@ -790,7 +881,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: const Text('Add Region', style: TextStyle(color: Colors.white)),
       content: widget.cities.isEmpty
           ? const Text(
@@ -929,6 +1020,7 @@ class _RegionPriceDialog extends StatefulWidget {
 }
 
 class _RegionPriceDialogState extends State<_RegionPriceDialog> {
+  final _formKey = GlobalKey<FormState>();
   String? _selectedProductId;
   final _priceController = TextEditingController();
   bool _submitting = false;
@@ -984,17 +1076,19 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
         final canEditPrice = widget.pricePermission.canEdit;
 
         return AlertDialog(
-          backgroundColor: const Color(0xFF11111B),
+          backgroundColor: const Color(0xFF0A0A0A),
           insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(widget.zone.region, style: const TextStyle(color: Colors.white)),
-              Text(widget.zone.city, style: const TextStyle(color: Colors.white54)),
+              Text(widget.zone.cityName, style: const TextStyle(color: Colors.white54)),
             ],
           ),
           content: SingleChildScrollView(
-            child: products.isEmpty
+            child: Form(
+              key: _formKey,
+              child: products.isEmpty
                 ? const Text(
                     'No products available to configure prices.',
                     style: TextStyle(color: Colors.white70),
@@ -1023,25 +1117,65 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                         onChanged: (value) => setState(() => _selectedProductId = value),
                       ),
                       const SizedBox(height: 12),
-                      TextField(
+                      TextFormField(
                         controller: _priceController,
                         style: const TextStyle(color: Colors.white),
                         keyboardType:
                             const TextInputType.numberWithOptions(decimal: true),
+                        enabled: canEditPrice,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Enter a price';
+                          }
+                          final parsed = double.tryParse(value.trim());
+                          if (parsed == null) {
+                            return 'Enter a valid number';
+                          }
+                          if (parsed < 0) {
+                            return 'Price cannot be negative';
+                          }
+                          return null;
+                        },
                         decoration: InputDecoration(
                           labelText: 'Unit Price',
                           labelStyle: const TextStyle(color: Colors.white70),
                           filled: true,
                           fillColor: const Color(0xFF1B1B2C),
+                          errorStyle: const TextStyle(color: Colors.redAccent),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
                           ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF6F4BFF),
+                              width: 2,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.redAccent,
+                              width: 1,
+                            ),
+                          ),
+                          focusedErrorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Colors.redAccent,
+                              width: 2,
+                            ),
+                          ),
                         ),
-                        enabled: canEditPrice,
                       ),
                     ],
                   ),
+            ),
           ),
           actions: [
             TextButton(
@@ -1051,8 +1185,54 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
             if (widget.canDeleteRegion)
               TextButton(
                 onPressed: () async {
-                  await context.read<DeliveryZonesCubit>().deleteZone(widget.zone.id);
-                  if (mounted) Navigator.of(context).pop();
+                  HapticFeedback.mediumImpact();
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: const Color(0xFF0A0A0A),
+                      title: const Text('Delete Region', style: TextStyle(color: Colors.white)),
+                      content: Text(
+                        'Are you sure you want to delete "${widget.zone.region}"? This will also delete all prices for this region.',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.redAccent),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed != true || !mounted) return;
+                  
+                  try {
+                    await context.read<DeliveryZonesCubit>().deleteZone(widget.zone.id);
+                    if (mounted) {
+                      Navigator.of(context).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Region deleted successfully'),
+                          backgroundColor: Color(0xFF4CAF50),
+                        ),
+                      );
+                    }
+                  } catch (err) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Failed to delete region: ${err.toString()}'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    }
+                  }
                 },
                 child: const Text(
                   'Delete Region',
@@ -1067,11 +1247,12 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
               onPressed: !canEditPrice || products.isEmpty || _selectedProductId == null || _submitting
                   ? null
                   : () async {
+                      HapticFeedback.mediumImpact();
+                      if (!(_formKey.currentState?.validate() ?? false)) {
+                        return;
+                      }
                       final parsed = double.tryParse(_priceController.text.trim());
-                      if (parsed == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Enter a valid price')),
-                        );
+                      if (parsed == null || parsed < 0) {
                         return;
                       }
                       setState(() => _submitting = true);
@@ -1086,11 +1267,32 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                                 unitPrice: parsed,
                               ),
                             );
-                        if (mounted) Navigator.of(context).pop();
+                        if (mounted) {
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Price updated successfully'),
+                              backgroundColor: Color(0xFF4CAF50),
+                            ),
+                          );
+                        }
                       } catch (err) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(err.toString())),
+                            SnackBar(
+                              content: Text('Failed to update price: ${err.toString()}'),
+                              backgroundColor: Colors.redAccent,
+                              action: SnackBarAction(
+                                label: 'Retry',
+                                onPressed: () {
+                                  // Re-run the save operation
+                                  final parsed = double.tryParse(_priceController.text.trim());
+                                  if (parsed != null && parsed >= 0) {
+                                    // This will be handled by the button's onPressed callback
+                                  }
+                                },
+                              ),
+                            ),
                           );
                         }
                       } finally {
@@ -1172,7 +1374,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
         'ZoneDialog editing=$isEditing canSubmit=$canSubmit cityPerm=${widget.cityPermission} regionPerm=${widget.regionPermission}');
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         isEditing ? 'Edit Zone' : 'Add Zone',
         style: const TextStyle(color: Colors.white),

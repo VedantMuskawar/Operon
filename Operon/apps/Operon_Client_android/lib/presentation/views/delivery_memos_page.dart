@@ -5,7 +5,8 @@ import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/repositories/delivery_memo_repository.dart';
 import 'package:dash_mobile/presentation/blocs/delivery_memos/delivery_memos_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -56,15 +57,30 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
     final organization = orgContext.organization;
 
     if (organization == null) {
-      return PageWorkspaceLayout(
-        title: 'DM',
-        currentIndex: 4,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-        child: const Center(
-          child: Text(
-            'Please select an organization',
-            style: TextStyle(color: Colors.white70),
+      return Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'DM',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: const Text(
+                      'Please select an organization',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ),
+              ),
+              QuickNavBar(
+                currentIndex: 4,
+                onTap: (value) => context.go('/home', extra: value),
+              ),
+            ],
           ),
         ),
       );
@@ -86,12 +102,18 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
             );
           }
         },
-        child: PageWorkspaceLayout(
-          title: 'DM',
-          currentIndex: 4,
-          onBack: () => context.go('/home'),
-          onNavTap: (value) => context.go('/home', extra: value),
-          child: Column(
+        child: Scaffold(
+          backgroundColor: const Color(0xFF000000),
+          appBar: const ModernPageHeader(
+            title: 'DM',
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -104,6 +126,15 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
               // Delivery Memos List
               _buildDeliveryMemosList(),
             ],
+                    ),
+                  ),
+                ),
+                QuickNavBar(
+                  currentIndex: 4,
+                  onTap: (value) => context.go('/home', extra: value),
+                ),
+              ],
+            ),
           ),
         ),
       ),

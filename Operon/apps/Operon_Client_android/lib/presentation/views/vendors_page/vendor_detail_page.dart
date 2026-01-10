@@ -25,7 +25,7 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text(
           'Delete Vendor',
           style: TextStyle(color: Colors.white),
@@ -82,7 +82,7 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF010104),
+      backgroundColor: const Color(0xFF000000),
       body: SafeArea(
         child: Column(
           children: [
@@ -1557,7 +1557,7 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
     final cubit = context.read<VendorsCubit>();
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: const Text(
         'Edit Vendor',
         style: TextStyle(color: Colors.white),

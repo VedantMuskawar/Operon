@@ -2,7 +2,10 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/products/products_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_tile.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -21,12 +24,18 @@ class ProductsPage extends StatelessWidget {
           );
         }
       },
-      child: PageWorkspaceLayout(
-        title: 'Products',
-        currentIndex: 4,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-        child: Column(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const ModernPageHeader(
+          title: 'Products',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
@@ -83,27 +92,34 @@ class ProductsPage extends StatelessWidget {
                     ),
                   );
                 }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: state.products.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final product = state.products[index];
-                    return _ProductTile(
-                      product: product,
-                      canEdit: cubit.canEdit,
-                      canDelete: cubit.canDelete,
-                      onEdit: () =>
-                          _openProductDialog(context, product: product),
-                      onDelete: () => cubit.deleteProduct(product.id),
-                    );
-                  },
+                return Column(
+                  children: [
+                    for (int i = 0; i < state.products.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      _ProductTile(
+                        product: state.products[i],
+                        canEdit: cubit.canEdit,
+                        canDelete: cubit.canDelete,
+                        onEdit: () =>
+                            _openProductDialog(context, product: state.products[i]),
+                        onDelete: () => cubit.deleteProduct(state.products[i].id),
+                      ),
+                    ],
+                  ],
                 );
               },
             ),
           ],
+                ),
+                      ),
+                    ),
+            QuickNavBar(
+              currentIndex: -1, // -1 means no selection when on this page
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
         ),
+      ),
       ),
     );
   }
@@ -140,83 +156,19 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.inventory_2_outlined, color: Colors.white),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  product.hasGst
-                      ? '₹${product.unitPrice.toStringAsFixed(2)} • GST ${product.gstPercent!.toStringAsFixed(1)}%'
-                      : '₹${product.unitPrice.toStringAsFixed(2)} • No GST',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                if (product.fixedQuantityPerTripOptions != null &&
-                    product.fixedQuantityPerTripOptions!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Fixed Qty/Trip: ${product.fixedQuantityPerTripOptions!.join(", ")}',
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  'Status: ${product.status.name}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          if (canEdit || canDelete)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (canEdit)
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.white54),
-                    onPressed: onEdit,
-                  ),
-                if (canEdit && canDelete) const SizedBox(height: 8),
-                if (canDelete)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                    onPressed: onDelete,
-                  ),
-              ],
-            ),
-        ],
-      ),
+    return ModernProductTile(
+      name: product.name,
+      price: product.unitPrice,
+      status: product.status.name,
+      gstPercent: product.hasGst ? product.gstPercent : null,
+      fixedQuantityOptions: product.fixedQuantityPerTripOptions
+          ?.map((e) => e.toString())
+          .toList(),
+      canEdit: canEdit,
+      canDelete: canDelete,
+      onEdit: onEdit,
+      onDelete: onDelete,
+      elevation: 0,
     );
   }
 }
@@ -281,7 +233,7 @@ class _ProductDialogState extends State<_ProductDialog> {
     final canEdit = cubit.canEdit;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         isEditing ? 'Edit Product' : 'Add Product',
         style: const TextStyle(color: Colors.white),

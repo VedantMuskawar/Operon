@@ -64,7 +64,43 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
             if (state.isLoadingZones)
               const Expanded(
                 child: Center(
-                  child: CircularProgressIndicator(),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading zones...',
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (state.cities.isEmpty && state.zones.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.location_off,
+                        size: 48,
+                        color: Colors.white38,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No delivery zones available',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Add cities and regions in Delivery Zones page',
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
@@ -433,7 +469,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: const Text('Add Region', style: TextStyle(color: Colors.white)),
       content: widget.cities.isEmpty
           ? const Text(
@@ -623,7 +659,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const AlertDialog(
-        backgroundColor: Color(0xFF11111B),
+        backgroundColor: Color(0xFF0A0A0A),
         content: Center(
           child: CircularProgressIndicator(),
         ),
@@ -631,7 +667,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -969,7 +1005,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
+          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

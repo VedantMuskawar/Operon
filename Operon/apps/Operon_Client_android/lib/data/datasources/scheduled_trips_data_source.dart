@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 
@@ -78,22 +80,32 @@ class ScheduledTripsDataSource {
     required String slotName,
     required Map<String, dynamic> deliveryZone,
     required List<dynamic> items,
-    required Map<String, dynamic> pricing,
-    required bool includeGstInTotal,
+    Map<String, dynamic>? pricing, // ✅ Made optional (will be removed)
+    bool? includeGstInTotal, // ✅ Made optional (will be removed)
     required String priority,
     required String createdBy,
+    int? itemIndex, // ✅ Optional: which item this trip belongs to (default: 0)
+    String? productId, // ✅ Optional: product ID (default: first item's productId)
   }) async {
-    // Validate slot availability before creating
-    final isAvailable = await isSlotAvailable(
-      organizationId: organizationId,
-      scheduledDate: scheduledDate,
-      vehicleId: vehicleId,
-      slot: slot,
-    );
+    try {
+      // Validate slot availability before creating
+      final isAvailable = await isSlotAvailable(
+        organizationId: organizationId,
+        scheduledDate: scheduledDate,
+        vehicleId: vehicleId,
+        slot: slot,
+      );
 
-    if (!isAvailable) {
-      final dateStr = '${scheduledDate.year}-${scheduledDate.month.toString().padLeft(2, '0')}-${scheduledDate.day.toString().padLeft(2, '0')}';
-      throw Exception('Slot $slot is already booked for this vehicle on $dateStr');
+      if (!isAvailable) {
+        final dateStr = '${scheduledDate.year}-${scheduledDate.month.toString().padLeft(2, '0')}-${scheduledDate.day.toString().padLeft(2, '0')}';
+        throw Exception('Slot $slot is already booked for this vehicle on $dateStr');
+      }
+    } catch (e) {
+      // Re-throw with context if it's a network error
+      if (e is SocketException || e is HttpException) {
+        throw Exception('Unable to verify slot availability. Please check your connection and try again.');
+      }
+      rethrow;
     }
 
     // Generate scheduleTripId
@@ -105,134 +117,216 @@ class ScheduledTripsDataSource {
       slot: slot,
     );
 
-    // Calculate trip-specific pricing based on fixedQuantityPerTrip
-    // Guard GST consistency: if order snapshot carries includeGstInTotal, enforce match
-    final orderIncludeGst = pricing['includeGstInTotal'] as bool?;
-    if (orderIncludeGst != null && orderIncludeGst != includeGstInTotal) {
-      throw Exception(
-        'GST flag mismatch: order includeGstInTotal=$orderIncludeGst, trip includeGstInTotal=$includeGstInTotal',
-      );
+    // Determine itemIndex and productId
+    final finalItemIndex = itemIndex ?? 0;
+    final orderItems = List<dynamic>.from(items);
+    if (finalItemIndex < 0 || finalItemIndex >= orderItems.length) {
+      throw Exception('Invalid itemIndex: $finalItemIndex (items.length: ${orderItems.length})');
+    }
+    
+    final targetItem = orderItems[finalItemIndex] as Map<String, dynamic>;
+    final finalProductId = productId ?? (targetItem['productId'] as String?);
+    
+    if (finalProductId == null) {
+      throw Exception('ProductId is required');
+    }
+    
+    // Validate productId matches
+    if (targetItem['productId'] != finalProductId) {
+      throw Exception('ProductId mismatch: expected ${targetItem['productId']}, got $finalProductId');
     }
 
     // Calculate trip-specific pricing based on fixedQuantityPerTrip
-    final tripPricingData =
-        calculateTripPricing(items, includeGstInTotal: includeGstInTotal);
+    // Use item's GST settings (conditional GST storage)
+    final itemGstPercent = (targetItem['gstPercent'] as num?)?.toDouble();
+    final hasGst = itemGstPercent != null && itemGstPercent > 0;
+    
+    final tripPricingData = calculateTripPricing(
+      [targetItem], // Only calculate for the specific item
+      includeGstInTotal: hasGst, // Use item's GST status
+    );
     var tripItems = tripPricingData['items'] as List<dynamic>;
     var tripPricing = tripPricingData['tripPricing'] as Map<String, dynamic>;
 
-    // Final guard: if GST is excluded, ensure no GST amounts persist
-    if (!includeGstInTotal) {
-      final cleanedItems = <dynamic>[];
-      for (final item in tripItems) {
-        if (item is Map<String, dynamic>) {
-          cleanedItems.add({
-            ...item,
-            'tripGstAmount': 0.0,
-            'tripTotal': (item['tripSubtotal'] as num?)?.toDouble() ?? 0.0,
-          });
-        } else {
-          cleanedItems.add(item);
+    // ✅ Clean trip items: Remove order-level tracking fields, keep only trip-specific data
+    tripItems = tripItems.map((item) {
+      if (item is Map<String, dynamic>) {
+        // Keep only trip-specific fields
+        final cleanedItem = <String, dynamic>{
+          'productId': item['productId'],
+          'productName': item['productName'] ?? targetItem['productName'],
+          'unitPrice': item['unitPrice'] ?? targetItem['unitPrice'],
+          'fixedQuantityPerTrip': item['fixedQuantityPerTrip'] ?? targetItem['fixedQuantityPerTrip'],
+          'tripSubtotal': item['tripSubtotal'] ?? item['subtotal'] ?? 0.0,
+          'tripTotal': item['tripTotal'] ?? item['total'] ?? 0.0,
+        };
+        
+        // Only include GST fields if GST applies
+        // itemGstPercent is guaranteed to be non-null if hasGst is true
+        if (hasGst) {
+          final tripSubtotal = (item['tripSubtotal'] as num?)?.toDouble() ??
+              (item['subtotal'] as num?)?.toDouble() ??
+              (cleanedItem['tripSubtotal'] as num).toDouble();
+          final tripGstAmount = (item['tripGstAmount'] as num?)?.toDouble() ??
+              (item['gstAmount'] as num?)?.toDouble() ??
+              tripSubtotal * (itemGstPercent / 100);
+          if (tripGstAmount > 0) {
+            cleanedItem['tripGstAmount'] = tripGstAmount;
+            cleanedItem['gstPercent'] = itemGstPercent;
+          }
         }
+        
+        // Remove order-level tracking fields (should not be in trip items)
+        // ❌ estimatedTrips - order-level tracking
+        // ❌ scheduledTrips - order-level tracking
+        // ❌ subtotal - use tripSubtotal instead
+        // ❌ total - use tripTotal instead
+        // ❌ gstAmount - use tripGstAmount instead
+        
+        return cleanedItem;
       }
-      tripItems = cleanedItems;
-      tripPricing = {
-        ...tripPricing,
-        'gstAmount': 0.0,
-        'total': (tripPricing['subtotal'] as num?)?.toDouble() ?? 0.0,
-      };
+      return item;
+    }).toList();
+
+    // ✅ Conditional GST storage: only include gstAmount if GST applies
+    final cleanedTripPricing = <String, dynamic>{
+      'subtotal': tripPricing['subtotal'] ?? 0.0,
+      'total': tripPricing['total'] ?? 0.0,
+    };
+    
+    if (hasGst && tripPricing['gstAmount'] != null && (tripPricing['gstAmount'] as num).toDouble() > 0) {
+      cleanedTripPricing['gstAmount'] = tripPricing['gstAmount'];
     }
+    
+    tripPricing = cleanedTripPricing;
 
     // Check if this is the first trip and deduct advance payment if applicable
     final orderRef = _firestore.collection('PENDING_ORDERS').doc(orderId);
-    final orderDoc = await orderRef.get();
     double? advanceAmountDeducted;
     
-    if (orderDoc.exists) {
-      final orderData = orderDoc.data();
-      final totalScheduledTrips = (orderData?['totalScheduledTrips'] as num?)?.toInt() ?? 0;
-      final advanceAmount = (orderData?['advanceAmount'] as num?)?.toDouble();
+    try {
+      final orderDoc = await orderRef.get();
       
-      // If this is the first trip (totalScheduledTrips === 0) and order has advance payment
-      if (totalScheduledTrips == 0 && advanceAmount != null && advanceAmount > 0) {
-        final currentTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-        // Deduct advance amount from trip total (ensure it doesn't go negative)
-        final newTotal = (currentTotal - advanceAmount).clamp(0.0, double.infinity);
-        advanceAmountDeducted = currentTotal - newTotal; // Store how much was actually deducted
+      if (orderDoc.exists) {
+        final orderData = orderDoc.data();
+        final totalScheduledTrips = (orderData?['totalScheduledTrips'] as num?)?.toInt() ?? 0;
+        final advanceAmount = (orderData?['advanceAmount'] as num?)?.toDouble();
         
-        // Update tripPricing total
-        tripPricing = {
-          ...tripPricing,
-          'total': newTotal,
-          'advanceAmountDeducted': advanceAmountDeducted, // Store for reference
-        };
-        
-        // Also update item-level trip totals proportionally
-        if (tripItems.isNotEmpty && currentTotal > 0 && advanceAmountDeducted > 0) {
-          final reductionRatio = newTotal / currentTotal;
-          tripItems = tripItems.map((item) {
-            if (item is Map<String, dynamic>) {
-              final itemTotal = (item['tripTotal'] as num?)?.toDouble() ?? 0.0;
-              return {
-                ...item,
-                'tripTotal': (itemTotal * reductionRatio).clamp(0.0, double.infinity),
-              };
-            }
-            return item;
-          }).toList();
+        // If this is the first trip (totalScheduledTrips === 0) and order has advance payment
+        if (totalScheduledTrips == 0 && advanceAmount != null && advanceAmount > 0) {
+          final currentTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+          // Deduct advance amount from trip total (ensure it doesn't go negative)
+          final newTotal = (currentTotal - advanceAmount).clamp(0.0, double.infinity);
+          advanceAmountDeducted = currentTotal - newTotal; // Store how much was actually deducted
+          
+          // Update tripPricing total
+          tripPricing = {
+            ...tripPricing,
+            'total': newTotal,
+            'advanceAmountDeducted': advanceAmountDeducted, // Store for reference
+          };
+          
+          // Also update item-level trip totals proportionally
+          if (tripItems.isNotEmpty && currentTotal > 0 && advanceAmountDeducted > 0) {
+            final reductionRatio = newTotal / currentTotal;
+            tripItems = tripItems.map((item) {
+              if (item is Map<String, dynamic>) {
+                final itemTotal = (item['tripTotal'] as num?)?.toDouble() ?? 0.0;
+                return {
+                  ...item,
+                  'tripTotal': (itemTotal * reductionRatio).clamp(0.0, double.infinity),
+                };
+              }
+              return item;
+            }).toList();
+          }
         }
+      } else {
+        // Order doesn't exist - this could happen if order was deleted or fully scheduled
+        throw Exception('Order not found. It may have been deleted or fully scheduled.');
       }
+    } catch (e) {
+      // Re-throw with context if it's a network error
+      if (e is SocketException || e is HttpException) {
+        throw Exception('Unable to fetch order details. Please check your connection and try again.');
+      }
+      rethrow;
     }
 
     final docRef = _firestore.collection(_collection).doc();
     
-    await docRef.set({
-      'scheduleTripId': scheduleTripId,
-      'orderId': orderId,
-      'organizationId': organizationId,
-      'clientId': clientId,
-      'clientName': clientName,
-      'clientPhone': _normalizePhone(clientPhone ?? customerNumber),
-      'customerNumber': customerNumber,
-      'paymentType': paymentType,
-      'scheduledDate': Timestamp.fromDate(scheduledDate),
-      'scheduledDay': scheduledDay,
-      'vehicleId': vehicleId,
-      'vehicleNumber': vehicleNumber,
-      'driverId': driverId,
-      'driverName': driverName,
-      'driverPhone': driverPhone,
-      'slot': slot,
-      'slotName': slotName,
-      'deliveryZone': deliveryZone,
-      'items': tripItems, // Items with trip-specific pricing
-      'tripPricing': tripPricing, // Trip-specific pricing (subtotal, gstAmount, total)
-      'pricing': pricing, // keep order pricing snapshot if needed
-      'includeGstInTotal': includeGstInTotal,
-      'priority': priority,
-      'tripStatus': 'scheduled',
-      'createdAt': FieldValue.serverTimestamp(),
-      'createdBy': createdBy,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await docRef.set({
+        'scheduleTripId': scheduleTripId,
+        'orderId': orderId,
+        'itemIndex': finalItemIndex, // ✅ Store which item this trip belongs to
+        'productId': finalProductId, // ✅ Store product reference
+        'organizationId': organizationId,
+        'clientId': clientId,
+        'clientName': clientName,
+        'clientPhone': _normalizePhone(clientPhone ?? customerNumber),
+        'customerNumber': customerNumber,
+        'paymentType': paymentType,
+        'scheduledDate': Timestamp.fromDate(scheduledDate),
+        'scheduledDay': scheduledDay,
+        'vehicleId': vehicleId,
+        'vehicleNumber': vehicleNumber,
+        'driverId': driverId,
+        'driverName': driverName,
+        'driverPhone': driverPhone,
+        'slot': slot,
+        'slotName': slotName,
+        'deliveryZone': deliveryZone,
+        'items': tripItems, // Items with trip-specific pricing
+        'tripPricing': tripPricing, // Trip-specific pricing (subtotal, gstAmount?, total)
+        // ❌ REMOVED: pricing snapshot (redundant)
+        // ❌ REMOVED: includeGstInTotal (not needed with conditional GST storage)
+        'priority': priority,
+        'tripStatus': 'scheduled',
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': createdBy,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      // Re-throw with context if it's a network error
+      if (e is SocketException || e is HttpException) {
+        throw Exception('Unable to create trip. Please check your connection and try again.');
+      }
+      // Check for Firestore permission errors
+      if (e.toString().contains('PERMISSION_DENIED')) {
+        throw Exception('Permission denied. Please check your account permissions.');
+      }
+      rethrow;
+    }
 
     // Append tripId to order (lightweight ref list), and bump counts
-        // Note: totalScheduledTrips is updated by Cloud Function (onScheduledTripCreated)
-        // We only update tripIds here for quick reference
-        // Reuse orderRef that was already fetched above
-        await _firestore.runTransaction((txn) async {
-          final snap = await txn.get(orderRef);
-          if (!snap.exists) return;
-          final data = snap.data() as Map<String, dynamic>;
-          final tripIds = List<String>.from(data['tripIds'] as List<dynamic>? ?? []);
-          if (!tripIds.contains(docRef.id)) {
-            tripIds.add(docRef.id);
-          }
-          // DO NOT increment totalScheduledTrips here - Cloud Function handles it
-          txn.update(orderRef, {
-            'tripIds': tripIds,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+    // Note: totalScheduledTrips is updated by Cloud Function (onScheduledTripCreated)
+    // We only update tripIds here for quick reference
+    // Reuse orderRef that was already fetched above
+    try {
+      await _firestore.runTransaction((txn) async {
+        final snap = await txn.get(orderRef);
+        if (!snap.exists) {
+          // Order was deleted - this is handled by Cloud Function cleanup
+          return;
+        }
+        final data = snap.data() as Map<String, dynamic>;
+        final tripIds = List<String>.from(data['tripIds'] as List<dynamic>? ?? []);
+        if (!tripIds.contains(docRef.id)) {
+          tripIds.add(docRef.id);
+        }
+        // DO NOT increment totalScheduledTrips here - Cloud Function handles it
+        txn.update(orderRef, {
+          'tripIds': tripIds,
+          'updatedAt': FieldValue.serverTimestamp(),
         });
+      });
+    } catch (e) {
+      // Transaction failure is non-critical - trip is already created
+      // Cloud Function will handle tripIds update, or it will be cleaned up
+      // Log but don't fail the operation
+      print('Warning: Failed to update order tripIds: $e');
+    }
 
     return docRef.id;
   }

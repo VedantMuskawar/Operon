@@ -1,6 +1,7 @@
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/views/fuel_ledger/record_fuel_purchase_dialog.dart';
 import 'package:dash_mobile/presentation/views/fuel_ledger/link_trips_dialog.dart';
 import 'package:flutter/material.dart';
@@ -166,23 +167,27 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        PageWorkspaceLayout(
-          title: 'Fuel Ledger',
-          currentIndex: 0,
-          onNavTap: (value) => context.go('/home', extra: value),
-          onBack: () => context.go('/home'),
-          child: _isLoading
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Column(
+        Scaffold(
+          backgroundColor: const Color(0xFF000000),
+          appBar: const ModernPageHeader(
+            title: 'Fuel Ledger',
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: _isLoading
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : _error != null
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(40),
+                                child: Column(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
@@ -255,6 +260,14 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                             onLinkTrips: _showLinkTripsDialog,
                           ),
                         ),
+                ),
+                QuickNavBar(
+                  currentIndex: 0,
+                  onTap: (value) => context.go('/home', extra: value),
+                ),
+              ],
+            ),
+          ),
         ),
         // Floating Action Button - positioned like Add Client button
         Builder(

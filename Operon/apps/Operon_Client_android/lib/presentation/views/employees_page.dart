@@ -3,8 +3,11 @@ import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/employees/employees_cubit.dart';
 import 'package:dash_mobile/presentation/views/employees_page/employee_analytics_page.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
+import 'package:dash_mobile/presentation/widgets/modern_tile.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -93,12 +96,20 @@ class _EmployeesPageState extends State<EmployeesPage> {
           );
         }
       },
-      child: PageWorkspaceLayout(
-        title: 'Employees',
-        currentIndex: 4,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-            child: Builder(
+      child: Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'Employees',
+        ),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Builder(
               builder: (context) {
                 final media = MediaQuery.of(context);
                 final screenHeight = media.size.height;
@@ -188,16 +199,18 @@ class _EmployeesPageState extends State<EmployeesPage> {
                 );
               },
             ),
-          ),
-        ),
-        // Quick Action Menu - only visible on Employees page
+                      ),
+                    ),
+                QuickNavBar(
+                  currentIndex: -1, // -1 means no selection when on this page
+                  onTap: (value) => context.go('/home', extra: value),
+                ),
+              ],
+            ),
+            // Quick Action Menu - only visible on Employees page
             if (_currentPage.round() == 0)
               Builder(
                 builder: (context) {
-                  final media = MediaQuery.of(context);
-                  final bottomPadding = media.padding.bottom;
-                  // Nav bar height (~80px) + safe area bottom + spacing (20px)
-                  final bottomOffset = 80 + bottomPadding + 20;
                   final cubit = context.read<EmployeesCubit>();
                   
                   final actions = <QuickActionItem>[];
@@ -212,15 +225,18 @@ class _EmployeesPageState extends State<EmployeesPage> {
                     );
                   }
               
-              if (actions.isEmpty) return const SizedBox.shrink();
+                  if (actions.isEmpty) return const SizedBox.shrink();
               
-              return QuickActionMenu(
-                right: 40,
-                bottom: bottomOffset,
-                actions: actions,
-              );
-            },
-          ),
+                  return QuickActionMenu(
+                    actions: actions,
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+      ),
+      ),
       ],
     );
   }
@@ -410,42 +426,19 @@ class _EmployeeTile extends StatelessWidget {
     final balanceDifference = employee.currentBalance - employee.openingBalance;
     final isPositive = balanceDifference >= 0;
 
-    return InkWell(
+    return ModernTile(
       onTap: () => context.pushNamed('employee-detail', extra: employee),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF1F1F33).withOpacity(0.6),
-              const Color(0xFF1A1A28).withOpacity(0.8),
-            ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: employeeColor.withOpacity(0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      accentColor: employeeColor,
+      elevation: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-                // Avatar
-          Container(
-                  width: 48,
-                  height: 48,
+          Row(
+            children: [
+              // Avatar
+              Container(
+                width: AppSpacing.avatarMD,
+                height: AppSpacing.avatarMD,
             decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -464,181 +457,193 @@ class _EmployeeTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Center(
-                    child: Text(
-                      _getInitials(employee.name),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
+                child: Center(
+                  child: Text(
+                    _getInitials(employee.name),
+                    style: AppTypography.h4.copyWith(
+                      color: AppColors.textPrimary,
                     ),
                   ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                  employee.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(width: AppSpacing.itemSpacing),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            employee.name,
+                            style: AppTypography.h4,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        // Role Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: employeeColor.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: employeeColor.withOpacity(0.3),
                             ),
                           ),
-                          // Role Badge
+                          child: Text(
+                            employee.roleTitle,
+                            style: TextStyle(
+                              color: employeeColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: AppSpacing.paddingXS),
+                    // Balance
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.account_balance_wallet_outlined,
+                          size: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                        SizedBox(width: AppSpacing.paddingXS / 2),
+                        Expanded(
+                          child: Text(
+                            '₹${employee.currentBalance.toStringAsFixed(2)}',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (balanceDifference != 0)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
+                              horizontal: 6,
+                              vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: employeeColor.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: employeeColor.withOpacity(0.3),
-                              ),
+                              color: isPositive
+                                  ? AppColors.success.withOpacity(0.15)
+                                  : AppColors.error.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text(
-                              employee.roleTitle,
-                              style: TextStyle(
-                                color: employeeColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Balance
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.account_balance_wallet_outlined,
-                            size: 14,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '₹${employee.currentBalance.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (balanceDifference != 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isPositive
-                                    ? const Color(0xFF5AD8A4).withOpacity(0.15)
-                                    : Colors.redAccent.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                                    size: 10,
-                                    color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isPositive ? Icons.arrow_upward : Icons.arrow_downward,
+                                  size: 10,
+                                  color: isPositive ? AppColors.success : AppColors.error,
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '₹${balanceDifference.abs().toStringAsFixed(2)}',
+                                  style: AppTypography.caption.copyWith(
+                                    color: isPositive ? AppColors.success : AppColors.error,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    '₹${balanceDifference.abs().toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                                      fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                        ],
-                      ),
-                    ],
-                  ),
+                          ),
+                      ],
+                    ),
+                  ],
                 ),
-                // Action buttons
-                if (onEdit != null || onDelete != null)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.white54),
-                    color: const Color(0xFF1B1B2C),
-                    onSelected: (value) {
-                      if (value == 'edit' && onEdit != null) {
-                        onEdit!();
-                      } else if (value == 'delete' && onDelete != null) {
-                        onDelete!();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      if (onEdit != null)
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, color: Colors.white70, size: 18),
-                              SizedBox(width: 8),
-                              Text('Edit', style: TextStyle(color: Colors.white70)),
-                            ],
-                          ),
+              ),
+              // Action buttons
+              if (onEdit != null || onDelete != null)
+                PopupMenuButton<String>(
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: AppColors.textTertiary,
+                    size: AppSpacing.iconSM,
+                  ),
+                  color: AppColors.cardBackgroundElevated,
+                  onSelected: (value) {
+                    if (value == 'edit' && onEdit != null) {
+                      onEdit!();
+                    } else if (value == 'delete' && onDelete != null) {
+                      onDelete!();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    if (onEdit != null)
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit_outlined,
+                              color: AppColors.textSecondary,
+                              size: 18,
+                            ),
+                            SizedBox(width: AppSpacing.paddingXS),
+                            Text(
+                              'Edit',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
-                      if (onDelete != null)
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                              SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: Colors.redAccent)),
-                            ],
-                          ),
+                      ),
+                    if (onDelete != null)
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline,
+                              color: AppColors.error,
+                              size: 18,
+                            ),
+                            SizedBox(width: AppSpacing.paddingXS),
+                            Text(
+                              'Delete',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ],
                         ),
-                    ],
+                      ),
+                  ],
+                ),
+            ],
+          ),
+          // Salary info if available
+          if (employee.salaryAmount != null) ...[
+            SizedBox(height: AppSpacing.paddingSM),
+            Row(
+              children: [
+                Icon(
+                  Icons.payments_outlined,
+                  size: 12,
+                  color: AppColors.textTertiary,
+                ),
+                SizedBox(width: AppSpacing.paddingXS / 2),
+                Text(
+                  'Salary: ₹${employee.salaryAmount!.toStringAsFixed(2)}/${_getSalaryTypeLabel(employee.salaryType)}',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
                 ),
               ],
             ),
-            // Salary info if available
-            if (employee.salaryAmount != null) ...[
-              const SizedBox(height: 12),
-              Row(
-              children: [
-                  Icon(
-                    Icons.payments_outlined,
-                    size: 12,
-                    color: Colors.white.withOpacity(0.6),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Salary: ₹${employee.salaryAmount!.toStringAsFixed(2)}/${_getSalaryTypeLabel(employee.salaryType)}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -898,7 +903,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     final selectedRole = _findSelectedRole(roles);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         isEditing ? 'Edit Employee' : 'Add Employee',
         style: const TextStyle(color: Colors.white),

@@ -240,7 +240,9 @@ async function sendWhatsappMessage(url, token, to, messageBody, messageType, con
  * Cloud Function: Triggered when an order is created
  * Sends WhatsApp notification to client with order details
  */
-exports.onOrderCreatedSendWhatsapp = functions.firestore
+exports.onOrderCreatedSendWhatsapp = functions
+    .region('asia-south1')
+    .firestore
     .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
     .onCreate(async (snapshot, context) => {
     const orderId = context.params.orderId;
@@ -301,7 +303,9 @@ exports.onOrderCreatedSendWhatsapp = functions.firestore
  * Sends WhatsApp notification to client with updated order details
  * Only sends for significant changes (items, pricing, status, delivery zone)
  */
-exports.onOrderUpdatedSendWhatsapp = functions.firestore
+exports.onOrderUpdatedSendWhatsapp = functions
+    .region('asia-south1')
+    .firestore
     .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
     .onUpdate(async (change, context) => {
     const orderId = context.params.orderId;

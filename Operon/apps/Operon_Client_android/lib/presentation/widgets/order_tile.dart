@@ -2,6 +2,7 @@ import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/views/orders/pending_order_detail_page.dart';
 import 'package:dash_mobile/presentation/widgets/schedule_trip_modal.dart';
+import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,11 +26,33 @@ class OrderTile extends StatefulWidget {
 class _OrderTileState extends State<OrderTile> {
   bool _isDeleting = false;
 
-  Color _getPriorityBorderColor() {
+  bool _isHighPriority() {
     final priority = widget.order['priority'] as String? ?? 'normal';
-    return priority == 'high' || priority == 'priority'
+    return priority == 'high' || priority == 'priority';
+  }
+
+  Color _getPriorityBorderColor() {
+    return _isHighPriority()
         ? const Color(0xFFD4AF37) // Gold
-        : const Color(0xFFC0C0C0); // Silver
+        : AppColors.borderMedium;
+  }
+
+  List<BoxShadow> _getPriorityShadows() {
+    if (!_isHighPriority()) return AppShadows.none;
+    return [
+      BoxShadow(
+        color: const Color(0xFFD4AF37).withOpacity(0.4),
+        blurRadius: 12,
+        spreadRadius: 0,
+        offset: const Offset(0, 0),
+      ),
+      BoxShadow(
+        color: const Color(0xFFD4AF37).withOpacity(0.2),
+        blurRadius: 6,
+        spreadRadius: -2,
+        offset: const Offset(0, 2),
+      ),
+    ];
   }
 
   String _formatDate(dynamic timestamp) {
@@ -47,32 +70,41 @@ class _OrderTileState extends State<OrderTile> {
     }
   }
 
-  String _formatETAText(DateTime etaDate) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final etaDay = DateTime(etaDate.year, etaDate.month, etaDate.day);
-    final daysDiff = etaDay.difference(today).inDays;
-
-    if (daysDiff == 0) {
-      return 'Est. delivery: Today';
+  String _formatETAText(DateTime etaDate, int daysDiff) {
+    if (daysDiff < 0) {
+      return 'Overdue';
+    } else if (daysDiff == 0) {
+      return 'Today';
     } else if (daysDiff == 1) {
-      return 'Est. delivery: Tomorrow';
-    } else if (daysDiff < 0) {
-      return 'Est. delivery: Overdue';
+      return 'Tomorrow';
     } else {
-      return 'Est. delivery: ${_formatDate(etaDate)}';
+      return _formatDate(etaDate);
+    }
+  }
+
+  IconData _getETAIcon(int daysDiff) {
+    if (daysDiff < 0) {
+      return Icons.error_outline;
+    } else if (daysDiff == 0) {
+      return Icons.today;
+    } else if (daysDiff == 1) {
+      return Icons.schedule;
+    } else if (daysDiff <= 3) {
+      return Icons.event;
+    } else {
+      return Icons.calendar_today;
     }
   }
 
   Color _getETAColor(int daysDiff) {
     if (daysDiff < 0) {
-      return Colors.red;
+      return AppColors.error;
     } else if (daysDiff == 0 || daysDiff == 1) {
-      return const Color(0xFF4CAF50);
+      return AppColors.success;
     } else if (daysDiff <= 3) {
-      return Colors.orange;
+      return AppColors.warning;
     } else {
-      return Colors.amber;
+      return AppColors.info;
     }
   }
 
@@ -93,31 +125,46 @@ class _OrderTileState extends State<OrderTile> {
       final daysDiff = etaDay.difference(today).inDays;
 
       final color = _getETAColor(daysDiff);
+      final icon = _getETAIcon(daysDiff);
 
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.paddingSM,
+          vertical: AppSpacing.paddingXS,
+        ),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-            width: 1,
+          gradient: LinearGradient(
+            colors: [
+              color.withOpacity(0.2),
+              color.withOpacity(0.1),
+            ],
           ),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+          border: Border.all(
+            color: color.withOpacity(0.4),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.schedule_outlined,
-              size: 11,
+              icon,
+              size: AppSpacing.iconXS,
               color: color,
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: AppSpacing.paddingXS / 2),
             Text(
-              _formatETAText(etaDate),
-              style: TextStyle(
+              _formatETAText(etaDate, daysDiff),
+              style: AppTypography.captionSmall.copyWith(
                 color: color,
-                fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -265,198 +312,373 @@ class _OrderTileState extends State<OrderTile> {
         : 'N/A';
     final createdAt = widget.order['createdAt'];
     final priorityColor = _getPriorityBorderColor();
+    final priorityShadows = _getPriorityShadows();
     final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
     final estimatedDeliveryDate = autoSchedule?['estimatedDeliveryDate'];
 
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => PendingOrderDetailPage(order: widget.order),
+    return RepaintBoundary(
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => PendingOrderDetailPage(order: widget.order),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        child: Container(
+          padding: EdgeInsets.all(AppSpacing.paddingMD),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            border: Border.all(
+              color: priorityColor,
+              width: _isHighPriority() ? 2 : 1,
+            ),
+            boxShadow: [
+              ...priorityShadows,
+              ...AppShadows.card,
+            ],
           ),
-        );
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF131324),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: priorityColor.withOpacity(0.6),
-            width: 1.5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header: Client name and Trip counter
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _OrderHeader(
+                      clientName: clientName,
+                      zoneText: zoneText,
+                      estimatedDeliveryDate: estimatedDeliveryDate,
+                      buildETALabel: _buildETALabel,
+                    ),
+                  ),
+                  SizedBox(width: AppSpacing.paddingMD),
+                  _TripCounterBadge(
+                    scheduled: totalScheduledTrips,
+                    total: totalTrips,
+                  ),
+                ],
+              ),
+              SizedBox(height: AppSpacing.paddingMD),
+              // Product and quantity info
+              _ProductInfo(
+                productName: productName,
+                fixedQuantityPerTrip: fixedQuantityPerTrip,
+                createdAt: createdAt,
+                formatDate: _formatDate,
+              ),
+              SizedBox(height: AppSpacing.paddingMD),
+              // Action buttons
+              _ActionButtons(
+                isDeleting: _isDeleting,
+                onDelete: _deleteOrder,
+                onCall: _callClient,
+                onSchedule: estimatedTrips > 0 ? _openScheduleModal : null,
+              ),
+            ],
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderHeader extends StatelessWidget {
+  const _OrderHeader({
+    required this.clientName,
+    required this.zoneText,
+    required this.estimatedDeliveryDate,
+    required this.buildETALabel,
+  });
+
+  final String clientName;
+  final String zoneText;
+  final dynamic estimatedDeliveryDate;
+  final Widget Function(dynamic) buildETALabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          clientName,
+          style: AppTypography.h4.copyWith(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        SizedBox(height: AppSpacing.paddingXS / 2),
+        Row(
+          children: [
+            Icon(
+              Icons.location_on_outlined,
+              size: AppSpacing.iconXS,
+              color: AppColors.textSecondary,
+            ),
+            SizedBox(width: AppSpacing.paddingXS / 2),
+            Expanded(
+              child: Text(
+                zoneText,
+                style: AppTypography.bodySmall.copyWith(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header: Client name and Trip counter
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      clientName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 12,
-                          color: Colors.white60,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            zoneText,
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 11,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (estimatedDeliveryDate != null) ...[
-                      const SizedBox(height: 4),
-                      _buildETALabel(estimatedDeliveryDate),
-                    ],
-                  ],
-                ),
+        if (estimatedDeliveryDate != null) ...[
+          SizedBox(height: AppSpacing.paddingXS),
+          buildETALabel(estimatedDeliveryDate),
+        ],
+      ],
+    );
+  }
+}
+
+class _TripCounterBadge extends StatelessWidget {
+  const _TripCounterBadge({
+    required this.scheduled,
+    required this.total,
+  });
+
+  final int scheduled;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = total > 0 ? scheduled / total : 0.0;
+    final isComplete = scheduled >= total;
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.paddingMD,
+        vertical: AppSpacing.paddingSM,
+      ),
+      decoration: BoxDecoration(
+        gradient: isComplete
+            ? LinearGradient(
+                colors: [
+                  AppColors.success,
+                  AppColors.success.withOpacity(0.8),
+                ],
+              )
+            : LinearGradient(
+                colors: [
+                  AppColors.primary.withOpacity(0.2),
+                  AppColors.primary.withOpacity(0.1),
+                ],
               ),
-              const SizedBox(width: 8),
-              // Scheduled trips counter (X/Y format)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1B1B2C),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  '$totalScheduledTrips/$totalTrips',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Product and quantity info
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1B1B2C).withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.inventory_2_outlined,
-                      size: 12,
-                      color: Colors.white70,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      productName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'Qty: $fixedQuantityPerTrip',
-                  style: const TextStyle(
-                    color: Color(0xFF81C784),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _formatDate(createdAt),
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Compact action buttons
-          Row(
-            children: [
-              Expanded(
-                child: _CompactActionButton(
-                  icon: Icons.delete_outline,
-                  label: 'Delete',
-                  color: Colors.red,
-                  onTap: _isDeleting ? null : _deleteOrder,
-                  isLoading: _isDeleting,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _CompactActionButton(
-                  icon: Icons.phone_outlined,
-                  label: 'Call',
-                  color: Colors.green,
-                  onTap: _callClient,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: _CompactActionButton(
-                  icon: Icons.schedule_outlined,
-                  label: 'Schedule',
-                  color: Colors.blue,
-                  onTap: estimatedTrips > 0 ? _openScheduleModal : null,
-                ),
-              ),
-            ],
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        border: Border.all(
+          color: isComplete
+              ? AppColors.success
+              : AppColors.primary.withOpacity(0.4),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (isComplete ? AppColors.success : AppColors.primary)
+                .withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.route,
+                size: AppSpacing.iconSM,
+                color: isComplete
+                    ? AppColors.textPrimary
+                    : AppColors.primary,
+              ),
+              SizedBox(width: AppSpacing.paddingXS / 2),
+              Text(
+                '$scheduled/$total',
+                style: AppTypography.labelSmall.copyWith(
+                  color: isComplete
+                      ? AppColors.textPrimary
+                      : AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          if (!isComplete && total > 0) ...[
+            SizedBox(height: AppSpacing.paddingXS / 2),
+            SizedBox(
+              width: 50,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 3,
+                  backgroundColor: AppColors.inputBackground,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColors.primary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
+    );
+  }
+}
+
+class _ProductInfo extends StatelessWidget {
+  const _ProductInfo({
+    required this.productName,
+    required this.fixedQuantityPerTrip,
+    required this.createdAt,
+    required this.formatDate,
+  });
+
+  final String productName;
+  final int fixedQuantityPerTrip;
+  final dynamic createdAt;
+  final String Function(dynamic) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingSM,
+            vertical: AppSpacing.paddingXS,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.cardBackgroundElevated,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+            border: Border.all(
+              color: AppColors.borderDefault,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.inventory_2_outlined,
+                size: AppSpacing.iconXS,
+                color: AppColors.textSecondary,
+              ),
+              SizedBox(width: AppSpacing.paddingXS / 2),
+              Text(
+                productName,
+                style: AppTypography.labelSmall.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        SizedBox(width: AppSpacing.paddingSM),
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingSM,
+            vertical: AppSpacing.paddingXS,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.success.withOpacity(0.2),
+                AppColors.success.withOpacity(0.1),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+            border: Border.all(
+              color: AppColors.success.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            'Qty: $fixedQuantityPerTrip',
+            style: AppTypography.captionSmall.copyWith(
+              color: AppColors.success,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const Spacer(),
+        Text(
+          formatDate(createdAt),
+          style: AppTypography.captionSmall.copyWith(
+            color: AppColors.textTertiary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionButtons extends StatelessWidget {
+  const _ActionButtons({
+    required this.isDeleting,
+    required this.onDelete,
+    required this.onCall,
+    required this.onSchedule,
+  });
+
+  final bool isDeleting;
+  final VoidCallback onDelete;
+  final VoidCallback onCall;
+  final VoidCallback? onSchedule;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _CompactActionButton(
+            icon: Icons.delete_outline,
+            label: 'Delete',
+            color: AppColors.error,
+            onTap: isDeleting ? null : onDelete,
+            isLoading: isDeleting,
+          ),
+        ),
+        SizedBox(width: AppSpacing.paddingSM),
+        Expanded(
+          child: _CompactActionButton(
+            icon: Icons.phone_outlined,
+            label: 'Call',
+            color: AppColors.success,
+            onTap: onCall,
+          ),
+        ),
+        SizedBox(width: AppSpacing.paddingSM),
+        Expanded(
+          child: _CompactActionButton(
+            icon: Icons.schedule_outlined,
+            label: 'Schedule',
+            color: AppColors.info,
+            onTap: onSchedule,
+            isDisabled: onSchedule == null,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -468,6 +690,7 @@ class _CompactActionButton extends StatelessWidget {
     required this.color,
     required this.onTap,
     this.isLoading = false,
+    this.isDisabled = false,
   });
 
   final IconData icon;
@@ -475,46 +698,92 @@ class _CompactActionButton extends StatelessWidget {
   final Color color;
   final VoidCallback? onTap;
   final bool isLoading;
+  final bool isDisabled;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: isLoading
-            ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: Colors.white70,
-                ),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, color: Colors.white, size: 14),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+    final effectiveColor = (isDisabled || onTap == null)
+        ? AppColors.inputBackground
+        : color;
+    final textColor = (isDisabled || onTap == null)
+        ? AppColors.textTertiary
+        : AppColors.textPrimary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: (isDisabled || isLoading) ? null : onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+        splashColor: effectiveColor.withOpacity(0.2),
+        highlightColor: effectiveColor.withOpacity(0.1),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingSM,
+            vertical: AppSpacing.paddingSM + 2,
+          ),
+          constraints: const BoxConstraints(
+            minHeight: 44, // Minimum touch target
+          ),
+          decoration: BoxDecoration(
+            gradient: (isDisabled || onTap == null)
+                ? null
+                : LinearGradient(
+                    colors: [
+                      effectiveColor,
+                      effectiveColor.withOpacity(0.9),
+                    ],
                   ),
-                ],
-              ),
+            color: (isDisabled || onTap == null) ? effectiveColor : null,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+            border: (isDisabled || onTap == null)
+                ? Border.all(
+                    color: AppColors.borderDefault,
+                    width: 1,
+                  )
+                : null,
+            boxShadow: (isDisabled || onTap == null)
+                ? null
+                : [
+                    BoxShadow(
+                      color: effectiveColor.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: isLoading
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(textColor),
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      color: textColor,
+                      size: AppSpacing.iconSM,
+                    ),
+                    SizedBox(width: AppSpacing.paddingXS / 2),
+                    Flexible(
+                      child: Text(
+                        label,
+                        style: AppTypography.captionSmall.copyWith(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }

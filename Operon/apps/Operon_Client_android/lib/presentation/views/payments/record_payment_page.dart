@@ -9,7 +9,8 @@ import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/data/services/qr_code_service.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:core_bloc/core_bloc.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -170,7 +171,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
 
     if (organization == null) {
       return const Scaffold(
-        backgroundColor: Color(0xFF010104),
+        backgroundColor: Color(0xFF000000),
         body: Center(child: Text('Please select an organization')),
       );
     }
@@ -202,12 +203,18 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         }
       },
       builder: (context, state) {
-        return PageWorkspaceLayout(
-          title: 'Record Payment',
-          currentIndex: 0,
-          onNavTap: (value) => context.go('/home', extra: value),
-          onBack: () => context.go('/home'),
-          child: Form(
+        return Scaffold(
+          backgroundColor: const Color(0xFF000000),
+          appBar: const ModernPageHeader(
+            title: 'Record Payment',
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -239,9 +246,18 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 // Submit Button
                 _buildSubmitButton(state),
               ],
+                    ),
+                      ),
+                    ),
             ),
-          ),
-        );
+            QuickNavBar(
+              currentIndex: 0,
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
+        ),
+      ),
+    );
       },
     );
   }

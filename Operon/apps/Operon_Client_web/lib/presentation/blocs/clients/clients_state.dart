@@ -9,6 +9,8 @@ class ClientsState extends BaseState {
     this.searchQuery = '',
     this.isRecentLoading = false,
     this.isSearchLoading = false,
+    this.analytics,
+    this.isAnalyticsLoading = false,
     this.message,
   }) : super(message: message);
 
@@ -18,6 +20,8 @@ class ClientsState extends BaseState {
   final String searchQuery;
   final bool isRecentLoading;
   final bool isSearchLoading;
+  final ClientsAnalytics? analytics;
+  final bool isAnalyticsLoading;
   @override
   final String? message;
 
@@ -30,6 +34,8 @@ class ClientsState extends BaseState {
     String? searchQuery,
     bool? isRecentLoading,
     bool? isSearchLoading,
+    ClientsAnalytics? analytics,
+    bool? isAnalyticsLoading,
     String? message,
   }) {
     return ClientsState(
@@ -40,6 +46,8 @@ class ClientsState extends BaseState {
       searchQuery: searchQuery ?? this.searchQuery,
       isRecentLoading: isRecentLoading ?? this.isRecentLoading,
       isSearchLoading: isSearchLoading ?? this.isSearchLoading,
+      analytics: analytics ?? this.analytics,
+      isAnalyticsLoading: isAnalyticsLoading ?? this.isAnalyticsLoading,
       message: message ?? this.message,
     );
   }

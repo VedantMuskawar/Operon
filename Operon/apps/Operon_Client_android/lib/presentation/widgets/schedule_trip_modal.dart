@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ScheduleTripModal extends StatefulWidget {
@@ -38,9 +42,13 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   bool _isLoading = false;
   bool _isLoadingVehicles = false;
   bool _isLoadingSlots = false;
+  String? _vehiclesError;
+  String? _slotsError;
   List<Vehicle> _eligibleVehicles = [];
   List<int> _availableSlots = [];
   Map<int, bool> _slotBookedStatus = {};
+  Timer? _slotLoadDebounce;
+  String? _lastSlotLoadKey; // Cache key for slot data
 
   @override
   void initState() {
@@ -55,15 +63,28 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   @override
   void dispose() {
     _newPhoneController.dispose();
+    _slotLoadDebounce?.cancel();
     super.dispose();
   }
 
   Future<void> _loadEligibleVehicles() async {
-    setState(() => _isLoadingVehicles = true);
+    if (!mounted) return;
+    setState(() {
+      _isLoadingVehicles = true;
+      _vehiclesError = null;
+    });
     try {
       final orgContext = context.read<OrganizationContextCubit>();
       final organization = orgContext.state.organization;
-      if (organization == null) return;
+      if (organization == null) {
+        if (mounted) {
+          setState(() {
+            _isLoadingVehicles = false;
+            _vehiclesError = 'Organization not selected';
+          });
+        }
+        return;
+      }
 
       final vehiclesRepo = context.read<VehiclesRepository>();
       final allVehicles = await vehiclesRepo.fetchVehicles(organization.id);
@@ -71,24 +92,50 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       // Show all active vehicles (ignore product matching)
       final eligible = allVehicles.where((v) => v.isActive).toList();
 
+      if (!mounted) return;
       setState(() {
         _eligibleVehicles = eligible;
         _isLoadingVehicles = false;
+        _vehiclesError = null;
       });
     } catch (e) {
-      setState(() => _isLoadingVehicles = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load vehicles: $e')),
-        );
-      }
+      if (!mounted) return;
+      final errorMessage = NetworkErrorHelper.isNetworkError(e)
+          ? NetworkErrorHelper.getNetworkErrorMessage(e)
+          : 'Failed to load vehicles: $e';
+      setState(() {
+        _isLoadingVehicles = false;
+        _vehiclesError = errorMessage;
+      });
     }
   }
 
-  Future<void> _loadAvailableSlots() async {
+  Future<void> _loadAvailableSlots({bool immediate = false}) async {
     if (_selectedVehicle == null || _selectedDate == null) return;
 
-    setState(() => _isLoadingSlots = true);
+    // Create cache key
+    final cacheKey = '${_selectedVehicle!.id}_${_selectedDate!.toIso8601String()}';
+    
+    // Check if we already have this data cached
+    if (_lastSlotLoadKey == cacheKey && _availableSlots.isNotEmpty) {
+      return; // Use cached data
+    }
+
+    // Debounce slot loading to prevent excessive API calls
+    if (!immediate) {
+      _slotLoadDebounce?.cancel();
+      _slotLoadDebounce = Timer(const Duration(milliseconds: 300), () {
+        _loadAvailableSlots(immediate: true);
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoadingSlots = true;
+      _slotsError = null;
+    });
+    
     try {
       final orgContext = context.read<OrganizationContextCubit>();
       final organization = orgContext.state.organization;
@@ -181,22 +228,24 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         allSlots.map((slot) => MapEntry(slot, bookedSlots.contains(slot))),
       );
 
+      if (!mounted) return;
       setState(() {
         _availableSlots = availableSlots;
         _slotBookedStatus = slotBookedStatus;
         _selectedSlot = null; // Reset selection
         _isLoadingSlots = false;
+        _slotsError = null;
+        _lastSlotLoadKey = cacheKey; // Cache the result
       });
     } catch (e) {
-      setState(() => _isLoadingSlots = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load slots: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      final errorMessage = NetworkErrorHelper.isNetworkError(e)
+          ? NetworkErrorHelper.getNetworkErrorMessage(e)
+          : 'Failed to load slots: $e';
+      setState(() {
+        _isLoadingSlots = false;
+        _slotsError = errorMessage;
+      });
     }
   }
 
@@ -206,8 +255,29 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   }
 
   String _formatDate(DateTime date) {
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    final weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
     return '${months[date.month - 1]} ${date.day.toString().padLeft(2, '0')}, ${date.year} (${weekdays[date.weekday - 1]})';
   }
 
@@ -275,6 +345,19 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       // Get day name
       final dayName = _getDayName(_selectedDate!);
 
+      // Get order items to determine itemIndex and productId
+      // For now, default to first item (itemIndex 0) for backward compatibility
+      // TODO: Add UI to select which item/product to schedule for multi-product orders
+      final orderItems = widget.order['items'] as List<dynamic>? ?? [];
+      final itemIndex = 0; // Default to first item
+      String? productId;
+      if (orderItems.isNotEmpty && itemIndex < orderItems.length) {
+        final item = orderItems[itemIndex];
+        if (item is Map<String, dynamic>) {
+          productId = item['productId'] as String?;
+        }
+      }
+
       // Create scheduled trip
       final scheduledTripsRepo = context.read<ScheduledTripsRepository>();
       await scheduledTripsRepo.createScheduledTrip(
@@ -295,19 +378,37 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         slot: _selectedSlot!,
         slotName: 'Slot $_selectedSlot',
         deliveryZone: widget.order['deliveryZone'] as Map<String, dynamic>? ?? {},
-        items: widget.order['items'] as List<dynamic>? ?? [],
-        pricing: widget.order['pricing'] as Map<String, dynamic>? ?? {},
-        includeGstInTotal:
-            widget.order['includeGstInTotal'] as bool? ?? true,
+        items: orderItems,
+        // ❌ REMOVED: pricing snapshot (redundant)
+        // ❌ REMOVED: includeGstInTotal (not needed with conditional GST storage)
         priority: widget.order['priority'] as String? ?? 'normal',
         createdBy: currentUser.uid,
+        itemIndex: itemIndex, // ✅ Pass itemIndex
+        productId: productId, // ✅ Pass productId
       );
 
       if (mounted) {
+        HapticFeedback.mediumImpact();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Trip scheduled successfully'),
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Trip scheduled successfully',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(seconds: 2),
           ),
         );
         Navigator.of(context).pop();
@@ -315,10 +416,34 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       }
     } catch (e) {
       if (mounted) {
+        final errorMessage = NetworkErrorHelper.isNetworkError(e)
+            ? NetworkErrorHelper.getNetworkErrorMessage(e)
+            : 'Failed to schedule trip: $e';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to schedule trip: $e'),
-            backgroundColor: Colors.red,
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    errorMessage,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: _scheduleTrip,
+            ),
           ),
         );
       }
@@ -404,26 +529,45 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               ),
               child: Row(
                 children: [
-                  Expanded(
+                    Expanded(
                     child: TextButton(
-                      onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              HapticFeedback.lightImpact();
+                              Navigator.of(context).pop();
+                            },
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
+                        minimumSize: const Size(0, 48), // Minimum touch target
                       ),
-                      child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _scheduleTrip,
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                              HapticFeedback.mediumImpact();
+                              _scheduleTrip();
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF6F4BFF),
+                        disabledBackgroundColor: const Color(0xFF6F4BFF).withOpacity(0.6),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
+                        elevation: 0,
                       ),
                       child: _isLoading
                           ? const SizedBox(
@@ -434,7 +578,14 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text('Schedule', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          : const Text(
+                              'Schedule',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -503,6 +654,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               ),
             ],
             onChanged: (value) {
+              HapticFeedback.selectionClick();
               if (value == '__add_new__') {
                 setState(() {
                   _isAddingNewPhone = true;
@@ -538,8 +690,9 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               prefixIcon: const Icon(Icons.add_call, color: Colors.white54, size: 18),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white70),
+                icon: const Icon(Icons.close, color: Colors.white70, size: 18),
                 onPressed: () {
+                  HapticFeedback.lightImpact();
                   setState(() {
                     _isAddingNewPhone = false;
                     _newPhoneController.clear();
@@ -550,6 +703,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                     }
                   });
                 },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
             ),
             onChanged: (value) {
@@ -592,8 +747,13 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   Widget _buildPaymentTypeOption(String label, String value, IconData icon) {
     final isSelected = _paymentType == value;
     return GestureDetector(
-      onTap: () => setState(() => _paymentType = value),
-      child: Container(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _paymentType = value);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
           color: isSelected
@@ -667,9 +827,11 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               },
             );
             if (date != null) {
+              HapticFeedback.lightImpact();
               setState(() {
                 _selectedDate = date;
                 _selectedSlot = null; // Reset slot when date changes
+                _lastSlotLoadKey = null; // Clear cache on date change
               });
               _loadAvailableSlots();
             }
@@ -723,10 +885,53 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         ),
         const SizedBox(height: 8),
         if (_isLoadingVehicles)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF6F4BFF),
+                strokeWidth: 2,
+              ),
+            ),
+          )
+        else if (_vehiclesError != null)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF13131E),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _vehiclesError!,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: _loadEligibleVehicles,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: const Text(
+                      'Retry',
+                      style: TextStyle(color: Color(0xFF6F4BFF), fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
             ),
           )
         else if (_eligibleVehicles.isEmpty)
@@ -736,9 +941,17 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               color: const Color(0xFF13131E),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text(
-              'No eligible vehicles available',
-              style: TextStyle(color: Colors.white70),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.white70, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'No eligible vehicles available',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+              ],
             ),
           )
         else
@@ -777,9 +990,11 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               );
             }).toList(),
             onChanged: (vehicle) {
+              HapticFeedback.lightImpact();
               setState(() {
                 _selectedVehicle = vehicle;
                 _selectedSlot = null; // Reset slot when vehicle changes
+                _lastSlotLoadKey = null; // Clear cache on vehicle change
               });
               if (_selectedDate != null) {
                 _loadAvailableSlots();
@@ -818,14 +1033,59 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         ),
         const SizedBox(height: 8),
         if (_isLoadingSlots)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(12),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
               child: SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF6F4BFF),
+                ),
               ),
+            ),
+          )
+        else if (_slotsError != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF13131E),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _slotsError!,
+                        style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => _loadAvailableSlots(immediate: true),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Retry',
+                      style: TextStyle(color: Color(0xFF6F4BFF), fontSize: 11),
+                    ),
+                  ),
+                ),
+              ],
             ),
           )
         else if (_availableSlots.isEmpty && _slotBookedStatus.isEmpty)
@@ -835,9 +1095,17 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               color: const Color(0xFF13131E),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Text(
-              'No slots available for this day',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.white70, size: 16),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'No slots available for this day',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ),
+              ],
             ),
           )
         else
@@ -849,38 +1117,75 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               final isSelected = _selectedSlot == slot;
               final isAvailable = !isBooked;
 
-              return GestureDetector(
-                onTap: isAvailable
-                    ? () => setState(() => _selectedSlot = slot)
-                    : null,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? const Color(0xFF6F4BFF).withOpacity(0.2)
-                        : isBooked
-                            ? const Color(0xFF13131E).withOpacity(0.5)
-                            : const Color(0xFF13131E),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
+              return RepaintBoundary(
+                key: ValueKey('slot_$slot'),
+                child: GestureDetector(
+                  onTap: isAvailable
+                      ? () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _selectedSlot = slot);
+                        }
+                      : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF6F4BFF)
+                          ? const Color(0xFF6F4BFF).withOpacity(0.2)
                           : isBooked
-                              ? Colors.white.withOpacity(0.1)
-                              : Colors.white.withOpacity(0.15),
-                      width: isSelected ? 1.5 : 1,
+                              ? const Color(0xFF13131E).withOpacity(0.5)
+                              : const Color(0xFF13131E),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isSelected
+                            ? const Color(0xFF6F4BFF)
+                            : isBooked
+                                ? Colors.white.withOpacity(0.1)
+                                : Colors.white.withOpacity(0.15),
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF6F4BFF).withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
                     ),
-                  ),
-                  child: Text(
-                    'Slot $slot',
-                    style: TextStyle(
-                      color: isSelected
-                          ? Colors.white
-                          : isBooked
-                              ? Colors.white30
-                              : Colors.white70,
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isBooked)
+                          const Icon(
+                            Icons.lock,
+                            size: 14,
+                            color: Colors.white30,
+                          )
+                        else if (isSelected)
+                          const Icon(
+                            Icons.check_circle,
+                            size: 14,
+                            color: Color(0xFF6F4BFF),
+                          )
+                        else
+                          const SizedBox(width: 14),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Slot $slot',
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : isBooked
+                                    ? Colors.white30
+                                    : Colors.white70,
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

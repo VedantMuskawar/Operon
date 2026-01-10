@@ -464,18 +464,56 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
         finalRegion = existingZone.region;
       }
 
-      // Step 2: Calculate pricing
+      // Step 2: Calculate pricing and serialize items
       double totalSubtotal = 0;
       double gstSum = 0;
-      for (final item in state.selectedItems) {
-        totalSubtotal += item.subtotal;
-        if (item.hasGst) {
+      
+      // Serialize items - exclude GST if includeGstInTotal is false
+      final serializedItems = state.selectedItems.map((item) {
+        final itemJson = <String, dynamic>{
+          'productId': item.productId,
+          'productName': item.productName,
+          'estimatedTrips': item.estimatedTrips,
+          'fixedQuantityPerTrip': item.fixedQuantityPerTrip,
+          'scheduledTrips': 0,
+          'unitPrice': item.unitPrice,
+        };
+        
+        // Calculate subtotal and total
+        final itemSubtotal = item.subtotal;
+        double itemTotal;
+        
+        if (includeGstInTotal && item.hasGst) {
+          // Include GST
+          itemJson['gstPercent'] = item.gstPercent;
+          itemJson['gstAmount'] = item.gstAmount;
+          itemTotal = item.total;
           gstSum += item.gstAmount;
+        } else {
+          // Exclude GST
+          itemTotal = itemSubtotal;
         }
-      }
-      // Only include GST in stored total when includeGstInTotal is true
+        
+        itemJson['subtotal'] = itemSubtotal;
+        itemJson['total'] = itemTotal;
+        totalSubtotal += itemSubtotal;
+        
+        return itemJson;
+      }).toList();
+      
+      // Calculate order-level pricing
       final totalGst = includeGstInTotal ? gstSum : 0;
       final totalAmount = totalSubtotal + totalGst;
+      
+      // Build pricing object - only include totalGst if GST is included
+      final pricingData = <String, dynamic>{
+        'subtotal': totalSubtotal,
+        'totalAmount': totalAmount,
+        'currency': 'INR',
+      };
+      if (totalGst > 0) {
+        pricingData['totalGst'] = totalGst;
+      }
       final remainingAmount = advanceAmount != null && advanceAmount > 0
           ? totalAmount - advanceAmount
           : null;
@@ -492,25 +530,19 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
         'clientName': clientName,
         'name_lc': clientName.trim().toLowerCase(),
         'clientPhone': normalizedPhone.isNotEmpty ? normalizedPhone : clientPhone,
-        'items': state.selectedItems.map((item) => item.toJson()).toList(),
+        'items': serializedItems,
         'deliveryZone': {
           'zone_id': finalZoneId,
           'city_name': finalCity,
           'region': finalRegion,
         },
-        'pricing': {
-          'subtotal': totalSubtotal,
-          'totalGst': totalGst,
-          'totalAmount': totalAmount,
-          'currency': 'INR',
-        },
-        'includeGstInTotal': includeGstInTotal,
+        'pricing': pricingData,
+        // ❌ REMOVED: includeGstInTotal (not needed with conditional GST storage)
         'priority': priority,
         'status': 'pending',
         'scheduledTrips': <dynamic>[],
         'totalScheduledTrips': 0,
-        'scheduledQuantity': null,
-        'unscheduledQuantity': null,
+        // ❌ REMOVED: scheduledQuantity, unscheduledQuantity (calculate on-the-fly)
         'organizationId': _organizationId,
         'createdBy': createdBy,
         'createdAt': FieldValue.serverTimestamp(),

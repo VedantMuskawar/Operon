@@ -30,18 +30,25 @@ class OrderItem {
   bool get hasGst => gstPercent != null && gstPercent! > 0;
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = <String, dynamic>{
       'productId': productId,
       'productName': productName,
       'estimatedTrips': estimatedTrips,
       'fixedQuantityPerTrip': fixedQuantityPerTrip,
-      'totalQuantity': totalQuantity,
+      // ❌ REMOVED: totalQuantity (calculate on-the-fly)
+      'scheduledTrips': 0, // ✅ Initialize scheduledTrips counter
       'unitPrice': unitPrice,
-      if (gstPercent != null) 'gstPercent': gstPercent,
       'subtotal': subtotal,
-      'gstAmount': gstAmount,
       'total': total,
     };
+    
+    // ✅ Only include GST fields if GST applies
+    if (gstPercent != null && gstPercent! > 0) {
+      json['gstPercent'] = gstPercent!;
+      json['gstAmount'] = gstAmount;
+    }
+    
+    return json;
   }
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {

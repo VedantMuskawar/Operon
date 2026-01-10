@@ -1,0 +1,5 @@
+DATE,CLIENT,DM_NO,Trip ID,Schedule Trip ID,Order ID,Client ID,Customer Number,Vehicle ID,Vehicle Number,VehicleNO,Slot,Slot Name,Driver ID,Driver Name,Driver Phone,Zone ID,City,Region,Product,Quantity,Unit,Priority,Payment Type,Trip Status,Order Status,Status
+2025-04-15,ABC Corporation,3442,,,,,+919876543210,,MH34 AB8930,,1,Morning,,John Doe,+919876543211,,Mumbai,Maharashtra,BRICKS,4000,5.75,normal,cash,returned,pending,active
+
+
+

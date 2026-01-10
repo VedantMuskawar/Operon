@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/shared/constants/constants.dart';
 
 class HomeOverviewView extends StatelessWidget {
   const HomeOverviewView({super.key});
@@ -91,10 +92,10 @@ class HomeOverviewView extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
+      crossAxisSpacing: AppSpacing.paddingLG,
+      mainAxisSpacing: AppSpacing.paddingLG,
       childAspectRatio: 1.2,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: EdgeInsets.symmetric(horizontal: AppSpacing.paddingXS),
       children: tiles,
     );
   }
@@ -144,32 +145,47 @@ class _OverviewTileState extends State<_OverviewTile> {
     setState(() => _isPressed = false);
   }
 
-  Color _getCategoryColor() {
-    switch (widget.category) {
-      case _ModuleCategory.people:
-        return const Color(0xFF4A90E2); // Blue
-      case _ModuleCategory.operations:
-        return const Color(0xFF4CAF50); // Green
-      case _ModuleCategory.financial:
-        return const Color(0xFFFF9800); // Orange
-      case _ModuleCategory.documents:
-        return const Color(0xFF6F4BFF); // Purple
-    }
+  // Palette of vibrant colors that work well on dark backgrounds
+  static final List<Color> _colorPalette = [
+    AppColors.primary,        // Purple
+    AppColors.info,            // Blue
+    AppColors.success,         // Green
+    AppColors.warning,         // Orange
+    AppColors.error,           // Pink/Red
+    const Color(0xFF9C27B0),  // Deep Purple
+    const Color(0xFF00BCD4),  // Cyan
+    const Color(0xFF4CAF50),  // Green
+    const Color(0xFFFFC107),  // Amber
+    const Color(0xFFFF5722),  // Deep Orange
+    const Color(0xFFE91E63),   // Pink
+    const Color(0xFF3F51B5),   // Indigo
+    const Color(0xFF009688),   // Teal
+    const Color(0xFF795548),   // Brown
+    const Color(0xFF607D8B),   // Blue Grey
+  ];
+
+  Color _getRandomColor() {
+    // Use label hash to get consistent random color per tile
+    final hash = widget.label.hashCode;
+    final index = hash.abs() % _colorPalette.length;
+    return _colorPalette[index];
   }
 
-  List<Color> _getGradientColors() {
-    final baseColor = _getCategoryColor();
-    return [
-      baseColor.withOpacity(0.15),
-      baseColor.withOpacity(0.05),
-      const Color(0xFF13131E),
-    ];
+  Color _getMixedBackgroundColor() {
+    final randomColor = _getRandomColor();
+    // Mix the random color with card background (75% card, 25% random color)
+    // This creates subtle, varied backgrounds
+    return Color.lerp(
+      AppColors.cardBackground,
+      randomColor.withOpacity(0.4),
+      0.25,
+    ) ?? AppColors.cardBackground;
   }
 
   @override
   Widget build(BuildContext context) {
-    final categoryColor = _getCategoryColor();
-    final gradientColors = _getGradientColors();
+    final randomColor = _getRandomColor();
+    final backgroundColor = _getMixedBackgroundColor();
 
     return GestureDetector(
       onTapDown: _handleTapDown,
@@ -182,30 +198,36 @@ class _OverviewTileState extends State<_OverviewTile> {
         curve: Curves.easeInOut,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingLG,
+            vertical: AppSpacing.paddingXL,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradientColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
+            color: backgroundColor, // Solid mixed color instead of gradient
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             border: Border.all(
               color: _isPressed
-                  ? categoryColor.withOpacity(0.5)
-                  : Colors.white.withOpacity(0.1),
-              width: _isPressed ? 1.5 : 1,
+                  ? randomColor.withOpacity(0.6)
+                  : randomColor.withOpacity(0.2),
+              width: _isPressed ? 2 : 1.5,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: _isPressed
-                    ? categoryColor.withOpacity(0.3)
-                    : Colors.black.withOpacity(0.3),
-                blurRadius: _isPressed ? 20 : 12,
-                offset: Offset(0, _isPressed ? 8 : 4),
-                spreadRadius: _isPressed ? 2 : 0,
-              ),
-            ],
+            boxShadow: _isPressed 
+                ? [
+                    BoxShadow(
+                      color: randomColor.withOpacity(0.4),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: randomColor.withOpacity(0.15),
+                      blurRadius: 12,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -215,21 +237,21 @@ class _OverviewTileState extends State<_OverviewTile> {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: AppSpacing.avatarMD,
+                    height: AppSpacing.avatarMD,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: LinearGradient(
                         colors: [
-                          categoryColor.withOpacity(0.25),
-                          categoryColor.withOpacity(0.15),
+                          randomColor.withOpacity(0.25),
+                          randomColor.withOpacity(0.15),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: categoryColor.withOpacity(0.3),
+                          color: randomColor.withOpacity(0.3),
                           blurRadius: 10,
                           spreadRadius: 1,
                         ),
@@ -237,8 +259,8 @@ class _OverviewTileState extends State<_OverviewTile> {
                     ),
                     child: Icon(
                       widget.icon,
-                      size: 24,
-                      color: categoryColor,
+                      size: AppSpacing.iconLG,
+                      color: randomColor,
                     ),
                   ),
                   if (widget.badgeCount != null && widget.badgeCount! > 0)
@@ -248,10 +270,10 @@ class _OverviewTileState extends State<_OverviewTile> {
                       child: Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF3B30),
+                          color: AppColors.error,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: const Color(0xFF13131E),
+                            color: AppColors.cardBackground,
                             width: 1.5,
                           ),
                         ),
@@ -261,9 +283,8 @@ class _OverviewTileState extends State<_OverviewTile> {
                         ),
                         child: Text(
                           widget.badgeCount! > 99 ? '99+' : '${widget.badgeCount}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.textPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
@@ -272,13 +293,12 @@ class _OverviewTileState extends State<_OverviewTile> {
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: AppSpacing.paddingSM),
               Text(
                 widget.label,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 12,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 1,

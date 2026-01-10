@@ -16,13 +16,24 @@ class QuickActionMenu extends StatefulWidget {
   const QuickActionMenu({
     super.key,
     required this.actions,
-    this.right = 40,
-    this.bottom = 120,
+    this.right,
+    this.bottom,
   });
 
   final List<QuickActionItem> actions;
-  final double right;
-  final double bottom;
+  final double? right;
+  final double? bottom;
+
+  /// Standard FAB position - right edge with safe padding
+  static const double standardRight = 24.0;
+  
+  /// Standard FAB position - above nav bar with safe padding
+  static double standardBottom(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final bottomPadding = media.padding.bottom;
+    // Nav bar height (~80px) + safe area bottom + spacing (16px)
+    return 80.0 + bottomPadding + 16.0;
+  }
 
   @override
   State<QuickActionMenu> createState() => _QuickActionMenuState();
@@ -159,8 +170,8 @@ class _QuickActionMenuState extends State<QuickActionMenu>
           final offset = (reversedIndex + 1) * 72.0; // 56px button + 16px spacing
 
           return Positioned(
-            right: widget.right,
-            bottom: widget.bottom + offset,
+            right: widget.right ?? QuickActionMenu.standardRight,
+            bottom: (widget.bottom ?? QuickActionMenu.standardBottom(context)) + offset,
             child: AnimatedBuilder(
               animation: _slideAnimations[index],
               builder: (context, child) {
@@ -191,8 +202,8 @@ class _QuickActionMenuState extends State<QuickActionMenu>
         
         // Main FAB button - always visible
         Positioned(
-          right: widget.right,
-          bottom: widget.bottom,
+          right: widget.right ?? QuickActionMenu.standardRight,
+          bottom: widget.bottom ?? QuickActionMenu.standardBottom(context),
           child: Material(
             color: Colors.transparent,
             child: InkWell(

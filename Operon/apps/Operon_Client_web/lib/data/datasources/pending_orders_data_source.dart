@@ -27,8 +27,7 @@ class PendingOrdersDataSource {
       'name_lc': nameLc,
       'tripIds': orderData['tripIds'] ?? <dynamic>[],
       'totalScheduledTrips': orderData['totalScheduledTrips'] ?? 0,
-      'scheduledQuantity': orderData['scheduledQuantity'],
-      'unscheduledQuantity': orderData['unscheduledQuantity'],
+      // ❌ REMOVED: scheduledQuantity, unscheduledQuantity (calculate on-the-fly)
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -45,9 +44,19 @@ class PendingOrdersDataSource {
       final data = doc.data();
       final status = data['status'] as String?;
       final items = data['items'] as List<dynamic>? ?? [];
-      final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic>? : null;
-      final estimatedTrips = firstItem?['estimatedTrips'] as int? ?? 0;
-      final hasAvailableTrips = estimatedTrips > 0;
+      // Check if any item has available trips
+      bool hasAvailableTrips = false;
+      for (final item in items) {
+        final itemMap = item as Map<String, dynamic>?;
+        if (itemMap != null) {
+          final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
+          final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
+          if (estimatedTrips > scheduledTrips) {
+            hasAvailableTrips = true;
+            break;
+          }
+        }
+      }
 
       if ((status == null || status == 'pending') && hasAvailableTrips) {
         count++;
@@ -89,9 +98,19 @@ class PendingOrdersDataSource {
       final status = data['status'] as String?;
 
       final items = data['items'] as List<dynamic>? ?? [];
-      final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic>? : null;
-      final estimatedTrips = firstItem?['estimatedTrips'] as int? ?? 0;
-      final hasAvailableTrips = estimatedTrips > 0;
+      // Check if any item has available trips
+      bool hasAvailableTrips = false;
+      for (final item in items) {
+        final itemMap = item as Map<String, dynamic>?;
+        if (itemMap != null) {
+          final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
+          final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
+          if (estimatedTrips > scheduledTrips) {
+            hasAvailableTrips = true;
+            break;
+          }
+        }
+      }
 
       if ((status == null || status == 'pending') && hasAvailableTrips) {
         orders.add({
@@ -115,9 +134,19 @@ class PendingOrdersDataSource {
             final status = data['status'] as String?;
 
             final items = data['items'] as List<dynamic>? ?? [];
-            final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic>? : null;
-            final estimatedTrips = firstItem?['estimatedTrips'] as int? ?? 0;
-            final hasAvailableTrips = estimatedTrips > 0;
+            // Check if any item has available trips
+            bool hasAvailableTrips = false;
+            for (final item in items) {
+              final itemMap = item as Map<String, dynamic>?;
+              if (itemMap != null) {
+                final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
+                final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
+                if (estimatedTrips > scheduledTrips) {
+                  hasAvailableTrips = true;
+                  break;
+                }
+              }
+            }
 
             if ((status == null || status == 'pending') && hasAvailableTrips) {
               orders.add({
@@ -152,19 +181,36 @@ class PendingOrdersDataSource {
         final unitPrice = (items[i]['unitPrice'] as num).toDouble();
         final gstPercent = (items[i]['gstPercent'] as num?)?.toDouble();
 
-        final totalQuantity = newTrips * fixedQty;
-        final subtotal = totalQuantity * unitPrice;
-        final gstAmount = gstPercent != null ? subtotal * (gstPercent / 100) : 0.0;
+        final subtotal = (newTrips * fixedQty) * unitPrice;
+        bool hasGst = false;
+        if (gstPercent != null) {
+          hasGst = gstPercent > 0;
+        }
+        double gstAmount = 0.0;
+        if (hasGst && gstPercent != null) {
+          gstAmount = subtotal * (gstPercent / 100);
+        }
         final total = subtotal + gstAmount;
 
-        items[i] = {
+        final updatedItem = <String, dynamic>{
           ...items[i],
           'estimatedTrips': newTrips,
-          'totalQuantity': totalQuantity,
+          // ❌ REMOVED: totalQuantity (calculate on-the-fly)
           'subtotal': subtotal,
-          'gstAmount': gstAmount,
           'total': total,
         };
+        
+        // ✅ Only include GST fields if GST applies
+        if (hasGst) {
+          updatedItem['gstPercent'] = gstPercent;
+          updatedItem['gstAmount'] = gstAmount;
+        } else {
+          // Remove GST fields if not applicable
+          updatedItem.remove('gstPercent');
+          updatedItem.remove('gstAmount');
+        }
+        
+        items[i] = updatedItem;
         itemFound = true;
         break;
       }
@@ -178,15 +224,24 @@ class PendingOrdersDataSource {
     double orderGst = 0;
     for (final item in items) {
       orderSubtotal += (item['subtotal'] as num).toDouble();
-      orderGst += (item['gstAmount'] as num).toDouble();
+      final itemGst = (item['gstAmount'] as num?)?.toDouble() ?? 0.0;
+      orderGst += itemGst;
     }
     final orderTotal = orderSubtotal + orderGst;
 
+    final pricingUpdate = <String, dynamic>{
+      'subtotal': orderSubtotal,
+      'totalAmount': orderTotal,
+    };
+    
+    // ✅ Only include totalGst if there's any GST
+    if (orderGst > 0) {
+      pricingUpdate['totalGst'] = orderGst;
+    }
+
     await orderRef.update({
       'items': items,
-      'pricing.subtotal': orderSubtotal,
-      'pricing.totalGst': orderGst,
-      'pricing.totalAmount': orderTotal,
+      'pricing': pricingUpdate,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

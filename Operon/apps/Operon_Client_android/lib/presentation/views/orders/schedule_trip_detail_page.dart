@@ -1,5 +1,6 @@
- import 'dart:io';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
+import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/services/storage_service.dart';
@@ -12,6 +13,7 @@ import 'package:dash_mobile/presentation/widgets/return_payment_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ScheduleTripDetailPage extends StatefulWidget {
@@ -43,7 +45,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final result = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text(
           'Enter Initial Reading',
           style: TextStyle(color: Colors.white),
@@ -301,7 +303,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text('Undo Delivery', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to undo delivery? This will revert the trip status back to dispatched.',
@@ -377,7 +379,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final result = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text(
           'Return Trip',
           style: TextStyle(color: Colors.white),
@@ -540,7 +542,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text('Undo Return', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to undo return? This will revert the trip status back to delivered.',
@@ -622,7 +624,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text(
           'Undo Dispatch',
           style: TextStyle(color: Colors.white),
@@ -711,7 +713,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final includeGstInTotal = _trip['includeGstInTotal'] as bool? ?? true;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF010104),
+      backgroundColor: const Color(0xFF000000),
       body: SafeArea(
         child: Column(
           children: [
@@ -757,27 +759,35 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             ),
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTopSection(),
-                          const SizedBox(height: 12),
-                    _buildInfoSection(),
-                          const SizedBox(height: 12),
-                    _buildOrderSummary(items, tripPricing, includeGstInTotal),
-                    const SizedBox(height: 12),
-                    _buildPaymentSummary(),
-                    const SizedBox(height: 12),
-                    _buildTripStatus(tripStatus, dmNumber),
-                    const SizedBox(height: 80),
-                  ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  // Reload trip data if needed
+                  // For now, just trigger a rebuild
+                  setState(() {});
+                },
+                color: const Color(0xFF6F4BFF),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTopSection(),
+                      const SizedBox(height: 12),
+                      _buildInfoSection(),
+                      const SizedBox(height: 12),
+                      _buildOrderSummary(items, tripPricing, includeGstInTotal),
+                      const SizedBox(height: 12),
+                      _buildPaymentSummary(),
+                      const SizedBox(height: 12),
+                      _buildTripStatus(tripStatus, dmNumber),
+                      const SizedBox(height: 80),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -790,13 +800,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                                 children: [
         Expanded(
           child: FilledButton.icon(
-            onPressed: () => _callNumber(driverPhone, 'Driver'),
+            onPressed: driverPhone != null && driverPhone.isNotEmpty
+                ? () => _callNumber(driverPhone, 'Driver')
+                : null,
             icon: const Icon(Icons.call, size: 18),
             label: const Text('Call Driver'),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              minimumSize: const Size(0, 48),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
           ),
@@ -804,17 +817,20 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         const SizedBox(width: 10),
         Expanded(
           child: FilledButton.icon(
-            onPressed: () => _callNumber(clientPhone, 'Customer'),
+            onPressed: clientPhone != null && clientPhone.isNotEmpty
+                ? () => _callNumber(clientPhone, 'Customer')
+                : null,
             icon: const Icon(Icons.call, size: 18),
             label: const Text('Call Customer'),
             style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              minimumSize: const Size(0, 48),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
           ),
-                                    ),
+        ),
                                   ],
     );
   }
@@ -1347,7 +1363,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text('Revert Dispatch', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to revert dispatch? This will change the trip status back to scheduled.',
@@ -1416,7 +1432,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text('Revert Delivery', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to revert delivery? This will change the trip status back to dispatched.',
@@ -1488,7 +1504,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final result = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text(
           'Final Meter Reading',
           style: TextStyle(color: Colors.white),
@@ -1809,7 +1825,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text('Revert Return', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to revert return? This will change the trip status back to delivered.',
@@ -2196,7 +2212,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF11111B),
+          backgroundColor: const Color(0xFF0A0A0A),
           title: const Text(
             'Add Payment',
             style: TextStyle(color: Colors.white),

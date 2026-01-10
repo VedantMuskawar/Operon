@@ -8,7 +8,8 @@ import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/vehicles/vehicles_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -22,15 +23,30 @@ class VehiclesPage extends StatelessWidget {
     final organization = orgState.organization;
 
     if (organization == null) {
-      return PageWorkspaceLayout(
-        title: 'Vehicle Management',
-        currentIndex: 4,
-        onBack: null,
-        onNavTap: (_) {},
-        child: const Center(
-          child: Text(
-            'Please select an organization to manage vehicles.',
-            style: TextStyle(color: Colors.white70),
+      return Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'Vehicle Management',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: const Text(
+                      'Please select an organization to manage vehicles.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ),
+              ),
+              QuickNavBar(
+                currentIndex: 4,
+                onTap: (_) {},
+              ),
+            ],
           ),
         ),
       );
@@ -44,12 +60,18 @@ class VehiclesPage extends StatelessWidget {
         repository: context.read<VehiclesRepository>(),
         orgId: organization.id,
       )..loadVehicles(),
-      child: PageWorkspaceLayout(
-        title: 'Vehicle Management',
-        currentIndex: 4,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-        child: Column(
+      child: Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'Vehicle Management',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Builder(
@@ -116,6 +138,15 @@ class VehiclesPage extends StatelessWidget {
               },
             ),
           ],
+                ),
+                      ),
+                    ),
+              QuickNavBar(
+                currentIndex: 4,
+                onTap: (value) => context.go('/home', extra: value),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -185,7 +216,7 @@ class _VehicleTile extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
+          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -221,6 +252,27 @@ class _VehicleTile extends StatelessWidget {
                     letterSpacing: 0.4,
                   ),
                 ),
+                if (vehicle.tag != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6F4BFF).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF6F4BFF).withOpacity(0.4),
+                      ),
+                    ),
+                    child: Text(
+                      vehicle.tag!,
+                      style: const TextStyle(
+                        color: Color(0xFF6F4BFF),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   'Capacity: ${vehicle.vehicleCapacity?.toStringAsFixed(1) ?? '-'} • '
@@ -379,10 +431,20 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   late final TextEditingController _pucNumberController;
   DateTime? _pucExpiry;
   bool _isActive = true;
+  late final TextEditingController _customTagController;
+  String? _selectedTag;
+  bool _showCustomTag = false;
 
   List<OrganizationProduct> _products = const [];
   bool _isLoadingProducts = true;
   bool _isSubmitting = false;
+
+  static const _predefinedTags = [
+    'Delivery',
+    'Personal',
+    'Raw Material',
+    'Plant',
+  ];
 
   static const _weekdays = [
     'monday',
@@ -420,6 +482,19 @@ class _VehicleDialogState extends State<_VehicleDialog> {
     _fitnessExpiry = vehicle?.fitnessCertificate?.expiryDate;
     _pucExpiry = vehicle?.puc?.expiryDate;
     _isActive = vehicle?.isActive ?? true;
+    
+    // Initialize tag selection
+    final vehicleTag = vehicle?.tag;
+    if (vehicleTag != null && !_predefinedTags.contains(vehicleTag)) {
+      _selectedTag = 'Custom';
+      _showCustomTag = true;
+      _customTagController = TextEditingController(text: vehicleTag);
+    } else {
+      _selectedTag = vehicleTag;
+      _showCustomTag = false;
+      _customTagController = TextEditingController();
+    }
+    
     _loadProducts();
   }
 
@@ -454,6 +529,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
     _insuranceNumberController.dispose();
     _fitnessNumberController.dispose();
     _pucNumberController.dispose();
+    _customTagController.dispose();
     for (final controller in _weeklyControllers.values) {
       controller.dispose();
     }
@@ -467,7 +543,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   Widget build(BuildContext context) {
     final isEditing = widget.vehicle != null;
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Row(
         children: [
           Container(
@@ -548,6 +624,80 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                         ),
                       ],
                     ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Tag Section
+                _FormSection(
+                  title: 'Vehicle Tag',
+                  icon: Icons.label_outline,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ..._predefinedTags.map((tag) {
+                          final isSelected = _selectedTag == tag;
+                          return ChoiceChip(
+                            label: Text(tag),
+                            selected: isSelected,
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedTag = tag;
+                                _showCustomTag = false;
+                                _customTagController.clear();
+                              });
+                            },
+                            selectedColor: const Color(0xFF6F4BFF),
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white70,
+                            ),
+                            backgroundColor: const Color(0xFF2A2A3D),
+                          );
+                        }),
+                        ChoiceChip(
+                          label: const Text('Custom'),
+                          selected: _selectedTag == 'Custom',
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedTag = 'Custom';
+                              _showCustomTag = true;
+                            });
+                          },
+                          selectedColor: const Color(0xFF6F4BFF),
+                          labelStyle: TextStyle(
+                            color: _selectedTag == 'Custom' ? Colors.white : Colors.white70,
+                          ),
+                          backgroundColor: const Color(0xFF2A2A3D),
+                        ),
+                        if (_selectedTag == null)
+                          ChoiceChip(
+                            label: const Text('None'),
+                            selected: true,
+                            onSelected: (_) {
+                              setState(() {
+                                _selectedTag = null;
+                                _showCustomTag = false;
+                                _customTagController.clear();
+                              });
+                            },
+                            selectedColor: const Color(0xFF2A2A3D),
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            backgroundColor: const Color(0xFF2A2A3D),
+                          ),
+                      ],
+                    ),
+                    if (_showCustomTag) ...[
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _customTagController,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        decoration: _compactInputDecoration('Custom Tag'),
+                        onChanged: (_) {
+                          // Tag will be read from controller on submit
+                        },
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -717,6 +867,15 @@ class _VehicleDialogState extends State<_VehicleDialog> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isSubmitting = true);
     try {
+      // Determine tag value
+      String? tagValue;
+      if (_selectedTag == 'Custom') {
+        final customTag = _customTagController.text.trim();
+        tagValue = customTag.isEmpty ? null : customTag;
+      } else {
+        tagValue = _selectedTag;
+      }
+
       final vehicle = Vehicle(
         id: widget.vehicle?.id ??
             DateTime.now().millisecondsSinceEpoch.toString(),
@@ -742,6 +901,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
+        tag: tagValue,
       );
 
       final cubit = context.read<VehiclesCubit>();
@@ -944,7 +1104,7 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         'Assign Driver - ${widget.vehicle.vehicleNumber}',
         style: const TextStyle(color: Colors.white),

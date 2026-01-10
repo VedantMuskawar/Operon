@@ -4,9 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:core_datasources/core_datasources.dart';
+import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/delivery_memos/delivery_memos_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
+import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -479,13 +481,19 @@ class _DeliveryMemoTileState extends State<_DeliveryMemoTile>
                                 children: [
                                   Row(
                                     children: [
-                                      Text(
-                                        dmNumber != null ? 'DM-$dmNumber' : dmId,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 18,
-                                          letterSpacing: -0.5,
+                                      InkWell(
+                                        onTap: _showPrintDialog,
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Text(
+                                          dmNumber != null ? 'DM-$dmNumber' : dmId,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 18,
+                                            letterSpacing: -0.5,
+                                            decoration: TextDecoration.underline,
+                                            decorationColor: Colors.white54,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 12),
@@ -640,6 +648,53 @@ class _DeliveryMemoTileState extends State<_DeliveryMemoTile>
         },
       ),
     );
+  }
+
+  void _showPrintDialog() {
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final organization = orgContext.organization;
+
+    if (organization == null) {
+      DashSnackbar.show(
+        context,
+        message: 'Organization not found',
+        isError: true,
+      );
+      return;
+    }
+
+    final dmNumber = widget.dm['dmNumber'] as int?;
+    final dmId = widget.dm['dmId'] as String? ?? widget.dm['id'] as String?;
+
+    if (dmNumber == null && dmId == null) {
+      DashSnackbar.show(
+        context,
+        message: 'DM number or ID not found',
+        isError: true,
+      );
+      return;
+    }
+
+    try {
+      final printService = context.read<DmPrintService>();
+      
+      // Use the DM data directly (it's already loaded)
+      showDialog(
+        context: context,
+        builder: (context) => DmPrintDialog(
+          dmPrintService: printService,
+          organizationId: organization.id,
+          dmData: widget.dm,
+          dmNumber: dmNumber ?? 0,
+        ),
+      );
+    } catch (e) {
+      DashSnackbar.show(
+        context,
+        message: 'Failed to show print dialog: ${e.toString()}',
+        isError: true,
+      );
+    }
   }
 
   void _showCancelDialog() {

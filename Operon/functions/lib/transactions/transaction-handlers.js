@@ -214,6 +214,20 @@ function getLedgerDelta(ledgerType, type, amount) {
         });
         return delta;
     }
+    if (ledgerType === 'organizationLedger') {
+        // For OrganizationLedger: Credit = refund/adjustment (decreases expense total), Debit = expense (increases expense total)
+        // Credit means refund/adjustment (decreases expense total/balance)
+        // Debit means expense (increases expense total/balance - we spent more)
+        const delta = type === 'credit' ? -amount : amount;
+        console.log('[Transaction] getLedgerDelta calculation (organizationLedger)', {
+            ledgerType,
+            type,
+            amount,
+            delta,
+            explanation: type === 'credit' ? 'Credit: refund/adjustment (-amount, decreases expense)' : 'Debit: expense (+amount, increases expense)',
+        });
+        return delta;
+    }
     // Default: assume same semantics as ClientLedger
     const delta = type === 'credit' ? amount : -amount;
     console.log('[Transaction] getLedgerDelta (default)', {
@@ -964,6 +978,251 @@ async function updateEmployeeLedger(organizationId, employeeId, financialYear, t
     return { balanceBefore, balanceAfter };
 }
 /**
+ * Update organization ledger when transaction is created or cancelled
+ * Returns the balanceBefore and balanceAfter values for the transaction
+ */
+async function updateOrganizationLedger(organizationId, financialYear, transaction, transactionId, snapshot, isCancellation = false) {
+    const ledgerId = `${organizationId}_${financialYear}`;
+    const ledgerRef = db.collection(constants_1.ORGANIZATION_LEDGERS_COLLECTION).doc(ledgerId);
+    const amount = transaction.amount;
+    const ledgerType = transaction.ledgerType || 'organizationLedger';
+    const type = transaction.type;
+    const multiplier = isCancellation ? -1 : 1;
+    // Calculate ledger delta
+    const ledgerDelta = getLedgerDelta(ledgerType, type, amount);
+    console.log('[Organization Ledger] updateOrganizationLedger called', {
+        transactionId,
+        ledgerId,
+        ledgerType,
+        type,
+        amount,
+        ledgerDelta,
+        multiplier,
+        isCancellation,
+    });
+    const fyDates = getFinancialYearDates(financialYear);
+    const transactionDate = getTransactionDate(snapshot);
+    const yearMonth = getYearMonth(transactionDate);
+    const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
+    let balanceBefore = 0;
+    let balanceAfter = 0;
+    // Build transaction data for monthly subcollection
+    const now = admin.firestore.Timestamp.now();
+    const transactionData = {
+        transactionId,
+        organizationId,
+        ledgerType: ledgerType || 'organizationLedger',
+        type,
+        category: transaction.category,
+        amount,
+        financialYear,
+        transactionDate: admin.firestore.Timestamp.fromDate(transactionDate),
+        updatedAt: now,
+    };
+    // Add optional fields only if they exist
+    if (transaction.createdAt) {
+        transactionData.createdAt = transaction.createdAt;
+    }
+    else {
+        transactionData.createdAt = now;
+    }
+    if (transaction.paymentAccountId) {
+        transactionData.paymentAccountId = transaction.paymentAccountId;
+    }
+    if (transaction.paymentAccountType) {
+        transactionData.paymentAccountType = transaction.paymentAccountType;
+    }
+    if (transaction.referenceNumber) {
+        transactionData.referenceNumber = transaction.referenceNumber;
+    }
+    if (transaction.description) {
+        transactionData.description = transaction.description;
+    }
+    if (transaction.metadata) {
+        transactionData.metadata = transaction.metadata;
+    }
+    if (transaction.createdBy) {
+        transactionData.createdBy = transaction.createdBy;
+    }
+    // Update ledger and monthly subcollection atomically
+    await db.runTransaction(async (tx) => {
+        // Read all documents FIRST
+        const ledgerDoc = await tx.get(ledgerRef);
+        const monthlyDoc = await tx.get(monthlyRef);
+        if (!ledgerDoc.exists && !isCancellation) {
+            // Create new ledger
+            balanceBefore = 0;
+            const currentBalance = balanceBefore + (ledgerDelta * multiplier);
+            balanceAfter = currentBalance;
+            transactionData.balanceBefore = balanceBefore;
+            transactionData.balanceAfter = balanceAfter;
+            const totalExpenses = type === 'debit' ? (amount * multiplier) : 0;
+            const totalRefunds = type === 'credit' ? (amount * multiplier) : 0;
+            const ledgerData = {
+                ledgerId,
+                organizationId,
+                financialYear,
+                fyStartDate: admin.firestore.Timestamp.fromDate(fyDates.start),
+                fyEndDate: admin.firestore.Timestamp.fromDate(fyDates.end),
+                openingBalance: 0,
+                currentBalance,
+                totalExpenses,
+                totalRefunds,
+                transactionCount: 1,
+                transactionIds: [transactionId],
+                lastTransactionId: transactionId,
+                lastTransactionDate: admin.firestore.Timestamp.fromDate(transactionDate),
+                lastTransactionAmount: amount,
+                firstTransactionDate: admin.firestore.Timestamp.fromDate(transactionDate),
+                metadata: {},
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            };
+            tx.set(ledgerRef, ledgerData);
+            // Create monthly transaction document
+            const cleanData = removeUndefinedFields(transactionData);
+            tx.set(monthlyRef, {
+                yearMonth,
+                transactions: [cleanData],
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+        else if (ledgerDoc.exists) {
+            // Update existing ledger
+            const ledgerData = ledgerDoc.data();
+            const currentBalance = ledgerData.currentBalance || 0;
+            balanceBefore = currentBalance;
+            const newBalance = currentBalance + (ledgerDelta * multiplier);
+            balanceAfter = newBalance;
+            transactionData.balanceBefore = balanceBefore;
+            transactionData.balanceAfter = balanceAfter;
+            // Get current totals
+            const currentTotalExpenses = ledgerData.totalExpenses || 0;
+            const currentTotalRefunds = ledgerData.totalRefunds || 0;
+            // Update totals based on transaction type
+            const expensesChange = type === 'debit' ? (amount * multiplier) : 0;
+            const refundsChange = type === 'credit' ? (amount * multiplier) : 0;
+            const newTotalExpenses = currentTotalExpenses + expensesChange;
+            const newTotalRefunds = currentTotalRefunds + refundsChange;
+            const updates = {
+                currentBalance: newBalance,
+                totalExpenses: newTotalExpenses,
+                totalRefunds: newTotalRefunds,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            };
+            if (isCancellation) {
+                updates.transactionCount = Math.max(0, (ledgerData.transactionCount || 0) - 1);
+                updates.transactionIds = admin.firestore.FieldValue.arrayRemove(transactionId);
+            }
+            else {
+                updates.transactionCount = (ledgerData.transactionCount || 0) + 1;
+                const transactionIds = ledgerData.transactionIds || [];
+                if (!transactionIds.includes(transactionId)) {
+                    updates.transactionIds = admin.firestore.FieldValue.arrayUnion(transactionId);
+                }
+                updates.lastTransactionId = transactionId;
+                updates.lastTransactionDate = admin.firestore.Timestamp.fromDate(transactionDate);
+                updates.lastTransactionAmount = amount;
+            }
+            tx.update(ledgerRef, updates);
+            // Update monthly transaction document
+            const cleanData = removeUndefinedFields(transactionData);
+            if (isCancellation) {
+                if (monthlyDoc.exists) {
+                    const monthlyData = monthlyDoc.data();
+                    const transactions = monthlyData.transactions || [];
+                    const filtered = transactions.filter((t) => t.transactionId !== transactionId);
+                    if (filtered.length === 0) {
+                        tx.delete(monthlyRef);
+                    }
+                    else {
+                        tx.update(monthlyRef, {
+                            transactions: filtered,
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+                    }
+                }
+            }
+            else {
+                if (!monthlyDoc.exists) {
+                    tx.set(monthlyRef, {
+                        yearMonth,
+                        transactions: [cleanData],
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                }
+                else {
+                    const monthlyData = monthlyDoc.data();
+                    const transactions = monthlyData.transactions || [];
+                    const index = transactions.findIndex((t) => t.transactionId === transactionId);
+                    if (index >= 0) {
+                        transactions[index] = cleanData;
+                    }
+                    else {
+                        transactions.push(cleanData);
+                    }
+                    tx.update(monthlyRef, {
+                        transactions,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                }
+            }
+        }
+        else {
+            // Cancellation but ledger doesn't exist
+            console.warn('[Organization Ledger] Cancellation but ledger does not exist', { transactionId, ledgerId });
+            balanceBefore = 0;
+            balanceAfter = 0;
+        }
+    });
+    console.log('[Organization Ledger] Successfully updated ledger and monthly subcollection atomically', {
+        transactionId,
+        balanceBefore,
+        balanceAfter,
+        yearMonth,
+    });
+    return { balanceBefore, balanceAfter };
+}
+/**
+ * Update expense sub-category analytics when transaction is created or cancelled
+ */
+async function updateExpenseSubCategoryAnalytics(organizationId, subCategoryId, amount, transactionDate, isCancellation = false) {
+    if (!subCategoryId)
+        return;
+    const subCategoryRef = db
+        .collection(constants_1.ORGANIZATIONS_COLLECTION)
+        .doc(organizationId)
+        .collection(constants_1.EXPENSE_SUB_CATEGORIES_COLLECTION)
+        .doc(subCategoryId);
+    const multiplier = isCancellation ? -1 : 1;
+    await db.runTransaction(async (tx) => {
+        const subCategoryDoc = await tx.get(subCategoryRef);
+        if (!subCategoryDoc.exists) {
+            console.warn('[Sub-Category Analytics] Sub-category not found', { subCategoryId });
+            return;
+        }
+        const subCategoryData = subCategoryDoc.data();
+        const currentTransactionCount = subCategoryData.transactionCount || 0;
+        const currentTotalAmount = subCategoryData.totalAmount || 0;
+        const updates = {
+            transactionCount: Math.max(0, currentTransactionCount + multiplier),
+            totalAmount: Math.max(0, currentTotalAmount + (amount * multiplier)),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (!isCancellation) {
+            updates.lastUsedAt = admin.firestore.Timestamp.fromDate(transactionDate);
+        }
+        tx.update(subCategoryRef, updates);
+    });
+    console.log('[Sub-Category Analytics] Updated analytics', {
+        subCategoryId,
+        amount,
+        isCancellation,
+    });
+}
+/**
  * Update analytics when transaction is created or cancelled
  */
 async function updateTransactionAnalytics(organizationId, financialYear, transaction, transactionDate, isCancellation = false) {
@@ -1170,6 +1429,146 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
     }, { merge: true });
 }
 /**
+ * Mark vendor invoices as paid when a payment transaction is created
+ */
+async function markInvoicesAsPaid(organizationId, paymentTransactionId, paymentAmount, linkedInvoiceIds) {
+    if (!linkedInvoiceIds || linkedInvoiceIds.length === 0) {
+        return; // No invoices to mark as paid
+    }
+    console.log('[Invoice Payment] Marking invoices as paid', {
+        paymentTransactionId,
+        paymentAmount,
+        linkedInvoiceIds,
+        invoiceCount: linkedInvoiceIds.length,
+    });
+    // Get all invoice transactions
+    const invoiceTransactions = await Promise.all(linkedInvoiceIds.map(async (invoiceId) => {
+        const invoiceDoc = await db.collection(constants_1.TRANSACTIONS_COLLECTION).doc(invoiceId).get();
+        if (!invoiceDoc.exists) {
+            console.warn('[Invoice Payment] Invoice not found', { invoiceId });
+            return null;
+        }
+        return { id: invoiceId, data: invoiceDoc.data(), ref: invoiceDoc.ref };
+    }));
+    const validInvoices = invoiceTransactions.filter((inv) => inv !== null);
+    if (validInvoices.length === 0) {
+        console.warn('[Invoice Payment] No valid invoices found');
+        return;
+    }
+    // Calculate total invoice amount and distribute payment proportionally
+    let totalInvoiceAmount = 0;
+    for (const invoice of validInvoices) {
+        totalInvoiceAmount += invoice.data.amount || 0;
+    }
+    // Process each invoice
+    for (const invoice of validInvoices) {
+        const invoiceAmount = invoice.data.amount || 0;
+        const metadata = invoice.data.metadata || {};
+        const currentPaidAmount = metadata.paidAmount || 0;
+        const currentPaymentIds = metadata.paymentIds || [];
+        // Calculate payment allocation for this invoice (proportional)
+        const paymentAllocation = totalInvoiceAmount > 0
+            ? (paymentAmount * invoiceAmount) / totalInvoiceAmount
+            : paymentAmount / validInvoices.length;
+        const newPaidAmount = currentPaidAmount + paymentAllocation;
+        const newPaymentIds = [...currentPaymentIds, paymentTransactionId];
+        // Determine new paid status
+        let newPaidStatus;
+        if (newPaidAmount >= invoiceAmount) {
+            newPaidStatus = 'paid';
+        }
+        else if (newPaidAmount > 0) {
+            newPaidStatus = 'partial';
+        }
+        else {
+            newPaidStatus = 'unpaid';
+        }
+        // Update invoice transaction metadata
+        await invoice.ref.update({
+            'metadata.paidStatus': newPaidStatus,
+            'metadata.paidAmount': newPaidAmount,
+            'metadata.paymentIds': newPaymentIds,
+            'updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log('[Invoice Payment] Updated invoice', {
+            invoiceId: invoice.id,
+            invoiceAmount,
+            paymentAllocation,
+            previousPaidAmount: currentPaidAmount,
+            newPaidAmount,
+            newPaidStatus,
+        });
+    }
+}
+/**
+ * Revert invoice payment status when a payment transaction is deleted
+ */
+async function revertInvoicePayment(paymentTransactionId, paymentAmount, linkedInvoiceIds) {
+    if (!linkedInvoiceIds || linkedInvoiceIds.length === 0) {
+        return; // No invoices to revert
+    }
+    console.log('[Invoice Payment] Reverting invoice payment', {
+        paymentTransactionId,
+        paymentAmount,
+        linkedInvoiceIds,
+        invoiceCount: linkedInvoiceIds.length,
+    });
+    // Get all invoice transactions
+    const invoiceTransactions = await Promise.all(linkedInvoiceIds.map(async (invoiceId) => {
+        const invoiceDoc = await db.collection(constants_1.TRANSACTIONS_COLLECTION).doc(invoiceId).get();
+        if (!invoiceDoc.exists) {
+            console.warn('[Invoice Payment] Invoice not found for revert', { invoiceId });
+            return null;
+        }
+        return { id: invoiceId, data: invoiceDoc.data(), ref: invoiceDoc.ref };
+    }));
+    const validInvoices = invoiceTransactions.filter((inv) => inv !== null);
+    // Calculate total invoice amount for proportional distribution
+    let totalInvoiceAmount = 0;
+    for (const invoice of validInvoices) {
+        totalInvoiceAmount += invoice.data.amount || 0;
+    }
+    // Revert each invoice
+    for (const invoice of validInvoices) {
+        const invoiceAmount = invoice.data.amount || 0;
+        const metadata = invoice.data.metadata || {};
+        const currentPaidAmount = metadata.paidAmount || 0;
+        const currentPaymentIds = metadata.paymentIds || [];
+        // Calculate payment allocation that was applied (proportional)
+        const paymentAllocation = totalInvoiceAmount > 0
+            ? (paymentAmount * invoiceAmount) / totalInvoiceAmount
+            : paymentAmount / validInvoices.length;
+        const newPaidAmount = Math.max(0, currentPaidAmount - paymentAllocation);
+        const newPaymentIds = currentPaymentIds.filter((id) => id !== paymentTransactionId);
+        // Determine new paid status
+        let newPaidStatus;
+        if (newPaidAmount >= invoiceAmount) {
+            newPaidStatus = 'paid';
+        }
+        else if (newPaidAmount > 0) {
+            newPaidStatus = 'partial';
+        }
+        else {
+            newPaidStatus = 'unpaid';
+        }
+        // Update invoice transaction metadata
+        await invoice.ref.update({
+            'metadata.paidStatus': newPaidStatus,
+            'metadata.paidAmount': newPaidAmount,
+            'metadata.paymentIds': newPaymentIds,
+            'updatedAt': admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log('[Invoice Payment] Reverted invoice', {
+            invoiceId: invoice.id,
+            invoiceAmount,
+            paymentAllocation,
+            previousPaidAmount: currentPaidAmount,
+            newPaidAmount,
+            newPaidStatus,
+        });
+    }
+}
+/**
  * Cloud Function: Triggered when a transaction is created
  */
 exports.onTransactionCreated = functions.firestore
@@ -1209,6 +1608,15 @@ exports.onTransactionCreated = functions.firestore
             const result = await updateVendorLedger(organizationId, vendorId, financialYear, transaction, transactionId, snapshot, false);
             balanceBefore = result.balanceBefore;
             balanceAfter = result.balanceAfter;
+            // If this is a vendor payment with linked invoices, mark invoices as paid
+            const category = transaction.category;
+            if (category === 'vendorPayment') {
+                const metadata = transaction.metadata;
+                const linkedInvoiceIds = metadata === null || metadata === void 0 ? void 0 : metadata.linkedInvoiceIds;
+                if (linkedInvoiceIds && linkedInvoiceIds.length > 0) {
+                    await markInvoicesAsPaid(organizationId, transactionId, amount, linkedInvoiceIds);
+                }
+            }
         }
         else if (ledgerType === 'employeeLedger') {
             const employeeId = transaction === null || transaction === void 0 ? void 0 : transaction.employeeId;
@@ -1224,6 +1632,21 @@ exports.onTransactionCreated = functions.firestore
             const result = await updateEmployeeLedger(organizationId, employeeId, financialYear, transaction, transactionId, snapshot, false);
             balanceBefore = result.balanceBefore;
             balanceAfter = result.balanceAfter;
+        }
+        else if (ledgerType === 'organizationLedger') {
+            // Update organization ledger and get balances
+            const result = await updateOrganizationLedger(organizationId, financialYear, transaction, transactionId, snapshot, false);
+            balanceBefore = result.balanceBefore;
+            balanceAfter = result.balanceAfter;
+            // Update expense sub-category analytics if this is a general expense
+            const category = transaction.category;
+            if (category === 'generalExpense') {
+                const metadata = transaction.metadata;
+                const subCategoryId = metadata === null || metadata === void 0 ? void 0 : metadata.subCategoryId;
+                if (subCategoryId) {
+                    await updateExpenseSubCategoryAnalytics(organizationId, subCategoryId, amount, transactionDate, false);
+                }
+            }
         }
         else {
             // Default to clientLedger
@@ -1319,6 +1742,15 @@ exports.onTransactionDeleted = functions.firestore
             const result = await updateVendorLedger(organizationId, vendorId, financialYear, transaction, transactionId, snapshot, true);
             balanceBefore = result.balanceBefore;
             balanceAfter = result.balanceAfter;
+            // If this was a vendor payment with linked invoices, revert invoice payment status
+            const category = transaction.category;
+            if (category === 'vendorPayment') {
+                const metadata = transaction.metadata;
+                const linkedInvoiceIds = metadata === null || metadata === void 0 ? void 0 : metadata.linkedInvoiceIds;
+                if (linkedInvoiceIds && linkedInvoiceIds.length > 0) {
+                    await revertInvoicePayment(transactionId, amount, linkedInvoiceIds);
+                }
+            }
         }
         else if (ledgerType === 'employeeLedger') {
             const employeeId = transaction === null || transaction === void 0 ? void 0 : transaction.employeeId;
@@ -1334,6 +1766,21 @@ exports.onTransactionDeleted = functions.firestore
             const result = await updateEmployeeLedger(organizationId, employeeId, financialYear, transaction, transactionId, snapshot, true);
             balanceBefore = result.balanceBefore;
             balanceAfter = result.balanceAfter;
+        }
+        else if (ledgerType === 'organizationLedger') {
+            // Reverse in organization ledger
+            const result = await updateOrganizationLedger(organizationId, financialYear, transaction, transactionId, snapshot, true);
+            balanceBefore = result.balanceBefore;
+            balanceAfter = result.balanceAfter;
+            // Update expense sub-category analytics if this is a general expense
+            const category = transaction.category;
+            if (category === 'generalExpense') {
+                const metadata = transaction.metadata;
+                const subCategoryId = metadata === null || metadata === void 0 ? void 0 : metadata.subCategoryId;
+                if (subCategoryId) {
+                    await updateExpenseSubCategoryAnalytics(organizationId, subCategoryId, amount, transactionDate, true);
+                }
+            }
         }
         else {
             // Default to clientLedger

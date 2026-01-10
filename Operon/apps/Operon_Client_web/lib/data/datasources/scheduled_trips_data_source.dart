@@ -79,9 +79,10 @@ class ScheduledTripsDataSource {
     required Map<String, dynamic> deliveryZone,
     required List<dynamic> items,
     required Map<String, dynamic> pricing,
-    required bool includeGstInTotal,
     required String priority,
     required String createdBy,
+    int? itemIndex,
+    String? productId,
   }) async {
     // Validate slot availability before creating
     final isAvailable = await isSlotAvailable(
@@ -96,6 +97,24 @@ class ScheduledTripsDataSource {
       throw Exception('Slot $slot is already booked for this vehicle on $dateStr');
     }
 
+    // Validate itemIndex and productId if provided
+    if (itemIndex != null && productId != null) {
+      // Validate against order items
+      final orderRef = _firestore.collection('PENDING_ORDERS').doc(orderId);
+      final orderDoc = await orderRef.get();
+      if (orderDoc.exists) {
+        final orderData = orderDoc.data();
+        final orderItems = orderData?['items'] as List<dynamic>? ?? [];
+        if (itemIndex < 0 || itemIndex >= orderItems.length) {
+          throw Exception('Invalid itemIndex: $itemIndex (order has ${orderItems.length} items)');
+        }
+        final targetItem = orderItems[itemIndex] as Map<String, dynamic>?;
+        if (targetItem?['productId'] != productId) {
+          throw Exception('ProductId mismatch: expected ${targetItem?['productId']}, got $productId');
+        }
+      }
+    }
+
     // Generate scheduleTripId
     final scheduleTripId = generateScheduleTripId(
       clientId: clientId,
@@ -105,42 +124,37 @@ class ScheduledTripsDataSource {
       slot: slot,
     );
 
-    // Calculate trip-specific pricing based on fixedQuantityPerTrip
-    // Guard GST consistency: if order snapshot carries includeGstInTotal, enforce match
-    final orderIncludeGst = pricing['includeGstInTotal'] as bool?;
-    if (orderIncludeGst != null && orderIncludeGst != includeGstInTotal) {
-      throw Exception(
-        'GST flag mismatch: order includeGstInTotal=$orderIncludeGst, trip includeGstInTotal=$includeGstInTotal',
-      );
+    // Determine if GST applies from the specific item (if itemIndex provided) or first item
+    bool hasGst = false;
+    if (itemIndex != null && items.length > itemIndex) {
+      final item = items[itemIndex] as Map<String, dynamic>?;
+      final gstPercent = (item?['gstPercent'] as num?)?.toDouble();
+      hasGst = gstPercent != null && gstPercent > 0;
+    } else if (items.isNotEmpty) {
+      final firstItem = items[0] as Map<String, dynamic>?;
+      final gstPercent = (firstItem?['gstPercent'] as num?)?.toDouble();
+      hasGst = gstPercent != null && gstPercent > 0;
     }
 
     // Calculate trip-specific pricing based on fixedQuantityPerTrip
     final tripPricingData =
-        calculateTripPricing(items, includeGstInTotal: includeGstInTotal);
+        calculateTripPricing(items, includeGstInTotal: hasGst);
     var tripItems = tripPricingData['items'] as List<dynamic>;
     var tripPricing = tripPricingData['tripPricing'] as Map<String, dynamic>;
 
-    // Final guard: if GST is excluded, ensure no GST amounts persist
-    if (!includeGstInTotal) {
-      final cleanedItems = <dynamic>[];
-      for (final item in tripItems) {
-        if (item is Map<String, dynamic>) {
-          cleanedItems.add({
-            ...item,
-            'tripGstAmount': 0.0,
-            'tripTotal': (item['tripSubtotal'] as num?)?.toDouble() ?? 0.0,
-          });
-        } else {
-          cleanedItems.add(item);
-        }
-      }
-      tripItems = cleanedItems;
-      tripPricing = {
-        ...tripPricing,
-        'gstAmount': 0.0,
-        'total': (tripPricing['subtotal'] as num?)?.toDouble() ?? 0.0,
-      };
+    // ✅ Conditionally store GST in tripPricing
+    final tripGstAmount = (tripPricing['gstAmount'] as num?)?.toDouble() ?? 0.0;
+    final finalTripPricing = <String, dynamic>{
+      'subtotal': tripPricing['subtotal'],
+      'total': tripPricing['total'],
+    };
+    
+    // Only include gstAmount if GST applies
+    if (hasGst && tripGstAmount > 0) {
+      finalTripPricing['gstAmount'] = tripGstAmount;
     }
+    
+    tripPricing = finalTripPricing;
 
     // Check if this is the first trip and deduct advance payment if applicable
     final orderRef = _firestore.collection('PENDING_ORDERS').doc(orderId);
@@ -185,6 +199,10 @@ class ScheduledTripsDataSource {
 
     final docRef = _firestore.collection(_collection).doc();
     
+    // Get productId from item if not provided
+    final finalProductId = productId;
+    final finalItemIndex = itemIndex;
+    
     await docRef.set({
       'scheduleTripId': scheduleTripId,
       'orderId': orderId,
@@ -205,9 +223,11 @@ class ScheduledTripsDataSource {
       'slotName': slotName,
       'deliveryZone': deliveryZone,
       'items': tripItems, // Items with trip-specific pricing
-      'tripPricing': tripPricing, // Trip-specific pricing (subtotal, gstAmount, total)
-      'pricing': pricing, // keep order pricing snapshot if needed
-      'includeGstInTotal': includeGstInTotal,
+      'tripPricing': tripPricing, // Trip-specific pricing (subtotal, gstAmount?, total)
+      // ❌ REMOVED: pricing snapshot (not needed)
+      // ❌ REMOVED: includeGstInTotal (not needed with conditional GST)
+      if (finalItemIndex != null) 'itemIndex': finalItemIndex, // ✅ Store which item this trip belongs to
+      if (finalProductId != null) 'productId': finalProductId, // ✅ Store product reference
       'priority': priority,
       'tripStatus': 'scheduled',
       'createdAt': FieldValue.serverTimestamp(),

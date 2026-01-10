@@ -5,7 +5,8 @@ import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -544,17 +545,22 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
 
     if (organization == null) {
       return const Scaffold(
-        backgroundColor: Color(0xFF010104),
+        backgroundColor: Color(0xFF000000),
         body: Center(child: Text('Please select an organization')),
       );
     }
 
-    return PageWorkspaceLayout(
-      title: 'Record Purchase',
-      currentIndex: 0,
-      onNavTap: (value) => context.go('/home', extra: value),
-      onBack: () => context.go('/home'),
-      child: SingleChildScrollView(
+    return Scaffold(
+      backgroundColor: const Color(0xFF000000),
+      appBar: const ModernPageHeader(
+        title: 'Record Purchase',
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
@@ -805,7 +811,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                             labelText: 'Quantity',
                                             hintText: '0',
                                             filled: true,
-                                            fillColor: const Color(0xFF010104),
+                                            fillColor: const Color(0xFF000000),
                                             labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
                                             suffixText: material.unitOfMeasurement,
                                             suffixStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
@@ -833,7 +839,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                             labelText: 'Unit Price',
                                             hintText: '0.00',
                                             filled: true,
-                                            fillColor: const Color(0xFF010104),
+                                            fillColor: const Color(0xFF000000),
                                             labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
                                             prefixText: '₹',
                                             prefixStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
@@ -1117,7 +1123,15 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       ),
               ),
             ],
-          ),
+                    ),
+                      ),
+                    ),
+            ),
+            QuickNavBar(
+              currentIndex: 0,
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
         ),
       ),
     );
@@ -1158,4 +1172,9 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
     );
   }
 }
+
+
+
+
+
 

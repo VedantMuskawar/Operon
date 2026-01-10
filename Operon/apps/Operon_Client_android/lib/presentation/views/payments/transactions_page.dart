@@ -1,7 +1,8 @@
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/payments/payments_cubit.dart';
 import 'package:core_bloc/core_bloc.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -48,12 +49,18 @@ class _TransactionsPageState extends State<TransactionsPage> {
         }
       },
       builder: (context, state) {
-        return PageWorkspaceLayout(
-          title: 'Transactions',
-          currentIndex: 0,
-          onNavTap: (value) => context.go('/home', extra: value),
-          onBack: () => context.go('/home'),
-          child: Column(
+        return Scaffold(
+          backgroundColor: const Color(0xFF000000),
+          appBar: const ModernPageHeader(
+            title: 'Transactions',
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -72,6 +79,15 @@ class _TransactionsPageState extends State<TransactionsPage> {
               // Transactions Table
               _buildTransactionsTable(),
             ],
+                    ),
+                  ),
+                ),
+                QuickNavBar(
+                  currentIndex: 0,
+                  onTap: (value) => context.go('/home', extra: value),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -200,6 +216,8 @@ class _TransactionsTable extends StatelessWidget {
         return 'Emp Adjustment';
       case TransactionCategory.generalExpense:
         return 'General Expense';
+      case TransactionCategory.wageCredit:
+        return 'Wage Credit';
     }
   }
 

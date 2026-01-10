@@ -3,8 +3,9 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/vendors/vendors_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/vendors/vendors_state.dart';
 import 'package:dash_mobile/presentation/views/vendors_page/vendor_analytics_page.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -98,12 +99,20 @@ class _VendorsPageState extends State<VendorsPage> {
           );
         }
       },
-      child: PageWorkspaceLayout(
-        title: 'Vendors',
-            currentIndex: 5,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-            child: Builder(
+      child: Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'Vendors',
+        ),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Builder(
               builder: (context) {
                 final media = MediaQuery.of(context);
                 final screenHeight = media.size.height;
@@ -201,9 +210,15 @@ class _VendorsPageState extends State<VendorsPage> {
                 );
               },
             ),
-          ),
-        ),
-        // Quick Action Menu - only visible on Vendors page
+                      ),
+                    ),
+                QuickNavBar(
+                  currentIndex: 5,
+                  onTap: (value) => context.go('/home', extra: value),
+                ),
+              ],
+            ),
+            // Quick Action Menu - only visible on Vendors page
             if (_currentPage.round() == 0)
               Builder(
                 builder: (context) {
@@ -225,15 +240,20 @@ class _VendorsPageState extends State<VendorsPage> {
                     );
                   }
               
-              if (actions.isEmpty) return const SizedBox.shrink();
-              
-              return QuickActionMenu(
-                right: 40,
-                bottom: bottomOffset,
-                actions: actions,
-              );
-            },
-          ),
+                  if (actions.isEmpty) return const SizedBox.shrink();
+                  
+                  return QuickActionMenu(
+                    right: 40,
+                    bottom: bottomOffset,
+                    actions: actions,
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+      ),
+      ),
       ],
     );
   }
@@ -1021,7 +1041,7 @@ class _VendorDialogState extends State<_VendorDialog> {
     final isEditing = widget.vendor != null;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         isEditing ? 'Edit Vendor' : 'Add Vendor',
         style: const TextStyle(color: Colors.white),

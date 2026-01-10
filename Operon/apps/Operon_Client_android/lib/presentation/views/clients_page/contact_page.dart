@@ -3,10 +3,13 @@ import 'dart:io';
 
 import 'package:call_log/call_log.dart' as device_log;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart' as device_contacts;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -161,18 +164,17 @@ class _ContactPageState extends State<ContactPage> {
     }
 
     try {
+      // Load contacts in background isolate for better performance
       final contacts = await device_contacts.FlutterContacts.getContacts(
         withProperties: true,
         withPhoto: false,
         sorted: true,
       );
-      final entries = <_ContactEntry>[];
-      for (final contact in contacts) {
-        final entry = _mapContactToEntry(contact);
-        if (entry != null) {
-          entries.add(entry);
-        }
-      }
+      
+      // Process contacts in background isolate
+      final entries = await compute(_processContactsInBackground, contacts);
+
+      if (!mounted) return;
 
       setState(() {
         _allContacts
@@ -188,11 +190,52 @@ class _ContactPageState extends State<ContactPage> {
         _isContactsLoading = false;
       });
     } catch (error) {
+      if (!mounted) return;
+      final errorMessage = NetworkErrorHelper.isNetworkError(error)
+          ? NetworkErrorHelper.getNetworkErrorMessage(error)
+          : 'Unable to read contacts: $error';
       setState(() {
-        _contactsMessage = 'Unable to read contacts: $error';
+        _contactsMessage = errorMessage;
         _isContactsLoading = false;
       });
     }
+  }
+
+  // Helper function to process contacts in background isolate
+  static List<_ContactEntry> _processContactsInBackground(
+      List<device_contacts.Contact> contacts) {
+    final entries = <_ContactEntry>[];
+    for (final contact in contacts) {
+      if (contact.phones.isEmpty) continue;
+
+      final displayPhones = contact.phones
+          .map((phone) => phone.number.trim())
+          .where((number) => number.isNotEmpty)
+          .toList();
+      final normalizedPhones = displayPhones
+          .map((number) => number.replaceAll(RegExp(r'[^0-9+]'), ''))
+          .where((number) => number.isNotEmpty)
+          .toList();
+      if (displayPhones.isEmpty || normalizedPhones.isEmpty) {
+        continue;
+      }
+
+      final name = (contact.displayName.trim().isNotEmpty
+              ? contact.displayName.trim()
+              : displayPhones.first)
+          .trim();
+
+      entries.add(
+        _ContactEntry(
+          id: contact.id,
+          name: name,
+          normalizedName: name.toLowerCase(),
+          displayPhones: displayPhones,
+          normalizedPhones: normalizedPhones,
+        ),
+      );
+    }
+    return entries;
   }
 
   void _onSearchChanged() {
@@ -205,9 +248,7 @@ class _ContactPageState extends State<ContactPage> {
 
   Future<void> _performContactSearch(String rawQuery) async {
     final query = rawQuery.trim();
-    final normalized = query.toLowerCase();
-    debugPrint('Contact search query: "$query"');
-
+    
     if (query.isEmpty) {
       final limit = _allContacts.length < _visibleContactLimit
           ? _allContacts.length
@@ -221,13 +262,41 @@ class _ContactPageState extends State<ContactPage> {
       return;
     }
 
+    // Optimize search by processing in background and limiting results early
+    final normalized = query.toLowerCase();
     final digitsQuery = query.replaceAll(RegExp(r'[^0-9+]'), '');
-    final results = _allContacts.where((contact) {
-      final nameMatch = contact.normalizedName.contains(normalized);
-      final phoneMatch = digitsQuery.isNotEmpty &&
-          contact.normalizedPhones.any((phone) => phone.contains(digitsQuery));
-      return nameMatch || phoneMatch;
-    }).take(20).toList();
+    
+    // Optimize search - process directly for better performance
+    // Only use compute if contact list is very large (>1000)
+    List<_ContactEntry> results;
+    if (_allContacts.length > 1000) {
+      results = await compute(
+        _searchContactsInBackground,
+        _SearchContactsParams(
+          contacts: _allContacts,
+          normalizedQuery: normalized,
+          digitsQuery: digitsQuery,
+          maxResults: 50,
+        ),
+      );
+    } else {
+      // Direct search for smaller lists (faster)
+      results = <_ContactEntry>[];
+      for (final contact in _allContacts) {
+        if (results.length >= 50) break;
+        
+        final nameMatch = contact.normalizedName.contains(normalized);
+        final phoneMatch = digitsQuery.isNotEmpty &&
+            contact.normalizedPhones.any(
+                (phone) => phone.contains(digitsQuery));
+        
+        if (nameMatch || phoneMatch) {
+          results.add(contact);
+        }
+      }
+    }
+
+    if (!mounted) return;
 
     setState(() {
       _filteredContacts = results;
@@ -235,7 +304,6 @@ class _ContactPageState extends State<ContactPage> {
           ? 'No contacts matched "$query".'
           : null;
     });
-    debugPrint('Search results: ${results.length} contacts matched.');
   }
 
   bool get _isSearchActive => _searchController.text.trim().isNotEmpty;
@@ -332,12 +400,22 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<ClientRecord?> _findExistingClient(_ContactEntry entry) async {
-    for (final phone in entry.displayPhones) {
-      final client = await _clientService.findClientByPhone(phone);
-      if (client != null) {
-        return client;
+    // Optimize: Check all phones in parallel instead of sequentially
+    final futures = entry.displayPhones
+        .map((phone) => _clientService.findClientByPhone(phone))
+        .toList();
+    
+    try {
+      final results = await Future.wait(futures);
+      for (final result in results) {
+        if (result != null) {
+          return result;
+        }
       }
+    } catch (error) {
+      debugPrint('Error finding existing client: $error');
     }
+    
     return null;
   }
 
@@ -432,7 +510,7 @@ class _ContactPageState extends State<ContactPage> {
         !_isSearchActive && _filteredContacts.length < _allContacts.length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF010104),
+      backgroundColor: const Color(0xFF000000),
       body: SafeArea(
         child: Column(
           children: [
@@ -477,19 +555,23 @@ class _ContactPageState extends State<ContactPage> {
                             onCallTap: _handleCallLogTap,
                           ),
                         ),
-                        SingleChildScrollView(
-                          controller: _contactListController,
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                          child: _ContactSearchCard(
-                            controller: _searchController,
-                            isLoading:
-                                _isContactsLoading && _filteredContacts.isEmpty,
-                            message: _contactsMessage,
-                            filteredContacts: _filteredContacts,
-                            recentContacts: _recentContacts,
-                            onContactTap: _handleContactTap,
-                            isLoadingMore: _isLoadingMoreContacts,
-                            hasMore: hasMoreContacts,
+                        RefreshIndicator(
+                          onRefresh: _loadContacts,
+                          color: const Color(0xFF6F4BFF),
+                          child: SingleChildScrollView(
+                            controller: _contactListController,
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                            child: _ContactSearchCard(
+                              controller: _searchController,
+                              isLoading:
+                                  _isContactsLoading && _filteredContacts.isEmpty,
+                              message: _contactsMessage,
+                              filteredContacts: _filteredContacts,
+                              recentContacts: _recentContacts,
+                              onContactTap: _handleContactTap,
+                              isLoadingMore: _isLoadingMoreContacts,
+                              hasMore: hasMoreContacts,
+                            ),
                           ),
                         ),
                       ],
@@ -531,34 +613,6 @@ class _ContactPageState extends State<ContactPage> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  _ContactEntry? _mapContactToEntry(device_contacts.Contact contact) {
-    if (contact.phones.isEmpty) return null;
-
-    final displayPhones = contact.phones
-        .map((phone) => phone.number.trim())
-        .where((number) => number.isNotEmpty)
-        .toList();
-    final normalizedPhones = displayPhones
-        .map((number) => number.replaceAll(RegExp(r'[^0-9+]'), ''))
-        .where((number) => number.isNotEmpty)
-        .toList();
-    if (displayPhones.isEmpty || normalizedPhones.isEmpty) {
-      return null;
-    }
-
-    final name = (contact.displayName.trim().isNotEmpty
-            ? contact.displayName.trim()
-            : displayPhones.first)
-        .trim();
-
-    return _ContactEntry(
-      id: contact.id,
-      name: name,
-      normalizedName: name.toLowerCase(),
-      displayPhones: displayPhones,
-      normalizedPhones: normalizedPhones,
-    );
-  }
 
   Future<bool?> _showClientFormSheet(_ContactEntry entry) {
     final orgContext = context.read<OrganizationContextCubit>().state;
@@ -782,6 +836,42 @@ class _CallLogEntry {
   final bool isOutgoing;
 }
 
+// Helper class for search parameters
+class _SearchContactsParams {
+  const _SearchContactsParams({
+    required this.contacts,
+    required this.normalizedQuery,
+    required this.digitsQuery,
+    required this.maxResults,
+  });
+
+  final List<_ContactEntry> contacts;
+  final String normalizedQuery;
+  final String digitsQuery;
+  final int maxResults;
+}
+
+// Helper function to search contacts in background
+List<_ContactEntry> _searchContactsInBackground(_SearchContactsParams params) {
+  final results = <_ContactEntry>[];
+  final maxResults = params.maxResults;
+  
+  for (final contact in params.contacts) {
+    if (results.length >= maxResults) break;
+    
+    final nameMatch = contact.normalizedName.contains(params.normalizedQuery);
+    final phoneMatch = params.digitsQuery.isNotEmpty &&
+        contact.normalizedPhones.any(
+            (phone) => phone.contains(params.digitsQuery));
+    
+    if (nameMatch || phoneMatch) {
+      results.add(contact);
+    }
+  }
+  
+  return results;
+}
+
 class _ContactEntry {
   const _ContactEntry({
     required this.id,
@@ -799,6 +889,83 @@ class _ContactEntry {
 
   String get primaryDisplayPhone =>
       displayPhones.isNotEmpty ? displayPhones.first : '-';
+}
+
+class _ContactListTile extends StatelessWidget {
+  const _ContactListTile({
+    super.key,
+    required this.contact,
+    required this.onTap,
+  });
+
+  final _ContactEntry contact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: const Color(0xFF2F2F43),
+                child: Text(
+                  contact.name.isNotEmpty 
+                      ? contact.name[0].toUpperCase() 
+                      : '?',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      contact.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      contact.primaryDisplayPhone,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 13,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: Colors.white24,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 enum _ContactAction { newClient, existing }
@@ -890,18 +1057,27 @@ class _ContactSearchCard extends StatelessWidget {
           const SizedBox(height: 16),
           TextField(
             controller: controller,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: Colors.white, fontSize: 15),
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search, color: Colors.white54),
+              prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
               hintText: 'Search contacts',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
               filled: true,
               fillColor: const Color(0xFF131324),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: Color(0xFF6F4BFF),
+                  width: 2,
+                ),
+              ),
             ),
+            textInputAction: TextInputAction.search,
           ),
           const SizedBox(height: 16),
           if (isLoading)
@@ -949,49 +1125,56 @@ class _ContactSearchCard extends StatelessWidget {
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 )
               else ...[
-                ...filteredContacts.map(
-                  (contact) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: CircleAvatar(
-                      backgroundColor: const Color(0xFF2F2F43),
-                      child: Text(
-                        contact.name.isNotEmpty ? contact.name[0] : '?',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                    title: Text(
-                      contact.name,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    subtitle: Text(
-                      contact.primaryDisplayPhone,
-                      style: const TextStyle(color: Colors.white54),
-                    ),
-                    onTap: () => onContactTap(contact),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: filteredContacts.length + (isLoadingMore ? 1 : 0) + (hasMore && !isLoadingMore ? 1 : 0),
+                    itemExtent: 72, // Fixed height for better performance
+                    cacheExtent: 500, // Cache more items for smoother scrolling
+                    itemBuilder: (context, index) {
+                      if (index < filteredContacts.length) {
+                        final contact = filteredContacts[index];
+                        return RepaintBoundary(
+                          child: _ContactListTile(
+                            key: ValueKey(contact.id),
+                            contact: contact,
+                            onTap: () => onContactTap(contact),
+                          ),
+                        );
+                      }
+                      
+                      if (index == filteredContacts.length && isLoadingMore) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      if (index == filteredContacts.length + (isLoadingMore ? 1 : 0) && hasMore) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 12, bottom: 16),
+                          child: Text(
+                            'Scroll to load more contacts…',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        );
+                      }
+                      
+                      return const SizedBox.shrink();
+                    },
                   ),
                 ),
-                if (isLoadingMore)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 16),
-                    child: Center(
-                      child: SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  )
-                else if (hasMore)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      'Scroll to load more contacts…',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
               ],
             ],
           ],
@@ -1027,14 +1210,23 @@ class _CallLogsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isLoading)
-            const Center(child: CircularProgressIndicator())
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF6F4BFF),
+                ),
+              ),
+            )
           else if (groupedEntries.isEmpty)
             _EmptyState(message: message)
           else
             Column(
+              mainAxisSize: MainAxisSize.min,
               children: groupedEntries.entries
                   .map(
                     (entry) => Padding(
+                      key: ValueKey(entry.key),
                       padding: const EdgeInsets.only(bottom: 16),
                       child: _CallLogSection(
                         title: entry.key,

@@ -3,7 +3,8 @@ import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/payment_accounts/payment_accounts_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -21,12 +22,18 @@ class PaymentAccountsPage extends StatelessWidget {
           );
         }
       },
-      child: PageWorkspaceLayout(
-        title: 'Payment Accounts',
-        currentIndex: 4,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-        child: Column(
+      child: Scaffold(
+        backgroundColor: const Color(0xFF000000),
+        appBar: const ModernPageHeader(
+          title: 'Payment Accounts',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
@@ -74,7 +81,16 @@ class PaymentAccountsPage extends StatelessWidget {
               },
             ),
           ],
+                ),
+                      ),
+                    ),
+            QuickNavBar(
+              currentIndex: 4,
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
         ),
+      ),
       ),
     );
   }
@@ -145,7 +161,7 @@ class _AccountTile extends StatelessWidget {
           ]
         : [
             const Color(0xFF1A1A2A),
-            const Color(0xFF11111B),
+            const Color(0xFF0A0A0A),
             const Color(0xFF0D0D14),
           ];
 
@@ -403,7 +419,7 @@ class _AccountDialogState extends State<_AccountDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 600.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         isEditing ? 'Edit Payment Account' : 'Add Payment Account',
         style: const TextStyle(color: Colors.white),

@@ -456,6 +456,7 @@ Organization vehicles.
   vehicleNumber: string;           // Vehicle registration number
   vehicleType?: string;            // Vehicle type
   driverId?: string;               // Driver employee ID
+  tag?: string;                    // Vehicle tag (e.g., "Delivery", "Personal", "Raw Material", "Plant", or custom)
   // ... other vehicle fields
   createdAt: Timestamp;
   updatedAt: Timestamp;

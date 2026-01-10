@@ -267,7 +267,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),

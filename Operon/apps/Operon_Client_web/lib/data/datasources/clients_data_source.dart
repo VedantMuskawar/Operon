@@ -10,9 +10,9 @@ class ClientsDataSource {
   CollectionReference<Map<String, dynamic>> get _clientsRef =>
       _firestore.collection('CLIENTS');
 
-  Future<List<Client>> fetchClients({int limit = 100}) async {
+  Future<List<Client>> fetchClients({int limit = 20}) async {
     final snapshot = await _clientsRef
-        .orderBy('name_lc')
+        .orderBy('createdAt', descending: true)
         .limit(limit)
         .get();
     return snapshot.docs

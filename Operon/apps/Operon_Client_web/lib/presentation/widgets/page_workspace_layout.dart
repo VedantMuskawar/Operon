@@ -271,6 +271,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                 onOpenProducts: () => context.go('/products'),
                 onOpenPaymentAccounts:
                     isAdminRole ? () => context.go('/payment-accounts') : null,
+                onOpenDmSettings: () => context.go('/dm-settings'),
               ),
             ),
           ],
@@ -755,6 +756,7 @@ class _SettingsSideSheet extends StatelessWidget {
     required this.onOpenRoles,
     required this.onOpenProducts,
     this.onOpenPaymentAccounts,
+    required this.onOpenDmSettings,
   });
 
   final bool canManageRoles;
@@ -763,6 +765,7 @@ class _SettingsSideSheet extends StatelessWidget {
   final VoidCallback onOpenRoles;
   final VoidCallback onOpenProducts;
   final VoidCallback? onOpenPaymentAccounts;
+  final VoidCallback onOpenDmSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -843,6 +846,14 @@ class _SettingsSideSheet extends StatelessWidget {
                   'Payment accounts available for admins only.',
                   style: TextStyle(color: Colors.white38),
                 ),
+              const SizedBox(height: 12),
+              _SettingsTile(
+                label: 'DM Settings',
+                onTap: () {
+                  onClose();
+                  onOpenDmSettings();
+                },
+              ),
             ],
           ),
         ),

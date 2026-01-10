@@ -31,10 +31,18 @@ import 'package:dash_web/presentation/views/users_view.dart';
 import 'package:dash_web/presentation/views/employees_view.dart';
 import 'package:dash_web/presentation/views/vehicles_view.dart';
 import 'package:dash_web/presentation/views/zones_view.dart';
+import 'package:dash_web/presentation/views/wage_settings_page.dart';
+import 'package:dash_web/presentation/blocs/wage_settings/wage_settings_cubit.dart';
+import 'package:dash_web/presentation/views/production_batch_templates_page.dart';
+import 'package:dash_web/presentation/blocs/production_batch_templates/production_batch_templates_cubit.dart';
+import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_web/presentation/widgets/quick_action_menu.dart';
 import 'package:dash_web/presentation/widgets/select_client_dialog.dart';
 import 'package:dash_web/presentation/widgets/record_payment_dialog.dart';
 import 'package:dash_web/presentation/widgets/record_purchase_dialog.dart';
+import 'package:dash_web/presentation/widgets/record_expense_dialog.dart';
+import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
+import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -70,7 +78,7 @@ class SectionWorkspaceLayout extends StatefulWidget {
   State<SectionWorkspaceLayout> createState() => _SectionWorkspaceLayoutState();
 }
 
-enum ContentPage { none, roles, products, rawMaterials, paymentAccounts, users, employees, vehicles, zones }
+enum ContentPage { none, roles, products, rawMaterials, paymentAccounts, users, employees, vehicles, zones, wageSettings, productionBatchTemplates }
 
 class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
   bool _isProfileOpen = false;
@@ -287,6 +295,22 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                         _contentPage = ContentPage.paymentAccounts;
                       })
                     : null,
+                onOpenWageSettings: isAdminRole
+                    ? () => setState(() {
+                        _isSettingsOpen = false;
+                        _contentPage = ContentPage.wageSettings;
+                      })
+                    : null,
+                onOpenProductionBatchTemplates: () => setState(() {
+                  _isSettingsOpen = false;
+                  _contentPage = ContentPage.productionBatchTemplates;
+                }),
+                onOpenDmSettings: () {
+                  setState(() {
+                    _isSettingsOpen = false;
+                  });
+                  context.go('/dm-settings');
+                },
               ),
             ),
 
@@ -309,63 +333,148 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
             // Content panel: top: 100, left: 20, right: 20, bottom: 24
             // Button should be 40px from right edge of viewport and 40px from bottom
             if (widget.currentIndex == 0 || widget.currentIndex == 1)
-              QuickActionMenu(
-                right: 40,
-                bottom: 40, // 40px from bottom of viewport (accounts for content panel bottom: 24 + spacing)
-                actions: [
-                  // Payments - Available on both Overview and Pending Orders (opens Record Payment modal)
-                  QuickActionItem(
-                    icon: Icons.payment,
-                    label: 'Payments',
-                    onTap: () {
-                      final orgState = context.read<OrganizationContextCubit>().state;
-                      final organization = orgState.organization;
-                      if (organization == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please select an organization first')),
+              Builder(
+                builder: (context) {
+                  final actions = <QuickActionItem>[
+                    // Payments - Available on both Overview and Pending Orders (opens Record Payment modal)
+                    QuickActionItem(
+                      icon: Icons.payment,
+                      label: 'Payments',
+                      onTap: () {
+                        final orgState = context.read<OrganizationContextCubit>().state;
+                        final organization = orgState.organization;
+                        if (organization == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please select an organization first')),
+                          );
+                          return;
+                        }
+                        showDialog(
+                          context: context,
+                          barrierColor: Colors.black.withValues(alpha: 0.7),
+                          builder: (dialogContext) => BlocProvider.value(
+                            value: context.read<OrganizationContextCubit>(),
+                            child: const RecordPaymentDialog(),
+                          ),
                         );
-                        return;
-                      }
-                      showDialog(
-                        context: context,
-                        barrierColor: Colors.black.withValues(alpha: 0.7),
-                        builder: (dialogContext) => BlocProvider.value(
-                          value: context.read<OrganizationContextCubit>(),
-                          child: const RecordPaymentDialog(),
-                        ),
-                      );
-                    },
-                  ),
-                  // Record Purchase - Available on both Overview and Pending Orders
-                  QuickActionItem(
-                    icon: Icons.shopping_cart,
-                    label: 'Record Purchase',
-                    onTap: () {
-                      final orgState = context.read<OrganizationContextCubit>().state;
-                      final organization = orgState.organization;
-                      if (organization == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please select an organization first')),
+                      },
+                    ),
+                    // Record Purchase - Available on both Overview and Pending Orders
+                    QuickActionItem(
+                      icon: Icons.shopping_cart,
+                      label: 'Record Purchase',
+                      onTap: () {
+                        final orgState = context.read<OrganizationContextCubit>().state;
+                        final organization = orgState.organization;
+                        if (organization == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please select an organization first')),
+                          );
+                          return;
+                        }
+                        showDialog(
+                          context: context,
+                          barrierColor: Colors.black.withValues(alpha: 0.7),
+                          builder: (dialogContext) => BlocProvider.value(
+                            value: context.read<OrganizationContextCubit>(),
+                            child: const RecordPurchaseDialog(),
+                          ),
                         );
-                        return;
-                      }
-                      showDialog(
-                        context: context,
-                        barrierColor: Colors.black.withValues(alpha: 0.7),
-                        builder: (dialogContext) => BlocProvider.value(
-                          value: context.read<OrganizationContextCubit>(),
-                          child: const RecordPurchaseDialog(),
+                      },
+                    ),
+                    // Create Order - Available on both Overview and Pending Orders
+                    QuickActionItem(
+                      icon: Icons.add_shopping_cart_outlined,
+                      label: 'Create Order',
+                      onTap: () => _showSelectClientDialog(context),
+                    ),
+                  ];
+
+                  // Add Expense action only on Overview (home) section
+                  if (widget.currentIndex == 0) {
+                    actions.add(
+                      QuickActionItem(
+                        icon: Icons.receipt_long,
+                        label: 'Add Expense',
+                        onTap: () {
+                          final orgState = context.read<OrganizationContextCubit>().state;
+                          final organization = orgState.organization;
+                          if (organization == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please select an organization first')),
+                            );
+                            return;
+                          }
+
+                          // Create ExpensesCubit on-demand for the dialog
+                          final transactionsRepository = context.read<TransactionsRepository>();
+                          final vendorsRepository = context.read<VendorsRepository>();
+                          final employeesRepository = context.read<EmployeesRepository>();
+                          final subCategoriesRepository = context.read<ExpenseSubCategoriesRepository>();
+                          final paymentAccountsDataSource = PaymentAccountsDataSource();
+                          final userId = context.read<AuthBloc>().state.userProfile?.id ?? '';
+
+                          final expensesCubit = ExpensesCubit(
+                            transactionsRepository: transactionsRepository,
+                            vendorsRepository: vendorsRepository,
+                            employeesRepository: employeesRepository,
+                            subCategoriesRepository: subCategoriesRepository,
+                            paymentAccountsDataSource: paymentAccountsDataSource,
+                            organizationId: organization.id,
+                            userId: userId,
+                          );
+
+                          showDialog(
+                            context: context,
+                            barrierColor: Colors.black.withValues(alpha: 0.7),
+                            builder: (dialogContext) => BlocProvider.value(
+                              value: expensesCubit,
+                              child: const RecordExpenseDialog(),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }
+
+                  return QuickActionMenu(
+                    right: 40,
+                    bottom: 40, // 40px from bottom of viewport (accounts for content panel bottom: 24 + spacing)
+                    actions: actions,
+                  );
+                },
+              ),
+            // Quick Action Menu for Expenses page
+            if (widget.currentIndex == -1 && widget.panelTitle == 'Expenses')
+              Builder(
+                builder: (context) {
+                  try {
+                    final expensesCubit = context.read<ExpensesCubit>();
+                    return QuickActionMenu(
+                      right: 40,
+                      bottom: 40,
+                      actions: [
+                        QuickActionItem(
+                          icon: Icons.add,
+                          label: 'Add Expense',
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              barrierColor: Colors.black.withValues(alpha: 0.7),
+                              builder: (dialogContext) => BlocProvider.value(
+                                value: expensesCubit,
+                                child: const RecordExpenseDialog(),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                  // Create Order - Available on both Overview and Pending Orders
-                  QuickActionItem(
-                    icon: Icons.add_shopping_cart_outlined,
-                    label: 'Create Order',
-                    onTap: () => _showSelectClientDialog(context),
-                  ),
-                ],
+                      ],
+                    );
+                  } catch (e) {
+                    // ExpensesCubit not available, return empty container
+                    return const SizedBox.shrink();
+                  }
+                },
               ),
           ],
         ),
@@ -1605,6 +1714,9 @@ class _SettingsSideSheet extends StatelessWidget {
     required this.onOpenProducts,
     required this.onOpenRawMaterials,
     this.onOpenPaymentAccounts,
+    this.onOpenWageSettings,
+    this.onOpenProductionBatchTemplates,
+    required this.onOpenDmSettings,
   });
 
   final bool canManageRoles;
@@ -1619,6 +1731,9 @@ class _SettingsSideSheet extends StatelessWidget {
   final VoidCallback onOpenProducts;
   final VoidCallback onOpenRawMaterials;
   final VoidCallback? onOpenPaymentAccounts;
+  final VoidCallback? onOpenWageSettings;
+  final VoidCallback? onOpenProductionBatchTemplates;
+  final VoidCallback onOpenDmSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -1726,6 +1841,32 @@ class _SettingsSideSheet extends StatelessWidget {
                   'Payment accounts available for admins only.',
                   style: TextStyle(color: Colors.white38),
                 ),
+              const SizedBox(height: 12),
+              if (onOpenWageSettings != null)
+                _SettingsTile(
+                  label: 'Wage Settings',
+                  onTap: () {
+                    onClose();
+                    onOpenWageSettings!();
+                  },
+                ),
+              if (onOpenWageSettings != null) const SizedBox(height: 12),
+              if (onOpenProductionBatchTemplates != null)
+                _SettingsTile(
+                  label: 'Production Batches',
+                  onTap: () {
+                    onClose();
+                    onOpenProductionBatchTemplates!();
+                  },
+                ),
+              if (onOpenProductionBatchTemplates != null) const SizedBox(height: 12),
+              _SettingsTile(
+                label: 'DM Settings',
+                onTap: () {
+                  onClose();
+                  onOpenDmSettings();
+                },
+              ),
             ],
           ),
         ),
@@ -1969,6 +2110,36 @@ class _ContentSideSheet extends StatelessWidget {
               pricePermission: zonesPricePerm,
               isAdmin: appAccessRoleNonNull.isAdmin,
             ),
+          );
+        }
+        break;
+      case ContentPage.wageSettings:
+        title = 'Wage Settings';
+        if (orgId == null) {
+          content = const Center(child: Text('No organization selected'));
+        } else {
+          final orgIdNonNull = orgId!;
+          content = BlocProvider(
+            create: (context) => WageSettingsCubit(
+              repository: context.read<WageSettingsRepository>(),
+              organizationId: orgIdNonNull,
+            )..loadSettings(),
+            child: const WageSettingsPageContent(),
+          );
+        }
+        break;
+      case ContentPage.productionBatchTemplates:
+        title = 'Production Batches';
+        if (orgId == null) {
+          content = const Center(child: Text('No organization selected'));
+        } else {
+          final orgIdNonNull = orgId!;
+          content = BlocProvider(
+            create: (context) => ProductionBatchTemplatesCubit(
+              repository: context.read<ProductionBatchTemplatesRepository>(),
+              organizationId: orgIdNonNull,
+            )..loadTemplates(),
+            child: const ProductionBatchTemplatesPageContent(),
           );
         }
         break;

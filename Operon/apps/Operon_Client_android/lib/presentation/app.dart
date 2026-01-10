@@ -31,6 +31,8 @@ import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/call_detection/call_detection_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_selector/org_selector_cubit.dart';
+import 'package:dash_mobile/presentation/widgets/textured_background.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -223,10 +225,25 @@ class DashMobileApp extends StatelessWidget {
           ),
         ],
         child: MaterialApp.router(
-      title: 'Dash Mobile',
-      theme: buildDashTheme(),
-      routerConfig: router,
-      debugShowCheckedModeBanner: false,
+          title: 'Dash Mobile',
+          theme: buildDashTheme(),
+          routerConfig: router,
+          debugShowCheckedModeBanner: false,
+          builder: (context, child) {
+            if (kDebugMode) {
+              debugPrint('[MaterialApp.builder] Called with child: ${child != null ? child.runtimeType : "null"}');
+            }
+            final wrapped = TexturedBackground(
+              pattern: BackgroundPattern.dotted, // More visible pattern
+              opacity: 1.0, // Maximum visibility for testing
+              debugMode: kDebugMode, // Enable debug in debug mode
+              child: child ?? const SizedBox.shrink(),
+            );
+            if (kDebugMode) {
+              debugPrint('[MaterialApp.builder] Returning TexturedBackground widget');
+            }
+            return wrapped;
+          },
         ),
       ),
     );

@@ -60,6 +60,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dash_mobile/presentation/widgets/back_button_handler.dart';
 
 GoRouter buildRouter() {
   return GoRouter(
@@ -865,20 +866,28 @@ CustomTransitionPage<dynamic> _buildTransitionPage({
 }) {
   return CustomTransitionPage<dynamic>(
     key: key,
-    child: child,
-    transitionDuration: const Duration(milliseconds: 200),
+    child: BackButtonHandler(
+      child: child,
+    ),
+    transitionDuration: const Duration(milliseconds: 300),
     transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      // Use easeOutCubic for natural, smooth motion
       final curved = CurvedAnimation(
         parent: animation,
-        curve: Curves.fastOutSlowIn,
-        reverseCurve: Curves.fastOutSlowIn,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
       );
-      return SlideTransition(
-          position: Tween<Offset>(
-          begin: const Offset(1.0, 0.0), // Slide from right
-            end: Offset.zero,
+      
+      // Combine scale and fade for iOS-like transition
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween<double>(
+            begin: 0.95,
+            end: 1.0,
           ).animate(curved),
           child: child,
+        ),
       );
     },
   );

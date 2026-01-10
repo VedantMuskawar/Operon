@@ -29,8 +29,7 @@ class PendingOrdersDataSource {
       // Store only trip references (ids) on the order; keep trip details in SCHEDULED_TRIPS
       'tripIds': orderData['tripIds'] ?? <dynamic>[],
       'totalScheduledTrips': orderData['totalScheduledTrips'] ?? 0,
-      'scheduledQuantity': orderData['scheduledQuantity'],
-      'unscheduledQuantity': orderData['unscheduledQuantity'],
+      // ❌ REMOVED: scheduledQuantity, unscheduledQuantity (calculate on-the-fly)
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -162,20 +161,27 @@ class PendingOrdersDataSource {
         final unitPrice = (items[i]['unitPrice'] as num).toDouble();
         final gstPercent = (items[i]['gstPercent'] as num?)?.toDouble();
         
-        // Recalculate quantities and prices
-        final totalQuantity = newTrips * fixedQty;
-        final subtotal = totalQuantity * unitPrice;
-        final gstAmount = gstPercent != null ? subtotal * (gstPercent / 100) : 0.0;
-        final total = subtotal + gstAmount;
+        // Recalculate prices (without totalQuantity)
+        final subtotal = newTrips * fixedQty * unitPrice;
+        final total = subtotal;
         
-        items[i] = {
+        final updatedItem = <String, dynamic>{
           ...items[i],
           'estimatedTrips': newTrips,
-          'totalQuantity': totalQuantity,
+          // ❌ REMOVED: totalQuantity (calculate on-the-fly)
           'subtotal': subtotal,
-          'gstAmount': gstAmount,
           'total': total,
         };
+        
+        // ✅ Only include GST fields if GST applies
+        if (gstPercent != null && gstPercent > 0) {
+          final gstAmount = subtotal * (gstPercent / 100);
+          updatedItem['gstPercent'] = gstPercent;
+          updatedItem['gstAmount'] = gstAmount;
+          updatedItem['total'] = subtotal + gstAmount;
+        }
+        
+        items[i] = updatedItem;
         itemFound = true;
         break;
       }
@@ -190,16 +196,24 @@ class PendingOrdersDataSource {
     double orderGst = 0;
     for (final item in items) {
       orderSubtotal += (item['subtotal'] as num).toDouble();
-      orderGst += (item['gstAmount'] as num).toDouble();
+      final itemGstAmount = (item['gstAmount'] as num?)?.toDouble() ?? 0.0;
+      orderGst += itemGstAmount;
     }
     final orderTotal = orderSubtotal + orderGst;
+    
+    // Build pricing object - only include totalGst if there's actual GST
+    final pricingUpdate = <String, dynamic>{
+      'pricing.subtotal': orderSubtotal,
+      'pricing.totalAmount': orderTotal,
+    };
+    if (orderGst > 0) {
+      pricingUpdate['pricing.totalGst'] = orderGst;
+    }
     
     // Update order document
     await orderRef.update({
       'items': items,
-      'pricing.subtotal': orderSubtotal,
-      'pricing.totalGst': orderGst,
-      'pricing.totalAmount': orderTotal,
+      ...pricingUpdate,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

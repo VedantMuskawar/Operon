@@ -6,11 +6,13 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/domain/entities/organization_user.dart';
 import 'package:dash_mobile/presentation/blocs/users/users_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/roles/roles_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/page_workspace_layout.dart';
+import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 
 class UsersPage extends StatelessWidget {
   const UsersPage({super.key});
@@ -29,12 +31,18 @@ class UsersPage extends StatelessWidget {
           );
         }
       },
-      child: PageWorkspaceLayout(
-        title: 'Users',
-        currentIndex: 4,
-        onBack: () => context.go('/home'),
-        onNavTap: (value) => context.go('/home', extra: value),
-        child: Column(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const ModernPageHeader(
+          title: 'Users',
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (canManageUsers)
@@ -76,29 +84,36 @@ class UsersPage extends StatelessWidget {
                     ),
                   );
                 }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: state.users.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final user = state.users[index];
-                    return _UserTile(
-                      user: user,
-                      canManage: canManageUsers,
-                      onEdit: canManageUsers
-                          ? () => _openUserDialog(context, user: user)
-                          : null,
-                      onDelete: canManageUsers
-                          ? () => context.read<UsersCubit>().deleteUser(user.id)
-                          : null,
-                    );
-                  },
+                return Column(
+                  children: [
+                    for (int i = 0; i < state.users.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      _UserTile(
+                        user: state.users[i],
+                        canManage: canManageUsers,
+                        onEdit: canManageUsers
+                            ? () => _openUserDialog(context, user: state.users[i])
+                            : null,
+                        onDelete: canManageUsers
+                            ? () => context.read<UsersCubit>().deleteUser(state.users[i].id)
+                            : null,
+                      ),
+                    ],
+                  ],
                 );
               },
             ),
           ],
+                ),
+                      ),
+                    ),
+            QuickNavBar(
+              currentIndex: -1, // -1 means no selection when on this page
+              onTap: (value) => context.go('/home', extra: value),
+            ),
+          ],
         ),
+      ),
       ),
     );
   }
@@ -141,7 +156,7 @@ class _UserTile extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
+          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -286,7 +301,7 @@ class _UserDialogState extends State<_UserDialog> {
 
     if (roles.isEmpty) {
       return AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: const Color(0xFF0A0A0A),
         title: const Text('Add User', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Create at least one role before adding users.',
@@ -302,7 +317,7 @@ class _UserDialogState extends State<_UserDialog> {
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: const Color(0xFF0A0A0A),
       title: Text(
         isEditing ? 'Edit User' : 'Add User',
         style: const TextStyle(color: Colors.white),

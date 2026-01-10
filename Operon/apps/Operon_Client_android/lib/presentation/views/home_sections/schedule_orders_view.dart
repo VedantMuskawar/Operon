@@ -171,7 +171,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF11111B),
+            backgroundColor: const Color(0xFF0A0A0A),
             title: const Text(
               'Reschedule Trip',
               style: TextStyle(color: Colors.white),

@@ -276,6 +276,17 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       // Get day name
       final dayName = _getDayName(_selectedDate!);
 
+      // Get order items to determine itemIndex and productId
+      // For now, default to first item (itemIndex 0) for backward compatibility
+      // TODO: Add UI to select which item/product to schedule for multi-product orders
+      final orderItems = widget.order['items'] as List<dynamic>? ?? [];
+      final itemIndex = 0; // Default to first item
+      String? productId;
+      if (orderItems.isNotEmpty && itemIndex < orderItems.length) {
+        final item = orderItems[itemIndex] as Map<String, dynamic>?;
+        productId = item?['productId'] as String?;
+      }
+
       // Create scheduled trip
       final scheduledTripsRepo = context.read<ScheduledTripsRepository>();
       await scheduledTripsRepo.createScheduledTrip(
@@ -298,10 +309,11 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         deliveryZone: widget.order['deliveryZone'] as Map<String, dynamic>? ?? {},
         items: widget.order['items'] as List<dynamic>? ?? [],
         pricing: widget.order['pricing'] as Map<String, dynamic>? ?? {},
-        includeGstInTotal:
-            widget.order['includeGstInTotal'] as bool? ?? true,
+        // ❌ REMOVED: includeGstInTotal (not needed with conditional GST)
         priority: widget.order['priority'] as String? ?? 'normal',
         createdBy: currentUser.uid,
+        itemIndex: itemIndex, // ✅ Pass itemIndex
+        productId: productId, // ✅ Pass productId
       );
 
       if (mounted) {

@@ -2,6 +2,7 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/data/repositories/delivery_zones_repository.dart';
 import 'package:dash_mobile/data/repositories/products_repository.dart';
+import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -96,9 +97,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       }
     } catch (err, stack) {
       _log('loadZones error: $err\n$stack');
+      final errorMessage = NetworkErrorHelper.isNetworkError(err)
+          ? NetworkErrorHelper.getNetworkErrorMessage(err)
+          : 'Unable to load delivery zones.';
       emit(state.copyWith(
         status: ViewStatus.failure,
-        message: 'Unable to load delivery zones.',
+        message: errorMessage,
       ));
     }
   }
@@ -121,9 +125,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       );
     } catch (err, stack) {
       _log('selectZone error: $err\n$stack');
+      final errorMessage = NetworkErrorHelper.isNetworkError(err)
+          ? NetworkErrorHelper.getNetworkErrorMessage(err)
+          : 'Unable to load prices.';
       emit(state.copyWith(
         status: ViewStatus.failure,
-        message: 'Unable to load prices.',
+        message: errorMessage,
       ));
     }
   }
@@ -137,9 +144,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       await loadZones();
     } catch (err, stack) {
       _log('createZone error: $err\n$stack');
+      final errorMessage = NetworkErrorHelper.isNetworkError(err)
+          ? NetworkErrorHelper.getNetworkErrorMessage(err)
+          : 'Unable to create zone.';
       emit(state.copyWith(
         status: ViewStatus.failure,
-        message: 'Unable to create zone.',
+        message: errorMessage,
       ));
     }
   }
@@ -152,9 +162,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       await loadZones();
     } catch (err, stack) {
       _log('updateZone error: $err\n$stack');
+      final errorMessage = NetworkErrorHelper.isNetworkError(err)
+          ? NetworkErrorHelper.getNetworkErrorMessage(err)
+          : 'Unable to update zone.';
       emit(state.copyWith(
         status: ViewStatus.failure,
-        message: 'Unable to update zone.',
+        message: errorMessage,
       ));
     }
   }
@@ -167,9 +180,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       await loadZones();
     } catch (err, stack) {
       _log('deleteZone error: $err\n$stack');
+      final errorMessage = NetworkErrorHelper.isNetworkError(err)
+          ? NetworkErrorHelper.getNetworkErrorMessage(err)
+          : 'Unable to delete zone.';
       emit(state.copyWith(
         status: ViewStatus.failure,
-        message: 'Unable to delete zone.',
+        message: errorMessage,
       ));
     }
   }
@@ -200,9 +216,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       await selectZone(zoneId);
     } catch (err, stack) {
       _log('upsertPrice error: $err\n$stack');
+      final errorMessage = NetworkErrorHelper.isNetworkError(err)
+          ? NetworkErrorHelper.getNetworkErrorMessage(err)
+          : 'Unable to update price.';
       emit(state.copyWith(
         status: ViewStatus.failure,
-        message: 'Unable to update price.',
+        message: errorMessage,
       ));
     }
   }
@@ -221,9 +240,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       await selectZone(zoneId);
     } catch (err, stack) {
       _log('deletePrice error: $err\n$stack');
+      final errorMessage = NetworkErrorHelper.isNetworkError(err)
+          ? NetworkErrorHelper.getNetworkErrorMessage(err)
+          : 'Unable to delete price.';
       emit(state.copyWith(
         status: ViewStatus.failure,
-        message: 'Unable to delete price.',
+        message: errorMessage,
       ));
     }
   }
