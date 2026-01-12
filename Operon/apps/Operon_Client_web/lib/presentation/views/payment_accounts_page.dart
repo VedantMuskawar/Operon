@@ -247,8 +247,44 @@ class _AccountTile extends StatefulWidget {
   State<_AccountTile> createState() => _AccountTileState();
 }
 
-class _AccountTileState extends State<_AccountTile> {
+class _AccountTileState extends State<_AccountTile> with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
+  late AnimationController _expandController;
+  late Animation<double> _rotationAnimation;
+  
+  @override
+  void initState() {
+    super.initState();
+    _expandController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    
+    _rotationAnimation = Tween<double>(
+      begin: 0.0,
+      end: 0.5, // 180 degrees
+    ).animate(CurvedAnimation(
+      parent: _expandController,
+      curve: Curves.easeOutCubic,
+    ));
+  }
+  
+  @override
+  void dispose() {
+    _expandController.dispose();
+    super.dispose();
+  }
+  
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _expandController.forward();
+      } else {
+        _expandController.reverse();
+      }
+    });
+  }
 
   IconData get _typeIcon {
     switch (widget.account.type) {
@@ -334,9 +370,7 @@ class _AccountTileState extends State<_AccountTile> {
         ],
       ),
       child: InkWell(
-        onTap: shouldShowDetails
-            ? () => setState(() => _isExpanded = !_isExpanded)
-            : null,
+        onTap: shouldShowDetails ? _toggleExpanded : null,
         borderRadius: BorderRadius.circular(20),
         child: Row(
         children: [
@@ -443,10 +477,13 @@ class _AccountTileState extends State<_AccountTile> {
                         ),
                       ),
                       const Spacer(),
-                      Icon(
-                        _isExpanded ? Icons.expand_less : Icons.expand_more,
-                        size: 16,
-                        color: Colors.white54,
+                      RotationTransition(
+                        turns: _rotationAnimation,
+                        child: const Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 20,
+                          color: Colors.white54,
+                        ),
                       ),
                     ],
                   ),
@@ -482,10 +519,17 @@ class _AccountTileState extends State<_AccountTile> {
       ),
       ),
       ),
-      if (_isExpanded && shouldShowDetails) ...[
-        const SizedBox(height: 12),
-        _buildExpandedContent(),
-      ],
+      AnimatedCrossFade(
+        firstChild: const SizedBox.shrink(),
+        secondChild: shouldShowDetails ? _buildExpandedContent() : const SizedBox.shrink(),
+        crossFadeState: _isExpanded && shouldShowDetails
+            ? CrossFadeState.showSecond
+            : CrossFadeState.showFirst,
+        duration: const Duration(milliseconds: 250),
+        firstCurve: Curves.easeOut,
+        secondCurve: Curves.easeIn,
+        sizeCurve: Curves.easeOutCubic,
+      ),
     ],
     );
   }
@@ -525,6 +569,9 @@ class _AccountTileState extends State<_AccountTile> {
                 widget.account.qrCodeImageUrl!,
                 width: 200,
                 height: 200,
+                // Optimize memory usage for web
+                cacheWidth: 400,
+                cacheHeight: 400,
                 errorBuilder: (context, error, stackTrace) {
                   return const SizedBox(
                     width: 200,
@@ -533,6 +580,24 @@ class _AccountTileState extends State<_AccountTile> {
                       child: Icon(Icons.error, color: Colors.red),
                     ),
                   );
+                },
+                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                  if (wasSynchronouslyLoaded) {
+                    return child;
+                  }
+                  if (frame == null) {
+                    return const SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white70,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  }
+                  return child;
                 },
               ),
             ),

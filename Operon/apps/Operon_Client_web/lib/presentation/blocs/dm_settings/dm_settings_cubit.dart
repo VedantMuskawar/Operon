@@ -3,6 +3,7 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class DmSettingsState extends BaseState {
@@ -51,14 +52,19 @@ class DmSettingsCubit extends Cubit<DmSettingsState> {
   final FirebaseStorage _storage;
 
   Future<void> loadSettings() async {
+    debugPrint('[DmSettingsCubit] loadSettings called for orgId: $_orgId');
     emit(state.copyWith(status: ViewStatus.loading, clearMessage: true));
     try {
+      debugPrint('[DmSettingsCubit] Fetching settings from repository...');
       final settings = await _repository.fetchDmSettings(_orgId);
+      debugPrint('[DmSettingsCubit] Settings fetched - hasSettings: ${settings != null}');
       emit(state.copyWith(
         status: ViewStatus.success,
         settings: settings,
       ));
+      debugPrint('[DmSettingsCubit] State emitted with success status');
     } catch (error) {
+      debugPrint('[DmSettingsCubit] Error loading settings: $error');
       emit(state.copyWith(
         status: ViewStatus.failure,
         message: 'Unable to load DM settings. Please try again.',
@@ -120,6 +126,8 @@ class DmSettingsCubit extends Cubit<DmSettingsState> {
     String? logoImageUrl,
     DmPrintOrientation? printOrientation,
     DmPaymentDisplay? paymentDisplay,
+    DmTemplateType? templateType,
+    String? customTemplateId,
   }) async {
     emit(state.copyWith(status: ViewStatus.loading, clearMessage: true));
     try {
@@ -137,6 +145,11 @@ class DmSettingsCubit extends Cubit<DmSettingsState> {
         customText: customText?.trim().isEmpty == true ? null : customText?.trim(),
       );
 
+      final template = templateType ?? currentSettings?.templateType ?? DmTemplateType.universal;
+      final templateId = template == DmTemplateType.custom
+          ? (customTemplateId?.trim().isEmpty == true ? null : customTemplateId?.trim())
+          : null;
+
       final settings = DmSettings(
         organizationId: _orgId,
         header: header,
@@ -145,6 +158,8 @@ class DmSettingsCubit extends Cubit<DmSettingsState> {
         updatedBy: _userId,
         printOrientation: printOrientation ?? currentSettings?.printOrientation ?? DmPrintOrientation.portrait,
         paymentDisplay: paymentDisplay ?? currentSettings?.paymentDisplay ?? DmPaymentDisplay.qrCode,
+        templateType: template,
+        customTemplateId: templateId,
       );
 
       await _repository.updateDmSettings(_orgId, settings);

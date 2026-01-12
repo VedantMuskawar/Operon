@@ -21,8 +21,7 @@ import 'package:dash_mobile/presentation/blocs/payment_accounts/payment_accounts
 import 'package:dash_mobile/presentation/blocs/access_control/access_control_cubit.dart';
 import 'package:dash_mobile/presentation/views/home_page.dart';
 import 'package:dash_mobile/presentation/views/organization_selection_page.dart';
-import 'package:dash_mobile/presentation/views/otp_verification_page.dart';
-import 'package:dash_mobile/presentation/views/phone_input_page.dart';
+import 'package:dash_mobile/presentation/views/unified_login_page.dart';
 import 'package:dash_mobile/presentation/views/splash_screen.dart';
 import 'package:dash_mobile/presentation/views/products_page.dart';
 import 'package:dash_mobile/presentation/views/raw_materials_page.dart';
@@ -79,19 +78,13 @@ GoRouter buildRouter() {
         name: 'phone-input',
         pageBuilder: (context, state) => _buildTransitionPage(
           key: state.pageKey,
-          child: const PhoneInputPage(),
+          child: const UnifiedLoginPage(),
         ),
       ),
       GoRoute(
         path: '/otp',
         name: 'otp-verification',
-        pageBuilder: (context, state) {
-          final phoneNumber = state.uri.queryParameters['phone'] ?? '';
-          return _buildTransitionPage(
-            key: state.pageKey,
-            child: OtpVerificationPage(phoneNumber: phoneNumber),
-          );
-        },
+        redirect: (context, state) => '/login',
       ),
       GoRoute(
         path: '/org-selection',

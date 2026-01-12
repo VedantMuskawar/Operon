@@ -1,10 +1,9 @@
-import 'dart:typed_data';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:flutter/material.dart';
 
-/// Dialog for automatically generating and printing DM PDF
-/// Uses print preferences from DM Settings
+/// Dialog for printing/saving DM
+/// Uses HTML generation approach with browser print and html2pdf.js
 class DmPrintDialog extends StatefulWidget {
   const DmPrintDialog({
     super.key,
@@ -24,47 +23,10 @@ class DmPrintDialog extends StatefulWidget {
 }
 
 class _DmPrintDialogState extends State<DmPrintDialog> {
-  bool _isGenerating = true;
+  bool _isPrinting = false;
+  bool _isSaving = false;
   bool _hasError = false;
   String? _errorMessage;
-  Uint8List? _pdfBytes;
-
-  @override
-  void initState() {
-    super.initState();
-    // Auto-generate PDF when dialog opens
-    _generatePdf();
-  }
-
-  Future<void> _generatePdf() async {
-    setState(() {
-      _isGenerating = true;
-      _hasError = false;
-      _errorMessage = null;
-    });
-
-    try {
-      final pdfBytes = await widget.dmPrintService.generatePdfBytes(
-        organizationId: widget.organizationId,
-        dmData: widget.dmData,
-      );
-
-      if (mounted) {
-        setState(() {
-          _pdfBytes = pdfBytes;
-          _isGenerating = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _hasError = true;
-          _errorMessage = e.toString();
-          _isGenerating = false;
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -153,18 +115,7 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            if (_isGenerating) ...[
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
-              const SizedBox(height: 12),
-              const Center(
-                child: Text(
-                  'Generating PDF...',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-              ),
-            ] else if (_hasError) ...[
+            if (_hasError) ...[
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -178,34 +129,9 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _errorMessage ?? 'Failed to generate PDF',
+                        _errorMessage ?? 'An error occurred',
                         style: const TextStyle(color: Colors.red, fontSize: 12),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              DashButton(
-                label: 'Retry',
-                onPressed: _generatePdf,
-                icon: Icons.refresh,
-              ),
-            ] else ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.check_circle, color: Colors.green, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'PDF generated successfully',
-                      style: TextStyle(color: Colors.green, fontSize: 12),
                     ),
                   ],
                 ),
@@ -216,34 +142,41 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isGenerating ? null : () => Navigator.of(context).pop(),
+          onPressed: (_isPrinting || _isSaving) ? null : () => Navigator.of(context).pop(),
           child: const Text('Close'),
         ),
-        if (!_isGenerating && !_hasError && _pdfBytes != null) ...[
-          DashButton(
-            label: 'Print',
-            onPressed: _handlePrint,
-            icon: Icons.print,
-          ),
-          DashButton(
-            label: 'Save PDF',
-            onPressed: _handleSavePdf,
-            icon: Icons.download,
-          ),
-        ],
+        DashButton(
+          label: 'Print',
+          onPressed: (_isPrinting || _isSaving) ? null : _handlePrint,
+          icon: Icons.print,
+        ),
+        DashButton(
+          label: 'Save PDF',
+          onPressed: (_isPrinting || _isSaving) ? null : _handleSavePdf,
+          icon: Icons.download,
+        ),
       ],
     );
   }
 
   Future<void> _handlePrint() async {
-    if (_pdfBytes == null) return;
+    setState(() {
+      _isPrinting = true;
+      _hasError = false;
+      _errorMessage = null;
+    });
 
     try {
-      await widget.dmPrintService.printPdfBytes(
-        pdfBytes: _pdfBytes!,
+      // Use HTML-based print which opens browser's native print dialog
+      await widget.dmPrintService.printDm(
+        organizationId: widget.organizationId,
+        dmData: widget.dmData,
       );
 
       if (mounted) {
+        setState(() {
+          _isPrinting = false;
+        });
         Navigator.of(context).pop();
         DashSnackbar.show(
           context,
@@ -252,6 +185,11 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isPrinting = false;
+          _hasError = true;
+          _errorMessage = 'Failed to print: ${e.toString()}';
+        });
         DashSnackbar.show(
           context,
           message: 'Failed to print: ${e.toString()}',
@@ -262,15 +200,24 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
   }
 
   Future<void> _handleSavePdf() async {
-    if (_pdfBytes == null) return;
+    setState(() {
+      _isSaving = true;
+      _hasError = false;
+      _errorMessage = null;
+    });
 
     try {
-      await widget.dmPrintService.savePdfBytes(
-        pdfBytes: _pdfBytes!,
+      // Use HTML-based save which converts HTML to PDF using html2pdf.js
+      await widget.dmPrintService.saveDmPdf(
+        organizationId: widget.organizationId,
+        dmData: widget.dmData,
         fileName: 'DM-${widget.dmNumber}.pdf',
       );
 
       if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
         Navigator.of(context).pop();
         DashSnackbar.show(
           context,
@@ -279,6 +226,11 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _hasError = true;
+          _errorMessage = 'Failed to save PDF: ${e.toString()}';
+        });
         DashSnackbar.show(
           context,
           message: 'Failed to save PDF: ${e.toString()}',

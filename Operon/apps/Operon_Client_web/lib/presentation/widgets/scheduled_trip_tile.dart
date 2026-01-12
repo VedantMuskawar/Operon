@@ -2,11 +2,12 @@ import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/data/repositories/delivery_memo_repository.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
+import 'package:dash_web/presentation/widgets/dm_preview_modal.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/schedule_trip_modal.dart';
-import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -225,22 +226,67 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
         return;
       }
 
-      // Show print dialog
+      // Show loading dialog while generating HTML
       if (!mounted) return;
-      await showDialog(
+      showDialog(
         context: context,
-        builder: (context) => DmPrintDialog(
-          dmPrintService: printService,
-          organizationId: organization.id,
-          dmData: dmData,
-          dmNumber: dmNumber ?? 0,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            color: Color(0xFF1B1B2C),
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Colors.blue),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading DM Preview...',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       );
+
+      try {
+        // Generate preview content (HTML for universal, PDF for custom)
+        if (!mounted) return;
+        final previewContent = await printService.generateDmPreviewContent(
+          organizationId: organization.id,
+          dmData: dmData,
+        );
+        
+        // Close loading dialog
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        
+        if (!mounted) return;
+        // Show preview in modal
+        await DmPreviewModal.show(
+          context: context,
+          htmlString: previewContent['type'] == 'html' 
+              ? previewContent['content'] as String? 
+              : null,
+          pdfBytes: previewContent['type'] == 'pdf' 
+              ? previewContent['content'] as Uint8List? 
+              : null,
+        );
+      } catch (e) {
+        // Close loading dialog on error
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        rethrow;
+      }
     } catch (e) {
       if (!mounted) return;
       DashSnackbar.show(
         context,
-        message: 'Failed to load DM: ${e.toString()}',
+        message: 'Failed to print DM: ${e.toString()}',
         isError: true,
       );
     }

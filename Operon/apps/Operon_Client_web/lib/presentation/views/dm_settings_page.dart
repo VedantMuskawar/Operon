@@ -6,76 +6,173 @@ import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/dm_settings/dm_settings_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_web/presentation/widgets/page_workspace_layout.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
-class DmSettingsPage extends StatelessWidget {
-  const DmSettingsPage({super.key});
+/// Shows the DM Settings modal dialog
+void showDmSettingsDialog(BuildContext context) {
+  final orgState = context.read<OrganizationContextCubit>().state;
+  final organization = orgState.organization;
+  final authState = context.read<AuthBloc>().state;
+  final userId = authState.userProfile?.id ?? '';
+
+  if (organization == null) return;
+
+  final dmSettingsRepository = context.read<DmSettingsRepository>();
+
+  showDialog(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.7),
+    builder: (dialogContext) => BlocProvider(
+      create: (_) => DmSettingsCubit(
+        repository: dmSettingsRepository,
+        orgId: organization.id,
+        userId: userId,
+      ),
+      child: const _DmSettingsDialog(),
+    ),
+  );
+}
+
+class _DmSettingsDialog extends StatelessWidget {
+  const _DmSettingsDialog();
 
   @override
   Widget build(BuildContext context) {
-    final orgState = context.watch<OrganizationContextCubit>().state;
-    final organization = orgState.organization;
-    final userId = context.read<AuthBloc>().state.userProfile?.id ?? '';
-
-    if (organization == null) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('No organization selected'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => context.go('/org-selection'),
-                child: const Text('Select Organization'),
-              ),
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(24),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 900, maxHeight: 800),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF11111B),
+              Color(0xFF0D0D15),
             ],
           ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 30,
+              spreadRadius: -10,
+              offset: const Offset(0, 20),
+            ),
+          ],
         ),
-      );
-    }
-
-    return BlocProvider(
-      create: (context) => DmSettingsCubit(
-        repository: context.read<DmSettingsRepository>(),
-        orgId: organization.id,
-        userId: userId,
-      )..loadSettings(),
-      child: PageWorkspaceLayout(
-        title: 'DM Settings',
-        currentIndex: -1,
-        onBack: () => context.go('/home'),
-        onNavTap: (index) => context.go('/home?section=$index'),
-        child: const DmSettingsPageContent(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF1B1C2C),
+                    Color(0xFF161622),
+                  ],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                border: Border(
+                  bottom: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.settings_outlined,
+                      color: Color(0xFF6F4BFF),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'DM Settings',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    tooltip: 'Close',
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: BlocListener<DmSettingsCubit, DmSettingsState>(
+                  listener: (context, state) {
+                    if (state.status == ViewStatus.failure && state.message != null) {
+                      DashSnackbar.show(context, message: state.message!, isError: true);
+                    }
+                    if (state.status == ViewStatus.success && state.message != null) {
+                      DashSnackbar.show(context, message: state.message!);
+                    }
+                  },
+                  child: const _DmSettingsContent(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class DmSettingsPageContent extends StatefulWidget {
-  const DmSettingsPageContent({super.key});
+class _DmSettingsContent extends StatefulWidget {
+  const _DmSettingsContent();
 
   @override
-  State<DmSettingsPageContent> createState() => _DmSettingsPageContentState();
+  State<_DmSettingsContent> createState() => _DmSettingsContentState();
 }
 
-class _DmSettingsPageContentState extends State<DmSettingsPageContent> {
+class _DmSettingsContentState extends State<_DmSettingsContent> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _headerNameController;
   late final TextEditingController _headerAddressController;
   late final TextEditingController _headerPhoneController;
   late final TextEditingController _headerGstNoController;
   late final TextEditingController _footerCustomTextController;
+  late final TextEditingController _customTemplateIdController;
 
   String? _logoImageUrl;
   Uint8List? _selectedLogoBytes;
   bool _isUploadingLogo = false;
   DmPrintOrientation _printOrientation = DmPrintOrientation.portrait;
   DmPaymentDisplay _paymentDisplay = DmPaymentDisplay.qrCode;
+  DmTemplateType _templateType = DmTemplateType.universal;
+  bool _settingsLoaded = false;
 
   @override
   void initState() {
@@ -85,23 +182,21 @@ class _DmSettingsPageContentState extends State<DmSettingsPageContent> {
     _headerPhoneController = TextEditingController();
     _headerGstNoController = TextEditingController();
     _footerCustomTextController = TextEditingController();
+    _customTemplateIdController = TextEditingController();
 
-    // Load existing settings
+    // Load existing settings when available
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final cubit = context.read<DmSettingsCubit>();
-      if (cubit.state.settings != null) {
-        _loadSettings(cubit.state.settings!);
-      }
-      cubit.stream.listen((state) {
-        if (state.settings != null) {
-          _loadSettings(state.settings!);
+      if (mounted) {
+        final cubit = context.read<DmSettingsCubit>();
+        if (cubit.state.settings != null && !_settingsLoaded) {
+          _loadSettings(cubit.state.settings!);
         }
-      });
+      }
     });
   }
 
   void _loadSettings(DmSettings settings) {
-    if (!mounted) return;
+    if (!mounted || _settingsLoaded) return;
     setState(() {
       _headerNameController.text = settings.header.name;
       _headerAddressController.text = settings.header.address;
@@ -111,6 +206,9 @@ class _DmSettingsPageContentState extends State<DmSettingsPageContent> {
       _logoImageUrl = settings.header.logoImageUrl;
       _printOrientation = settings.printOrientation;
       _paymentDisplay = settings.paymentDisplay;
+      _templateType = settings.templateType;
+      _customTemplateIdController.text = settings.customTemplateId ?? '';
+      _settingsLoaded = true;
     });
   }
 
@@ -121,6 +219,7 @@ class _DmSettingsPageContentState extends State<DmSettingsPageContent> {
     _headerPhoneController.dispose();
     _headerGstNoController.dispose();
     _footerCustomTextController.dispose();
+    _customTemplateIdController.dispose();
     super.dispose();
   }
 
@@ -135,10 +234,6 @@ class _DmSettingsPageContentState extends State<DmSettingsPageContent> {
         final file = result.files.single;
         setState(() {
           _selectedLogoBytes = file.bytes;
-          // Store extension from filename if available
-          if (file.extension != null) {
-            // Extension will be used during upload
-          }
         });
       }
     } catch (e) {
@@ -275,228 +370,305 @@ class _DmSettingsPageContentState extends State<DmSettingsPageContent> {
       logoImageUrl: _logoImageUrl,
       printOrientation: _printOrientation,
       paymentDisplay: _paymentDisplay,
+      templateType: _templateType,
+      customTemplateId: _templateType == DmTemplateType.custom
+          ? _customTemplateIdController.text.trim()
+          : null,
     );
+
+    if (mounted && cubit.state.status == ViewStatus.success) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<DmSettingsCubit, DmSettingsState>(
-      listener: (context, state) {
-        if (state.status == ViewStatus.failure && state.message != null) {
-          DashSnackbar.show(context, message: state.message!, isError: true);
-        } else if (state.status == ViewStatus.success && state.message != null) {
-          DashSnackbar.show(context, message: state.message!);
+    final cubit = context.watch<DmSettingsCubit>();
+    final state = cubit.state;
+    
+    // Load settings when they become available (defer setState to avoid calling it in build)
+    if (state.settings != null && !_settingsLoaded) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && state.settings != null && !_settingsLoaded) {
+          _loadSettings(state.settings!);
         }
-      },
-      child: BlocBuilder<DmSettingsCubit, DmSettingsState>(
-        builder: (context, state) {
-          final isLoading = state.status == ViewStatus.loading && state.settings == null;
+      });
+    }
+    
+    final isLoading = state.status == ViewStatus.loading && state.settings == null;
 
-          if (isLoading) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(40),
-                child: CircularProgressIndicator(),
-              ),
-            );
-          }
+    if (isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Info Box (similar to wage settings and products)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    color: const Color(0xFF13131E),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                  ),
-                  child: const Text(
-                    'Configure header, footer, and print preferences for Delivery Memos (DM).',
-                    style: TextStyle(color: Colors.white70),
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Info Box
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            color: const Color(0xFF13131E),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+          child: const Text(
+            'Configure header, footer, and print preferences for Delivery Memos (DM).',
+            style: TextStyle(color: Colors.white70),
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Form Content
+        Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Section
+              _buildSection(
+                title: 'Header Settings',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Logo Upload
+                    _buildLogoSection(),
+                    const SizedBox(height: 24),
+                    // Name
+                    TextFormField(
+                      controller: _headerNameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('Name *'),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? 'Enter name'
+                              : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Address
+                    TextFormField(
+                      controller: _headerAddressController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('Address *'),
+                      maxLines: 3,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? 'Enter address'
+                              : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // Phone
+                    TextFormField(
+                      controller: _headerPhoneController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('Phone *'),
+                      keyboardType: TextInputType.phone,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? 'Enter phone number'
+                              : null,
+                    ),
+                    const SizedBox(height: 16),
+                    // GST No
+                    TextFormField(
+                      controller: _headerGstNoController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('GST No (Optional)'),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 20),
-                // Form Content
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header Section
-                      _buildSection(
-                        title: 'Header Settings',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Logo Upload
-                            _buildLogoSection(),
-                            const SizedBox(height: 24),
-                            // Name
-                            TextFormField(
-                              controller: _headerNameController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: _inputDecoration('Name *'),
-                              validator: (value) =>
-                                  (value == null || value.trim().isEmpty)
-                                      ? 'Enter name'
-                                      : null,
-                            ),
-                            const SizedBox(height: 16),
-                            // Address
-                            TextFormField(
-                              controller: _headerAddressController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: _inputDecoration('Address *'),
-                              maxLines: 3,
-                              validator: (value) =>
-                                  (value == null || value.trim().isEmpty)
-                                      ? 'Enter address'
-                                      : null,
-                            ),
-                            const SizedBox(height: 16),
-                            // Phone
-                            TextFormField(
-                              controller: _headerPhoneController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: _inputDecoration('Phone *'),
-                              keyboardType: TextInputType.phone,
-                              validator: (value) =>
-                                  (value == null || value.trim().isEmpty)
-                                      ? 'Enter phone number'
-                                      : null,
-                            ),
-                            const SizedBox(height: 16),
-                            // GST No
-                            TextFormField(
-                              controller: _headerGstNoController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: _inputDecoration('GST No (Optional)'),
-                            ),
-                          ],
-                        ),
+              ),
+              const SizedBox(height: 20),
+              // Footer Section
+              _buildSection(
+                title: 'Footer Settings',
+                child: TextFormField(
+                  controller: _footerCustomTextController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: _inputDecoration('Custom Text (Optional)'),
+                  maxLines: 3,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // DM Template Section
+              _buildSection(
+                title: 'DM Template',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Template Type',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 20),
-                      // Footer Section
-                      _buildSection(
-                        title: 'Footer Settings',
-                        child: TextFormField(
-                          controller: _footerCustomTextController,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: _inputDecoration('Custom Text (Optional)'),
-                          maxLines: 3,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _PrintOption(
+                            label: 'Universal',
+                            icon: Icons.style,
+                            isSelected: _templateType == DmTemplateType.universal,
+                            onTap: () {
+                              setState(() {
+                                _templateType = DmTemplateType.universal;
+                              });
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      // Print Preferences Section
-                      _buildSection(
-                        title: 'Print Preferences',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Orientation Selection
-                            const Text(
-                              'Print Orientation',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _PrintOption(
-                                    label: 'Portrait',
-                                    icon: Icons.portrait,
-                                    isSelected: _printOrientation == DmPrintOrientation.portrait,
-                                    onTap: () {
-                                      setState(() {
-                                        _printOrientation = DmPrintOrientation.portrait;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _PrintOption(
-                                    label: 'Landscape',
-                                    icon: Icons.landscape,
-                                    isSelected: _printOrientation == DmPrintOrientation.landscape,
-                                    onTap: () {
-                                      setState(() {
-                                        _printOrientation = DmPrintOrientation.landscape;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            // Payment Display Selection
-                            const Text(
-                              'Payment Display',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _PrintOption(
-                                    label: 'QR Code',
-                                    icon: Icons.qr_code,
-                                    isSelected: _paymentDisplay == DmPaymentDisplay.qrCode,
-                                    onTap: () {
-                                      setState(() {
-                                        _paymentDisplay = DmPaymentDisplay.qrCode;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _PrintOption(
-                                    label: 'Bank Details',
-                                    icon: Icons.account_balance,
-                                    isSelected: _paymentDisplay == DmPaymentDisplay.bankDetails,
-                                    onTap: () {
-                                      setState(() {
-                                        _paymentDisplay = DmPaymentDisplay.bankDetails;
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _PrintOption(
+                            label: 'Custom',
+                            icon: Icons.brush,
+                            isSelected: _templateType == DmTemplateType.custom,
+                            onTap: () {
+                              setState(() {
+                                _templateType = DmTemplateType.custom;
+                              });
+                            },
+                          ),
                         ),
-                      ),
+                      ],
+                    ),
+                    if (_templateType == DmTemplateType.custom) ...[
                       const SizedBox(height: 24),
-                      // Save Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: DashButton(
-                          label: 'Save Settings',
-                          onPressed: state.status == ViewStatus.loading
-                              ? null
-                              : _saveSettings,
+                      TextFormField(
+                        controller: _customTemplateIdController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _inputDecoration('Custom Template ID *'),
+                        validator: (value) {
+                          if (_templateType == DmTemplateType.custom &&
+                              (value == null || value.trim().isEmpty)) {
+                            return 'Enter custom template ID';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Enter the ID of the custom DM template designed by developers.',
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12,
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              ),
+              const SizedBox(height: 20),
+              // Print Preferences Section
+              _buildSection(
+                title: 'Print Preferences',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Orientation Selection
+                    const Text(
+                      'Print Orientation',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _PrintOption(
+                            label: 'Portrait',
+                            icon: Icons.portrait,
+                            isSelected: _printOrientation == DmPrintOrientation.portrait,
+                            onTap: () {
+                              setState(() {
+                                _printOrientation = DmPrintOrientation.portrait;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _PrintOption(
+                            label: 'Landscape',
+                            icon: Icons.landscape,
+                            isSelected: _printOrientation == DmPrintOrientation.landscape,
+                            onTap: () {
+                              setState(() {
+                                _printOrientation = DmPrintOrientation.landscape;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    // Payment Display Selection
+                    const Text(
+                      'Payment Display',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _PrintOption(
+                            label: 'QR Code',
+                            icon: Icons.qr_code,
+                            isSelected: _paymentDisplay == DmPaymentDisplay.qrCode,
+                            onTap: () {
+                              setState(() {
+                                _paymentDisplay = DmPaymentDisplay.qrCode;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _PrintOption(
+                            label: 'Bank Details',
+                            icon: Icons.account_balance,
+                            isSelected: _paymentDisplay == DmPaymentDisplay.bankDetails,
+                            onTap: () {
+                              setState(() {
+                                _paymentDisplay = DmPaymentDisplay.bankDetails;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Save Button
+              SizedBox(
+                width: double.infinity,
+                child: DashButton(
+                  label: 'Save Settings',
+                  onPressed: state.status == ViewStatus.loading
+                      ? null
+                      : _saveSettings,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -560,20 +732,86 @@ class _DmSettingsPageContentState extends State<DmSettingsPageContent> {
                       child: Image.network(
                         _logoImageUrl!,
                         fit: BoxFit.cover,
+                        // Optimize memory usage for web
+                        cacheWidth: 400,
+                        cacheHeight: 400,
                         errorBuilder: (context, error, stackTrace) {
                           return const Center(
                             child: Icon(Icons.image, color: Colors.white54),
                           );
                         },
+                        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                          if (wasSynchronouslyLoaded) {
+                            return child;
+                          }
+                          if (frame == null) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: CircularProgressIndicator(
+                                  color: Colors.white54,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          }
+                          return child;
+                        },
                       ),
                     )
                   : _selectedLogoBytes != null
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.memory(
-                            _selectedLogoBytes!,
-                            fit: BoxFit.cover,
-                          ),
+                      ? FutureBuilder<Uint8List>(
+                          future: Future.value(_selectedLogoBytes!),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasError) {
+                              return const Center(
+                                child: Icon(Icons.error_outline, color: Colors.white54),
+                              );
+                            }
+                            if (!snapshot.hasData) {
+                              return const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(16.0),
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white54,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              );
+                            }
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.memory(
+                                snapshot.data!,
+                                fit: BoxFit.cover,
+                                // Optimize memory usage for web
+                                cacheWidth: 400,
+                                cacheHeight: 400,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(
+                                    child: Icon(Icons.error_outline, color: Colors.white54),
+                                  );
+                                },
+                                frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                                  if (wasSynchronouslyLoaded) {
+                                    return child;
+                                  }
+                                  if (frame == null) {
+                                    return const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16.0),
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white54,
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return child;
+                                },
+                              ),
+                            );
+                          },
                         )
                       : const Center(
                           child: Icon(Icons.image, color: Colors.white54),

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum DmPrintOrientation { portrait, landscape }
 enum DmPaymentDisplay { qrCode, bankDetails }
+enum DmTemplateType { universal, custom }
 
 class DmSettings {
   const DmSettings({
@@ -12,6 +13,8 @@ class DmSettings {
     this.updatedBy,
     this.printOrientation = DmPrintOrientation.portrait,
     this.paymentDisplay = DmPaymentDisplay.qrCode,
+    this.templateType = DmTemplateType.universal,
+    this.customTemplateId,
   });
 
   final String organizationId;
@@ -21,6 +24,8 @@ class DmSettings {
   final String? updatedBy;
   final DmPrintOrientation printOrientation;
   final DmPaymentDisplay paymentDisplay;
+  final DmTemplateType templateType;
+  final String? customTemplateId;
 
   Map<String, dynamic> toJson() {
     return {
@@ -31,6 +36,8 @@ class DmSettings {
       if (updatedBy != null) 'updatedBy': updatedBy,
       'printOrientation': printOrientation.name,
       'paymentDisplay': paymentDisplay.name,
+      'templateType': templateType.name,
+      if (customTemplateId != null) 'customTemplateId': customTemplateId,
     };
   }
 
@@ -54,6 +61,14 @@ class DmSettings {
           )
         : DmPaymentDisplay.qrCode;
 
+    final templateTypeStr = json['templateType'] as String?;
+    final templateType = templateTypeStr != null
+        ? DmTemplateType.values.firstWhere(
+            (e) => e.name == templateTypeStr,
+            orElse: () => DmTemplateType.universal,
+          )
+        : DmTemplateType.universal;
+
     return DmSettings(
       organizationId: json['organizationId'] as String? ?? '',
       header: DmHeaderSettings.fromJson(headerJson),
@@ -62,6 +77,8 @@ class DmSettings {
       updatedBy: json['updatedBy'] as String?,
       printOrientation: printOrientation,
       paymentDisplay: paymentDisplay,
+      templateType: templateType,
+      customTemplateId: json['customTemplateId'] as String?,
     );
   }
 
@@ -73,6 +90,8 @@ class DmSettings {
     String? updatedBy,
     DmPrintOrientation? printOrientation,
     DmPaymentDisplay? paymentDisplay,
+    DmTemplateType? templateType,
+    String? customTemplateId,
   }) {
     return DmSettings(
       organizationId: organizationId ?? this.organizationId,
@@ -82,6 +101,8 @@ class DmSettings {
       updatedBy: updatedBy ?? this.updatedBy,
       printOrientation: printOrientation ?? this.printOrientation,
       paymentDisplay: paymentDisplay ?? this.paymentDisplay,
+      templateType: templateType ?? this.templateType,
+      customTemplateId: customTemplateId ?? this.customTemplateId,
     );
   }
 }

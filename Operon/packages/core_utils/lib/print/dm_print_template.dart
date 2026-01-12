@@ -3,19 +3,37 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:core_models/core_models.dart';
 import 'pdf_builder.dart';
+import 'dm_custom_templates.dart';
 
 /// Generates a PDF for a Delivery Memo (DM)
 /// 
 /// Supports both Portrait and Landscape orientations
 /// Uses DM Settings for header/footer customization and print preferences
 /// Optionally includes payment account for QR code or bank details
+/// Routes to custom templates when templateType is custom
 Future<Uint8List> generateDmPdf({
   required Map<String, dynamic> dmData,
   required DmSettings dmSettings,
   Map<String, dynamic>? paymentAccount,
   Uint8List? logoBytes,
   Uint8List? qrCodeBytes,
+  Uint8List? watermarkBytes,
 }) async {
+  // Check if custom template should be used
+  if (dmSettings.templateType == DmTemplateType.custom && 
+      dmSettings.customTemplateId != null) {
+    return generateCustomDmPdf(
+      dmData: dmData,
+      dmSettings: dmSettings,
+      customTemplateId: dmSettings.customTemplateId!,
+      paymentAccount: paymentAccount,
+      logoBytes: logoBytes,
+      qrCodeBytes: qrCodeBytes,
+      watermarkBytes: watermarkBytes,
+    );
+  }
+  
+  // Otherwise, use universal template
   final pdf = pw.Document();
   
   // Get orientation from DM Settings

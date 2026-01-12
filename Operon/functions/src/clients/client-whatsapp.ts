@@ -10,6 +10,9 @@ interface WhatsappSettings {
   phoneId: string;
   welcomeTemplateId?: string;
   languageCode?: string;
+  orderConfirmationTemplateId?: string;
+  tripDispatchTemplateId?: string;
+  tripDeliveryTemplateId?: string;
 }
 
 async function loadWhatsappSettings(

@@ -1,6 +1,6 @@
 # WhatsApp Templates Review for Meta Business Suite
 
-This document lists all WhatsApp templates that need to be created/updated in Meta Business Suite.
+This document lists all WhatsApp templates that need to be created/updated in Meta Business Suite for the Operon application.
 
 ## Current Implementation Status
 
@@ -9,7 +9,8 @@ This document lists all WhatsApp templates that need to be created/updated in Me
 
 ### ⚠️ Using Text Messages (Can be converted to templates)
 2. **Order Confirmation** - Currently using text messages
-3. **Order Update** - Currently using text messages
+3. **Trip Dispatch** - Currently using text messages
+4. **Trip Delivery** - Currently using text messages (newly implemented)
 
 ---
 
@@ -44,6 +45,8 @@ Thank you!
 - Firestore: `WHATSAPP_SETTINGS/{organizationId}`
   - Field: `welcomeTemplateId` (optional, defaults to `client_welcome`)
   - Field: `languageCode` (optional, defaults to `en`)
+
+**Status:** ✅ Already implemented and working
 
 ---
 
@@ -104,7 +107,7 @@ Thank you for your order!
   OR empty string if no advance payment
 
 **Usage:**
-- Triggered when an order is created
+- Triggered when an order is created in `PENDING_ORDERS` collection
 - Sent via `onOrderCreatedSendWhatsapp` function
 
 **Settings Location:**
@@ -116,7 +119,144 @@ Thank you for your order!
 
 ---
 
-## Template 3: Order Update (RECOMMENDED - Currently Text)
+## Template 3: Trip Dispatch (RECOMMENDED - Currently Text)
+
+**Template Name:** `trip_dispatch` (suggested) or configured via `tripDispatchTemplateId` in settings
+
+**Category:** UTILITY
+
+**Language:** English (en) or configured via `languageCode` in settings
+
+**Current Status:** ⚠️ Currently using text messages (24-hour window limitation)
+
+**Recommended Template Structure:**
+
+```
+Hello {{1}}!
+
+Your trip has been dispatched!
+
+Trip Details:
+Date: {{2}}
+{{3}}
+
+Items:
+{{4}}
+
+Pricing:
+{{6}}
+
+{{5}}
+
+Thank you!
+```
+
+**Parameters:**
+- `{{1}}` - Client name (text)
+- `{{2}}` - Trip date (text) - formatted as "DD MMM YYYY" (e.g., "15 Jan 2024")
+- `{{3}}` - Vehicle and slot info (text) - formatted as:
+  ```
+  Vehicle: ABC123 | Slot 1
+  ```
+  OR just "Vehicle: ABC123" if no slot info
+- `{{4}}` - Items list (text) - formatted as:
+  ```
+  1. Product Name
+     Qty: X units
+     Unit Price: ₹Y.YY
+     GST: ₹Z.ZZ
+  
+  2. Product Name
+     Qty: X units
+     Unit Price: ₹Y.YY
+  ```
+- `{{5}}` - Driver information (text) - formatted as:
+  ```
+  Driver: John Doe
+  Driver Contact: +919876543210
+  ```
+  OR just "Driver: John Doe" if no contact
+- `{{6}}` - Pricing summary (text) - formatted as:
+  ```
+  Subtotal: ₹X.XX
+  GST: ₹Y.YY
+  Total: ₹Z.ZZ
+  ```
+
+**Usage:**
+- Triggered when trip status changes to `'dispatched'` in `SCHEDULE_TRIPS` collection
+- Sent via `onTripDispatchedSendWhatsapp` function
+
+**Settings Location:**
+- Firestore: `WHATSAPP_SETTINGS/{organizationId}`
+  - Field: `tripDispatchTemplateId` (optional, not currently used)
+  - Field: `languageCode` (optional, defaults to `en`)
+
+**Note:** Currently implemented as text messages. To use templates, update the code in `functions/src/orders/trip-dispatch-whatsapp.ts` to use template format instead of text format.
+
+---
+
+## Template 4: Trip Delivery (NEW - Currently Text)
+
+**Template Name:** `trip_delivery` (suggested) or configured via `tripDeliveryTemplateId` in settings
+
+**Category:** UTILITY
+
+**Language:** English (en) or configured via `languageCode` in settings
+
+**Current Status:** ⚠️ Currently using text messages (24-hour window limitation)
+
+**Recommended Template Structure:**
+
+```
+Hello {{1}}!
+
+Your delivery has been completed!
+
+Trip Date: {{2}}
+
+Items Delivered:
+{{3}}
+
+{{4}}
+
+{{5}}
+
+Thank you for choosing us!
+```
+
+**Parameters:**
+- `{{1}}` - Client name (text)
+- `{{2}}` - Trip date (text) - formatted as "DD MMM YYYY" (e.g., "15 Jan 2024")
+- `{{3}}` - Items delivered (text) - formatted as:
+  ```
+  1. Product Name - X units
+  2. Product Name - Y units
+  3. Product Name - Z units
+  ```
+- `{{4}}` - Delivery confirmation message (text) - static text:
+  ```
+  Delivery completed successfully. We hope you're satisfied with your order!
+  ```
+- `{{5}}` - Next steps/feedback request (text) - static text:
+  ```
+  If you have any feedback or need assistance, please let us know. We appreciate your business!
+  ```
+
+**Usage:**
+- Triggered when trip status changes to `'delivered'` in `SCHEDULE_TRIPS` collection
+- Sent via `onTripDeliveredSendWhatsapp` function (newly implemented)
+
+**Settings Location:**
+- Firestore: `WHATSAPP_SETTINGS/{organizationId}`
+  - Field: `tripDeliveryTemplateId` (optional, not currently used)
+  - Field: `languageCode` (optional, defaults to `en`)
+
+**Note:** Currently implemented as text messages. To use templates, update the code in `functions/src/orders/trip-delivery-whatsapp.ts` to use template format instead of text format.
+
+---
+
+## Template 5: Order Update (RECOMMENDED - Currently Text)
 
 **Template Name:** `order_update` (suggested)
 
@@ -197,10 +337,29 @@ For each organization, configure in Firestore:
   enabled: true,
   token: "your_access_token",
   phoneId: "your_phone_number_id",
+  languageCode: "en",
   welcomeTemplateId: "client_welcome",           // ✅ Currently used
   orderConfirmationTemplateId: "order_confirmation", // ⚠️ Not yet used
-  orderUpdateTemplateId: "order_update",        // ⚠️ Not yet implemented
-  languageCode: "en"
+  tripDispatchTemplateId: "trip_dispatch",      // ⚠️ Not yet used
+  tripDeliveryTemplateId: "trip_delivery",      // ⚠️ Not yet used
+  orderUpdateTemplateId: "order_update"         // ⚠️ Not yet implemented
+}
+```
+
+### Test Number Setup
+
+For testing with a test number, configure the same settings in Firestore with your test credentials:
+
+```javascript
+{
+  enabled: true,
+  token: "your_test_access_token",
+  phoneId: "your_test_phone_number_id",
+  languageCode: "en",
+  welcomeTemplateId: "client_welcome",
+  orderConfirmationTemplateId: "order_confirmation",
+  tripDispatchTemplateId: "trip_dispatch",
+  tripDeliveryTemplateId: "trip_delivery"
 }
 ```
 
@@ -211,17 +370,22 @@ For each organization, configure in Firestore:
 ### Immediate (Required)
 - [x] **Template 1: Client Welcome** - Already implemented and working
 
+### Newly Implemented (Core Functionality)
+- [x] **Template 4: Trip Delivery** - Cloud Function implemented (`onTripDeliveredSendWhatsapp`)
+- [x] **Trip Dispatch Export** - Fixed export in `functions/src/orders/index.ts`
+
 ### Recommended (For Production)
 - [ ] **Template 2: Order Confirmation** - Create template in Meta Business Suite
-- [ ] **Template 3: Order Update** - Create template in Meta Business Suite
-- [ ] Update code to use templates instead of text messages for orders
-- [ ] Add `orderUpdateTemplateId` field to settings interface
+- [ ] **Template 3: Trip Dispatch** - Create template in Meta Business Suite
+- [ ] **Template 4: Trip Delivery** - Create template in Meta Business Suite
+- [ ] Update code to use templates instead of text messages for orders and trips
+- [ ] Add `orderUpdateTemplateId` field to settings interface (for Template 5)
 
 ### Optional Enhancements
 - [ ] Support multiple languages (create templates for each language)
 - [ ] Add template for order cancellation notifications
 - [ ] Add template for payment reminders
-- [ ] Add template for delivery status updates
+- [ ] Create shared WhatsApp utilities module for code reuse
 
 ---
 
@@ -236,7 +400,7 @@ For each template in Meta Business Suite:
 5. ✅ Submit for approval
 6. ✅ Wait for approval (24-48 hours typically)
 7. ✅ Update Firestore settings with approved template name
-8. ✅ Test with real order/client creation
+8. ✅ Test with real order/client/trip creation
 
 ---
 
@@ -246,7 +410,23 @@ For each template in Meta Business Suite:
 |--------------|--------|---------------|-------|
 | `client_welcome` | ✅ Approved | (Check in Meta) | Currently in use |
 | `order_confirmation` | ⏳ Pending | - | Create in Meta Business Suite |
+| `trip_dispatch` | ⏳ Pending | - | Create in Meta Business Suite |
+| `trip_delivery` | ⏳ Pending | - | Create in Meta Business Suite |
 | `order_update` | ⏳ Pending | - | Create in Meta Business Suite |
+
+---
+
+## Code Implementation Status
+
+### Functions Implemented
+
+| Function | File | Status | Template Support |
+|----------|------|--------|------------------|
+| `onClientCreatedSendWhatsappWelcome` | `functions/src/clients/client-whatsapp.ts` | ✅ Working | ✅ Uses templates |
+| `onOrderCreatedSendWhatsapp` | `functions/src/orders/order-whatsapp.ts` | ✅ Working | ⚠️ Text messages |
+| `onOrderUpdatedSendWhatsapp` | `functions/src/orders/order-whatsapp.ts` | ✅ Working | ⚠️ Text messages |
+| `onTripDispatchedSendWhatsapp` | `functions/src/orders/trip-dispatch-whatsapp.ts` | ✅ Working | ⚠️ Text messages |
+| `onTripDeliveredSendWhatsapp` | `functions/src/orders/trip-delivery-whatsapp.ts` | ✅ New | ⚠️ Text messages |
 
 ---
 
@@ -257,3 +437,12 @@ For template creation help:
 2. WhatsApp Business API Documentation: https://developers.facebook.com/docs/whatsapp
 3. Template Guidelines: https://developers.facebook.com/docs/whatsapp/message-templates/guidelines
 
+---
+
+## Event Triggers Summary| Event | Collection | Trigger Type | Function |
+|-------|------------|--------------|----------|
+| Client Added | `CLIENTS` | `onCreate` | `onClientCreatedSendWhatsappWelcome` |
+| Order Added | `PENDING_ORDERS` | `onCreate` | `onOrderCreatedSendWhatsapp` |
+| Order Updated | `PENDING_ORDERS` | `onUpdate` | `onOrderUpdatedSendWhatsapp` |
+| Trip Dispatched | `SCHEDULE_TRIPS` | `onUpdate` (status → 'dispatched') | `onTripDispatchedSendWhatsapp` |
+| Trip Delivered | `SCHEDULE_TRIPS` | `onUpdate` (status → 'delivered') | `onTripDeliveredSendWhatsapp` |

@@ -66,29 +66,47 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
           
           // Show loading while loading saved phone
           if (_isLoadingSavedPhone) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SkeletonFormField(),
+                  const SizedBox(height: 24),
+                  SkeletonButton(),
+                ],
+              ),
+            );
           }
           
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Login',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+          return AnimatedFade(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedFade(
+                  delay: const Duration(milliseconds: 100),
+                  child: Text(
+                    'Login',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Enter your work number to receive a one-time code.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.white60,
+                const SizedBox(height: 8),
+                AnimatedFade(
+                  delay: const Duration(milliseconds: 150),
+                  child: Text(
+                    'Enter your work number to receive a one-time code.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white60,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 28),
-              Container(
+                const SizedBox(height: 28),
+                AnimatedFade(
+                  delay: const Duration(milliseconds: 200),
+                  child: Container(
                 constraints: const BoxConstraints(maxWidth: 420),
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -191,8 +209,10 @@ class _PhoneInputPageState extends State<PhoneInputPage> {
                     ),
                   ],
                 ),
-              ),
-            ],
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),

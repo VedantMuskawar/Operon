@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_web/presentation/views/dm_settings_page.dart';
 import 'package:dash_web/presentation/views/pending_orders_view.dart';
 import 'package:dash_web/presentation/views/schedule_orders_view.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
@@ -280,6 +281,16 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         description: 'Delivery zones & prices',
         color: const Color(0xFF5AD8A4),
         onTap: () => context.go('/zones'),
+      ));
+    }
+    // DM Settings - accessible to admins
+    if (isAdmin) {
+      operationsTiles.add(_OverviewTileData(
+        icon: Icons.settings_outlined,
+        label: 'DM Settings',
+        description: 'Configure delivery memo settings',
+        color: const Color(0xFF9C27B0),
+        onTap: () => showDmSettingsDialog(context),
       ));
     }
 

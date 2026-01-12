@@ -10,8 +10,7 @@ import 'package:dash_web/presentation/blocs/products/products_cubit.dart';
 import 'package:dash_web/presentation/blocs/raw_materials/raw_materials_cubit.dart';
 import 'package:dash_web/presentation/views/home_page.dart';
 import 'package:dash_web/presentation/views/organization_selection_page.dart';
-import 'package:dash_web/presentation/views/otp_verification_page.dart';
-import 'package:dash_web/presentation/views/phone_input_page.dart';
+import 'package:dash_web/presentation/views/unified_login_page.dart';
 import 'package:dash_web/presentation/views/splash_screen.dart';
 import 'package:dash_web/presentation/views/access_control_page.dart';
 import 'package:dash_web/presentation/views/payment_accounts_page.dart';
@@ -49,8 +48,7 @@ import 'package:dash_web/presentation/views/wage_settings_page.dart';
 import 'package:dash_web/presentation/views/production_batches_page.dart';
 import 'package:dash_web/presentation/views/production_wages_page.dart';
 import 'package:dash_web/presentation/views/trip_wages_page.dart';
-import 'package:dash_web/presentation/views/dm_settings_page.dart';
-import 'package:dash_web/data/repositories/dm_settings_repository.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -74,20 +72,13 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) => _buildTransitionPage(
           key: state.pageKey,
           routePath: state.uri.path,
-          child: const PhoneInputPage(),
+          child: const UnifiedLoginPage(),
         ),
       ),
       GoRoute(
         path: '/otp',
         name: 'otp-verification',
-        pageBuilder: (context, state) {
-          final phoneNumber = state.uri.queryParameters['phone'] ?? '';
-          return _buildTransitionPage(
-            key: state.pageKey,
-            routePath: state.uri.path,
-            child: OtpVerificationPage(phoneNumber: phoneNumber),
-          );
-        },
+        redirect: (context, state) => '/login',
       ),
       GoRoute(
         path: '/org-selection',
@@ -863,37 +854,6 @@ GoRouter buildRouter() {
             key: state.pageKey,
             routePath: state.uri.path,
             child: const TripWagesPage(),
-          );
-        },
-      ),
-      GoRoute(
-        path: '/dm-settings',
-        name: 'dm-settings',
-        redirect: (context, state) {
-          final authState = context.read<AuthBloc>().state;
-          final orgState = context.read<OrganizationContextCubit>().state;
-          if (authState.userProfile == null) {
-            return '/login';
-          }
-          if (!orgState.hasSelection) {
-            return '/org-selection';
-          }
-          return null;
-        },
-        pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          return _buildTransitionPage(
-            key: state.pageKey,
-            routePath: state.uri.path,
-            child: const DmSettingsPage(),
           );
         },
       ),

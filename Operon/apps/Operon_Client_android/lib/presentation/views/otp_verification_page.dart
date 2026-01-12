@@ -19,12 +19,43 @@ class OtpVerificationPage extends StatefulWidget {
 }
 
 class _OtpVerificationPageState extends State<OtpVerificationPage> {
-  final _codeController = TextEditingController();
+  String _otpCode = '';
+  int _resendCountdown = 0;
+  bool _hasError = false;
 
   @override
-  void dispose() {
-    _codeController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _startResendCountdown();
+  }
+
+  void _startResendCountdown() {
+    _resendCountdown = 60;
+    _updateCountdown();
+  }
+
+  void _updateCountdown() {
+    if (_resendCountdown > 0) {
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          setState(() {
+            _resendCountdown--;
+          });
+          _updateCountdown();
+        }
+      });
+    }
+  }
+
+  void _handleResendOtp(BuildContext context) {
+    final authBloc = context.read<AuthBloc>();
+    final phoneNumber = widget.phoneNumber;
+    authBloc.add(PhoneNumberSubmitted(phoneNumber));
+    _startResendCountdown();
+    setState(() {
+      _otpCode = '';
+      _hasError = false;
+    });
   }
 
   @override
@@ -58,75 +89,169 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
         },
         builder: (context, state) {
           final theme = Theme.of(context);
+          final hasError = state.status == ViewStatus.failure && state.errorMessage != null;
+          
+          // Update error state
+          if (hasError != _hasError) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() => _hasError = hasError);
+              }
+            });
+          }
+
+          // Auto-submit when code is complete
+          if (_otpCode.length == 6 && state.status != ViewStatus.loading) {
+            final verificationId = state.session?.verificationId;
+            if (verificationId != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                context.read<AuthBloc>().add(
+                      OtpSubmitted(
+                        verificationId: verificationId,
+                        code: _otpCode,
+                      ),
+                    );
+              });
+            }
+          }
+
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Enter verification code',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+              child: AnimatedFade(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedFade(
+                      delay: const Duration(milliseconds: 100),
+                      child: Text(
+                        'Enter verification code',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Sent to ${widget.phoneNumber}',
-                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                  ),
-                  const SizedBox(height: 20),
-                  Card(
-                    color: const Color(0xFF171721),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                    const SizedBox(height: 8),
+                    AnimatedFade(
+                      delay: const Duration(milliseconds: 150),
+                      child: Text(
+                        'Sent to ${widget.phoneNumber}',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                      ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
+                    const SizedBox(height: 32),
+                    AnimatedFade(
+                      delay: const Duration(milliseconds: 200),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          DashFormField(
-                            controller: _codeController,
-                            keyboardType: TextInputType.number,
-                            label: '6-digit code',
+                          SizedBox(
+                            width: double.infinity,
+                            child: OtpInputField(
+                              length: 6,
+                              autoFocus: true,
+                              enabled: state.status != ViewStatus.loading,
+                              hasError: _hasError,
+                              onChanged: (code) {
+                                setState(() {
+                                  _otpCode = code;
+                                  _hasError = false;
+                                });
+                              },
+                              onCompleted: (code) {
+                                final verificationId = state.session?.verificationId;
+                                if (verificationId != null) {
+                                  context.read<AuthBloc>().add(
+                                        OtpSubmitted(
+                                          verificationId: verificationId,
+                                          code: code,
+                                        ),
+                                      );
+                                }
+                              },
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          DashButton(
-                            label: 'Verify',
-                            isLoading: state.status == ViewStatus.loading,
-                            onPressed: () {
-                              final code = _codeController.text.trim();
-                              final verificationId = state.session?.verificationId;
-                              if (code.length < 4 || verificationId == null) {
-                                DashSnackbar.show(
-                                  context,
-                                  message: 'Invalid code or session. Please request OTP again.',
-                                  isError: true,
-                                );
-                                return;
-                              }
-                              context.read<AuthBloc>().add(
-                                    OtpSubmitted(
-                                      verificationId: verificationId,
-                                      code: code,
+                          if (state.status == ViewStatus.loading) ...[
+                            const SizedBox(height: 16),
+                            const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ],
+                          if (hasError && state.errorMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.redAccent.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      state.errorMessage!,
+                                      style: theme.textTheme.bodySmall?.copyWith(
+                                        color: Colors.redAccent,
+                                      ),
                                     ),
-                                  );
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          _DebugPanel(state: state),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => context.go('/login'),
-                    child: const Text('Change number'),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    AnimatedFade(
+                      delay: const Duration(milliseconds: 250),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Didn't receive code?",
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: Colors.white60,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (_resendCountdown > 0)
+                            Text(
+                              'Resend in $_resendCountdown',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.white38,
+                              ),
+                            )
+                          else
+                            TextButton(
+                              onPressed: () => _handleResendOtp(context),
+                              child: const Text('Resend code'),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedFade(
+                      delay: const Duration(milliseconds: 300),
+                      child: Center(
+                        child: TextButton(
+                          onPressed: () => context.go('/login'),
+                          child: const Text('Change number'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -136,49 +261,4 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
   }
 }
 
-class _DebugPanel extends StatelessWidget {
-  const _DebugPanel({required this.state});
-
-  final AuthState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final logs = state.logs;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white.withOpacity(0.04),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: DefaultTextStyle(
-        style: theme.textTheme.labelSmall!.copyWith(color: Colors.white70),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Status: ${state.status.name}',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text('Session: ${state.session?.verificationId ?? "none"}'),
-            if (state.errorMessage != null) ...[
-              const SizedBox(height: 4),
-              Text('Error: ${state.errorMessage}', style: const TextStyle(color: Colors.redAccent)),
-            ],
-            if (logs.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text('Logs:', style: theme.textTheme.labelMedium),
-              const SizedBox(height: 4),
-              ...logs.take(6).map((e) => Text('• $e')),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
 

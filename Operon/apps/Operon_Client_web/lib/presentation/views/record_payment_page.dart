@@ -570,12 +570,78 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white12),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Image.memory(
-                    _receiptPhotoBytes!,
-                    fit: BoxFit.cover,
-                  ),
+                child: FutureBuilder<Uint8List>(
+                  future: Future.value(_receiptPhotoBytes!),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Container(
+                        height: 200,
+                        width: double.infinity,
+                        color: Colors.grey[800],
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.error_outline, color: Colors.white70, size: 48),
+                            SizedBox(height: 8),
+                            Text(
+                              'Failed to load image',
+                              style: TextStyle(color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    if (!snapshot.hasData) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator(color: Colors.white70),
+                        ),
+                      );
+                    }
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.memory(
+                        snapshot.data!,
+                        fit: BoxFit.cover,
+                        // Optimize memory usage for web
+                        cacheWidth: 800,
+                        cacheHeight: 600,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            height: 200,
+                            width: double.infinity,
+                            color: Colors.grey[800],
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline, color: Colors.white70, size: 48),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Failed to load image',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                          if (wasSynchronouslyLoaded) {
+                            return child;
+                          }
+                          if (frame == null) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(32.0),
+                                child: CircularProgressIndicator(color: Colors.white70),
+                              ),
+                            );
+                          }
+                          return child;
+                        },
+                      ),
+                    );
+                  },
                 ),
               ),
               Positioned(

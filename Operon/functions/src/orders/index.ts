@@ -5,4 +5,6 @@ export * from './order-scheduling';
 export * from './trip-scheduling';
 export * from './delivery-memo';
 export * from './trip-return-dm';
+export * from './trip-dispatch-whatsapp';
+export * from './trip-delivery-whatsapp';
 

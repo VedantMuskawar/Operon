@@ -15,6 +15,8 @@ interface WhatsappSettings {
   welcomeTemplateId?: string;
   languageCode?: string;
   orderConfirmationTemplateId?: string;
+  tripDispatchTemplateId?: string;
+  tripDeliveryTemplateId?: string;
 }
 
 async function loadWhatsappSettings(
@@ -39,6 +41,8 @@ async function loadWhatsappSettings(
           welcomeTemplateId: data.welcomeTemplateId as string | undefined,
           languageCode: data.languageCode as string | undefined,
           orderConfirmationTemplateId: data.orderConfirmationTemplateId as string | undefined,
+          tripDispatchTemplateId: data.tripDispatchTemplateId as string | undefined,
+          tripDeliveryTemplateId: data.tripDeliveryTemplateId as string | undefined,
         };
       }
       return null;
@@ -59,6 +63,8 @@ async function loadWhatsappSettings(
       welcomeTemplateId: globalConfig.welcome_template_id,
       languageCode: globalConfig.language_code,
       orderConfirmationTemplateId: globalConfig.order_confirmation_template_id,
+      tripDispatchTemplateId: globalConfig.trip_dispatch_template_id,
+      tripDeliveryTemplateId: globalConfig.trip_delivery_template_id,
     };
   }
 

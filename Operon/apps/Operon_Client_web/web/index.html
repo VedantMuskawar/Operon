@@ -31,6 +31,50 @@
 
   <title>dash_web</title>
   <link rel="manifest" href="manifest.json">
+  <!-- Apple SF Pro Font (matching iCloud.com) -->
+  <link rel="stylesheet" href="https://www.apple.com/wss/fonts?families=SF+Pro,v3|SF+Pro+Icons,v3">
+  <!-- html2pdf.js for HTML to PDF conversion -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+    // Helper function to convert HTML to PDF blob using html2pdf.js
+    window.convertHtmlToPdfBlob = function(htmlContent) {
+      return new Promise(function(resolve, reject) {
+        try {
+          // Create temporary element
+          var element = document.createElement('div');
+          element.innerHTML = htmlContent;
+          element.style.position = 'absolute';
+          element.style.left = '-9999px';
+          document.body.appendChild(element);
+          
+          // Configure options
+          var opt = {
+            margin: 0.4,
+            filename: 'delivery-memo.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+          };
+          
+          // Generate PDF
+          html2pdf()
+            .set(opt)
+            .from(element)
+            .outputPdf('blob')
+            .then(function(blob) {
+              document.body.removeChild(element);
+              resolve(blob);
+            })
+            .catch(function(error) {
+              document.body.removeChild(element);
+              reject(error);
+            });
+        } catch (error) {
+          reject(error);
+        }
+      });
+    };
+  </script>
   <style>
     html, body {
       margin: 0;

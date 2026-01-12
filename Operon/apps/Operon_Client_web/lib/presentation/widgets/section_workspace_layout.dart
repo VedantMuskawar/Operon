@@ -305,12 +305,6 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   _isSettingsOpen = false;
                   _contentPage = ContentPage.productionBatchTemplates;
                 }),
-                onOpenDmSettings: () {
-                  setState(() {
-                    _isSettingsOpen = false;
-                  });
-                  context.go('/dm-settings');
-                },
               ),
             ),
 
@@ -1716,7 +1710,6 @@ class _SettingsSideSheet extends StatelessWidget {
     this.onOpenPaymentAccounts,
     this.onOpenWageSettings,
     this.onOpenProductionBatchTemplates,
-    required this.onOpenDmSettings,
   });
 
   final bool canManageRoles;
@@ -1733,7 +1726,6 @@ class _SettingsSideSheet extends StatelessWidget {
   final VoidCallback? onOpenPaymentAccounts;
   final VoidCallback? onOpenWageSettings;
   final VoidCallback? onOpenProductionBatchTemplates;
-  final VoidCallback onOpenDmSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -1859,14 +1851,6 @@ class _SettingsSideSheet extends StatelessWidget {
                     onOpenProductionBatchTemplates!();
                   },
                 ),
-              if (onOpenProductionBatchTemplates != null) const SizedBox(height: 12),
-              _SettingsTile(
-                label: 'DM Settings',
-                onTap: () {
-                  onClose();
-                  onOpenDmSettings();
-                },
-              ),
             ],
           ),
         ),
