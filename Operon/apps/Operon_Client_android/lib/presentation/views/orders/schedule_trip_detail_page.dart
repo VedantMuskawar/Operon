@@ -154,7 +154,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
 
     final orgContext = context.read<OrganizationContextCubit>().state;
-    final userRole = orgContext.role?.title ?? 'unknown';
+    final userRole = orgContext.appAccessRole?.name ?? 'unknown';
 
     try {
       if (!context.mounted) return;
@@ -249,7 +249,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       return;
     }
 
-    final userRole = orgContext.role?.title ?? 'unknown';
+    final userRole = orgContext.appAccessRole?.name ?? 'unknown';
     final orderId = _trip['orderId'] as String? ?? '';
 
     try {
@@ -490,7 +490,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       return;
     }
 
-    final userRole = orgContext.role?.title ?? 'unknown';
+    final userRole = orgContext.appAccessRole?.name ?? 'unknown';
     final clientId = _trip['clientId'] as String? ?? '';
     final paymentType = _trip['paymentType'] as String? ?? '';
     final orderId = _trip['orderId'] as String? ?? '';
@@ -1591,7 +1591,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
 
     final orgContext = context.read<OrganizationContextCubit>().state;
-    final userRole = orgContext.role?.title ?? 'unknown';
+    final userRole = orgContext.appAccessRole?.name ?? 'unknown';
     final organization = orgContext.organization;
     if (organization == null) {
       if (context.mounted) {

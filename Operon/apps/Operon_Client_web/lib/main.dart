@@ -18,16 +18,32 @@ Future<void> main() async {
     
     // Wait for Firebase Auth to restore any existing session
     // This is important for web where auth state persists in IndexedDB
-    await FirebaseAuth.instance.authStateChanges().first;
-    debugPrint('[main] Firebase Auth state restored');
+    try {
+      // Simplified: Wait for first auth state change or timeout quickly
+      await FirebaseAuth.instance.authStateChanges().first.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+        debugPrint('[main] Auth state check timed out, continuing...');
+          return null;
+        },
+      );
+      debugPrint('[main] Firebase Auth state restored');
+    } catch (e) {
+      // Handle errors gracefully - continue app initialization
+      debugPrint('[main] Auth state check error (non-fatal): $e');
+    }
     
     // Temporarily disable app verification for testing
     // This bypasses reCAPTCHA and device checks
     if (kDebugMode) {
-      await FirebaseAuth.instance.setSettings(
-        appVerificationDisabledForTesting: true,
-      );
-      debugPrint('[main] App verification disabled for testing (DEBUG ONLY)');
+      try {
+        await FirebaseAuth.instance.setSettings(
+          appVerificationDisabledForTesting: true,
+        );
+        debugPrint('[main] App verification disabled for testing (DEBUG ONLY)');
+      } catch (e) {
+        debugPrint('[main] Failed to disable app verification: $e');
+      }
     }
   } catch (e, stackTrace) {
     debugPrint('[main] Firebase initialization failed: $e');

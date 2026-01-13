@@ -1,66 +1,47 @@
-import 'package:core_models/core_models.dart';
+import 'package:core_bloc/core_bloc.dart';
+import 'package:core_bloc/home/home_state.dart';
 import 'package:core_ui/core_ui.dart';
-import 'package:dash_mobile/domain/entities/organization_membership.dart';
+import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
+import 'package:dash_mobile/data/repositories/profile_stats_repository_adapter.dart';
+import 'package:dash_mobile/data/repositories/users_repository.dart';
 import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/home_sections/home_overview_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/pending_orders_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/schedule_orders_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/orders_map_view.dart';
-import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/permissions_section.dart';
-import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-List<int> computeHomeSections(OrganizationRole? role) {
-  final visible = <int>[0];
-  if (role == null) return visible;
-  if (role.canAccessSection('pendingOrders')) visible.add(1);
-  if (role.canAccessSection('scheduleOrders')) visible.add(2);
-  if (role.canAccessSection('ordersMap')) visible.add(3);
-  if (role.canAccessSection('analyticsDashboard')) visible.add(4);
-  return visible;
+/// Navigation arguments for HomePage to support pre-fetched data
+class HomeNavigationArgs {
+  final int initialIndex;
+  final Future<int>? preFetchedPendingOrdersCount;
+  
+  const HomeNavigationArgs({
+    this.initialIndex = 0,
+    this.preFetchedPendingOrdersCount,
+  });
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.initialIndex = 0});
+  const HomePage({
+    super.key, 
+    this.initialIndex = 0,
+    this.preFetchedPendingOrdersCount,
+  });
 
   final int initialIndex;
+  final Future<int>? preFetchedPendingOrdersCount;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  late int _currentIndex = widget.initialIndex;
-  List<int> _allowedSections = const [0];
-
-  @override
-  void didUpdateWidget(covariant HomePage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialIndex != widget.initialIndex) {
-      _currentIndex = widget.initialIndex;
-      _ensureIndexAllowed();
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final role = context.watch<OrganizationContextCubit>().state.role;
-    final allowed = computeHomeSections(role);
-    if (!listEquals(allowed, _allowedSections)) {
-      setState(() {
-        _allowedSections = allowed;
-      });
-    }
-    _ensureIndexAllowed();
-  }
-
   static const _sections = [
     HomeOverviewView(),
     PendingOrdersView(),
@@ -77,186 +58,177 @@ class _HomePageState extends State<HomePage> {
     '',
   ];
 
-  void _ensureIndexAllowed() {
-    if (!_allowedSections.contains(_currentIndex)) {
-      setState(() {
-        _currentIndex = _allowedSections.first;
-      });
-    }
-  }
-
-  void _handleNavTap(int index) {
-    if (!_allowedSections.contains(index)) return;
-    setState(() => _currentIndex = index);
-  }
-
-  Widget _buildProfileDrawer(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    final orgState = context.read<OrganizationContextCubit>().state;
-    final organization = orgState.organization;
-    final role = orgState.role;
-    final fallbackAdmin = (organization?.role.toUpperCase() ?? '') == 'ADMIN';
-    final isAdminRole = role?.isAdmin ?? fallbackAdmin;
-    final canManageUsers = role?.canCreate('users') ?? isAdminRole;
-
-    return _ProfileDrawer(
-      user: authState.userProfile,
-      organization: organization,
-      showUsers: canManageUsers,
-      onOpenUsers: canManageUsers ? () {
-        Scaffold.of(context).closeDrawer();
-        Future.microtask(() => context.go('/users'));
-      } : null,
-      onChangeOrg: () {
-        Scaffold.of(context).closeDrawer();
-        Future.microtask(() => context.go('/org-selection'));
-      },
-      onLogout: () {
-        Scaffold.of(context).closeDrawer();
-        context.read<AuthBloc>().add(const AuthReset());
-        Future.microtask(() => context.go('/login'));
-      },
-    );
-  }
-
-  Widget _buildSettingsDrawer(BuildContext context) {
-    final orgState = context.read<OrganizationContextCubit>().state;
-    final organization = orgState.organization;
-    final role = orgState.role;
-    final fallbackAdmin = (organization?.role.toUpperCase() ?? '') == 'ADMIN';
-    final isAdminRole = role?.isAdmin ?? fallbackAdmin;
-
-    return _SettingsDrawer(
-      canManageRoles: isAdminRole,
-      canManageProducts: role?.canCreate('products') ?? isAdminRole,
-      canManageRawMaterials: role?.canCreate('rawMaterials') ?? isAdminRole,
-      canAccessVehicles: role?.canAccessPage('vehicles') ?? false,
-      onOpenRoles: () {
-        Scaffold.of(context).closeEndDrawer();
-        Future.microtask(() => context.go('/roles'));
-      },
-      onOpenProducts: () {
-        Scaffold.of(context).closeEndDrawer();
-        Future.microtask(() => context.go('/products'));
-      },
-      onOpenRawMaterials: () {
-        Scaffold.of(context).closeEndDrawer();
-        Future.microtask(() => context.go('/raw-materials'));
-      },
-      onOpenVehicles: () {
-        Scaffold.of(context).closeEndDrawer();
-        Future.microtask(() => context.go('/vehicles'));
-      },
-      onOpenPaymentAccounts: isAdminRole ? () {
-        Scaffold.of(context).closeEndDrawer();
-        Future.microtask(() => context.go('/payment-accounts'));
-      } : null,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final visibleSections = _allowedSections;
-    final media = MediaQuery.of(context);
-    final bottomPadding = media.padding.bottom;
-    final bottomOffset = 80 + bottomPadding + 20;
+    final pendingOrdersRepository = context.read<PendingOrdersRepository>();
+    final profileStatsRepository = ProfileStatsRepositoryAdapter(
+      pendingOrdersRepository: pendingOrdersRepository,
+    );
+    
+    // Get organization ID for key to prevent recreation when org doesn't change
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final orgId = orgState.organization?.id ?? 'no-org';
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.person_outline, color: AppColors.textPrimary),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        title: _sectionTitles[_currentIndex].isNotEmpty
-            ? Text(
-                _sectionTitles[_currentIndex],
-                style: AppTypography.h2,
-              )
-            : null,
-        centerTitle: true,
-        actions: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.settings_outlined, color: AppColors.textPrimary),
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
-            ),
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        backgroundColor: const Color(0xFF0A0A0A),
-        child: Builder(
-          builder: (context) => _buildProfileDrawer(context),
-        ),
-      ),
-      endDrawer: Drawer(
-        backgroundColor: const Color(0xFF0A0A0A),
-        child: Builder(
-          builder: (context) => _buildSettingsDrawer(context),
-        ),
-      ),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
+    return BlocProvider(
+      key: ValueKey('home_cubit_$orgId'), // Prevent recreation when org doesn't change
+      create: (context) {
+        final cubit = HomeCubit(
+          profileStatsRepository: profileStatsRepository,
+        );
+        
+        // Initialize with current role
+        final orgState = context.read<OrganizationContextCubit>().state;
+        cubit.updateAppAccessRole(orgState.appAccessRole);
+        
+        // Use pre-fetched data if available
+        if (widget.preFetchedPendingOrdersCount != null) {
+          widget.preFetchedPendingOrdersCount!.then((count) {
+            if (context.mounted) {
+              cubit.setProfileStats(ProfileStats(pendingOrdersCount: count));
+            }
+          }).catchError((error) {
+            // Fallback to normal fetch on error
+            if (context.mounted && orgState.organization != null) {
+              cubit.loadProfileStats(orgState.organization!.id);
+            }
+          });
+        } else {
+          // Fallback: normal flow for direct navigation (e.g., page refresh)
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              final currentOrgState = context.read<OrganizationContextCubit>().state;
+              if (currentOrgState.organization != null) {
+                cubit.loadProfileStats(currentOrgState.organization!.id);
+              }
+            }
+          });
+        }
+        
+        return cubit;
+      },
+      child: BlocListener<OrganizationContextCubit, OrganizationContextState>(
+        listener: (context, orgState) {
+          final homeCubit = context.read<HomeCubit>();
+          homeCubit.updateAppAccessRole(orgState.appAccessRole);
+          if (orgState.organization != null) {
+            homeCubit.loadProfileStats(orgState.organization!.id);
+          } else {
+            homeCubit.loadProfileStats('');
+          }
+        },
+        child: BlocBuilder<HomeCubit, HomeState>(
+          buildWhen: (previous, current) => 
+              previous.currentIndex != current.currentIndex ||
+              previous.allowedSections != current.allowedSections,
+          builder: (context, homeState) {
+            return Scaffold(
+              backgroundColor: AuthColors.background,
+              appBar: _HomeAppBar(
+                title: _sectionTitles[homeState.currentIndex],
+              ),
+              drawer: const _HomeProfileDrawer(),
+              endDrawer: const _HomeSettingsDrawer(),
+            body: Stack(
               children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: AppSpacing.pagePaddingAll,
-                    child: _sections[_currentIndex],
+                // DotGridPattern background (matching login page)
+                Positioned.fill(
+                  child: RepaintBoundary(
+                    child: const DotGridPattern(),
                   ),
                 ),
-                QuickNavBar(
-                  currentIndex: _currentIndex,
-                  onTap: _handleNavTap,
-                  visibleSections: visibleSections,
+                // Main content
+                Column(
+                  children: [
+                    Expanded(
+                      child: SafeArea(
+                        bottom: false,
+                        child: HomeSectionTransition(
+                          child: IndexedStack(
+                            index: homeState.currentIndex,
+                            children: _sections,
+                          ),
+                        ),
+                      ),
+                    ),
+                    FloatingNavBar(
+                      items: const [
+                        NavBarItem(
+                          icon: Icons.home_rounded,
+                          label: 'Home',
+                          heroTag: 'nav_home',
+                        ),
+                        NavBarItem(
+                          icon: Icons.pending_actions_rounded,
+                          label: 'Pending',
+                          heroTag: 'nav_pending',
+                        ),
+                        NavBarItem(
+                          icon: Icons.schedule_rounded,
+                          label: 'Schedule',
+                          heroTag: 'nav_schedule',
+                        ),
+                        NavBarItem(
+                          icon: Icons.map_rounded,
+                          label: 'Map',
+                          heroTag: 'nav_map',
+                        ),
+                        NavBarItem(
+                          icon: Icons.dashboard_rounded,
+                          label: 'Analytics',
+                          heroTag: 'nav_analytics',
+                        ),
+                      ],
+                      currentIndex: homeState.currentIndex,
+                      onItemTapped: (index) {
+                        context.read<HomeCubit>().switchToSection(index);
+                      },
+                      visibleIndices: homeState.allowedSections,
+                    ),
+                  ],
                 ),
+                // Smart Action FAB - visible on Home and Pending Orders pages
+                if (homeState.currentIndex == 0 || homeState.currentIndex == 1)
+                  ActionFab(
+                    actions: [
+                      ActionItem(
+                        icon: Icons.receipt,
+                        label: 'Add Expense',
+                        onTap: () {
+                          context.go('/record-expense');
+                        },
+                      ),
+                      ActionItem(
+                        icon: Icons.payment,
+                        label: 'Payments',
+                        onTap: () {
+                          context.go('/record-payment');
+                        },
+                      ),
+                      ActionItem(
+                        icon: Icons.shopping_cart,
+                        label: 'Record Purchase',
+                        onTap: () {
+                          context.go('/record-purchase');
+                        },
+                      ),
+                      ActionItem(
+                        icon: Icons.add_shopping_cart_outlined,
+                        label: 'Create Order',
+                        onTap: () {
+                          PendingOrdersView.showCustomerTypeDialog(context);
+                        },
+                      ),
+                    ],
+                  ),
               ],
             ),
-            // Quick Action Menu - visible on Home and Pending Orders pages
-            if (_currentIndex == 0 || _currentIndex == 1)
-              QuickActionMenu(
-                actions: [
-                  QuickActionItem(
-                    icon: Icons.receipt,
-                    label: 'Add Expense',
-                    onTap: () {
-                      context.go('/record-expense');
-                    },
-                  ),
-                  QuickActionItem(
-                    icon: Icons.payment,
-                    label: 'Payments',
-                    onTap: () {
-                      context.go('/record-payment');
-                    },
-                  ),
-                  QuickActionItem(
-                    icon: Icons.shopping_cart,
-                    label: 'Record Purchase',
-                    onTap: () {
-                      context.go('/record-purchase');
-                    },
-                  ),
-                  QuickActionItem(
-                    icon: Icons.add_shopping_cart_outlined,
-                    label: 'Create Order',
-                    onTap: () {
-                      PendingOrdersView.showCustomerTypeDialog(context);
-                    },
-                  ),
-                ],
-              ),
-          ],
+          );
+        },
         ),
       ),
     );
   }
+
 }
 
 class _AnalyticsPlaceholder extends StatelessWidget {
@@ -264,138 +236,13 @@ class _AnalyticsPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
         'Analytics coming soon',
-        style: TextStyle(color: Colors.white70),
-      ),
-    );
-  }
-}
-
-class _ProfileDrawer extends StatelessWidget {
-  const _ProfileDrawer({
-    required this.user,
-    required this.organization,
-    required this.onChangeOrg,
-    this.showUsers = false,
-    this.onOpenUsers,
-    required this.onLogout,
-  });
-
-  final UserProfile? user;
-  final OrganizationMembership? organization;
-  final VoidCallback onChangeOrg;
-  final bool showUsers;
-  final VoidCallback? onOpenUsers;
-  final VoidCallback onLogout;
-
-  @override
-  Widget build(BuildContext context) {
-    final maskedPhone = _maskPhone(user?.phoneNumber ?? '');
-
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFF1F1F2C),
-                  ),
-                  child: const Icon(Icons.person, color: Colors.white),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user?.displayName ?? 'User',
-                        style: AppTypography.h3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        maskedPhone.isNotEmpty ? maskedPhone : '—',
-                        style: AppTypography.bodySmall.copyWith(color: AppColors.textTertiary),
-                      ),
-                      if (organization != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          '${organization!.name} • ${organization!.role}',
-                          style: AppTypography.caption,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Quick Actions',
-              style: AppTypography.h4.copyWith(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 12),
-            _ProfileAction(
-              icon: Icons.swap_horiz,
-              label: 'Change Organization',
-              onTap: () {
-                Scaffold.of(context).closeDrawer();
-                Future.microtask(() => onChangeOrg());
-              },
-            ),
-            if (showUsers)
-              _ProfileAction(
-                icon: Icons.group_add_outlined,
-                label: 'Users',
-                onTap: () {
-                  Scaffold.of(context).closeDrawer();
-                  Future.microtask(() => onOpenUsers?.call());
-                },
-              ),
-            const _ProfileAction(
-              icon: Icons.notifications_outlined,
-              label: 'Notifications',
-            ),
-            _ProfileAction(
-              icon: Icons.security,
-              label: 'Permissions',
-              onTap: () {
-                Scaffold.of(context).closeDrawer();
-                Future.microtask(() {
-                  showDialog(
-                    context: context,
-                    builder: (context) => const PermissionsDialog(),
-                  );
-                });
-              },
-            ),
-            const _ProfileAction(
-              icon: Icons.lock_outline,
-              label: 'Security',
-            ),
-            const _ProfileAction(
-              icon: Icons.support_agent,
-              label: 'Support',
-            ),
-            const SizedBox(height: 24),
-            DashButton(
-              label: 'Logout',
-              onPressed: () {
-                Scaffold.of(context).closeDrawer();
-                Future.microtask(() => onLogout());
-              },
-            ),
-          ],
+        style: TextStyle(
+          color: AuthColors.textSub,
+          fontSize: 16,
+          fontFamily: 'SF Pro Display',
         ),
       ),
     );
@@ -435,12 +282,21 @@ class _SettingsDrawer extends StatelessWidget {
           children: [
             Text(
               'Settings',
-              style: AppTypography.h1,
+              style: TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'SF Pro Display',
+              ),
             ),
             const SizedBox(height: 16),
             Text(
               'Pages',
-              style: AppTypography.body.copyWith(color: AppColors.textTertiary),
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 14,
+                fontFamily: 'SF Pro Display',
+              ),
             ),
             const SizedBox(height: 12),
             if (canManageRoles)
@@ -452,9 +308,13 @@ class _SettingsDrawer extends StatelessWidget {
               },
             )
             else
-              const Text(
+              Text(
                 'Role management available for admins only.',
-                style: TextStyle(color: Colors.white38),
+                style: TextStyle(
+                  color: AuthColors.textDisabled,
+                  fontSize: 14,
+                  fontFamily: 'SF Pro Display',
+                ),
               ),
             const SizedBox(height: 12),
             _SettingsTile(
@@ -493,9 +353,13 @@ class _SettingsDrawer extends StatelessWidget {
                 },
               )
             else
-              const Text(
+              Text(
                 'Payment accounts available for admins only.',
-                style: TextStyle(color: Colors.white38),
+                style: TextStyle(
+                  color: AuthColors.textDisabled,
+                  fontSize: 14,
+                  fontFamily: 'SF Pro Display',
+                ),
               ),
             const SizedBox(height: 12),
             _SettingsTile(
@@ -527,76 +391,200 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(
+          color: AuthColors.textMainWithOpacity(0.1),
+          width: 1,
+        ),
       ),
       child: ListTile(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          borderRadius: BorderRadius.circular(18),
         ),
         title: Text(
           label,
-          style: AppTypography.body.copyWith(color: AppColors.textPrimary),
+          style: TextStyle(
+            color: AuthColors.textMain,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'SF Pro Display',
+          ),
         ),
         subtitle: subtitle != null
             ? Text(
                 subtitle!,
-                style: AppTypography.bodySmall.copyWith(color: AppColors.textDisabled),
+                style: TextStyle(
+                  color: AuthColors.textDisabled,
+                  fontSize: 13,
+                  fontFamily: 'SF Pro Display',
+                ),
               )
             : null,
-        trailing: Icon(Icons.chevron_right, color: AppColors.textTertiary),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: AuthColors.textSub,
+        ),
         onTap: onTap,
       ),
     );
   }
 }
 
-class _ProfileAction extends StatelessWidget {
-  const _ProfileAction({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
+/// Extracted AppBar widget to prevent unnecessary rebuilds
+class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _HomeAppBar({required this.title});
 
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
+  final String title;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.borderDefault,
-              ),
-              child: Icon(icon, color: AppColors.textSecondary),
-            ),
-            const SizedBox(width: 16),
-            Text(
-              label,
-              style: AppTypography.body.copyWith(color: AppColors.textPrimary),
-            ),
-          ],
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      leading: Builder(
+        builder: (context) => IconButton(
+          icon: const Icon(
+            Icons.person_outline,
+            color: AuthColors.textMain,
+          ),
+          onPressed: () => Scaffold.of(context).openDrawer(),
         ),
+      ),
+      title: title.isNotEmpty
+          ? Text(
+              title,
+              style: TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'SF Pro Display',
+              ),
+            )
+          : null,
+      centerTitle: true,
+      actions: [
+        Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(
+              Icons.settings_outlined,
+              color: AuthColors.textMain,
+            ),
+            onPressed: () => Scaffold.of(context).openEndDrawer(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Extracted profile drawer widget to prevent unnecessary rebuilds
+class _HomeProfileDrawer extends StatelessWidget {
+  const _HomeProfileDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final organization = orgState.organization;
+    final role = orgState.appAccessRole;
+    final fallbackAdmin = (organization?.role.toUpperCase() ?? '') == 'ADMIN';
+    final isAdminRole = role?.isAdmin ?? fallbackAdmin;
+    final canManageUsers = role?.canCreate('users') ?? isAdminRole;
+
+    return Drawer(
+      backgroundColor: AuthColors.surface,
+      child: ProfileView(
+        user: authState.userProfile,
+        organization: organization,
+        fetchUserName: (authState.userProfile?.id != null && organization?.id != null)
+            ? () async {
+                try {
+                  final orgUser = await context.read<UsersRepository>().fetchCurrentUser(
+                    orgId: organization!.id,
+                    userId: authState.userProfile!.id,
+                    phoneNumber: authState.userProfile!.phoneNumber,
+                  );
+                  return orgUser?.name;
+                } catch (_) {
+                  return null;
+                }
+              }
+            : null,
+        onChangeOrg: () {
+          Scaffold.of(context).closeDrawer();
+          Future.microtask(() => context.go('/org-selection'));
+        },
+        onLogout: () {
+          Scaffold.of(context).closeDrawer();
+          context.read<AuthBloc>().add(const AuthReset());
+          Future.microtask(() => context.go('/login'));
+        },
+        onOpenUsers: canManageUsers
+            ? () {
+                Scaffold.of(context).closeDrawer();
+                Future.microtask(() => context.go('/users'));
+              }
+            : null,
+        onOpenPermissions: () {
+          Scaffold.of(context).closeDrawer();
+          Future.microtask(() {
+            showDialog(
+              context: context,
+              builder: (context) => const PermissionsDialog(),
+            );
+          });
+        },
       ),
     );
   }
 }
 
-String _maskPhone(String phone) {
-  if (phone.isEmpty) return '';
-  if (phone.length <= 4) return phone;
-  final visible = phone.substring(phone.length - 4);
-  final masked = phone.substring(0, phone.length - 4).replaceAll(RegExp(r'.'), '•');
-  return '$masked$visible';
-}
+/// Extracted settings drawer widget to prevent unnecessary rebuilds
+class _HomeSettingsDrawer extends StatelessWidget {
+  const _HomeSettingsDrawer();
 
+  @override
+  Widget build(BuildContext context) {
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final organization = orgState.organization;
+    final role = orgState.appAccessRole;
+    final fallbackAdmin = (organization?.role.toUpperCase() ?? '') == 'ADMIN';
+    final isAdminRole = role?.isAdmin ?? fallbackAdmin;
+
+    return Drawer(
+      backgroundColor: AuthColors.surface,
+      child: _SettingsDrawer(
+        canManageRoles: isAdminRole,
+        canManageProducts: role?.canCreate('products') ?? isAdminRole,
+        canManageRawMaterials: role?.canCreate('rawMaterials') ?? isAdminRole,
+        canAccessVehicles: role?.canAccessPage('vehicles') ?? false,
+        onOpenRoles: () {
+          Scaffold.of(context).closeEndDrawer();
+          Future.microtask(() => context.go('/roles'));
+        },
+        onOpenProducts: () {
+          Scaffold.of(context).closeEndDrawer();
+          Future.microtask(() => context.go('/products'));
+        },
+        onOpenRawMaterials: () {
+          Scaffold.of(context).closeEndDrawer();
+          Future.microtask(() => context.go('/raw-materials'));
+        },
+        onOpenVehicles: () {
+          Scaffold.of(context).closeEndDrawer();
+          Future.microtask(() => context.go('/vehicles'));
+        },
+        onOpenPaymentAccounts: isAdminRole
+            ? () {
+                Scaffold.of(context).closeEndDrawer();
+                Future.microtask(() => context.go('/payment-accounts'));
+              }
+            : null,
+      ),
+    );
+  }
+}

@@ -13,6 +13,8 @@ import 'package:dash_mobile/data/repositories/clients_repository.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/repositories/products_repository.dart';
 import 'package:dash_mobile/data/repositories/user_organization_repository.dart';
+import 'package:dash_mobile/data/repositories/app_access_roles_repository.dart';
+import 'package:dash_mobile/data/datasources/app_access_roles_data_source.dart';
 import 'package:dash_mobile/data/repositories/users_repository.dart';
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
@@ -51,6 +53,12 @@ class DashMobileApp extends StatelessWidget {
 
     final rolesRepository = RolesRepository(
       dataSource: RolesDataSource(
+        firestore: authRepository.firestore,
+      ),
+    );
+
+    final appAccessRolesRepository = AppAccessRolesRepository(
+      dataSource: AppAccessRolesDataSource(
         firestore: authRepository.firestore,
       ),
     );
@@ -173,6 +181,7 @@ class DashMobileApp extends StatelessWidget {
         RepositoryProvider.value(value: authRepository),
         RepositoryProvider.value(value: organizationRepository),
         RepositoryProvider.value(value: rolesRepository),
+        RepositoryProvider.value(value: appAccessRolesRepository),
         RepositoryProvider.value(value: productsRepository),
         RepositoryProvider.value(value: employeesRepository),
         RepositoryProvider.value(value: vendorsRepository),
@@ -212,7 +221,7 @@ class DashMobileApp extends StatelessWidget {
               authRepository: authRepository,
               orgContextCubit: context.read<OrganizationContextCubit>(),
               orgSelectorCubit: context.read<OrgSelectorCubit>(),
-              rolesRepository: rolesRepository,
+              appAccessRolesRepository: appAccessRolesRepository,
             ),
           ),
           BlocProvider(

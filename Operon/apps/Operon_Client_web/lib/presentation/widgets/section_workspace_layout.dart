@@ -1,11 +1,8 @@
-import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/domain/entities/app_access_role.dart';
-import 'package:dash_web/domain/entities/organization_membership.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/users_repository.dart';
-import 'package:dash_web/domain/entities/organization_user.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
 import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
@@ -36,7 +33,6 @@ import 'package:dash_web/presentation/blocs/wage_settings/wage_settings_cubit.da
 import 'package:dash_web/presentation/views/production_batch_templates_page.dart';
 import 'package:dash_web/presentation/blocs/production_batch_templates/production_batch_templates_cubit.dart';
 import 'package:core_datasources/core_datasources.dart';
-import 'package:dash_web/presentation/widgets/quick_action_menu.dart';
 import 'package:dash_web/presentation/widgets/select_client_dialog.dart';
 import 'package:dash_web/presentation/widgets/record_payment_dialog.dart';
 import 'package:dash_web/presentation/widgets/record_purchase_dialog.dart';
@@ -108,14 +104,17 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
         computeHomeSections(appAccessRole);
     final media = MediaQuery.of(context);
 
-    const scaffoldColor =
-        kDebugMode ? Color(0xFF121226) : Color(0xFF010104);
-
     return Scaffold(
-      backgroundColor: scaffoldColor,
+      backgroundColor: AuthColors.background,
       body: SafeArea(
         child: Stack(
           children: [
+            // DotGridPattern background (matching login page)
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: const DotGridPattern(),
+              ),
+            ),
             // Main Content Panel
             Positioned(
               top: 100,
@@ -123,40 +122,14 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
               right: 20,
               bottom: 24,
               child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1F1F33), Color(0xFF0F0F16)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    const BoxShadow(
-                      color: Color(0x66000000),
-                      blurRadius: 60,
-                      spreadRadius: -10,
-                      offset: Offset(0, 30),
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.1),
-                      blurRadius: 40,
-                      spreadRadius: -20,
-                      offset: const Offset(0, 20),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    width: 1.5,
-                  ),
+                decoration: const BoxDecoration(
+                  color: Colors.transparent,
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: _AnimatedSectionSwitcher(
-                    key: ValueKey('section-${widget.currentIndex}'),
-                    currentIndex: widget.currentIndex,
-                    panelTitle: widget.panelTitle,
-                    child: widget.child,
-                  ),
+                child: _AnimatedSectionSwitcher(
+                  key: ValueKey('section-${widget.currentIndex}'),
+                  currentIndex: widget.currentIndex,
+                  panelTitle: widget.panelTitle,
+                  child: widget.child,
                 ),
               ),
             ),
@@ -179,11 +152,37 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   ),
                   Expanded(
                     child: Center(
-                        child: _TopNavBar(
-                          currentIndex: widget.currentIndex,
-                          onTap: widget.onNavTap,
-                          visibleSections: visibleSections,
-                          contentPage: _contentPage,
+                      child: FloatingNavBar(
+                        items: const [
+                          NavBarItem(
+                            icon: Icons.home_outlined,
+                            label: 'Overview',
+                            heroTag: 'nav_overview',
+                          ),
+                          NavBarItem(
+                            icon: Icons.pending_actions_outlined,
+                            label: 'Pending',
+                            heroTag: 'nav_pending',
+                          ),
+                          NavBarItem(
+                            icon: Icons.schedule_outlined,
+                            label: 'Schedule',
+                            heroTag: 'nav_schedule',
+                          ),
+                          NavBarItem(
+                            icon: Icons.map_outlined,
+                            label: 'Map',
+                            heroTag: 'nav_map',
+                          ),
+                          NavBarItem(
+                            icon: Icons.dashboard_outlined,
+                            label: 'Analytics',
+                            heroTag: 'nav_analytics',
+                          ),
+                        ],
+                        currentIndex: widget.currentIndex,
+                        onItemTapped: widget.onNavTap,
+                        visibleIndices: visibleSections,
                       ),
                     ),
                   ),
@@ -224,41 +223,82 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
 
             // Profile Side Sheet
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
+              duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutCubic,
               top: 0,
               bottom: 0,
               left: _isProfileOpen ? 0 : -media.size.width,
-              child: _ProfileSideSheet(
-                user: authState.userProfile,
-                organization: organization,
-                usersRepository: context.read<UsersRepository>(),
-                onClose: () => setState(() => _isProfileOpen = false),
-                onChangeOrg: () {
-                  setState(() => _isProfileOpen = false);
-                  context.go('/org-selection');
-                },
-                onOpenPermissions: isAdminRole
-                    ? () {
-                        setState(() => _isProfileOpen = false);
-                        context.go('/access-control');
-                      }
-                    : null,
-                onLogout: () {
-                  context.read<AuthBloc>().add(const AuthReset());
-                  context.go('/login');
-                },
+              child: RepaintBoundary(
+                child: Container(
+                  width: (media.size.width * 0.65).clamp(280.0, 400.0),
+                  color: AuthColors.surface,
+                  child: Stack(
+                    children: [
+                      ProfileView(
+                        user: authState.userProfile,
+                        organization: organization,
+                        fetchUserName: (authState.userProfile?.id != null && organization?.id != null)
+                            ? () async {
+                                try {
+                                  final orgUser = await context.read<UsersRepository>().fetchCurrentUser(
+                                    orgId: organization!.id,
+                                    userId: authState.userProfile!.id,
+                                    phoneNumber: authState.userProfile!.phoneNumber,
+                                  );
+                                  // Return the name field from OrganizationUser (which maps from 'user_name' in DB)
+                                  return orgUser?.name;
+                                } catch (_) {
+                                  return null;
+                                }
+                              }
+                            : null,
+                        onChangeOrg: () {
+                          setState(() => _isProfileOpen = false);
+                          context.go('/org-selection');
+                        },
+                        onLogout: () {
+                          context.read<AuthBloc>().add(const AuthReset());
+                          context.go('/login');
+                        },
+                        onOpenUsers: canManageUsers
+                            ? () {
+                                setState(() => _isProfileOpen = false);
+                                _contentPage = ContentPage.users;
+                              }
+                            : null,
+                        onOpenPermissions: isAdminRole
+                            ? () {
+                                setState(() => _isProfileOpen = false);
+                                context.go('/access-control');
+                              }
+                            : null,
+                      ),
+                      Positioned(
+                        top: 16,
+                        right: 16,
+                        child: IconButton(
+                          onPressed: () => setState(() => _isProfileOpen = false),
+                          icon: const Icon(
+                            Icons.close,
+                            color: AuthColors.textMain,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
 
             // Settings Side Sheet
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 350),
+              duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutCubic,
               top: 0,
               bottom: 0,
               right: _isSettingsOpen ? 0 : -media.size.width,
-              child: _SettingsSideSheet(
+              child: RepaintBoundary(
+                child: _SettingsSideSheet(
                 canManageRoles: isAdminRole,
                 canManageUsers: canManageUsers,
                 canManageVehicles: canManageVehicles,
@@ -305,6 +345,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   _isSettingsOpen = false;
                   _contentPage = ContentPage.productionBatchTemplates;
                 }),
+                ),
               ),
             ),
 
@@ -329,9 +370,9 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
             if (widget.currentIndex == 0 || widget.currentIndex == 1)
               Builder(
                 builder: (context) {
-                  final actions = <QuickActionItem>[
+                  final actions = <ActionItem>[
                     // Payments - Available on both Overview and Pending Orders (opens Record Payment modal)
-                    QuickActionItem(
+                    ActionItem(
                       icon: Icons.payment,
                       label: 'Payments',
                       onTap: () {
@@ -354,7 +395,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                       },
                     ),
                     // Record Purchase - Available on both Overview and Pending Orders
-                    QuickActionItem(
+                    ActionItem(
                       icon: Icons.shopping_cart,
                       label: 'Record Purchase',
                       onTap: () {
@@ -377,7 +418,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                       },
                     ),
                     // Create Order - Available on both Overview and Pending Orders
-                    QuickActionItem(
+                    ActionItem(
                       icon: Icons.add_shopping_cart_outlined,
                       label: 'Create Order',
                       onTap: () => _showSelectClientDialog(context),
@@ -387,7 +428,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   // Add Expense action only on Overview (home) section
                   if (widget.currentIndex == 0) {
                     actions.add(
-                      QuickActionItem(
+                      ActionItem(
                         icon: Icons.receipt_long,
                         label: 'Add Expense',
                         onTap: () {
@@ -431,7 +472,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                     );
                   }
 
-                  return QuickActionMenu(
+                  return ActionFab(
                     right: 40,
                     bottom: 40, // 40px from bottom of viewport (accounts for content panel bottom: 24 + spacing)
                     actions: actions,
@@ -444,11 +485,11 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                 builder: (context) {
                   try {
                     final expensesCubit = context.read<ExpensesCubit>();
-                    return QuickActionMenu(
+                    return ActionFab(
                       right: 40,
                       bottom: 40,
                       actions: [
-                        QuickActionItem(
+                        ActionItem(
                           icon: Icons.add,
                           label: 'Add Expense',
                           onTap: () {
@@ -471,121 +512,6 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                 },
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TopNavBar extends StatelessWidget {
-  const _TopNavBar({
-    required this.currentIndex,
-    required this.onTap,
-    required this.visibleSections,
-    this.contentPage,
-  });
-
-  final int currentIndex;
-  final ValueChanged<int> onTap;
-  final List<int> visibleSections;
-  final ContentPage? contentPage;
-
-  bool _isAccessControlOpen(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-    return location == '/access-control';
-  }
-
-  static const _items = [
-    Icons.home_outlined,
-    Icons.pending_actions_outlined,
-    Icons.schedule_outlined,
-    Icons.map_outlined,
-    Icons.dashboard_outlined,
-  ];
-
-  static const _labels = [
-    'Overview',
-    'Pending',
-    'Schedule',
-    'Map',
-    'Analytics',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final allowed = <int>{0};
-    if (visibleSections.isNotEmpty) {
-      allowed.addAll(
-          visibleSections.where((index) => index >= 0 && index < _items.length));
-    } else {
-      allowed.addAll(List.generate(_items.length, (index) => index));
-    }
-    final displayed = allowed.toList()..sort();
-
-    final navItems = displayed.map((index) {
-      final isActive = index == currentIndex && 
-          (contentPage == null || contentPage == ContentPage.none);
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3),
-        child: _AnimatedNavItem(
-          key: ValueKey('nav-$index'),
-          index: index,
-          isActive: isActive,
-          icon: _items[index],
-          label: _labels[index],
-          onTap: () => onTap(index),
-        ),
-      );
-    }).toList();
-
-    if (_isAccessControlOpen(context)) {
-      navItems.add(
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4),
-          child: _AnimatedAccessControlItem(
-            key: ValueKey('access-control'),
-          ),
-        ),
-      );
-    }
-
-    return _AnimatedNavBarContainer(
-      key: const ValueKey('nav-bar-container'),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF11111B).withValues(alpha: 0.98),
-              const Color(0xFF0D0D15).withValues(alpha: 0.98),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
-              blurRadius: 40,
-              spreadRadius: -15,
-              offset: const Offset(0, 20),
-            ),
-            BoxShadow(
-              color: const Color(0xFF6F4BFF).withValues(alpha: 0.1),
-              blurRadius: 30,
-              spreadRadius: -20,
-              offset: const Offset(0, 15),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: navItems,
         ),
       ),
     );
@@ -1403,18 +1329,10 @@ class _FloatingCircleIconState extends State<_FloatingCircleIcon>
           height: buttonSize,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-                    color: Color.lerp(
-                      const Color(0xFF161626).withValues(alpha: 0.9),
-                      const Color(0xFF1F1F3A).withValues(alpha: 0.95),
-                      _controller.value,
-                    ) ?? const Color(0xFF161626).withValues(alpha: 0.9),
+                    color: const Color(0xFF0A0A0A).withOpacity(0.95), // Match nav bar background
                     border: Border.all(
-                      color: Color.lerp(
-                        Colors.white.withValues(alpha: 0.12),
-                        Colors.white.withValues(alpha: 0.2),
-                        _controller.value,
-                      ) ?? Colors.white.withValues(alpha: 0.12),
-                      width: 1.0 + (_controller.value * 0.5),
+                      color: Colors.white.withOpacity(0.1), // Match nav bar border
+                      width: 1,
                     ),
                     boxShadow: [
               BoxShadow(
@@ -1431,262 +1349,15 @@ class _FloatingCircleIconState extends State<_FloatingCircleIcon>
                   child: Icon(
                     widget.icon,
                     color: Color.lerp(
-                      Colors.white,
-                      const Color(0xFF6F4BFF),
+                      Colors.white.withOpacity(0.7), // Match nav bar inactive icon color
+                      Colors.white, // Match nav bar active icon color
                       _controller.value,
-                    ) ?? Colors.white,
+                    ) ?? Colors.white.withOpacity(0.7),
                     size: 26 + (_controller.value * 2),
                   ),
                 ),
               );
             },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileSideSheet extends StatelessWidget {
-  const _ProfileSideSheet({
-    required this.user,
-    required this.organization,
-    required this.usersRepository,
-    required this.onClose,
-    required this.onChangeOrg,
-    this.onOpenPermissions,
-    required this.onLogout,
-  });
-
-  final UserProfile? user;
-  final OrganizationMembership? organization;
-  final UsersRepository usersRepository;
-  final VoidCallback onClose;
-  final VoidCallback onChangeOrg;
-  final VoidCallback? onOpenPermissions;
-  final VoidCallback onLogout;
-
-  String _maskPhone(String phone) {
-    if (phone.isEmpty) return '';
-    if (phone.length <= 4) return phone;
-    final visible = phone.substring(phone.length - 4);
-    final masked =
-        phone.substring(0, phone.length - 4).replaceAll(RegExp(r'.'), '•');
-    return '$masked$visible';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final width = (screenWidth * 0.65).clamp(280.0, 400.0);
-    final maskedPhone = _maskPhone(user?.phoneNumber ?? '');
-
-    return SizedBox(
-      width: width,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF11111B),
-                Color(0xFF0D0D15),
-              ],
-            ),
-            borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(32),
-              bottomRight: Radius.circular(32),
-            ),
-            border: Border(
-              left: BorderSide(
-                color: Colors.white.withValues(alpha: 0.1),
-                width: 1,
-              ),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 40,
-                spreadRadius: -10,
-                offset: const Offset(-10, 0),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0xFF1F1F2C),
-                    ),
-                    child: const Icon(Icons.person, color: Colors.white, size: 32),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        FutureBuilder<OrganizationUser?>(
-                          future: (user?.id != null && organization?.id != null)
-                              ? usersRepository.fetchCurrentUser(
-                                  orgId: organization!.id,
-                                  userId: user!.id,
-                                  phoneNumber: user!.phoneNumber,
-                                )
-                              : Future.value(null),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white54,
-                                ),
-                              );
-                            }
-                            final userName = snapshot.data?.name ?? 
-                                            user?.displayName ?? 
-                                            'User';
-                            return Text(
-                              userName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          maskedPhone.isNotEmpty ? maskedPhone : '—',
-                          style: const TextStyle(color: Colors.white54),
-                        ),
-                        if (organization != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            '${organization!.name} • ${organization!.role}',
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: onClose,
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
-              const Text(
-                'Quick Actions',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _ProfileAction(
-                icon: Icons.swap_horiz,
-                label: 'Change Organization',
-                onTap: () {
-                  onClose();
-                  onChangeOrg();
-                  },
-                ),
-              const _ProfileAction(
-                icon: Icons.notifications_outlined,
-                label: 'Notifications',
-              ),
-              if (onOpenPermissions != null)
-                _ProfileAction(
-                  icon: Icons.security,
-                  label: 'Permissions',
-                  onTap: () {
-                    onClose();
-                    onOpenPermissions!();
-                  },
-                ),
-              const _ProfileAction(
-                icon: Icons.lock_outline,
-                label: 'Security',
-              ),
-              const _ProfileAction(
-                icon: Icons.support_agent,
-                label: 'Support',
-              ),
-              const Spacer(),
-              DashButton(
-                label: 'Logout',
-                onPressed: () {
-                  onClose();
-                  onLogout();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileAction extends StatelessWidget {
-  const _ProfileAction({
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white10,
-                ),
-                child: Icon(icon, color: Colors.white70, size: 20),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                label,
-                style: const TextStyle(color: Colors.white),
-              ),
-            ],
           ),
         ),
       ),
@@ -1736,10 +1407,10 @@ class _SettingsSideSheet extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
-          decoration: const BoxDecoration(
-            color: Color(0xFF11111B),
-            borderRadius: BorderRadius.only(
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+          decoration: BoxDecoration(
+            color: AuthColors.surface,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(28),
               bottomLeft: Radius.circular(28),
             ),
@@ -1749,25 +1420,30 @@ class _SettingsSideSheet extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Settings',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
+                      fontFamily: 'SF Pro Display',
                     ),
                   ),
                   const Spacer(),
                   IconButton(
                     onPressed: onClose,
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: Icon(Icons.close, color: AuthColors.textMain),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Pages',
-                style: TextStyle(color: Colors.white54),
+                style: TextStyle(
+                  color: AuthColors.textSub,
+                  fontSize: 14,
+                  fontFamily: 'SF Pro Display',
+                ),
               ),
               const SizedBox(height: 12),
               if (onOpenUsers != null)
@@ -1797,9 +1473,13 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 )
               else
-                const Text(
+                Text(
                   'Role management available for admins only.',
-                  style: TextStyle(color: Colors.white38),
+                  style: TextStyle(
+                    color: AuthColors.textDisabled,
+                    fontSize: 14,
+                    fontFamily: 'SF Pro Display',
+                  ),
                 ),
               const SizedBox(height: 12),
               _SettingsTile(
@@ -1829,9 +1509,13 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 )
               else
-                const Text(
+                Text(
                   'Payment accounts available for admins only.',
-                  style: TextStyle(color: Colors.white38),
+                  style: TextStyle(
+                    color: AuthColors.textDisabled,
+                    fontSize: 14,
+                    fontFamily: 'SF Pro Display',
+                  ),
                 ),
               const SizedBox(height: 12),
               if (onOpenWageSettings != null)
@@ -1877,13 +1561,14 @@ class _SettingsTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
+        child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1B1B2C),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(
+              color: AuthColors.textMainWithOpacity(0.1),
+              width: 1,
+            ),
           ),
           child: ListTile(
             shape: RoundedRectangleBorder(
@@ -1891,15 +1576,27 @@ class _SettingsTile extends StatelessWidget {
             ),
             title: Text(
               label,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'SF Pro Display',
+              ),
             ),
             subtitle: subtitle != null
                 ? Text(
                     subtitle!,
-                    style: const TextStyle(color: Colors.white38),
+                    style: TextStyle(
+                      color: AuthColors.textDisabled,
+                      fontSize: 13,
+                      fontFamily: 'SF Pro Display',
+                    ),
                   )
                 : null,
-            trailing: const Icon(Icons.chevron_right, color: Colors.white30),
+            trailing: Icon(
+              Icons.chevron_right,
+              color: AuthColors.textSub,
+            ),
           ),
         ),
       ),

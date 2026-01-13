@@ -1,4 +1,4 @@
-import 'package:core_models/core_models.dart';
+import 'package:dash_mobile/domain/entities/app_access_role.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,10 +14,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 /// ```
 class PermissionHelper {
   /// Get the current role from context
-  static OrganizationRole? _getRole(BuildContext context) {
+  static AppAccessRole? _getRole(BuildContext context) {
     try {
       final orgState = context.read<OrganizationContextCubit>().state;
-      return orgState.role;
+      return orgState.appAccessRole;
     } catch (e) {
       return null;
     }

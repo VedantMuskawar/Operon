@@ -1,5 +1,5 @@
-import 'package:dash_web/data/datasources/app_access_roles_data_source.dart';
-import 'package:dash_web/domain/entities/app_access_role.dart';
+import 'package:dash_mobile/data/datasources/app_access_roles_data_source.dart';
+import 'package:dash_mobile/domain/entities/app_access_role.dart';
 
 class AppAccessRolesRepository {
   AppAccessRolesRepository({required AppAccessRolesDataSource dataSource})

@@ -109,12 +109,22 @@ GoRouter buildRouter() {
           }
           return null; // Allow navigation
         },
-        pageBuilder: (context, state) => _buildTransitionPage(
-          key: state.pageKey,
-          child: HomePage(
-            initialIndex: state.extra is int ? state.extra as int : 0,
-          ),
-        ),
+        pageBuilder: (context, state) {
+          // Extract navigation args, handling both new format (HomeNavigationArgs) and old format (int)
+          final args = state.extra is HomeNavigationArgs
+              ? state.extra as HomeNavigationArgs
+              : HomeNavigationArgs(
+                  initialIndex: state.extra is int ? state.extra as int : 0,
+                );
+          
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: HomePage(
+              initialIndex: args.initialIndex,
+              preFetchedPendingOrdersCount: args.preFetchedPendingOrdersCount,
+            ),
+          );
+        },
       ),
       GoRoute(
         path: '/roles',
@@ -148,7 +158,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -178,7 +188,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -208,7 +218,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -249,7 +259,7 @@ GoRouter buildRouter() {
           }
           final employeesRepository = context.read<EmployeesRepository>();
           final rolesRepository = context.read<RolesRepository>();
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           
           return _buildTransitionPage(
             key: state.pageKey,
@@ -273,7 +283,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -311,7 +321,7 @@ GoRouter buildRouter() {
             );
           }
           final vendorsRepository = context.read<VendorsRepository>();
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           
           return _buildTransitionPage(
             key: state.pageKey,
@@ -334,7 +344,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -379,7 +389,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -413,7 +423,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -472,7 +482,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -523,7 +533,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -560,7 +570,7 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final role = orgState.role;
+          final role = orgState.appAccessRole;
           if (organization == null || role == null) {
             return _buildTransitionPage(
               key: state.pageKey,

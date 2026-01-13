@@ -70,7 +70,7 @@ class _LoginContent extends StatelessWidget {
           vertical: 48,
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
+          constraints: const BoxConstraints(maxWidth: 700), // Increased width for better visibility
           child: _LoginFormCard(title: title, child: child),
         ),
       ),

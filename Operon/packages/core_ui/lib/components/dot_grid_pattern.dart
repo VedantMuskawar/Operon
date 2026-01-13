@@ -55,7 +55,7 @@ class DotGridPattern extends StatelessWidget {
   /// Radius of each dot in pixels (default: 1px)
   final double dotRadius;
 
-  /// Color of the dots (default: white with 5% opacity)
+  /// Color of the dots (default: white with 15% opacity)
   final Color dotColor;
 
   /// Whether to apply radial gradient fade at edges (default: true)
@@ -65,7 +65,7 @@ class DotGridPattern extends StatelessWidget {
     Key? key,
     this.spacing = 20.0,
     this.dotRadius = 1.0,
-    this.dotColor = const Color.fromRGBO(255, 255, 255, 0.05),
+    this.dotColor = const Color.fromRGBO(255, 255, 255, 0.15),
     this.fadeEdges = true,
   }) : super(key: key);
 

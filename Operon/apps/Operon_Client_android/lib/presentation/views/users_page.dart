@@ -20,7 +20,7 @@ class UsersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roleDetails =
-        context.watch<OrganizationContextCubit>().state.role;
+        context.watch<OrganizationContextCubit>().state.appAccessRole;
     final canManageUsers = roleDetails?.isAdmin ?? roleDetails?.canCreate('users') ?? false;
 
     return BlocListener<UsersCubit, UsersState>(

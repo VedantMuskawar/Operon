@@ -1,0 +1,16 @@
+name: shared_ui
+description: Shared navigation and action menu widgets with glassmorphic design
+version: 0.1.0
+publish_to: none
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  core_ui:
+    path: ../core_ui
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0

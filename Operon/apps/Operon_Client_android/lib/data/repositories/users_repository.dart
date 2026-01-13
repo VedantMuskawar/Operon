@@ -30,6 +30,18 @@ class UsersRepository {
     return _dataSource.removeOrgUser(orgId: orgId, userId: userId);
   }
 
+  Future<OrganizationUser?> fetchCurrentUser({
+    required String orgId,
+    required String userId,
+    String? phoneNumber,
+  }) {
+    return _dataSource.fetchCurrentUser(
+      orgId: orgId,
+      userId: userId,
+      phoneNumber: phoneNumber,
+    );
+  }
+
   Future<String?> fetchPhoneByEmployeeId({
     required String orgId,
     required String employeeId,

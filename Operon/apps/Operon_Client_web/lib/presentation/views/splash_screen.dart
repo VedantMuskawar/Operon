@@ -5,35 +5,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
+  Widget build(BuildContext context) {
     // Trigger initialization when splash screen is shown
     // This handles both initial app load and post-authentication navigation
     // Also check auth status first to ensure AuthBloc has the current user
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (mounted) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
         // First, check auth status to restore user profile in AuthBloc
         context.read<AuthBloc>().add(const AuthStatusRequested());
-        // Small delay to allow auth state to update
-        await Future.delayed(const Duration(milliseconds: 100));
-        if (mounted) {
+        // Initialize immediately - AppInitializationCubit will handle auth state
+        // The small delay is removed as it's not necessary - the cubit can check auth state directly
+        if (context.mounted) {
           context.read<AppInitializationCubit>().initialize();
         }
       }
     });
-  }
 
-  @override
-  Widget build(BuildContext context) {
     return BlocListener<AppInitializationCubit, AppInitializationState>(
       listener: (context, state) {
         if (state.status == AppInitializationStatus.notAuthenticated) {
@@ -53,75 +44,38 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF020205),
-        body: Center(
-          child: BlocBuilder<AppInitializationCubit, AppInitializationState>(
-            builder: (context, state) {
-              String message = 'Loading...';
-              
-              switch (state.status) {
-                case AppInitializationStatus.checkingAuth:
-                  message = 'Checking authentication...';
-                  break;
-                case AppInitializationStatus.loadingOrganizations:
-                  message = 'Loading organizations...';
-                  break;
-                case AppInitializationStatus.restoringContext:
-                  message = 'Restoring session...';
-                  break;
-                case AppInitializationStatus.error:
-                  message = 'Error: ${state.errorMessage ?? "Unknown error"}';
-                  break;
-                default:
-                  message = 'Loading...';
-              }
+        backgroundColor: AuthColors.backgroundAlt,
+        body: Stack(
+          children: [
+            // Dot grid pattern background - fills entire viewport
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: const DotGridPattern(),
+              ),
+            ),
+            // Main content
+            Center(
+              child: BlocBuilder<AppInitializationCubit, AppInitializationState>(
+                builder: (context, state) {
+                  String message = getSplashMessage(state.status);
+                  
+                  if (state.status == AppInitializationStatus.error) {
+                      message = 'Error: ${state.errorMessage ?? "Unknown error"}';
+                  }
 
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // App Logo or Icon
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.dashboard,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6F4BFF)),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    message,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-                  if (state.status == AppInitializationStatus.error) ...[
-                    const SizedBox(height: 24),
-                    DashButton(
-                      label: 'Retry',
-                      onPressed: () {
-                        context.read<AppInitializationCubit>().retry();
-                      },
-                    ),
-                  ],
-                ],
-              );
-            },
-          ),
+                  return SplashContent(
+                    message: message,
+                    showRetry: state.status == AppInitializationStatus.error,
+                    onRetry: state.status == AppInitializationStatus.error
+                        ? () {
+                              context.read<AppInitializationCubit>().retry();
+                          }
+                        : null,
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

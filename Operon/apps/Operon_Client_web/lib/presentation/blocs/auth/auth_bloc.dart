@@ -35,6 +35,17 @@ class AuthBloc extends BaseBloc<AuthEvent, AuthState> {
       }
     } catch (e) {
       debugPrint('[AuthBloc] Error checking auth status: $e');
+      // Handle interop type conversion errors gracefully
+      if (e.toString().contains('LegacyJavaScriptObject') || 
+          e.toString().contains('UserWeb')) {
+        debugPrint('[AuthBloc] Interop type error detected, clearing auth state');
+        // Try to sign out to clear any corrupted auth state
+        try {
+          await _authRepository.signOut();
+        } catch (_) {
+          // Ignore sign out errors
+        }
+      }
       // Don't emit error state here, just log it
       // The app initialization will handle auth checking
     }
@@ -135,7 +146,23 @@ class AuthBloc extends BaseBloc<AuthEvent, AuthState> {
     AuthStatusRequested event,
     Emitter<AuthState> emit,
   ) async {
-    final user = await _authRepository.currentUser();
-    emit(state.copyWith(userProfile: user));
+    try {
+      final user = await _authRepository.currentUser();
+      emit(state.copyWith(userProfile: user));
+    } catch (e) {
+      debugPrint('[AuthBloc] Error requesting auth status: $e');
+      // Handle interop type conversion errors gracefully
+      if (e.toString().contains('LegacyJavaScriptObject') || 
+          e.toString().contains('UserWeb')) {
+        debugPrint('[AuthBloc] Interop type error detected, clearing auth state');
+        // Try to sign out to clear any corrupted auth state
+        try {
+          await _authRepository.signOut();
+        } catch (_) {
+          // Ignore sign out errors
+        }
+      }
+      // Don't emit error state, just log it
+    }
   }
 }

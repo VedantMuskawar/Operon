@@ -183,6 +183,33 @@ class UsersDataSource {
         .delete();
   }
 
+  Future<OrganizationUser?> fetchCurrentUser({
+    required String orgId,
+    required String userId,
+    String? phoneNumber,
+  }) async {
+    try {
+      final doc = await _orgUsersCollection(orgId).doc(userId).get();
+      if (doc.exists) {
+        return OrganizationUser.fromMap(doc.data()!, doc.id, orgId);
+      }
+      // If not found by userId, try to find by phone number
+      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+        final phoneQuery = await _orgUsersCollection(orgId)
+            .where('phone', isEqualTo: phoneNumber)
+            .limit(1)
+            .get();
+        if (phoneQuery.docs.isNotEmpty) {
+          final doc = phoneQuery.docs.first;
+          return OrganizationUser.fromMap(doc.data(), doc.id, orgId);
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<String?> fetchPhoneByEmployeeId({
     required String orgId,
     required String employeeId,
