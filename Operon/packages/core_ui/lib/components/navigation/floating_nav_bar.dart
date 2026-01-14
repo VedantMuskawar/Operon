@@ -176,7 +176,7 @@ class _NavBarContent extends StatefulWidget {
 
 class _NavBarContentState extends State<_NavBarContent> {
   // Cache index mapping to avoid O(n) lookups on every build
-  late final List<int> _indexMapping;
+  late List<int> _indexMapping;
 
   @override
   void initState() {

@@ -1,7 +1,7 @@
+import 'package:core_bloc/core_bloc.dart';
 import 'package:core_services/core_services.dart';
 import 'package:dash_web/data/repositories/app_access_roles_repository.dart';
 import 'package:dash_web/data/services/org_context_persistence_service.dart';
-import 'package:dash_web/data/services/org_context_persistence_service.dart' show SavedOrgContext;
 import 'package:dash_web/domain/entities/app_access_role.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_selector/org_selector_cubit.dart';
@@ -72,10 +72,6 @@ class AppInitializationCubit extends Cubit<AppInitializationState> {
     try {
       emit(state.copyWith(status: AppInitializationStatus.checkingAuth));
 
-      // Minimal delay for Firebase Auth to restore session (reduced from 200ms)
-      // Only wait if absolutely necessary - most of the time auth is already ready
-      await Future.delayed(const Duration(milliseconds: 50));
-
       // Check if user is authenticated
       final user = await _authRepository.currentUser();
       
@@ -94,20 +90,27 @@ class AppInitializationCubit extends Cubit<AppInitializationState> {
       // PARALLEL LOADING: Load saved context and organizations simultaneously
       emit(state.copyWith(status: AppInitializationStatus.loadingOrganizations));
       
-      final results = await Future.wait([
-        OrgContextPersistenceService.loadContext(),
-        _orgSelectorCubit.loadOrganizations(
-          user.id,
-          phoneNumber: user.phoneNumber,
-        ),
-      ]);
-
-      final savedContext = results[0] as SavedOrgContext?;
+      // Load context first
+      final savedContext = await OrgContextPersistenceService.loadContext();
       final hasSavedContext = savedContext != null && savedContext.userId == user.id;
+      
+      // Load organizations
+      await _orgSelectorCubit.loadOrganizations(
+        user.id,
+        phoneNumber: user.phoneNumber,
+      );
 
       emit(state.copyWith(hasSavedContext: hasSavedContext));
 
-      final orgState = _orgSelectorCubit.state;
+      // Wait for organizations to finish loading
+      var orgState = _orgSelectorCubit.state;
+      int waitAttempts = 0;
+      while (orgState.status == ViewStatus.loading && waitAttempts < 30) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        orgState = _orgSelectorCubit.state;
+        waitAttempts++;
+      }
+      
       if (orgState.organizations.isEmpty) {
         emit(state.copyWith(
           status: AppInitializationStatus.ready,
@@ -168,9 +171,17 @@ class AppInitializationCubit extends Cubit<AppInitializationState> {
           );
 
           // Check state after restoration - the optimistic emit should have already happened
-          // Give a tiny delay to ensure state is propagated
-          await Future.delayed(const Duration(milliseconds: 10));
-          final restoredState = _orgContextCubit.state;
+          // Give a small delay to ensure state is fully propagated
+          await Future.delayed(const Duration(milliseconds: 50));
+          
+          // Verify the state multiple times to ensure it's stable
+          OrganizationContextState restoredState = _orgContextCubit.state;
+          int attempts = 0;
+          while (!restoredState.hasSelection && attempts < 5) {
+            await Future.delayed(const Duration(milliseconds: 20));
+            restoredState = _orgContextCubit.state;
+            attempts++;
+          }
           
           // If we have a selection (org + financial year), consider it restored
           // appAccessRole can be null initially (loaded in background) but that's OK

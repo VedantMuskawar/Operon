@@ -15,6 +15,7 @@ export 'components/empty_state.dart';
 export 'components/icloud_dotted_circle.dart';
 export 'components/otp_input_field.dart';
 export 'components/dot_grid_pattern.dart';
+export 'components/data_list.dart';
 export 'components/unified_login_content.dart';
 export 'components/organization_selection_content.dart';
 export 'components/splash_content.dart';

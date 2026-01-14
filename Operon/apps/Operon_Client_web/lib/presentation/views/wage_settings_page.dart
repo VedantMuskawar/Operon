@@ -26,9 +26,9 @@ class WageSettingsPage extends StatelessWidget {
             children: [
               const Text('No organization selected'),
               const SizedBox(height: 16),
-              ElevatedButton(
+              DashButton(
+                label: 'Select Organization',
                 onPressed: () => context.go('/org-selection'),
-                child: const Text('Select Organization'),
               ),
             ],
           ),
@@ -70,12 +70,12 @@ class WageSettingsPageContent extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              color: const Color(0xFF13131E),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              color: AuthColors.surface,
+              border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.12)),
             ),
-            child: const Text(
+            child: Text(
               'Configure wage calculation methods for your organization.',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AuthColors.textSub),
             ),
           ),
           const SizedBox(height: 20),
@@ -87,13 +87,9 @@ class WageSettingsPageContent extends StatelessWidget {
               return Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AuthColors.surface,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.1)),
                 ),
                 child: Row(
                   children: [
@@ -101,10 +97,10 @@ class WageSettingsPageContent extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Enable Wage Calculations',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -115,7 +111,7 @@ class WageSettingsPageContent extends StatelessWidget {
                                 ? 'Wage calculations are active'
                                 : 'Wage calculations are disabled',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: AuthColors.textSub,
                               fontSize: 13,
                             ),
                           ),
@@ -127,7 +123,7 @@ class WageSettingsPageContent extends StatelessWidget {
                       onChanged: (value) {
                         context.read<WageSettingsCubit>().toggleEnabled(value);
                       },
-                      activeColor: const Color(0xFF6F4BFF),
+                      activeColor: AuthColors.primary,
                     ),
                   ],
                 ),
@@ -138,15 +134,15 @@ class WageSettingsPageContent extends StatelessWidget {
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
+              gradient: LinearGradient(
+                colors: [AuthColors.primary, AuthColors.primaryVariant],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
+                  color: AuthColors.primary.withValues(alpha: 0.4),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -165,20 +161,20 @@ class WageSettingsPageContent extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: AuthColors.textMain.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.add,
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           size: 20,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
+                      Text(
                         'Add Wage Method',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
                           letterSpacing: 0.5,
@@ -209,7 +205,7 @@ class WageSettingsPageContent extends StatelessWidget {
                   child: Text(
                     'No wage methods yet. Tap "Add Wage Method" to create one.',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: AuthColors.textSub,
                       fontSize: 16,
                     ),
                     textAlign: TextAlign.center,
@@ -224,7 +220,7 @@ class WageSettingsPageContent extends StatelessWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final method = methods[index];
-                  return _WageMethodTile(
+                  return _WageMethodDataListItem(
                     method: method,
                     onEdit: () => _openMethodDialog(context, method: method),
                     onDelete: () => _confirmDeleteMethod(context, method),
@@ -253,7 +249,7 @@ class WageSettingsPageContent extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Wage Method Dialog',
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: AuthColors.background.withValues(alpha: 0.6),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return BlocProvider.value(
@@ -288,14 +284,14 @@ class WageSettingsPageContent extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1B1B2C),
-        title: const Text(
+        backgroundColor: AuthColors.surface,
+        title: Text(
           'Delete Wage Method',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete "${method.name}"? This action cannot be undone.',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -319,8 +315,8 @@ class WageSettingsPageContent extends StatelessWidget {
   }
 }
 
-class _WageMethodTile extends StatelessWidget {
-  const _WageMethodTile({
+class _WageMethodDataListItem extends StatelessWidget {
+  const _WageMethodDataListItem({
     required this.method,
     required this.onEdit,
     required this.onDelete,
@@ -331,19 +327,6 @@ class _WageMethodTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final ValueChanged<bool> onToggle;
-
-  IconData get _typeIcon {
-    switch (method.methodType) {
-      case WageMethodType.production:
-        return Icons.construction_outlined;
-      case WageMethodType.loadingUnloading:
-        return Icons.local_shipping_outlined;
-      case WageMethodType.dailyRate:
-        return Icons.calendar_today_outlined;
-      case WageMethodType.custom:
-        return Icons.settings_outlined;
-    }
-  }
 
   Color get _typeColor {
     switch (method.methodType) {
@@ -371,174 +354,76 @@ class _WageMethodTile extends StatelessWidget {
     }
   }
 
+  String _formatSubtitle() {
+    final parts = <String>[];
+    parts.add(_typeLabel);
+    if (method.description != null) {
+      parts.add(method.description!);
+    }
+    parts.add(method.enabled ? 'Enabled' : 'Disabled');
+    return parts.join(' • ');
+  }
+
+  Color _getStatusColor() {
+    if (!method.enabled) {
+      return AuthColors.textDisabled;
+    }
+    return _typeColor;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(20),
+    return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: method.enabled
-              ? [
-                  const Color(0xFF1A1A2A),
-                  const Color(0xFF11111B),
-                ]
-              : [
-                  const Color(0xFF11111B).withValues(alpha: 0.5),
-                  const Color(0xFF0D0D14).withValues(alpha: 0.5),
-                ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AuthColors.background,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: method.enabled
-              ? _typeColor.withValues(alpha: 0.3)
-              : Colors.white.withValues(alpha: 0.1),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: method.enabled
-                ? _typeColor.withValues(alpha: 0.1)
-                : Colors.black.withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: _typeColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: _typeColor.withValues(alpha: 0.5),
-                width: 1.5,
-              ),
+      child: DataList(
+        title: method.name,
+        subtitle: _formatSubtitle(),
+        leading: DataListAvatar(
+          initial: method.name.isNotEmpty ? method.name[0] : 'W',
+          radius: 28,
+          statusRingColor: _getStatusColor(),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DataListStatusDot(
+              color: _getStatusColor(),
+              size: 8,
             ),
-            child: Icon(
-              _typeIcon,
-              color: _typeColor,
-              size: 28,
+            const SizedBox(width: 12),
+            Switch(
+              value: method.enabled,
+              onChanged: onToggle,
+              activeColor: _typeColor,
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        method.name,
-                        style: TextStyle(
-                          color: method.enabled
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.5),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _typeColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _typeColor.withValues(alpha: 0.4),
-                        ),
-                      ),
-                      child: Text(
-                        _typeLabel,
-                        style: TextStyle(
-                          color: _typeColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (method.description != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    method.description!,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Switch(
-                      value: method.enabled,
-                      onChanged: onToggle,
-                      activeColor: _typeColor,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      method.enabled ? 'Enabled' : 'Disabled',
-                      style: TextStyle(
-                        color: method.enabled
-                            ? Colors.green
-                            : Colors.white.withValues(alpha: 0.5),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            const SizedBox(width: 12),
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
-          ),
-          const SizedBox(width: 12),
-          PopupMenuButton(
-            icon: const Icon(Icons.more_vert, color: Colors.white70),
-            color: const Color(0xFF1B1B2C),
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                child: const Row(
-                  children: [
-                    Icon(Icons.edit, size: 18, color: Colors.white70),
-                    SizedBox(width: 8),
-                    Text('Edit', style: TextStyle(color: Colors.white)),
-                  ],
-                ),
-                onTap: () => Future.delayed(
-                  const Duration(milliseconds: 100),
-                  onEdit,
-                ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: AuthColors.error,
+                size: 20,
               ),
-              PopupMenuItem(
-                child: const Row(
-                  children: [
-                    Icon(Icons.delete, size: 18, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-                onTap: () => Future.delayed(
-                  const Duration(milliseconds: 100),
-                  onDelete,
-                ),
-              ),
-            ],
-          ),
-        ],
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        onTap: onEdit,
       ),
     );
   }
@@ -619,10 +504,10 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 700.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Wage Method' : 'Add Wage Method',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -635,8 +520,8 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
               children: [
                 DropdownButtonFormField<WageMethodType>(
                   value: _methodType,
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Method Type'),
                   onChanged: isEditing
                       ? null
@@ -670,7 +555,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                   TextFormField(
                     controller: _productionPriceController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Production Price Per Unit'),
                     validator: (value) {
                       final parsed = double.tryParse(value ?? '');
@@ -684,7 +569,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                   TextFormField(
                     controller: _stackingPriceController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Stacking Price Per Unit'),
                     validator: (value) {
                       final parsed = double.tryParse(value ?? '');
@@ -702,11 +587,11 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                     ),
                     subtitle: const Text(
                       'Wages require approval before processing',
-                      style: TextStyle(color: Colors.white60),
+                      style: TextStyle(color: AuthColors.textSub),
                     ),
                     value: _requiresBatchApproval,
                     onChanged: (value) => setState(() => _requiresBatchApproval = value),
-                    activeColor: const Color(0xFF6F4BFF),
+                    activeColor: AuthColors.primary,
                   ),
                   SwitchListTile(
                     title: const Text(
@@ -715,11 +600,11 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                     ),
                     subtitle: const Text(
                       'Automatically calculate wages when batch is recorded',
-                      style: TextStyle(color: Colors.white60),
+                      style: TextStyle(color: AuthColors.textSub),
                     ),
                     value: _autoCalculateOnRecord,
                     onChanged: (value) => setState(() => _autoCalculateOnRecord = value),
-                    activeColor: const Color(0xFF6F4BFF),
+                    activeColor: AuthColors.primary,
                   ),
                 ],
                 if (_methodType == WageMethodType.loadingUnloading) ...[
@@ -734,18 +619,10 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                   ),
                   _buildQuantityWageList(),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
+                  DashButton(
+                    label: 'Add Quantity Range',
+                    icon: Icons.add,
                     onPressed: () => _showAddQuantityWageDialog(context),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Quantity Range'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF6F4BFF),
-                      side: const BorderSide(color: Color(0xFF6F4BFF)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
                   ),
                 ],
                 if (_methodType == WageMethodType.dailyRate ||
@@ -756,7 +633,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                     padding: EdgeInsets.all(16.0),
                     child: Text(
                       'Daily Rate and Custom methods are coming soon.',
-                      style: TextStyle(color: Colors.white60),
+                      style: TextStyle(color: AuthColors.textSub),
                     ),
                   ),
                 ],
@@ -941,8 +818,8 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

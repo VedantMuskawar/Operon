@@ -141,6 +141,12 @@ class DashMobileApp extends StatelessWidget {
       ),
     );
 
+    final dmSettingsRepository = DmSettingsRepository(
+      dataSource: DmSettingsDataSource(
+        firestore: authRepository.firestore,
+      ),
+    );
+
     final employeeWagesRepository = EmployeeWagesRepository(
       dataSource: EmployeeWagesDataSource(
         firestore: authRepository.firestore,
@@ -201,6 +207,7 @@ class DashMobileApp extends StatelessWidget {
         RepositoryProvider.value(value: transactionsDataSource),
         RepositoryProvider.value(value: paymentAccountsDataSource),
         RepositoryProvider.value(value: expenseSubCategoriesRepository),
+        RepositoryProvider.value(value: dmSettingsRepository),
       ],
       child: MultiBlocProvider(
         providers: [

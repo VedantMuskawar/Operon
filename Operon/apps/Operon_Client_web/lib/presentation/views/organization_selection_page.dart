@@ -37,7 +37,20 @@ class _OrganizationSelectionPageState
   void initState() {
     super.initState();
     // Organizations should already be loaded by AppInitializationCubit
-    // No need to reload - this prevents duplicate loading
+    // But on app restart, they might be empty - load them as a fallback
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final orgState = context.read<OrgSelectorCubit>().state;
+        final authState = context.read<AuthBloc>().state;
+        // If organizations are empty but user is authenticated, try to load them
+        if (orgState.organizations.isEmpty && authState.userProfile != null) {
+          context.read<OrgSelectorCubit>().loadOrganizations(
+            authState.userProfile!.id,
+            phoneNumber: authState.userProfile!.phoneNumber,
+          );
+        }
+      }
+    });
   }
 
   /// Pre-fetch app access roles when organization is selected

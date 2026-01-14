@@ -1,6 +1,7 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/presentation/blocs/app_initialization/app_initialization_cubit.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
+import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -10,15 +11,40 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Trigger initialization when splash screen is shown
-    // This handles both initial app load and post-authentication navigation
-    // Also check auth status first to ensure AuthBloc has the current user
+    // Check current state first - on hot restart, state might already be restored
+    final currentState = context.read<AppInitializationCubit>().state;
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (context.mounted) {
+        // If already restored, navigate immediately
+        if (currentState.status == AppInitializationStatus.contextRestored) {
+          context.go('/home');
+          return;
+        }
+        
+        // If already authenticated and ready, check if we should restore or go to org-selection
+        if (currentState.status == AppInitializationStatus.ready ||
+            currentState.status == AppInitializationStatus.contextRestoreFailed) {
+          // Check if org context is actually set (might have been restored but status not updated)
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (orgState.hasSelection) {
+            context.go('/home');
+            return;
+          }
+          context.go('/org-selection');
+          return;
+        }
+        
+        // If not authenticated, go to login
+        if (currentState.status == AppInitializationStatus.notAuthenticated) {
+          context.go('/login');
+          return;
+        }
+        
+        // Otherwise, trigger initialization
         // First, check auth status to restore user profile in AuthBloc
         context.read<AuthBloc>().add(const AuthStatusRequested());
         // Initialize immediately - AppInitializationCubit will handle auth state
-        // The small delay is removed as it's not necessary - the cubit can check auth state directly
         if (context.mounted) {
           context.read<AppInitializationCubit>().initialize();
         }
@@ -36,7 +62,13 @@ class SplashScreen extends StatelessWidget {
         } else if (state.status == AppInitializationStatus.ready ||
             state.status == AppInitializationStatus.contextRestoreFailed) {
           // Ready but no context, go to org selection
-          context.go('/org-selection');
+          // But first check if org context is actually set
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (orgState.hasSelection) {
+            context.go('/home');
+          } else {
+            context.go('/org-selection');
+          }
         } else if (state.status == AppInitializationStatus.error) {
           // Show error and allow retry
           // For now, just go to login

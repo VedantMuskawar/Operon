@@ -260,6 +260,8 @@ class _SettingsDrawer extends StatelessWidget {
     required this.onOpenRawMaterials,
     required this.onOpenVehicles,
     this.onOpenPaymentAccounts,
+    this.onOpenDmSettings,
+    this.onOpenExpenseSubCategories,
   });
 
   final bool canManageRoles;
@@ -271,6 +273,8 @@ class _SettingsDrawer extends StatelessWidget {
   final VoidCallback onOpenRawMaterials;
   final VoidCallback onOpenVehicles;
   final VoidCallback? onOpenPaymentAccounts;
+  final VoidCallback? onOpenDmSettings;
+  final VoidCallback? onOpenExpenseSubCategories;
 
   @override
   Widget build(BuildContext context) {
@@ -299,6 +303,7 @@ class _SettingsDrawer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            // 1. Roles
             if (canManageRoles)
             _SettingsTile(
               label: 'Roles',
@@ -317,6 +322,7 @@ class _SettingsDrawer extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 12),
+            // 2. Products
             _SettingsTile(
               label: 'Products',
               subtitle: canManageProducts ? null : 'Read only',
@@ -326,15 +332,7 @@ class _SettingsDrawer extends StatelessWidget {
               },
             ),
             const SizedBox(height: 12),
-            _SettingsTile(
-              label: 'Raw Materials',
-              subtitle: canManageRawMaterials ? null : 'Read only',
-              onTap: () {
-                Scaffold.of(context).closeEndDrawer();
-                Future.microtask(() => onOpenRawMaterials());
-              },
-            ),
-            const SizedBox(height: 12),
+            // 3. Vehicles
             if (canAccessVehicles)
               _SettingsTile(
                 label: 'Vehicles',
@@ -343,7 +341,8 @@ class _SettingsDrawer extends StatelessWidget {
                   Future.microtask(() => onOpenVehicles());
                 },
               ),
-            const SizedBox(height: 12),
+            if (canAccessVehicles) const SizedBox(height: 12),
+            // 4. Payment Accounts
             if (onOpenPaymentAccounts != null)
               _SettingsTile(
                 label: 'Payment Accounts',
@@ -361,9 +360,20 @@ class _SettingsDrawer extends StatelessWidget {
                   fontFamily: 'SF Pro Display',
                 ),
               ),
-            const SizedBox(height: 12),
+            if (onOpenPaymentAccounts != null) const SizedBox(height: 12),
+            // 5. DM Settings
+            if (onOpenDmSettings != null)
+              _SettingsTile(
+                label: 'DM Settings',
+                onTap: () {
+                  Scaffold.of(context).closeEndDrawer();
+                  Future.microtask(() => onOpenDmSettings!());
+                },
+              ),
+            if (onOpenDmSettings != null) const SizedBox(height: 12),
+            // 6. Expense Sub Categories
             _SettingsTile(
-              label: 'Expense Sub-Categories',
+              label: 'Expense Sub Categories',
               onTap: () {
                 Scaffold.of(context).closeEndDrawer();
                 Future.microtask(() => context.go('/expense-sub-categories'));
@@ -582,6 +592,18 @@ class _HomeSettingsDrawer extends StatelessWidget {
             ? () {
                 Scaffold.of(context).closeEndDrawer();
                 Future.microtask(() => context.go('/payment-accounts'));
+              }
+            : null,
+        onOpenDmSettings: isAdminRole
+            ? () {
+                Scaffold.of(context).closeEndDrawer();
+                Future.microtask(() => context.go('/dm-settings'));
+              }
+            : null,
+        onOpenExpenseSubCategories: isAdminRole
+            ? () {
+                Scaffold.of(context).closeEndDrawer();
+                Future.microtask(() => context.go('/expense-sub-categories'));
               }
             : null,
       ),

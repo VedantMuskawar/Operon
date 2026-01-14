@@ -54,6 +54,9 @@ import 'package:dash_mobile/presentation/views/expenses/expense_sub_categories_p
 import 'package:dash_mobile/presentation/views/expenses/record_expense_page.dart' show ExpenseFormType, RecordExpensePage;
 import 'package:dash_mobile/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
+import 'package:dash_mobile/presentation/views/dm_settings_page.dart';
+import 'package:dash_mobile/presentation/blocs/dm_settings/dm_settings_cubit.dart';
+import 'package:dash_mobile/data/repositories/dm_settings_repository.dart';
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -818,6 +821,34 @@ GoRouter buildRouter() {
                 userId: userId,
               )..load(),
               child: const ExpenseSubCategoriesPage(),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/dm-settings',
+        name: 'dm-settings',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          final dmSettingsRepository = context.read<DmSettingsRepository>();
+          final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
+          
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: BlocProvider(
+              create: (_) => DmSettingsCubit(
+                repository: dmSettingsRepository,
+                orgId: organization.id,
+                userId: userId,
+              )..loadSettings(),
+              child: const DmSettingsPage(),
             ),
           );
         },

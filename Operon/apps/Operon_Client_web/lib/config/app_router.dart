@@ -4,6 +4,7 @@ import 'package:dash_web/data/repositories/products_repository.dart';
 import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_web/presentation/blocs/access_control/access_control_cubit.dart';
+import 'package:dash_web/presentation/blocs/app_initialization/app_initialization_cubit.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/products/products_cubit.dart';
@@ -94,6 +95,30 @@ GoRouter buildRouter() {
         name: 'home',
         redirect: (context, state) {
           try {
+            // Check initialization state first
+            try {
+              final initState = context.read<AppInitializationCubit>().state;
+              
+              // If initialization hasn't started or is in progress, go to splash
+              if (initState.status == AppInitializationStatus.initial ||
+                  initState.status == AppInitializationStatus.checkingAuth ||
+                  initState.status == AppInitializationStatus.loadingOrganizations ||
+                  initState.status == AppInitializationStatus.restoringContext) {
+                return '/splash';
+              }
+              
+              // If context was restored, check org context
+              if (initState.status == AppInitializationStatus.contextRestored) {
+                final orgState = context.read<OrganizationContextCubit>().state;
+                if (orgState.hasSelection) {
+                  return null; // Allow navigation - context was successfully restored
+                }
+                return '/splash';
+              }
+            } catch (_) {
+              // AppInitializationCubit might not be available, continue
+            }
+            
             final orgState = context.read<OrganizationContextCubit>().state;
             // If context is being restored, allow navigation (restore will complete)
             if (orgState.isRestoring) {
@@ -104,7 +129,7 @@ GoRouter buildRouter() {
               return '/org-selection';
             }
             return null; // Allow navigation
-          } catch (e) {
+          } catch (_) {
             // If cubit is not available, redirect to org-selection
             return '/org-selection';
           }
@@ -122,7 +147,23 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/',
         name: 'dashboard',
-        redirect: (context, state) => '/home',
+        redirect: (context, state) {
+          // On hot restart, always go to splash first to ensure initialization
+          try {
+            final initState = context.read<AppInitializationCubit>().state;
+            final orgState = context.read<OrganizationContextCubit>().state;
+            
+            // If context is already restored, go directly to home
+            if (initState.status == AppInitializationStatus.contextRestored && orgState.hasSelection) {
+              return '/home';
+            }
+            
+            // Otherwise, go to splash for initialization
+            return '/splash';
+          } catch (_) {
+            return '/splash';
+          }
+        },
       ),
       GoRoute(
         path: '/users',

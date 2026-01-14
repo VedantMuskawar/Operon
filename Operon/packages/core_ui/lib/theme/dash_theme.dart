@@ -1,61 +1,108 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'auth_colors.dart';
 
 class DashTheme {
-  // Use the app's primary color (6F4BFF) as default
-  static const Color _defaultPrimary = Color(0xFF6F4BFF);
-  static const Color _defaultSecondary = Color(0xFF8F6BFF);
-
-  /// Generates a secondary color from primary by lightening it
-  static Color _generateSecondary(Color primary) {
-    final hsl = HSLColor.fromColor(primary);
-    final lighter = hsl.withLightness((hsl.lightness + 0.15).clamp(0.0, 1.0));
-    return lighter.toColor();
-  }
-
+  // Use AuthColors from Unified Login Page as the default color scheme
   static ThemeData light({Color? accentColor}) {
-    final primary = accentColor ?? _defaultPrimary;
-    final secondary = accentColor != null ? _generateSecondary(primary) : _defaultSecondary;
+    // Use AuthColors for consistency with Unified Login Page
+    const scaffoldBackground = AuthColors.background; // Color(0xFF121212) - Off-Black
+    const surfaceColor = AuthColors.surface; // Color(0xFF1E1E1E) - Dark Grey
     
-    // Pure black background - Instagram style
-    const scaffoldBackground = Color(0xFF000000);
-    const surfaceColor = Color(0xFF0A0A0A);
+    // Use AuthColors primary and secondary, or allow override via accentColor
+    final primary = accentColor ?? AuthColors.primary; // Deep Burgundy (0xFF5D1C19)
+    final secondary = AuthColors.secondary; // Muted Gold (0xFFC5A059)
+    final primaryVariant = AuthColors.primaryVariant; // Darker Burgundy (0xFF871C1C)
     
-    final base = ThemeData.light(useMaterial3: true);
+    final colorScheme = ColorScheme(
+      brightness: Brightness.dark,
+      // Primary colors - using AuthColors from Unified Login Page
+      primary: primary,
+      onPrimary: AuthColors.textMain, // Platinum white
+      primaryContainer: primaryVariant,
+      onPrimaryContainer: AuthColors.textMain,
+      // Secondary colors - using AuthColors Muted Gold
+      secondary: secondary,
+      onSecondary: AuthColors.textMain,
+      secondaryContainer: surfaceColor,
+      onSecondaryContainer: AuthColors.textMain,
+      // Tertiary colors (same as secondary to avoid blue)
+      tertiary: secondary,
+      onTertiary: AuthColors.textMain,
+      tertiaryContainer: surfaceColor,
+      onTertiaryContainer: AuthColors.textMain,
+      // Error colors - using AuthColors error red
+      error: AuthColors.error,
+      onError: Colors.white,
+      errorContainer: surfaceColor,
+      onErrorContainer: Colors.white,
+      // Surface colors - all set to our dark colors from AuthColors
+      surface: surfaceColor,
+      onSurface: AuthColors.textMain,
+      surfaceContainerHighest: surfaceColor,
+      surfaceContainerHigh: surfaceColor,
+      surfaceContainer: surfaceColor,
+      surfaceContainerLow: surfaceColor,
+      surfaceContainerLowest: scaffoldBackground,
+      surfaceDim: scaffoldBackground,
+      surfaceBright: surfaceColor,
+      // Background colors - using AuthColors
+      background: scaffoldBackground,
+      onBackground: AuthColors.textMain,
+      // Inverse colors
+      inverseSurface: scaffoldBackground,
+      onInverseSurface: AuthColors.textMain,
+      inversePrimary: primary,
+      // Outline colors - using AuthColors text colors
+      outline: AuthColors.textSub,
+      outlineVariant: AuthColors.textDisabled,
+      // Shadow
+      shadow: Colors.black,
+      scrim: Colors.black,
+    );
+    
+    final base = ThemeData(
+      useMaterial3: true,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: scaffoldBackground,
+    );
     return base.copyWith(
-      colorScheme: base.colorScheme.copyWith(
-        primary: primary,
-        secondary: secondary,
-        surface: surfaceColor,
-        onPrimary: Colors.white,
-        onSurface: Colors.white,
-        background: scaffoldBackground,
-      ),
+      colorScheme: colorScheme,
+      // Explicitly override all background-related properties
+      canvasColor: scaffoldBackground,
+      cardColor: surfaceColor,
+      dialogBackgroundColor: surfaceColor,
       textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
-        bodyColor: Colors.white,
-        displayColor: Colors.white,
+        bodyColor: AuthColors.textMain,
+        displayColor: AuthColors.textMain,
       ),
-      scaffoldBackgroundColor: Colors.transparent, // Let textured background show through
-      appBarTheme: const AppBarTheme(
+      scaffoldBackgroundColor: scaffoldBackground, // Use AuthColors.background instead of transparent
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.white),
-        titleTextStyle: TextStyle(
-          color: Colors.white,
+        iconTheme: const IconThemeData(color: AuthColors.textMain),
+        titleTextStyle: const TextStyle(
+          color: AuthColors.textMain,
           fontSize: 20,
           fontWeight: FontWeight.w700,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF1B1B2C),
+        fillColor: surfaceColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(
+            color: AuthColors.textMain.withOpacity(0.1),
+            width: 1,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(
+            color: AuthColors.textMain.withOpacity(0.1),
+            width: 1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -63,20 +110,20 @@ class DashTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE91E63), width: 1.5),
+          borderSide: BorderSide(color: AuthColors.error, width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE91E63), width: 1.5),
+          borderSide: BorderSide(color: AuthColors.error, width: 1.5),
         ),
-        labelStyle: const TextStyle(color: Color(0xFFB3B3B3)),
-        hintStyle: const TextStyle(color: Color(0xFF616161)),
+        labelStyle: const TextStyle(color: AuthColors.textSub),
+        hintStyle: const TextStyle(color: AuthColors.textSub),
       ),
       cardTheme: base.cardTheme.copyWith(
         color: surfaceColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withOpacity(0.1)),
+          side: BorderSide(color: AuthColors.textMain.withOpacity(0.1)),
         ),
         elevation: 0,
         margin: EdgeInsets.zero,
@@ -85,12 +132,12 @@ class DashTheme {
         backgroundColor: surfaceColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: Colors.white.withOpacity(0.1)),
+          side: BorderSide(color: AuthColors.textMain.withOpacity(0.1)),
         ),
         elevation: 0,
       ),
-      drawerTheme: const DrawerThemeData(
-        backgroundColor: Color(0xFF0A0A0A),
+      drawerTheme: DrawerThemeData(
+        backgroundColor: AuthColors.backgroundAlt,
         elevation: 0,
       ),
     );

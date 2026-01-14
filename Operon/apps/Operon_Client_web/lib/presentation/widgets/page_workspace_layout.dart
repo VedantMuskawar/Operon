@@ -99,9 +99,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
     final fallbackAdmin = (organization?.role.toUpperCase() ?? '') == 'ADMIN';
 
     final media = MediaQuery.of(context);
-    final statusBar = media.padding.top;
     final bottomSafe = media.padding.bottom;
-    final totalHeight = media.size.height;
     const headerHeight = 72.0;
     const topOffset = 100.0; // Space for top nav bar
     final bottomOffset = bottomSafe + 24;
@@ -112,12 +110,8 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
     final isAdminRole = appAccessRole?.isAdmin ?? fallbackAdmin;
     final canManageUsers = appAccessRole?.canCreate('users') ?? isAdminRole;
 
-    // Brighter scaffold in debug for visibility
-    const scaffoldColor =
-        kDebugMode ? Color(0xFF121226) : Color(0xFF010104);
-
     return Scaffold(
-      backgroundColor: scaffoldColor,
+      backgroundColor: AuthColors.background,
       body: SafeArea(
         child: Stack(
           children: [
@@ -129,11 +123,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
               bottom: bottomOffset,
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1F1F33), Color(0xFF0F0F16)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AuthColors.background,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: const [
                     BoxShadow(
@@ -143,7 +133,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                     ),
                   ],
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: Colors.white.withOpacity(0.1),
                   ),
                 ),
                 child: ClipRRect(
@@ -189,7 +179,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                                   color: Colors.orangeAccent,
                                   width: 1.25,
                                 ),
-                                color: const Color(0xFF11111B).withValues(
+                                color: AuthColors.background.withValues(
                                   alpha: 0.95,
                                 ),
                               )
@@ -450,7 +440,7 @@ class _TopNavBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF11111B).withValues(alpha: 0.95),
+        color: AuthColors.background.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         boxShadow: const [
@@ -554,7 +544,7 @@ class _FloatingSquareIcon extends StatelessWidget {
           height: buttonSize,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            color: const Color(0xFF161626).withValues(alpha: 0.9),
+            color: AuthColors.backgroundAlt.withValues(alpha: 0.9),
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             boxShadow: const [
               BoxShadow(
@@ -606,7 +596,7 @@ class _ProfileSideSheet extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
           decoration: const BoxDecoration(
-            color: Color(0xFF11111B),
+            color: AuthColors.background,
             borderRadius: BorderRadius.only(
               topRight: Radius.circular(28),
               bottomRight: Radius.circular(28),
@@ -775,7 +765,7 @@ class _SettingsSideSheet extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
           decoration: const BoxDecoration(
-            color: Color(0xFF11111B),
+            color: AuthColors.background,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               bottomLeft: Radius.circular(28),
@@ -866,7 +856,7 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),

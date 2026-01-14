@@ -168,7 +168,7 @@ class PaymentAccountsPageContent extends StatelessWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final account = state.accounts[index];
-                  return _AccountTile(
+                  return _AccountDataListItem(
                     account: account,
                     onEdit: () =>
                         _openAccountDialog(context, account: account),
@@ -199,7 +199,7 @@ class PaymentAccountsPageContent extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Account Dialog',
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: AuthColors.background.withValues(alpha: 0.6),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return BlocProvider.value(
@@ -228,8 +228,8 @@ class PaymentAccountsPageContent extends StatelessWidget {
   }
 }
 
-class _AccountTile extends StatefulWidget {
-  const _AccountTile({
+class _AccountDataListItem extends StatefulWidget {
+  const _AccountDataListItem({
     required this.account,
     required this.onEdit,
     required this.onDelete,
@@ -244,10 +244,10 @@ class _AccountTile extends StatefulWidget {
   final VoidCallback onUnsetPrimary;
 
   @override
-  State<_AccountTile> createState() => _AccountTileState();
+  State<_AccountDataListItem> createState() => _AccountDataListItemState();
 }
 
-class _AccountTileState extends State<_AccountTile> with SingleTickerProviderStateMixin {
+class _AccountDataListItemState extends State<_AccountDataListItem> with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   late AnimationController _expandController;
   late Animation<double> _rotationAnimation;
@@ -262,7 +262,7 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
     
     _rotationAnimation = Tween<double>(
       begin: 0.0,
-      end: 0.5, // 180 degrees
+      end: 0.5,
     ).animate(CurvedAnimation(
       parent: _expandController,
       curve: Curves.easeOutCubic,
@@ -286,251 +286,143 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
     });
   }
 
-  IconData get _typeIcon {
-    switch (widget.account.type) {
-      case PaymentAccountType.bank:
-        return Icons.account_balance;
-      case PaymentAccountType.cash:
-        return Icons.money;
-      case PaymentAccountType.upi:
-        return Icons.qr_code;
-      case PaymentAccountType.other:
-        return Icons.payment;
-    }
-  }
-
   Color get _typeColor {
     switch (widget.account.type) {
       case PaymentAccountType.bank:
-        return const Color(0xFF2196F3);
+        return AuthColors.primary;
       case PaymentAccountType.cash:
-        return const Color(0xFF4CAF50);
+        return AuthColors.success;
       case PaymentAccountType.upi:
-        return const Color(0xFF6F4BFF);
+        return AuthColors.primary;
       case PaymentAccountType.other:
-        return Colors.orange;
+        return AuthColors.secondary;
     }
+  }
+
+  String _formatSubtitle() {
+    final parts = <String>[];
+    parts.add(widget.account.type.name.toUpperCase());
+    if (widget.account.isPrimary) {
+      parts.add('Primary');
+    }
+    if (widget.account.accountNumber != null && 
+        widget.account.displayPreference != PaymentDisplayPreference.qrCode) {
+      parts.add(widget.account.accountNumber!);
+    } else if (widget.account.upiId != null && 
+               widget.account.displayPreference != PaymentDisplayPreference.bankDetails) {
+      parts.add(widget.account.upiId!);
+    }
+    if (widget.account.qrCodeImageUrl != null) {
+      parts.add('QR Code');
+    }
+    return parts.join(' • ');
+  }
+
+  Color _getStatusColor() {
+    if (!widget.account.isActive) {
+      return AuthColors.textDisabled;
+    }
+    return widget.account.isPrimary ? AuthColors.secondary : _typeColor;
+  }
+
+  bool get _shouldShowDetails {
+    return (widget.account.displayPreference == PaymentDisplayPreference.qrCode && 
+            widget.account.qrCodeImageUrl != null) ||
+           (widget.account.displayPreference == PaymentDisplayPreference.bankDetails &&
+            (widget.account.accountNumber != null || widget.account.ifscCode != null));
   }
 
   @override
   Widget build(BuildContext context) {
-    final gradientColors = widget.account.isPrimary
-        ? [
-            const Color(0xFF2C1F40),
-            const Color(0xFF1C122D),
-            const Color(0xFF110A1E),
-          ]
-        : [
-            const Color(0xFF1A1A2A),
-            const Color(0xFF11111B),
-            const Color(0xFF0D0D14),
-          ];
-
-    final borderColor = widget.account.isPrimary
-        ? const Color(0xFFFFC857).withValues(alpha: 0.6)
-        : widget.account.isActive
-            ? _typeColor.withValues(alpha: 0.35)
-            : Colors.white.withValues(alpha: 0.1);
-
-    final iconBackground = widget.account.isPrimary
-        ? const Color(0xFFFFC857).withValues(alpha: 0.15)
-        : _typeColor.withValues(alpha: 0.2);
-
-    final iconBorderColor = widget.account.isPrimary
-        ? const Color(0xFFFFC857).withValues(alpha: 0.6)
-        : _typeColor.withValues(alpha: 0.5);
-
-    final shouldShowDetails = (widget.account.displayPreference == PaymentDisplayPreference.qrCode && 
-                                widget.account.qrCodeImageUrl != null) ||
-                              (widget.account.displayPreference == PaymentDisplayPreference.bankDetails &&
-                               (widget.account.accountNumber != null || widget.account.ifscCode != null));
-
-    return Column(
-      children: [
-        AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(20),
+    return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: widget.account.isPrimary
-                ? const Color(0xFFFFC857).withValues(alpha: 0.3)
-                : Colors.black.withValues(alpha: 0.3),
-            blurRadius: widget.account.isPrimary ? 25 : 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: AuthColors.background,
+        borderRadius: BorderRadius.circular(18),
       ),
-      child: InkWell(
-        onTap: shouldShowDetails ? _toggleExpanded : null,
-        borderRadius: BorderRadius.circular(20),
-        child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: iconBackground,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: iconBorderColor,
-                width: 1.5,
-              ),
+          DataList(
+            title: widget.account.name,
+            subtitle: _formatSubtitle(),
+            leading: DataListAvatar(
+              initial: widget.account.name.isNotEmpty ? widget.account.name[0].toUpperCase() : 'A',
+              radius: 28,
+              statusRingColor: _getStatusColor(),
             ),
-            child: Icon(
-              _typeIcon,
-              color: _typeColor,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  widget.account.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                    letterSpacing: 0.5,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                DataListStatusDot(
+                  color: _getStatusColor(),
+                  size: 8,
                 ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _typeColor.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _typeColor,
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      widget.account.type.name.toUpperCase(),
-                      style: TextStyle(
-                        color: _typeColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: Icon(
+                    widget.account.isPrimary ? Icons.star : Icons.star_border,
+                    color: widget.account.isPrimary ? AuthColors.secondary : AuthColors.textSub,
+                    size: 20,
                   ),
+                  onPressed: widget.account.isPrimary ? widget.onUnsetPrimary : widget.onSetPrimary,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: widget.account.isPrimary ? 'Remove Primary' : 'Set Primary',
                 ),
-                if (widget.account.accountNumber != null && 
-                    widget.account.displayPreference != PaymentDisplayPreference.qrCode) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Account: ${widget.account.accountNumber}',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    color: AuthColors.textSub,
+                    size: 20,
                   ),
-                ],
-                if (widget.account.upiId != null && 
-                    widget.account.displayPreference != PaymentDisplayPreference.bankDetails) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'UPI: ${widget.account.upiId}',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  onPressed: widget.onEdit,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: AuthColors.error,
+                    size: 20,
                   ),
-                ],
-                if (shouldShowDetails) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        widget.account.displayPreference == PaymentDisplayPreference.qrCode
-                            ? Icons.qr_code
-                            : Icons.account_balance,
-                        size: 14,
-                        color: Colors.white54,
+                  onPressed: widget.onDelete,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                if (_shouldShowDetails) ...[
+                  const SizedBox(width: 8),
+                  RotationTransition(
+                    turns: _rotationAnimation,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: AuthColors.textSub,
+                        size: 24,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        widget.account.displayPreference == PaymentDisplayPreference.qrCode
-                            ? 'Tap to view QR Code'
-                            : 'Tap to view Bank Details',
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const Spacer(),
-                      RotationTransition(
-                        turns: _rotationAnimation,
-                        child: const Icon(
-                          Icons.keyboard_arrow_down,
-                          size: 20,
-                          color: Colors.white54,
-                        ),
-                      ),
-                    ],
+                      onPressed: _toggleExpanded,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                   ),
                 ],
               ],
             ),
+            onTap: _shouldShowDetails ? _toggleExpanded : widget.onEdit,
           ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _ActionButton(
-                icon: widget.account.isPrimary ? Icons.star : Icons.star_border,
-                color:
-                    widget.account.isPrimary ? const Color(0xFFFFD700) : Colors.white54,
-                onPressed: widget.account.isPrimary ? widget.onUnsetPrimary : widget.onSetPrimary,
-              ),
-              const SizedBox(height: 8),
-              _ActionButton(
-                icon: Icons.edit_outlined,
-                color: const Color(0xFF6F4BFF),
-                onPressed: widget.onEdit,
-              ),
-              const SizedBox(height: 8),
-              _ActionButton(
-                icon: Icons.delete_outline,
-                color: Colors.redAccent,
-                onPressed: widget.onDelete,
-              ),
-            ],
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: _shouldShowDetails ? _buildExpandedContent() : const SizedBox.shrink(),
+            crossFadeState: _isExpanded && _shouldShowDetails
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 250),
+            firstCurve: Curves.easeOut,
+            secondCurve: Curves.easeIn,
+            sizeCurve: Curves.easeOutCubic,
           ),
         ],
       ),
-      ),
-      ),
-      AnimatedCrossFade(
-        firstChild: const SizedBox.shrink(),
-        secondChild: shouldShowDetails ? _buildExpandedContent() : const SizedBox.shrink(),
-        crossFadeState: _isExpanded && shouldShowDetails
-            ? CrossFadeState.showSecond
-            : CrossFadeState.showFirst,
-        duration: const Duration(milliseconds: 250),
-        firstCurve: Curves.easeOut,
-        secondCurve: Curves.easeIn,
-        sizeCurve: Curves.easeOutCubic,
-      ),
-    ],
     );
   }
 
@@ -540,20 +432,18 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          color: AuthColors.background,
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(18),
+            bottomRight: Radius.circular(18),
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Column(
           children: [
-            const Text(
+            Text(
               'QR Code',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -569,7 +459,6 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
                 widget.account.qrCodeImageUrl!,
                 width: 200,
                 height: 200,
-                // Optimize memory usage for web
                 cacheWidth: 400,
                 cacheHeight: 400,
                 errorBuilder: (context, error, stackTrace) {
@@ -591,7 +480,6 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
                       height: 200,
                       child: Center(
                         child: CircularProgressIndicator(
-                          color: Colors.white70,
                           strokeWidth: 2,
                         ),
                       ),
@@ -608,21 +496,19 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          color: AuthColors.background,
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(18),
+            bottomRight: Radius.circular(18),
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Bank Details',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
@@ -636,9 +522,9 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
               _buildDetailRow('IFSC Code', widget.account.ifscCode!),
             ],
             if (widget.account.accountNumber == null && widget.account.ifscCode == null)
-              const Text(
+              Text(
                 'No bank details available',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
+                style: TextStyle(color: AuthColors.textSub, fontSize: 14),
               ),
           ],
         ),
@@ -655,8 +541,8 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
           width: 120,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: AuthColors.textSub,
               fontSize: 14,
             ),
           ),
@@ -664,54 +550,14 @@ class _AccountTileState extends State<_AccountTile> with SingleTickerProviderSta
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AuthColors.textMain,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final Color color;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: color.withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 18,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -767,10 +613,10 @@ class _AccountDialogState extends State<_AccountDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 600.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Payment Account' : 'Add Payment Account',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -782,7 +628,7 @@ class _AccountDialogState extends State<_AccountDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Account Name'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -792,8 +638,8 @@ class _AccountDialogState extends State<_AccountDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<PaymentAccountType>(
                   initialValue: _type,
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Account Type'),
                   onChanged: (value) {
                     if (value != null) setState(() => _type = value);
@@ -809,21 +655,21 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _accountNumberController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Account Number'),
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _ifscCodeController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('IFSC Code'),
                     textCapitalization: TextCapitalization.characters,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _upiIdController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('UPI ID (Optional)'),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -832,17 +678,17 @@ class _AccountDialogState extends State<_AccountDialog> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C),
+                        color: AuthColors.surface,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: AuthColors.textMain.withValues(alpha: 0.1),
                         ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.info_outline,
-                            color: Color(0xFF6F4BFF),
+                            color: AuthColors.primary,
                             size: 16,
                           ),
                           const SizedBox(width: 8),
@@ -850,7 +696,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                             child: Text(
                               'QR code will be auto-generated from UPI ID',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: AuthColors.textSub,
                                 fontSize: 12,
                               ),
                             ),
@@ -864,7 +710,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _upiIdController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('UPI ID'),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty)
@@ -907,8 +753,8 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<PaymentDisplayPreference?>(
                     value: _displayPreference,
-                    dropdownColor: const Color(0xFF1B1B2C),
-                    style: const TextStyle(color: Colors.white),
+                    dropdownColor: AuthColors.surface,
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Display Preference'),
                     hint: const Text(
                       'Select display preference',
@@ -947,9 +793,10 @@ class _AccountDialogState extends State<_AccountDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
           onPressed: _isSubmitting
               ? null
               : () async {
@@ -1011,13 +858,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                     }
                   }
                 },
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(isEditing ? 'Save' : 'Create'),
+          isLoading: _isSubmitting,
         ),
       ],
     );
@@ -1027,8 +868,8 @@ class _AccountDialogState extends State<_AccountDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

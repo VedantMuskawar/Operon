@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 
 /// Modern page header with back button and centered title
 /// Provides consistent styling and navigation across all pages
@@ -39,7 +40,7 @@ class ModernPageHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: AppColors.background,
+      backgroundColor: AuthColors.background,
       elevation: 0,
       leading: showBackButton
           ? Builder(

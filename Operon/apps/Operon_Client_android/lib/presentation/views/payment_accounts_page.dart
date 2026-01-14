@@ -3,7 +3,6 @@ import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/payment_accounts/payment_accounts_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -23,7 +22,7 @@ class PaymentAccountsPage extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         appBar: const ModernPageHeader(
           title: 'Payment Accounts',
         ),
@@ -55,7 +54,7 @@ class PaymentAccountsPage extends StatelessWidget {
                     child: Text(
                       'No payment accounts yet. Tap "Add Payment Account" to create one.',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: AuthColors.textSub,
                         fontSize: 16,
                       ),
                       textAlign: TextAlign.center,
@@ -69,7 +68,7 @@ class PaymentAccountsPage extends StatelessWidget {
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final account = state.accounts[index];
-                    return _AccountTile(
+                    return _AccountDataListItem(
                       account: account,
                       onEdit: () => _openAccountDialog(context, account: account),
                       onDelete: () => context.read<PaymentAccountsCubit>().deleteAccount(account.id),
@@ -84,9 +83,38 @@ class PaymentAccountsPage extends StatelessWidget {
                 ),
                       ),
                     ),
-            QuickNavBar(
-              currentIndex: 4,
-              onTap: (value) => context.go('/home', extra: value),
+            FloatingNavBar(
+              items: const [
+                NavBarItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  heroTag: 'nav_home',
+                ),
+                NavBarItem(
+                  icon: Icons.pending_actions_rounded,
+                  label: 'Pending',
+                  heroTag: 'nav_pending',
+                ),
+                NavBarItem(
+                  icon: Icons.schedule_rounded,
+                  label: 'Schedule',
+                  heroTag: 'nav_schedule',
+                ),
+                NavBarItem(
+                  icon: Icons.map_rounded,
+                  label: 'Map',
+                  heroTag: 'nav_map',
+                ),
+                NavBarItem(
+                  icon: Icons.dashboard_rounded,
+                  label: 'Analytics',
+                  heroTag: 'nav_analytics',
+                ),
+              ],
+              currentIndex: -1,
+              onItemTapped: (index) {
+                context.go('/home', extra: index);
+              },
             ),
           ],
         ),
@@ -110,8 +138,8 @@ class PaymentAccountsPage extends StatelessWidget {
   }
 }
 
-class _AccountTile extends StatelessWidget {
-  const _AccountTile({
+class _AccountDataListItem extends StatelessWidget {
+  const _AccountDataListItem({
     required this.account,
     required this.onEdit,
     required this.onDelete,
@@ -125,247 +153,106 @@ class _AccountTile extends StatelessWidget {
   final VoidCallback onSetPrimary;
   final VoidCallback onUnsetPrimary;
 
-  IconData get _typeIcon {
-    switch (account.type) {
-      case PaymentAccountType.bank:
-        return Icons.account_balance;
-      case PaymentAccountType.cash:
-        return Icons.money;
-      case PaymentAccountType.upi:
-        return Icons.qr_code;
-      case PaymentAccountType.other:
-        return Icons.payment;
-    }
-  }
-
   Color get _typeColor {
     switch (account.type) {
       case PaymentAccountType.bank:
-        return const Color(0xFF2196F3);
+        return AuthColors.primary;
       case PaymentAccountType.cash:
-        return const Color(0xFF4CAF50);
+        return AuthColors.success;
       case PaymentAccountType.upi:
-        return const Color(0xFF6F4BFF);
+        return AuthColors.primary;
       case PaymentAccountType.other:
-        return Colors.orange;
+        return AuthColors.secondary;
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final gradientColors = account.isPrimary
-        ? [
-            const Color(0xFF2C1F40),
-            const Color(0xFF1C122D),
-            const Color(0xFF110A1E),
-          ]
-        : [
-            const Color(0xFF1A1A2A),
-            const Color(0xFF0A0A0A),
-            const Color(0xFF0D0D14),
-          ];
-
-    final borderColor = account.isPrimary
-        ? const Color(0xFFFFC857).withOpacity(0.6)
-        : account.isActive
-            ? _typeColor.withOpacity(0.35)
-            : Colors.white10;
-
-    final iconBackground = account.isPrimary
-        ? const Color(0xFFFFC857).withOpacity(0.15)
-        : _typeColor.withOpacity(0.2);
-
-    final iconBorderColor = account.isPrimary
-        ? const Color(0xFFFFC857).withOpacity(0.6)
-        : _typeColor.withOpacity(0.5);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: iconBackground,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: iconBorderColor,
-                width: 1.5,
-              ),
-            ),
-            child: Icon(
-              _typeIcon,
-              color: _typeColor,
-              size: 28,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  account.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                    letterSpacing: 0.5,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _typeColor.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _typeColor,
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      account.type.name.toUpperCase(),
-                      style: TextStyle(
-                        color: _typeColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                ),
-                if (account.accountNumber != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Account: ${account.accountNumber}',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (account.upiId != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'UPI: ${account.upiId}',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                if (account.qrCodeImageUrl != null) ...[
-                  const SizedBox(height: 6),
-                  const Row(
-                    children: [
-                      Icon(
-                        Icons.qr_code,
-                        size: 14,
-                        color: Colors.white54,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        'QR Code Available',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _ActionButton(
-                icon: account.isPrimary ? Icons.star : Icons.star_border,
-                color:
-                    account.isPrimary ? const Color(0xFFFFD700) : Colors.white54,
-                onPressed: account.isPrimary ? onUnsetPrimary : onSetPrimary,
-              ),
-              const SizedBox(height: 8),
-              _ActionButton(
-                icon: Icons.edit_outlined,
-                color: const Color(0xFF6F4BFF),
-                onPressed: onEdit,
-              ),
-              const SizedBox(height: 8),
-              _ActionButton(
-                icon: Icons.delete_outline,
-                color: Colors.redAccent,
-                onPressed: onDelete,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+  String _formatSubtitle() {
+    final parts = <String>[];
+    parts.add(account.type.name.toUpperCase());
+    if (account.isPrimary) {
+      parts.add('Primary');
+    }
+    if (account.accountNumber != null) {
+      parts.add(account.accountNumber!);
+    } else if (account.upiId != null) {
+      parts.add(account.upiId!);
+    }
+    if (account.qrCodeImageUrl != null) {
+      parts.add('QR Code');
+    }
+    return parts.join(' • ');
   }
-}
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.color,
-    required this.onPressed,
-  });
+  Color _getStatusColor() {
+    if (!account.isActive) {
+      return AuthColors.textDisabled;
+    }
+    return account.isPrimary ? AuthColors.secondary : _typeColor;
+  }
 
-  final IconData icon;
-  final Color color;
-  final VoidCallback onPressed;
+  String _getInitial() {
+    return account.name.isNotEmpty ? account.name[0].toUpperCase() : 'A';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: color.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 18,
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: AuthColors.background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: DataList(
+        title: account.name,
+        subtitle: _formatSubtitle(),
+        leading: DataListAvatar(
+          initial: _getInitial(),
+          radius: 28,
+          statusRingColor: _getStatusColor(),
         ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DataListStatusDot(
+              color: _getStatusColor(),
+              size: 8,
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: Icon(
+                account.isPrimary ? Icons.star : Icons.star_border,
+                color: account.isPrimary ? AuthColors.secondary : AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: account.isPrimary ? onUnsetPrimary : onSetPrimary,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: account.isPrimary ? 'Remove Primary' : 'Set Primary',
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: AuthColors.error,
+                size: 20,
+              ),
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        onTap: onEdit,
       ),
     );
   }
@@ -419,10 +306,10 @@ class _AccountDialogState extends State<_AccountDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 600.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Payment Account' : 'Add Payment Account',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -434,7 +321,7 @@ class _AccountDialogState extends State<_AccountDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Account Name'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -444,8 +331,8 @@ class _AccountDialogState extends State<_AccountDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<PaymentAccountType>(
                   initialValue: _type,
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Account Type'),
                   onChanged: (value) {
                     if (value != null) setState(() => _type = value);
@@ -461,21 +348,21 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _accountNumberController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Account Number'),
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _ifscCodeController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('IFSC Code'),
                     textCapitalization: TextCapitalization.characters,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _upiIdController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('UPI ID (Optional)'),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -500,7 +387,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                             child: Text(
                               'QR code will be auto-generated from UPI ID',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: AuthColors.textSub,
                                 fontSize: 12,
                               ),
                             ),
@@ -514,7 +401,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _upiIdController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('UPI ID'),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty)
@@ -525,15 +412,15 @@ class _AccountDialogState extends State<_AccountDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C),
+                      color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white10),
+                      border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.info_outline,
-                          color: Color(0xFF6F4BFF),
+                          color: AuthColors.primary,
                           size: 16,
                         ),
                         const SizedBox(width: 8),
@@ -541,7 +428,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                           child: Text(
                             'QR code will be auto-generated from UPI ID',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
+                              color: AuthColors.textSub,
                               fontSize: 12,
                             ),
                           ),
@@ -554,11 +441,11 @@ class _AccountDialogState extends State<_AccountDialog> {
                 SwitchListTile(
                   title: const Text(
                     'Active',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: AuthColors.textSub),
                   ),
                   value: _isActive,
                   onChanged: (value) => setState(() => _isActive = value),
-                  activeThumbColor: const Color(0xFF6F4BFF),
+                  activeThumbColor: AuthColors.primary,
                 ),
               ],
             ),
@@ -646,8 +533,8 @@ class _AccountDialogState extends State<_AccountDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

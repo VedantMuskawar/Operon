@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:dash_web/data/services/org_context_persistence_service.dart';
 import 'package:dash_web/domain/entities/app_access_role.dart';
 import 'package:dash_web/domain/entities/organization_membership.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 
 class OrganizationContextState {
   const OrganizationContextState({
@@ -74,6 +78,24 @@ class OrganizationContextCubit extends Cubit<OrganizationContextState> {
     // If userId is set in saved context, it must match current user
     // If userId is null (old saved context), allow it for backward compatibility
     if (savedContext.userId != null && savedContext.userId != userId) {
+      // #region agent log
+      try {
+        await http.post(
+          Uri.parse('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            "id": "log_${DateTime.now().millisecondsSinceEpoch}_user_mismatch",
+            "timestamp": DateTime.now().millisecondsSinceEpoch,
+            "location": "org_context_cubit.dart:restoreFromSaved",
+            "message": "User ID mismatch",
+            "data": {"savedUserId": savedContext.userId, "currentUserId": userId},
+            "sessionId": "debug-session",
+            "runId": "run1",
+            "hypothesisId": "B"
+          }),
+        ).timeout(const Duration(seconds: 1), onTimeout: () => throw TimeoutException('Log timeout'));
+      } catch (_) {}
+      // #endregion
       // Different user - clear the saved context
       await OrgContextPersistenceService.clearContext();
       emit(state.copyWith(isRestoring: false));
@@ -94,6 +116,24 @@ class OrganizationContextCubit extends Cubit<OrganizationContextState> {
       (org) => org.id == savedContext.orgId,
     );
     if (!hasSavedOrg) {
+      // #region agent log
+      try {
+        await http.post(
+          Uri.parse('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            "id": "log_${DateTime.now().millisecondsSinceEpoch}_org_not_found",
+            "timestamp": DateTime.now().millisecondsSinceEpoch,
+            "location": "org_context_cubit.dart:restoreFromSaved",
+            "message": "Saved org not found in available orgs",
+            "data": {"savedOrgId": savedContext.orgId, "availableOrgIds": availableOrganizations.map((o) => o.id).toList()},
+            "sessionId": "debug-session",
+            "runId": "run1",
+            "hypothesisId": "A"
+          }),
+        ).timeout(const Duration(seconds: 1), onTimeout: () => throw TimeoutException('Log timeout'));
+      } catch (_) {}
+      // #endregion
       await OrgContextPersistenceService.clearContext();
       emit(state.copyWith(isRestoring: false));
       return;
@@ -163,6 +203,24 @@ class OrganizationContextCubit extends Cubit<OrganizationContextState> {
     required String financialYear,
     required AppAccessRole appAccessRole, // ✅ Changed from OrganizationRole to AppAccessRole
   }) async {
+    // #region agent log
+    try {
+      await http.post(
+        Uri.parse('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "id": "log_${DateTime.now().millisecondsSinceEpoch}_set_context",
+          "timestamp": DateTime.now().millisecondsSinceEpoch,
+          "location": "org_context_cubit.dart:setContext",
+          "message": "Setting context",
+          "data": {"userId": userId, "orgId": organization.id, "orgName": organization.name, "financialYear": financialYear, "appAccessRoleId": appAccessRole.id},
+          "sessionId": "debug-session",
+          "runId": "run1",
+          "hypothesisId": "A"
+        }),
+      ).timeout(const Duration(seconds: 1), onTimeout: () => throw TimeoutException('Log timeout'));
+    } catch (_) {}
+    // #endregion
     // Emit state immediately so navigation can proceed
     emit(
       OrganizationContextState(

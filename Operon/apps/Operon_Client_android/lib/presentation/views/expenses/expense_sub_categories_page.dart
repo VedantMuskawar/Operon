@@ -3,7 +3,7 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_state.dart';
 import 'package:dash_mobile/presentation/widgets/expense_sub_category_form_dialog.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -83,14 +83,14 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.background,
         title: const Text(
           'Delete Sub-Category',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete "${subCategory.name}"?',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -99,7 +99,7 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AuthColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -122,7 +122,7 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         appBar: const ModernPageHeader(
           title: 'Expense Sub-Categories',
         ),
@@ -167,7 +167,7 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
                       final subCategory = entry.value;
                       return Column(
                         children: [
-                          _SubCategoryTile(
+                          _SubCategoryDataListItem(
                             subCategory: subCategory,
                             onEdit: () => _openSubCategoryDialog(subCategory),
                             onDelete: () => _deleteSubCategory(subCategory),
@@ -185,9 +185,38 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
                 ),
                       ),
                     ),
-            QuickNavBar(
-              currentIndex: 0,
-              onTap: (value) => context.go('/home', extra: value),
+            FloatingNavBar(
+              items: const [
+                NavBarItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  heroTag: 'nav_home',
+                ),
+                NavBarItem(
+                  icon: Icons.pending_actions_rounded,
+                  label: 'Pending',
+                  heroTag: 'nav_pending',
+                ),
+                NavBarItem(
+                  icon: Icons.schedule_rounded,
+                  label: 'Schedule',
+                  heroTag: 'nav_schedule',
+                ),
+                NavBarItem(
+                  icon: Icons.map_rounded,
+                  label: 'Map',
+                  heroTag: 'nav_map',
+                ),
+                NavBarItem(
+                  icon: Icons.dashboard_rounded,
+                  label: 'Analytics',
+                  heroTag: 'nav_analytics',
+                ),
+              ],
+              currentIndex: -1,
+              onItemTapped: (index) {
+                context.go('/home', extra: index);
+              },
             ),
           ],
         ),
@@ -201,19 +230,19 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
       builder: (context, state) {
         return TextField(
           controller: _searchController,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search, color: Colors.white54),
+            prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: _clearSearch,
                   )
                 : null,
             hintText: 'Search sub-categories',
-            hintStyle: const TextStyle(color: Colors.white38),
+            hintStyle: TextStyle(color: AuthColors.textDisabled),
             filled: true,
-            fillColor: const Color(0xFF1B1B2C),
+            fillColor: AuthColors.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
@@ -225,8 +254,8 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
   }
 }
 
-class _SubCategoryTile extends StatelessWidget {
-  const _SubCategoryTile({
+class _SubCategoryDataListItem extends StatelessWidget {
+  const _SubCategoryDataListItem({
     required this.subCategory,
     required this.onEdit,
     required this.onDelete,
@@ -240,7 +269,7 @@ class _SubCategoryTile extends StatelessWidget {
     try {
       return Color(int.parse(subCategory.colorHex.substring(1), radix: 16) + 0xFF000000);
     } catch (e) {
-      return const Color(0xFF6F4BFF);
+      return AuthColors.primary;
     }
   }
 
@@ -269,177 +298,70 @@ class _SubCategoryTile extends StatelessWidget {
     )}';
   }
 
+  String _formatSubtitle() {
+    final parts = <String>[];
+    if (subCategory.transactionCount > 0) {
+      parts.add('${subCategory.transactionCount} transactions');
+    }
+    if (subCategory.totalAmount > 0) {
+      parts.add(_formatCurrency(subCategory.totalAmount));
+    }
+    if (!subCategory.isActive) {
+      parts.add('Inactive');
+    }
+    return parts.isEmpty ? 'No transactions' : parts.join(' • ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = _getColor();
     final icon = _getIcon();
 
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF1F1F33).withOpacity(0.6),
-            const Color(0xFF1A1A28).withOpacity(0.8),
+        color: AuthColors.background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: DataList(
+        title: subCategory.name,
+        subtitle: _formatSubtitle(),
+        leading: DataListAvatar(
+          initial: icon,
+          radius: 28,
+          statusRingColor: subCategory.isActive ? color : AuthColors.textDisabled,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DataListStatusDot(
+              color: subCategory.isActive ? AuthColors.success : AuthColors.textDisabled,
+              size: 8,
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: AuthColors.error,
+                size: 20,
+              ),
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Icon/Color indicator
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: color.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                icon,
-                style: const TextStyle(fontSize: 24),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        subCategory.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (!subCategory.isActive)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Inactive',
-                          style: TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                if (subCategory.description != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subCategory.description!,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 12,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.receipt_long,
-                      size: 12,
-                      color: Colors.white.withOpacity(0.6),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${subCategory.transactionCount} transactions',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.account_balance_wallet,
-                      size: 12,
-                      color: Colors.white.withOpacity(0.6),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _formatCurrency(subCategory.totalAmount),
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          // Actions
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: Colors.white54),
-            color: const Color(0xFF1B1B2C),
-            onSelected: (value) {
-              if (value == 'edit') {
-                onEdit();
-              } else if (value == 'delete') {
-                onDelete();
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit, color: Colors.white70, size: 18),
-                    SizedBox(width: 8),
-                    Text('Edit', style: TextStyle(color: Colors.white70)),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                    SizedBox(width: 8),
-                    Text('Delete', style: TextStyle(color: Colors.redAccent)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+        onTap: onEdit,
       ),
     );
   }
@@ -504,21 +426,10 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Add Sub-Category'),
+            DashButton(
+              label: 'Add Sub-Category',
+              icon: Icons.add,
               onPressed: onAdd,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),

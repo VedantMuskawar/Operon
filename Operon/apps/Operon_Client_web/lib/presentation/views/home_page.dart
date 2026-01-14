@@ -2,8 +2,8 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
 import 'package:dash_web/data/repositories/profile_stats_repository_adapter.dart';
+import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_web/presentation/views/dm_settings_page.dart';
 import 'package:dash_web/presentation/views/pending_orders_view.dart';
 import 'package:dash_web/presentation/views/schedule_orders_view.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
@@ -305,16 +305,6 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         onTap: () => context.go('/zones'),
       ));
     }
-    // DM Settings - accessible to admins
-    if (isAdmin) {
-      operationsTiles.add(_TileData(
-        icon: Icons.settings_outlined,
-        label: 'DM Settings',
-        description: 'Configure delivery memo settings',
-        color: const Color(0xFF2196F3), // Blue
-        onTap: () => showDmSettingsDialog(context),
-      ));
-    }
 
     // Combine all tiles into a single list
     final allTiles = <_TileData>[
@@ -408,8 +398,26 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
               // Notification section - 1/3 width
               Expanded(
                 flex: 1,
-                child: _NotificationSection(
-                  animationController: _entranceController,
+                child: Column(
+                  children: [
+                    // Additional container above notification - DISABLED
+                    // Container(
+                    //   padding: const EdgeInsets.all(20),
+                    //   decoration: BoxDecoration(
+                    //     color: const Color(0xFF1A1A1A), // Same as HomeTile background
+                    //     borderRadius: BorderRadius.circular(20),
+                    //     border: Border.all(
+                    //       color: Colors.white.withOpacity(0.1),
+                    //       width: 1,
+                    //     ),
+                    //   ),
+                    //   child: _DeliveryProgressWidget(),
+                    // ),
+                    // const SizedBox(height: 20),
+                    _NotificationSection(
+                      animationController: _entranceController,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -536,7 +544,7 @@ class _OrdersMapView extends StatelessWidget {
                 'Coming Soon',
                 style: TextStyle(
                   color: Color(0xFF5AD8A4),
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -626,7 +634,7 @@ class _EmptyStateCard extends StatelessWidget {
             title,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 24,
+              fontSize: 28,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -650,3 +658,132 @@ class _EmptyStateCard extends StatelessWidget {
   }
 }
 
+/// Widget showing delivery progress for today's scheduled trips
+class _DeliveryProgressWidget extends StatelessWidget {
+  const _DeliveryProgressWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    
+    // Return empty if no organization selected
+    if (!orgState.hasSelection || orgState.organization == null) {
+      return const SizedBox.shrink();
+    }
+
+    final organizationId = orgState.organization!.id;
+    final currentDate = DateTime.now();
+    
+    final repository = context.read<ScheduledTripsRepository>();
+    
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: repository.watchScheduledTripsForDate(
+        organizationId: organizationId,
+        scheduledDate: currentDate,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading trips',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: 12,
+              ),
+            ),
+          );
+        }
+
+        final trips = snapshot.data ?? [];
+        final totalTrips = trips.length;
+        
+        // Handle empty state - no scheduled trips
+        if (totalTrips == 0) {
+          return Center(
+            child: SizedBox(
+              width: 180,
+              height: 180,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: 0.0,
+                    strokeWidth: 14,
+                    backgroundColor: Colors.white.withOpacity(0.1),
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF5AD8A4)),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '0%',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 36,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No trips',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.4),
+                          fontSize: 12,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final deliveredTrips = trips.where((trip) {
+          final status = (trip['tripStatus'] as String? ?? '').toLowerCase();
+          return status == 'delivered';
+        }).length;
+
+        final progress = deliveredTrips / totalTrips;
+        final percentage = (progress * 100).round();
+
+        return Center(
+          child: SizedBox(
+            width: 180,
+            height: 180,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 14,
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF5AD8A4)),
+                ),
+                Text(
+                  '$percentage%',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'SF Pro Display',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

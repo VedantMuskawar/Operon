@@ -2,10 +2,7 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/products/products_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
-import 'package:dash_mobile/presentation/widgets/modern_tile.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
-import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -25,106 +22,69 @@ class ProductsPage extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        // Background comes from theme's scaffoldBackgroundColor (AuthColors.background)
         appBar: const ModernPageHeader(
           title: 'Products',
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
+        body: Column(
+          children: [
+            Expanded(
+              child: SafeArea(
+                bottom: false,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                color: const Color(0xFF13131E),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: const Text(
-                'Manage products, GST, and pricing for this organization.',
-                style: TextStyle(color: Colors.white70),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _AddProductButton(canCreate: cubit.canCreate),
+                      const SizedBox(height: 20),
+                      _ProductList(cubit: cubit),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            if (cubit.canCreate)
-              SizedBox(
-                width: double.infinity,
-                child: DashButton(
-                  label: 'Add Product',
-                  onPressed: () => _openProductDialog(context),
+            FloatingNavBar(
+              items: const [
+                NavBarItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  heroTag: 'nav_home',
                 ),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: const Color(0x22FFFFFF),
+                NavBarItem(
+                  icon: Icons.pending_actions_rounded,
+                  label: 'Pending',
+                  heroTag: 'nav_pending',
                 ),
-                child: const Text(
-                  'You have read-only access to products.',
-                  style: TextStyle(color: Colors.white70),
+                NavBarItem(
+                  icon: Icons.schedule_rounded,
+                  label: 'Schedule',
+                  heroTag: 'nav_schedule',
                 ),
-              ),
-            const SizedBox(height: 20),
-            BlocBuilder<ProductsCubit, ProductsState>(
-              builder: (context, state) {
-                if (state.status == ViewStatus.loading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (state.products.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 40),
-                    child: Text(
-                      cubit.canCreate
-                          ? 'No products yet. Tap “Add Product”.'
-                          : 'No products to display.',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                }
-                return Column(
-                  children: [
-                    for (int i = 0; i < state.products.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 12),
-                      _ProductTile(
-                        product: state.products[i],
-                        canEdit: cubit.canEdit,
-                        canDelete: cubit.canDelete,
-                        onEdit: () =>
-                            _openProductDialog(context, product: state.products[i]),
-                        onDelete: () => cubit.deleteProduct(state.products[i].id),
-                      ),
-                    ],
-                  ],
-                );
+                NavBarItem(
+                  icon: Icons.map_rounded,
+                  label: 'Map',
+                  heroTag: 'nav_map',
+                ),
+                NavBarItem(
+                  icon: Icons.dashboard_rounded,
+                  label: 'Analytics',
+                  heroTag: 'nav_analytics',
+                ),
+              ],
+              currentIndex: -1, // No selection when on Products page
+              onItemTapped: (index) {
+                // Navigate to home with the selected section
+                context.go('/home', extra: index);
               },
             ),
           ],
-                ),
-                      ),
-                    ),
-            QuickNavBar(
-              currentIndex: -1, // -1 means no selection when on this page
-              onTap: (value) => context.go('/home', extra: value),
-            ),
-          ],
         ),
-      ),
       ),
     );
   }
 
-  Future<void> _openProductDialog(
+  static Future<void> _openProductDialog(
     BuildContext context, {
     OrganizationProduct? product,
   }) async {
@@ -139,8 +99,91 @@ class ProductsPage extends StatelessWidget {
   }
 }
 
-class _ProductTile extends StatelessWidget {
-  const _ProductTile({
+class _AddProductButton extends StatelessWidget {
+  const _AddProductButton({required this.canCreate});
+
+  final bool canCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    if (canCreate) {
+      return SizedBox(
+        width: double.infinity,
+        height: 50,
+        child: DashButton(
+          label: 'Add Product',
+          icon: Icons.add,
+          onPressed: () => ProductsPage._openProductDialog(context),
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: AuthColors.textMain.withOpacity(0.1),
+      ),
+      child: const Text(
+        'You have read-only access to products.',
+        style: TextStyle(color: AuthColors.textSub),
+      ),
+    );
+  }
+}
+
+class _ProductList extends StatelessWidget {
+  const _ProductList({required this.cubit});
+
+  final ProductsCubit cubit;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ProductsCubit, ProductsState>(
+      bloc: cubit,
+      builder: (context, state) {
+        if (state.status == ViewStatus.loading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (state.products.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: Text(
+              cubit.canCreate
+                  ? 'No products yet. Tap "Add Product".'
+                  : 'No products to display.',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          );
+        }
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: state.products.length,
+          itemBuilder: (context, index) {
+            final product = state.products[index];
+            return _ProductDataListItem(
+              product: product,
+              canEdit: cubit.canEdit,
+              canDelete: cubit.canDelete,
+              onEdit: () => ProductsPage._openProductDialog(
+                context,
+                product: product,
+              ),
+              onDelete: () => cubit.deleteProduct(product.id),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ProductDataListItem extends StatelessWidget {
+  const _ProductDataListItem({
     required this.product,
     required this.canEdit,
     required this.canDelete,
@@ -154,23 +197,87 @@ class _ProductTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  /// Get status ring color based on stock level
+  Color _getStatusRingColor() {
+    if (product.status == ProductStatus.archived) {
+      return AuthColors.textDisabled;
+    }
+    if (product.stock > 10) {
+      // In Stock - Green
+      return AuthColors.success;
+    } else if (product.stock > 0) {
+      // Low Stock - Orange (keep orange for visibility)
+      return const Color(0xFFFF9800);
+    } else {
+      // Out of Stock - Grey
+      return AuthColors.textDisabled;
+    }
+  }
+
+  /// Get status dot color based on product status
+  Color? _getStatusDotColor() {
+    if (product.status == ProductStatus.active) {
+      return AuthColors.primary; // Use primary color instead of Instagram blue
+    }
+    return AuthColors.textDisabled; // Paused or archived
+  }
+
+  /// Format subtitle with price and stock info
+  String _formatSubtitle() {
+    final priceText = '₹${product.unitPrice.toStringAsFixed(2)}';
+    final stockText = product.stock > 0
+        ? '${product.stock} in stock'
+        : 'Out of stock';
+    return '$priceText • $stockText';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ModernProductTile(
-      name: product.name,
-      price: product.unitPrice,
-      status: product.status.name,
-      gstPercent: product.hasGst ? product.gstPercent : null,
-      fixedQuantityOptions: product.fixedQuantityPerTripOptions
-          ?.map((e) => e.toString())
-          .toList(),
-      canEdit: canEdit,
-      canDelete: canDelete,
-      onEdit: onEdit,
-      onDelete: onDelete,
-      elevation: 0,
+    return DataList(
+      title: product.name,
+      subtitle: _formatSubtitle(),
+      leading: DataListAvatar(
+        initial: product.name.isNotEmpty ? product.name[0] : '?',
+        radius: 28,
+        statusRingColor: _getStatusRingColor(),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DataListStatusDot(
+            color: _getStatusDotColor(),
+            size: 8,
+          ),
+          const SizedBox(width: 12),
+          if (canEdit)
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          if (canEdit && canDelete) const SizedBox(width: 8),
+          if (canDelete)
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+        ],
+      ),
+      onTap: canEdit ? onEdit : null,
     );
   }
+
 }
 
 class _ProductDialog extends StatefulWidget {
@@ -233,10 +340,17 @@ class _ProductDialogState extends State<_ProductDialog> {
     final canEdit = cubit.canEdit;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
       title: Text(
         isEditing ? 'Edit Product' : 'Add Product',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -246,7 +360,7 @@ class _ProductDialogState extends State<_ProductDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Product name'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -258,7 +372,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                 controller: _priceController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Unit price'),
                 validator: (value) {
                   final parsed = double.tryParse(value ?? '');
@@ -273,7 +387,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                 controller: _gstController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('GST (%) - Optional'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -290,14 +404,14 @@ class _ProductDialogState extends State<_ProductDialog> {
               TextFormField(
                 controller: _stockController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Stock (optional)'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _fixedQuantityController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration(
                   'Fixed Quantity Per Trip (comma-separated, e.g., 1000, 1500, 2000) - Optional',
                 ),
@@ -320,8 +434,8 @@ class _ProductDialogState extends State<_ProductDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<ProductStatus>(
                 initialValue: _status,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Status'),
                 onChanged: (value) {
                   if (value != null) setState(() => _status = value);
@@ -407,11 +521,28 @@ class _ProductDialogState extends State<_ProductDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: AuthColors.primary,
+          width: 2,
+        ),
       ),
     );
   }

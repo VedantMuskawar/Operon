@@ -93,11 +93,11 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
               children: [
                 Text('Error: ${state.message}'),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () =>
-                      context.read<ProductionBatchTemplatesCubit>().loadTemplates(),
-                  child: const Text('Retry'),
-                ),
+              DashButton(
+                label: 'Retry',
+                onPressed: () =>
+                    context.read<ProductionBatchTemplatesCubit>().loadTemplates(),
+              ),
               ],
             ),
           );
@@ -115,11 +115,13 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                   Text(
                     'Production Batches',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
-                  ElevatedButton.icon(
+                  DashButton(
+                    label: 'New Batch',
+                    icon: Icons.add,
                     onPressed: () {
                       if (organization != null) {
                         final cubit = context.read<ProductionBatchTemplatesCubit>();
@@ -136,8 +138,6 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                         );
                       }
                     },
-                    icon: const Icon(Icons.add),
-                    label: const Text('New Batch'),
                   ),
                 ],
               ),
@@ -145,7 +145,7 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
               Text(
                 'Define reusable employee groups for production batches.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white70,
+                      color: AuthColors.textSub,
                     ),
               ),
               const SizedBox(height: 32),
@@ -159,13 +159,13 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                         Icon(
                           Icons.group_outlined,
                           size: 64,
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: AuthColors.textSub.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'No batch templates yet',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: AuthColors.textSub,
                             fontSize: 16,
                           ),
                         ),
@@ -173,7 +173,7 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                         Text(
                           'Create your first batch template to get started',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: AuthColors.textSub,
                             fontSize: 14,
                           ),
                         ),
@@ -183,7 +183,7 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                 )
               else
                 ...state.templates.map((template) {
-                  return _BatchTemplateCard(
+                  return _BatchTemplateDataListItem(
                     template: template,
                     onEdit: () {
                       if (organization != null) {
@@ -206,18 +206,24 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                       final confirmed = await showDialog<bool>(
                         context: context,
                         builder: (context) => AlertDialog(
-                          title: const Text('Delete Batch Template'),
+                          backgroundColor: AuthColors.surface,
+                          title: Text(
+                            'Delete Batch Template',
+                            style: TextStyle(color: AuthColors.textMain),
+                          ),
                           content: Text(
-                              'Are you sure you want to delete "${template.name}"?'),
+                            'Are you sure you want to delete "${template.name}"?',
+                            style: TextStyle(color: AuthColors.textSub),
+                          ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancel'),
+                              child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
                             ),
                             TextButton(
                               onPressed: () => Navigator.pop(context, true),
                               style: TextButton.styleFrom(
-                                foregroundColor: Colors.red,
+                                foregroundColor: AuthColors.error,
                               ),
                               child: const Text('Delete'),
                             ),
@@ -241,8 +247,8 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
   }
 }
 
-class _BatchTemplateCard extends StatelessWidget {
-  const _BatchTemplateCard({
+class _BatchTemplateDataListItem extends StatelessWidget {
+  const _BatchTemplateDataListItem({
     required this.template,
     required this.onEdit,
     required this.onDelete,
@@ -252,100 +258,67 @@ class _BatchTemplateCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  String _formatSubtitle() {
+    final employeeCount = template.employeeIds.length;
+    final parts = <String>[];
+    parts.add('$employeeCount employee${employeeCount != 1 ? 's' : ''}');
+    if (template.employeeNames != null && template.employeeNames!.isNotEmpty) {
+      final names = template.employeeNames!.take(3).join(', ');
+      parts.add(names);
+      if (template.employeeNames!.length > 3) {
+        parts.add('+${template.employeeNames!.length - 3} more');
+      }
+    }
+    return parts.join(' • ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final employeeCount = template.employeeIds.length;
-    final employeeNames = template.employeeNames ?? [];
-
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-        ),
+        color: AuthColors.background,
+        borderRadius: BorderRadius.circular(18),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  template.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '$employeeCount employee${employeeCount != 1 ? 's' : ''}',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 14,
-                  ),
-                ),
-                if (employeeNames.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: employeeNames.take(5).map((name) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 12,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  if (employeeNames.length > 5)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '+${employeeNames.length - 5} more',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                ],
-              ],
+      child: DataList(
+        title: template.name,
+        subtitle: _formatSubtitle(),
+        leading: DataListAvatar(
+          initial: template.name.isNotEmpty ? template.name[0] : 'B',
+          radius: 28,
+          statusRingColor: AuthColors.primary,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DataListStatusDot(
+              color: AuthColors.primary,
+              size: 8,
             ),
-          ),
-          Row(
-            children: [
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined),
-                color: Colors.white.withValues(alpha: 0.7),
-                tooltip: 'Edit',
+            const SizedBox(width: 12),
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: AuthColors.textSub,
+                size: 20,
               ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outlined),
-                color: Colors.red.withValues(alpha: 0.7),
-                tooltip: 'Delete',
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: AuthColors.error,
+                size: 20,
               ),
-            ],
-          ),
-        ],
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        onTap: onEdit,
       ),
     );
   }

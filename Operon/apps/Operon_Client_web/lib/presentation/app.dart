@@ -36,6 +36,7 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_selector/org_selector_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 class DashWebApp extends StatelessWidget {
   const DashWebApp({super.key});
@@ -193,7 +194,7 @@ class DashWebApp extends StatelessWidget {
           BlocProvider<AuthBloc>(
             create: (context) => AuthBloc(
               authRepository: context.read<AuthRepository>(),
-            ),
+            )..add(const AuthStatusRequested()),
           ),
           BlocProvider<OrganizationContextCubit>(
             create: (_) => OrganizationContextCubit(),
@@ -204,6 +205,7 @@ class DashWebApp extends StatelessWidget {
             ),
           ),
           BlocProvider<AppInitializationCubit>(
+            lazy: false,
             create: (context) => AppInitializationCubit(
               authRepository: context.read<AuthRepository>(),
               orgContextCubit: context.read<OrganizationContextCubit>(),
@@ -212,11 +214,58 @@ class DashWebApp extends StatelessWidget {
             ),
           ),
         ],
-        child: MaterialApp.router(
-          title: 'Dash Web',
-          theme: buildDashTheme(),
-          routerConfig: buildRouter(),
-          debugShowCheckedModeBanner: false,
+        child: Builder(
+          builder: (context) {
+            final router = buildRouter();
+            
+            return BlocListener<AppInitializationCubit, AppInitializationState>(
+              listener: (context, state) {
+                // Handle navigation at app level for hot restart cases
+                if (state.status == AppInitializationStatus.contextRestored) {
+                  final orgState = context.read<OrganizationContextCubit>().state;
+                  if (orgState.hasSelection) {
+                    final currentRoute = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+                    if (currentRoute != '/home') {
+                      context.go('/home');
+                    }
+                  }
+                }
+              },
+              child: Builder(
+                builder: (context) {
+                  // On hot restart, ensure initialization runs even if we're not on splash
+                  // This handles the case where the router preserves the previous route
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (context.mounted) {
+                      final initState = context.read<AppInitializationCubit>().state;
+                      
+                      // If initialization hasn't started, trigger it
+                      if (initState.status == AppInitializationStatus.initial) {
+                        context.read<AuthBloc>().add(const AuthStatusRequested());
+                        context.read<AppInitializationCubit>().initialize();
+                      } else if (initState.status == AppInitializationStatus.contextRestored) {
+                        // If already restored, check if we need to navigate
+                        final orgState = context.read<OrganizationContextCubit>().state;
+                        if (orgState.hasSelection) {
+                          final currentRoute = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+                          if (currentRoute == '/splash' || currentRoute == '/') {
+                            context.go('/home');
+                          }
+                        }
+                      }
+                    }
+                  });
+                  
+                  return MaterialApp.router(
+                    title: 'Dash Web',
+                    theme: buildDashTheme(),
+                    routerConfig: router,
+                    debugShowCheckedModeBanner: false,
+                  );
+                },
+              ),
+            );
+          },
         ),
       ),
     );

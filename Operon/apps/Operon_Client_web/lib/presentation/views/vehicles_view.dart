@@ -64,7 +64,7 @@ class VehiclesPageContent extends StatelessWidget {
                     child: Text(
                       'No vehicles yet. Tap "Add Vehicle" to get started.',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: AuthColors.textSub,
                         fontSize: 16,
                       ),
                       textAlign: TextAlign.center,
@@ -79,7 +79,7 @@ class VehiclesPageContent extends StatelessWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final vehicle = state.vehicles[index];
-                  return _VehicleTile(
+                  return _VehicleDataListItem(
                     vehicle: vehicle,
                     onEdit: () => _openVehicleDialog(
                       context,
@@ -152,8 +152,8 @@ class VehiclesPageContent extends StatelessWidget {
   }
 }
 
-class _VehicleTile extends StatelessWidget {
-  const _VehicleTile({
+class _VehicleDataListItem extends StatelessWidget {
+  const _VehicleDataListItem({
     required this.vehicle,
     required this.onEdit,
     required this.onAssignDriver,
@@ -165,194 +165,86 @@ class _VehicleTile extends StatelessWidget {
   final VoidCallback onAssignDriver;
   final VoidCallback onDelete;
 
+  String _formatSubtitle() {
+    final parts = <String>[];
+    if (vehicle.tag != null) {
+      parts.add(vehicle.tag!);
+    }
+    if (vehicle.vehicleCapacity != null) {
+      parts.add('Cap: ${vehicle.vehicleCapacity!.toStringAsFixed(1)}');
+    }
+    if (vehicle.driver != null && vehicle.driver!.name != null) {
+      parts.add('Driver: ${vehicle.driver!.name}');
+    }
+    return parts.isEmpty ? 'Vehicle' : parts.join(' • ');
+  }
+
+  Color _getStatusColor() {
+    return vehicle.isActive ? AuthColors.success : AuthColors.textDisabled;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: vehicle.isActive ? Colors.white12 : Colors.white10,
-        ),
+        color: AuthColors.background,
+        borderRadius: BorderRadius.circular(18),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(14),
+      child: DataList(
+        title: vehicle.vehicleNumber,
+        subtitle: _formatSubtitle(),
+        leading: DataListAvatar(
+          initial: vehicle.vehicleNumber.isNotEmpty ? vehicle.vehicleNumber[0] : 'V',
+          radius: 28,
+          statusRingColor: _getStatusColor(),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DataListStatusDot(
+              color: _getStatusColor(),
+              size: 8,
             ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.local_shipping_outlined, color: Colors.white),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  vehicle.vehicleNumber,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                if (vehicle.tag != null) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Text(
-                      vehicle.tag!,
-                      style: const TextStyle(
-                        color: Color(0xFF6F4BFF),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  'Capacity: ${vehicle.vehicleCapacity?.toStringAsFixed(1) ?? '-'} • '
-                  'Weekly avg: ${_calculateWeeklyAverage(vehicle.weeklyCapacity)}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                if (vehicle.driver != null && vehicle.driver!.name != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Driver: ${vehicle.driver!.name} (${vehicle.driver!.phone ?? ''})',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                ],
-                if (vehicle.productCapacities != null &&
-                    vehicle.productCapacities!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Products configured: ${vehicle.productCapacities!.length}',
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    _DocStatusChip(
-                      label: 'Insurance',
-                      expiry: vehicle.insurance?.expiryDate,
-                    ),
-                    _DocStatusChip(
-                      label: 'Fitness',
-                      expiry: vehicle.fitnessCertificate?.expiryDate,
-                    ),
-                    _DocStatusChip(
-                      label: 'PUC',
-                      expiry: vehicle.puc?.expiryDate,
-                    ),
-                  ],
-                ),
-              ],
+            const SizedBox(width: 12),
+            IconButton(
+              icon: Icon(
+                vehicle.driver != null ? Icons.person : Icons.person_add_outlined,
+                color: vehicle.driver != null ? AuthColors.primary : AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: onAssignDriver,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: vehicle.driver != null ? 'Change Driver' : 'Assign Driver',
             ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              IconButton(
-                onPressed: onAssignDriver,
-                icon: Icon(
-                  vehicle.driver != null
-                      ? Icons.person
-                      : Icons.person_add_outlined,
-                  color: vehicle.driver != null
-                      ? Colors.blueAccent
-                      : Colors.white54,
-                ),
-                tooltip: vehicle.driver != null
-                    ? 'Change Driver'
-                    : 'Assign Driver',
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: AuthColors.textSub,
+                size: 20,
               ),
-              const SizedBox(height: 8),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, color: Colors.white54),
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: AuthColors.error,
+                size: 20,
               ),
-              const SizedBox(height: 8),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-              ),
-            ],
-          ),
-        ],
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+        onTap: onEdit,
       ),
     );
   }
-
-  String _calculateWeeklyAverage(Map<String, double>? weeklyCapacity) {
-    if (weeklyCapacity == null || weeklyCapacity.isEmpty) return '-';
-    final total = weeklyCapacity.values.fold<double>(0, (sum, value) => sum + value);
-    return (total / weeklyCapacity.length).toStringAsFixed(1);
-  }
-}
-
-class _DocStatusChip extends StatelessWidget {
-  const _DocStatusChip({
-    required this.label,
-    required this.expiry,
-  });
-
-  final String label;
-  final DateTime? expiry;
-
-  @override
-  Widget build(BuildContext context) {
-    final status = _docStatus();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: status.color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: status.color.withOpacity(0.4)),
-      ),
-      child: Text(
-        '$label • ${status.label}',
-        style: TextStyle(color: status.color, fontSize: 11, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  _ExpiryStatus _docStatus() {
-    if (expiry == null) return const _ExpiryStatus('N/A', Colors.white38);
-    final today = DateTime.now();
-    final days = expiry!.difference(DateTime(today.year, today.month, today.day)).inDays;
-    if (days < 0) return const _ExpiryStatus('Expired', Colors.redAccent);
-    if (days <= 15) return _ExpiryStatus('Due $days d', Colors.orangeAccent);
-    return const _ExpiryStatus('OK', Colors.greenAccent);
-  }
-}
-
-class _ExpiryStatus {
-  const _ExpiryStatus(this.label, this.color);
-  final String label;
-  final Color color;
 }
 
 class _VehicleDialog extends StatefulWidget {
@@ -497,18 +389,18 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   Widget build(BuildContext context) {
     final isEditing = widget.vehicle != null;
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF6F4BFF).withOpacity(0.2),
+              color: AuthColors.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.local_shipping_outlined,
-              color: Color(0xFF6F4BFF),
+              color: AuthColors.primary,
               size: 20,
             ),
           ),
@@ -516,7 +408,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
           Expanded(
             child: Text(
               isEditing ? 'Edit Vehicle' : 'Add Vehicle',
-              style: const TextStyle(color: Colors.white, fontSize: 20),
+              style: TextStyle(color: AuthColors.textMain, fontSize: 20),
             ),
           ),
         ],
@@ -541,7 +433,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                           flex: 2,
                           child: TextFormField(
                             controller: _vehicleNumberController,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: AuthColors.textMain),
                             decoration: _inputDecoration('Vehicle Number *'),
                             validator: (value) => (value == null || value.trim().isEmpty)
                                 ? 'Required'
@@ -552,7 +444,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                         Expanded(
                           child: TextFormField(
                             controller: _capacityController,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: AuthColors.textMain),
                             decoration: _inputDecoration('Capacity'),
                             keyboardType:
                                 const TextInputType.numberWithOptions(decimal: true),
@@ -572,7 +464,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                               style: TextStyle(color: Colors.white70, fontSize: 14),
                             ),
                             contentPadding: EdgeInsets.zero,
-                            activeThumbColor: const Color(0xFF6F4BFF),
+                            activeThumbColor: AuthColors.primary,
                             dense: true,
                           ),
                         ),
@@ -602,11 +494,11 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                 _customTagController.clear();
                               });
                             },
-                            selectedColor: const Color(0xFF6F4BFF),
+                            selectedColor: AuthColors.primary,
                             labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : Colors.white70,
+                              color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                             ),
-                            backgroundColor: const Color(0xFF2A2A3D),
+                            backgroundColor: AuthColors.surface,
                           );
                         }),
                         ChoiceChip(
@@ -636,8 +528,8 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                               });
                             },
                             selectedColor: const Color(0xFF2A2A3D),
-                            labelStyle: const TextStyle(color: Colors.white70),
-                            backgroundColor: const Color(0xFF2A2A3D),
+                            labelStyle: TextStyle(color: AuthColors.textSub),
+                            backgroundColor: AuthColors.surface,
                           ),
                       ],
                     ),
@@ -790,28 +682,12 @@ class _VehicleDialogState extends State<_VehicleDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
-        ElevatedButton(
+        DashButton(
+          label: widget.vehicle != null ? 'Save Changes' : 'Create Vehicle',
           onPressed: _isSubmitting ? null : _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6F4BFF),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : Text(widget.vehicle != null ? 'Save Changes' : 'Create Vehicle'),
+          isLoading: _isSubmitting,
         ),
       ],
     );
@@ -885,9 +761,9 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70, fontSize: 14),
+      labelStyle: TextStyle(color: AuthColors.textSub, fontSize: 14),
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
+      fillColor: AuthColors.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide.none,
@@ -899,9 +775,9 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   InputDecoration _compactInputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+      labelStyle: TextStyle(color: AuthColors.textSub, fontSize: 12),
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
+      fillColor: AuthColors.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,

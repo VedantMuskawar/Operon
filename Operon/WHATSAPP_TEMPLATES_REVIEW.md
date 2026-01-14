@@ -437,9 +437,7 @@ For template creation help:
 2. WhatsApp Business API Documentation: https://developers.facebook.com/docs/whatsapp
 3. Template Guidelines: https://developers.facebook.com/docs/whatsapp/message-templates/guidelines
 
----
-
-## Event Triggers Summary| Event | Collection | Trigger Type | Function |
+---## Event Triggers Summary| Event | Collection | Trigger Type | Function |
 |-------|------------|--------------|----------|
 | Client Added | `CLIENTS` | `onCreate` | `onClientCreatedSendWhatsappWelcome` |
 | Order Added | `PENDING_ORDERS` | `onCreate` | `onOrderCreatedSendWhatsapp` |

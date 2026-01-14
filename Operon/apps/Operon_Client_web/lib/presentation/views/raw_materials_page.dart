@@ -47,8 +47,8 @@ class RawMaterialsPageContent extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: const Color(0xFF13131E),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            color: AuthColors.surface,
+            border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.12)),
           ),
           child: const Text(
             'Manage raw materials, stock levels, and purchase prices for this organization.',
@@ -61,14 +61,14 @@ class RawMaterialsPageContent extends StatelessWidget {
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
+                colors: [AuthColors.primary, AuthColors.primaryVariant],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
+                  color: AuthColors.primary.withValues(alpha: 0.4),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -87,20 +87,20 @@ class RawMaterialsPageContent extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: AuthColors.textMain.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.add,
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           size: 20,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Text(
-                        'Add Raw Material',
-                        style: TextStyle(
-                          color: Colors.white,
+                          Text(
+                            'Add Raw Material',
+                            style: TextStyle(
+                              color: AuthColors.textMain,
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
                           letterSpacing: 0.5,
@@ -117,11 +117,11 @@ class RawMaterialsPageContent extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0x22FFFFFF),
+              color: AuthColors.textMain.withValues(alpha: 0.13),
             ),
             child: const Text(
               'You have read-only access to raw materials.',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AuthColors.textSub),
             ),
           ),
         const SizedBox(height: 20),
@@ -138,7 +138,7 @@ class RawMaterialsPageContent extends StatelessWidget {
                       ? 'No raw materials yet. Tap "Add Raw Material".'
                       : 'No raw materials to display.',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: AuthColors.textSub,
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
@@ -152,7 +152,7 @@ class RawMaterialsPageContent extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final material = state.materials[index];
-                return _RawMaterialTile(
+                return _RawMaterialDataListItem(
                   material: material,
                   canEdit: cubit.canEdit,
                   canDelete: cubit.canDelete,
@@ -178,7 +178,7 @@ class RawMaterialsPageContent extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Raw Material Dialog',
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: AuthColors.background.withValues(alpha: 0.6),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return BlocProvider.value(
@@ -212,14 +212,14 @@ class RawMaterialsPageContent extends StatelessWidget {
   ) async {
     await showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.7),
+      barrierColor: AuthColors.background.withValues(alpha: 0.7),
       builder: (dialogContext) => StockHistoryDialog(material: material),
     );
   }
 }
 
-class _RawMaterialTile extends StatelessWidget {
-  const _RawMaterialTile({
+class _RawMaterialDataListItem extends StatelessWidget {
+  const _RawMaterialDataListItem({
     required this.material,
     required this.canEdit,
     required this.canDelete,
@@ -235,137 +235,91 @@ class _RawMaterialTile extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onViewHistory;
 
+  String _formatSubtitle() {
+    final parts = <String>[];
+    parts.add('₹${material.purchasePrice.toStringAsFixed(2)}/unit');
+    if (material.hasGst) {
+      parts.add('GST ${material.gstPercent!.toStringAsFixed(1)}%');
+    }
+    parts.add('Stock: ${material.stock} ${material.unitOfMeasurement}');
+    if (material.isLowStock) {
+      parts.add('Low Stock');
+    }
+    return parts.join(' • ');
+  }
+
+  Color _getStatusColor() {
+    if (material.isLowStock) {
+      return const Color(0xFFFF9800); // Orange for low stock
+    }
+    return material.status == RawMaterialStatus.active
+        ? AuthColors.success
+        : AuthColors.textDisabled;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isLowStock = material.isLowStock;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(16),
+    return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isLowStock
-              ? [const Color(0xFF2A1A1A), const Color(0xFF1A1111)]
-              : [const Color(0xFF1A1A2A), const Color(0xFF11111B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AuthColors.background,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isLowStock
-              ? Colors.orange.withValues(alpha: 0.5)
-              : Colors.white.withValues(alpha: 0.1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: isLowStock
-                  ? Colors.orange.withValues(alpha: 0.2)
-                  : Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
+      child: DataList(
+        title: material.name,
+        subtitle: _formatSubtitle(),
+        leading: DataListAvatar(
+          initial: material.name.isNotEmpty ? material.name[0] : 'R',
+          radius: 28,
+          statusRingColor: _getStatusColor(),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DataListStatusDot(
+              color: _getStatusColor(),
+              size: 8,
             ),
-            alignment: Alignment.center,
-            child: Icon(
-              isLowStock ? Icons.warning_amber_rounded : Icons.inventory_2_outlined,
-              color: isLowStock ? Colors.orange : Colors.white,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        material.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (isLowStock)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Low Stock',
-                          style: TextStyle(
-                            color: Colors.orange,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  material.hasGst
-                      ? '₹${material.purchasePrice.toStringAsFixed(2)}/unit • GST ${material.gstPercent!.toStringAsFixed(1)}%'
-                      : '₹${material.purchasePrice.toStringAsFixed(2)}/unit • No GST',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Stock: ${material.stock} ${material.unitOfMeasurement} • Min: ${material.minimumStockLevel} ${material.unitOfMeasurement}',
-                  style: TextStyle(
-                    color: isLowStock ? Colors.orange : Colors.white38,
-                    fontSize: 12,
-                    fontWeight: isLowStock ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Status: ${material.status.name}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.history, color: Colors.white54),
-                onPressed: onViewHistory,
-                tooltip: 'View Stock History',
+            const SizedBox(width: 12),
+            IconButton(
+              icon: Icon(
+                Icons.history,
+                color: AuthColors.textSub,
+                size: 20,
               ),
-              if (canEdit || canDelete) ...[
-                if (canEdit)
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.white54),
-                    onPressed: onEdit,
-                  ),
-                if (canEdit && canDelete) const SizedBox(height: 8),
-                if (canDelete)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                    onPressed: onDelete,
-                  ),
-              ],
+              onPressed: onViewHistory,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'View Stock History',
+            ),
+            if (canEdit) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(
+                  Icons.edit_outlined,
+                  color: AuthColors.textSub,
+                  size: 20,
+                ),
+                onPressed: onEdit,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
             ],
-          ),
-        ],
+            if (canDelete) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  color: AuthColors.error,
+                  size: 20,
+                ),
+                onPressed: onDelete,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ],
+        ),
+        onTap: canEdit ? onEdit : null,
       ),
     );
   }
@@ -436,10 +390,10 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 600.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Raw Material' : 'Add Raw Material',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -451,7 +405,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Material name'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -463,7 +417,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   controller: _purchasePriceController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Purchase Price (per unit)'),
                   validator: (value) {
                     final parsed = double.tryParse(value ?? '');
@@ -478,7 +432,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   controller: _gstController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('GST (%) - Optional'),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -494,7 +448,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _unitController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Unit of Measurement (e.g., kg, liters, pieces)'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -505,7 +459,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 TextFormField(
                   controller: _stockController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Current Stock'),
                   validator: (value) {
                     final parsed = int.tryParse(value ?? '');
@@ -519,7 +473,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 TextFormField(
                   controller: _minimumStockController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Minimum Stock Level'),
                   validator: (value) {
                     final parsed = int.tryParse(value ?? '');
@@ -532,8 +486,8 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<RawMaterialStatus>(
                   initialValue: _status,
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Status'),
                   onChanged: (value) {
                     if (value != null) setState(() => _status = value);
@@ -561,9 +515,10 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
           onPressed: (isEditing ? canEdit : canCreate)
               ? () {
                   if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -597,7 +552,6 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   Navigator.of(context).pop();
                 }
               : null,
-          child: Text(isEditing ? 'Save' : 'Create'),
         ),
       ],
     );
@@ -607,8 +561,8 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

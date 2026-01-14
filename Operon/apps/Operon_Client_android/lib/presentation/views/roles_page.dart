@@ -1,7 +1,7 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/roles/roles_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,7 +21,7 @@ class RolesPage extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         appBar: const ModernPageHeader(
           title: 'Roles',
         ),
@@ -37,15 +37,15 @@ class RolesPage extends StatelessWidget {
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
+                gradient: LinearGradient(
+                  colors: [AuthColors.primary, AuthColors.primaryVariant],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6F4BFF).withOpacity(0.4),
+                    color: AuthColors.primary.withOpacity(0.4),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -64,20 +64,20 @@ class RolesPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: AuthColors.textMain.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.add,
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             size: 20,
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Text(
+                        Text(
                           'Add New Role',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                             letterSpacing: 0.5,
@@ -101,7 +101,7 @@ class RolesPage extends StatelessWidget {
                     child: Text(
                       'No roles yet. Tap “Add Role” to create one.',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: AuthColors.textSub,
                         fontSize: 16,
                       ),
                       textAlign: TextAlign.center,
@@ -115,12 +115,11 @@ class RolesPage extends StatelessWidget {
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final role = state.roles[index];
-                    return _RoleTile(
+                    return _RoleDataListItem(
                       role: role,
                       onEdit: () => _openRoleDialog(context, role: role),
                       onDelete: () =>
                           context.read<RolesCubit>().deleteRole(role.id),
-                      child: _RoleInfoPanel(role: role),
                     );
                   },
                 );
@@ -130,9 +129,38 @@ class RolesPage extends StatelessWidget {
                 ),
                       ),
                     ),
-            QuickNavBar(
-              currentIndex: 4,
-              onTap: (value) => context.go('/home', extra: value),
+            FloatingNavBar(
+              items: const [
+                NavBarItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  heroTag: 'nav_home',
+                ),
+                NavBarItem(
+                  icon: Icons.pending_actions_rounded,
+                  label: 'Pending',
+                  heroTag: 'nav_pending',
+                ),
+                NavBarItem(
+                  icon: Icons.schedule_rounded,
+                  label: 'Schedule',
+                  heroTag: 'nav_schedule',
+                ),
+                NavBarItem(
+                  icon: Icons.map_rounded,
+                  label: 'Map',
+                  heroTag: 'nav_map',
+                ),
+                NavBarItem(
+                  icon: Icons.dashboard_rounded,
+                  label: 'Analytics',
+                  heroTag: 'nav_analytics',
+                ),
+              ],
+              currentIndex: -1,
+              onItemTapped: (index) {
+                context.go('/home', extra: index);
+              },
             ),
           ],
         ),
@@ -156,24 +184,22 @@ class RolesPage extends StatelessWidget {
   }
 }
 
-class _RoleTile extends StatefulWidget {
-  const _RoleTile({
+class _RoleDataListItem extends StatefulWidget {
+  const _RoleDataListItem({
     required this.role,
     required this.onEdit,
     required this.onDelete,
-    required this.child,
   });
 
   final OrganizationRole role;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final Widget child;
 
   @override
-  State<_RoleTile> createState() => _RoleTileState();
+  State<_RoleDataListItem> createState() => _RoleDataListItemState();
 }
 
-class _RoleTileState extends State<_RoleTile> with SingleTickerProviderStateMixin {
+class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
   late AnimationController _controller;
   late Animation<double> _rotationAnimation;
@@ -196,165 +222,114 @@ class _RoleTileState extends State<_RoleTile> with SingleTickerProviderStateMixi
     super.dispose();
   }
 
+  String _formatSubtitle() {
+    final parts = <String>[];
+    if (widget.role.isAdmin) {
+      parts.add('Admin');
+    }
+    parts.add(widget.role.salaryType.name);
+    return parts.join(' • ');
+  }
+
+  Color _getStatusColor() {
+    return widget.role.isAdmin ? AuthColors.success : AuthColors.primary;
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = widget.role;
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF1A1A2A),
-            Color(0xFF0A0A0A),
-            Color(0xFF0D0D14),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: _isExpanded ? const Color(0xFF6F4BFF).withOpacity(0.3) : Colors.white10,
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        color: AuthColors.background,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                setState(() {
-                  _isExpanded = !_isExpanded;
-                  if (_isExpanded) {
-                    _controller.forward();
-                  } else {
-                    _controller.reverse();
-                  }
-                });
-              },
-              borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: _hexToColor(role.colorHex),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _hexToColor(role.colorHex).withOpacity(0.4),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        role.isAdmin ? Icons.shield : Icons.badge,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  role.title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 18,
-                                    letterSpacing: 0.5,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (role.isAdmin) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF4CAF50).withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: const Color(0xFF4CAF50),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'ADMIN',
-                                    style: TextStyle(
-                                      color: Color(0xFF4CAF50),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _ActionButton(
-                          icon: Icons.edit_outlined,
-                          color: const Color(0xFF6F4BFF),
-                          onPressed: widget.onEdit,
-                        ),
-                        const SizedBox(width: 8),
-                        _ActionButton(
-                          icon: Icons.delete_outline,
-                          color: Colors.redAccent,
-                          onPressed: widget.onDelete,
-                        ),
-                        const SizedBox(width: 8),
-                        RotationTransition(
-                          turns: _rotationAnimation,
-                          child: const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: Colors.white54,
-                            size: 24,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+          DataList(
+            title: role.title,
+            subtitle: _formatSubtitle(),
+            leading: DataListAvatar(
+              initial: role.title.isNotEmpty ? role.title[0] : '?',
+              radius: 28,
+              statusRingColor: _hexToColor(role.colorHex),
             ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DataListStatusDot(
+                  color: _getStatusColor(),
+                  size: 8,
+                ),
+                const SizedBox(width: 12),
+                IconButton(
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    color: AuthColors.textSub,
+                    size: 20,
+                  ),
+                  onPressed: widget.onEdit,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: AuthColors.textSub,
+                    size: 20,
+                  ),
+                  onPressed: widget.onDelete,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                RotationTransition(
+                  turns: _rotationAnimation,
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: AuthColors.textSub,
+                      size: 24,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isExpanded = !_isExpanded;
+                        if (_isExpanded) {
+                          _controller.forward();
+                        } else {
+                          _controller.reverse();
+                        }
+                      });
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ),
+              ],
+            ),
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+                if (_isExpanded) {
+                  _controller.forward();
+                } else {
+                  _controller.reverse();
+                }
+              });
+            },
           ),
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF0A0A12).withOpacity(0.5),
+                color: AuthColors.background,
                 borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(18),
+                  bottomRight: Radius.circular(18),
                 ),
               ),
-              child: widget.child,
+              child: _RoleInfoPanel(role: role),
             ),
             crossFadeState: _isExpanded
                 ? CrossFadeState.showSecond
@@ -362,46 +337,6 @@ class _RoleTileState extends State<_RoleTile> with SingleTickerProviderStateMixi
             duration: const Duration(milliseconds: 300),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final Color color;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: color.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 18,
-          ),
-        ),
       ),
     );
   }
@@ -421,15 +356,15 @@ class _RoleInfoPanel extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              const Color(0xFF4CAF50).withOpacity(0.15),
-              const Color(0xFF4CAF50).withOpacity(0.05),
+              AuthColors.success.withOpacity(0.15),
+              AuthColors.success.withOpacity(0.05),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: const Color(0xFF4CAF50).withOpacity(0.3),
+            color: AuthColors.success.withOpacity(0.3),
             width: 1.5,
           ),
         ),
@@ -443,7 +378,7 @@ class _RoleInfoPanel extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.verified,
-                color: Color(0xFF4CAF50),
+                color: AuthColors.success,
                 size: 24,
               ),
             ),
@@ -452,10 +387,10 @@ class _RoleInfoPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Full Access Granted',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
                     ),
@@ -464,7 +399,7 @@ class _RoleInfoPanel extends StatelessWidget {
                   Text(
                     'Admins have unrestricted access to all sections and pages.',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: AuthColors.textSub,
                       fontSize: 13,
                     ),
                   ),
@@ -482,15 +417,15 @@ class _RoleInfoPanel extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            const Color(0xFF6F4BFF).withOpacity(0.15),
-            const Color(0xFF6F4BFF).withOpacity(0.05),
+            AuthColors.primary.withOpacity(0.15),
+            AuthColors.primary.withOpacity(0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF6F4BFF).withOpacity(0.3),
+          color: AuthColors.primary.withOpacity(0.3),
           width: 1.5,
         ),
       ),
@@ -499,12 +434,12 @@ class _RoleInfoPanel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6F4BFF).withOpacity(0.2),
+              color: AuthColors.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
               Icons.security,
-              color: Color(0xFF6F4BFF),
+              color: AuthColors.primary,
               size: 24,
             ),
           ),
@@ -537,19 +472,19 @@ class _RoleInfoPanel extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
+                    colors: [AuthColors.primary, AuthColors.primaryVariant],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.arrow_forward, color: Colors.white, size: 18),
+                    Icon(Icons.arrow_forward, color: AuthColors.textMain, size: 18),
                     SizedBox(width: 8),
                     Text(
                       'Go to Access Control',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
@@ -606,10 +541,10 @@ class _RoleDialogState extends State<_RoleDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 600.0);
     
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.background,
       title: Text(
         isEditing ? 'Edit Role' : 'Add Role',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -621,7 +556,7 @@ class _RoleDialogState extends State<_RoleDialog> {
             children: [
               TextFormField(
                 controller: _titleController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Role title'),
                 enabled: !isEditing,
                 validator: (value) =>
@@ -632,8 +567,8 @@ class _RoleDialogState extends State<_RoleDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<SalaryType>(
                 initialValue: _salaryType,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Salary type'),
                 onChanged: (value) {
                   if (value != null) setState(() => _salaryType = value);
@@ -663,9 +598,10 @@ class _RoleDialogState extends State<_RoleDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
           onPressed: _isSubmitting
               ? null
               : () async {
@@ -707,13 +643,7 @@ class _RoleDialogState extends State<_RoleDialog> {
                     }
                   }
                 },
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(isEditing ? 'Save' : 'Create'),
+          isLoading: _isSubmitting,
         ),
       ],
     );
@@ -723,8 +653,8 @@ class _RoleDialogState extends State<_RoleDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -751,7 +681,7 @@ class _ColorSelector extends StatelessWidget {
       children: [
         const Text(
           'Accent Color',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -767,12 +697,12 @@ class _ColorSelector extends StatelessWidget {
                   color: _hexToColor(color),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isActive ? Colors.white : Colors.transparent,
+                    color: isActive ? AuthColors.textMain : Colors.transparent,
                     width: 2,
                   ),
                 ),
                 child: isActive
-                    ? const Icon(Icons.check, color: Colors.white, size: 18)
+                    ? Icon(Icons.check, color: AuthColors.textMain, size: 18)
                     : null,
               ),
             );

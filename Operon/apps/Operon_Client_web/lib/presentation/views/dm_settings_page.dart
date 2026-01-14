@@ -23,7 +23,7 @@ void showDmSettingsDialog(BuildContext context) {
 
   showDialog(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.7),
+      barrierColor: AuthColors.background.withValues(alpha: 0.7),
     builder: (dialogContext) => BlocProvider(
       create: (_) => DmSettingsCubit(
         repository: dmSettingsRepository,
@@ -46,17 +46,10 @@ class _DmSettingsDialog extends StatelessWidget {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 900, maxHeight: 800),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF11111B),
-              Color(0xFF0D0D15),
-            ],
-          ),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
           boxShadow: [
             BoxShadow(
@@ -74,21 +67,14 @@ class _DmSettingsDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1B1C2C),
-                    Color(0xFF161622),
-                  ],
-                ),
+                color: AuthColors.surface,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -98,12 +84,12 @@ class _DmSettingsDialog extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                      color: AuthColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.settings_outlined,
-                      color: Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                       size: 20,
                     ),
                   ),
@@ -112,7 +98,7 @@ class _DmSettingsDialog extends StatelessWidget {
                     child: Text(
                       'DM Settings',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -120,7 +106,7 @@ class _DmSettingsDialog extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: Icon(Icons.close, color: AuthColors.textSub),
                     tooltip: 'Close',
                   ),
                 ],
@@ -146,6 +132,26 @@ class _DmSettingsDialog extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Content widget for sidebar use
+class DmSettingsPageContent extends StatelessWidget {
+  const DmSettingsPageContent({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<DmSettingsCubit, DmSettingsState>(
+      listener: (context, state) {
+        if (state.status == ViewStatus.failure && state.message != null) {
+          DashSnackbar.show(context, message: state.message!, isError: true);
+        }
+        if (state.status == ViewStatus.success && state.message != null) {
+          DashSnackbar.show(context, message: state.message!);
+        }
+      },
+      child: const _DmSettingsContent(),
     );
   }
 }
@@ -307,11 +313,11 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
-        title: const Text('Remove Logo', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: AuthColors.surface,
+        title: Text('Remove Logo', style: TextStyle(color: AuthColors.textMain)),
+        content: Text(
           'Are you sure you want to remove the logo?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -320,7 +326,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove', style: TextStyle(color: Colors.red)),
+            child: Text('Remove', style: TextStyle(color: AuthColors.error)),
           ),
         ],
       ),
@@ -415,12 +421,12 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: const Color(0xFF13131E),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            color: AuthColors.surface,
+            border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.12)),
           ),
-          child: const Text(
+          child: Text(
             'Configure header, footer, and print preferences for Delivery Memos (DM).',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: AuthColors.textSub),
           ),
         ),
         const SizedBox(height: 20),
@@ -442,7 +448,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     // Name
                     TextFormField(
                       controller: _headerNameController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('Name *'),
                       validator: (value) =>
                           (value == null || value.trim().isEmpty)
@@ -453,7 +459,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     // Address
                     TextFormField(
                       controller: _headerAddressController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('Address *'),
                       maxLines: 3,
                       validator: (value) =>
@@ -465,7 +471,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     // Phone
                     TextFormField(
                       controller: _headerPhoneController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('Phone *'),
                       keyboardType: TextInputType.phone,
                       validator: (value) =>
@@ -477,7 +483,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     // GST No
                     TextFormField(
                       controller: _headerGstNoController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('GST No (Optional)'),
                     ),
                   ],
@@ -543,7 +549,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                       const SizedBox(height: 24),
                       TextFormField(
                         controller: _customTemplateIdController,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Custom Template ID *'),
                         validator: (value) {
                           if (_templateType == DmTemplateType.custom &&
@@ -557,7 +563,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                       const Text(
                         'Enter the ID of the custom DM template designed by developers.',
                         style: TextStyle(
-                          color: Colors.white60,
+                          color: AuthColors.textSub,
                           fontSize: 12,
                         ),
                       ),
@@ -676,21 +682,17 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -709,7 +711,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
         const Text(
           'Logo (Optional)',
           style: TextStyle(
-            color: Colors.white,
+            color: AuthColors.textMain,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -722,9 +724,9 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.1)),
               ),
               child: _logoImageUrl != null
                   ? ClipRRect(
@@ -737,7 +739,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                         cacheHeight: 400,
                         errorBuilder: (context, error, stackTrace) {
                           return const Center(
-                            child: Icon(Icons.image, color: Colors.white54),
+                            child: Icon(Icons.image, color: AuthColors.textSub),
                           );
                         },
                         frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
@@ -749,7 +751,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                               child: Padding(
                                 padding: EdgeInsets.all(16.0),
                                 child: CircularProgressIndicator(
-                                  color: Colors.white54,
+                                  color: AuthColors.textSub,
                                   strokeWidth: 2,
                                 ),
                               ),
@@ -773,7 +775,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                                 child: Padding(
                                   padding: EdgeInsets.all(16.0),
                                   child: CircularProgressIndicator(
-                                    color: Colors.white54,
+                                    color: AuthColors.textSub,
                                     strokeWidth: 2,
                                   ),
                                 ),
@@ -801,7 +803,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                                       child: Padding(
                                         padding: EdgeInsets.all(16.0),
                                         child: CircularProgressIndicator(
-                                          color: Colors.white54,
+                                          color: AuthColors.textSub,
                                           strokeWidth: 2,
                                         ),
                                       ),
@@ -836,27 +838,20 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                   ],
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton(
+                    child: DashButton(
+                      label: 'Pick Logo',
+                      icon: Icons.image,
                       onPressed: _pickLogo,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF6F4BFF),
-                        side: const BorderSide(color: Color(0xFF6F4BFF)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: const Text('Pick Logo'),
                     ),
                   ),
                   if (_logoImageUrl != null || _selectedLogoBytes != null) ...[
                     const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      child: TextButton(
+                      child: DashButton(
+                        label: 'Remove Logo',
+                        icon: Icons.delete_outline,
                         onPressed: _removeLogo,
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: const Text('Remove Logo'),
                       ),
                     ),
                   ],
@@ -873,27 +868,33 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+        borderSide: BorderSide(color: AuthColors.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red, width: 1),
+        borderSide: BorderSide(color: AuthColors.error, width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red, width: 2),
+        borderSide: BorderSide(color: AuthColors.error, width: 2),
       ),
     );
   }
@@ -921,13 +922,13 @@ class _PrintOption extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withValues(alpha: 0.2)
-              : const Color(0xFF1B1B2C),
+              ? AuthColors.primary.withValues(alpha: 0.2)
+              : AuthColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withValues(alpha: 0.1),
+                ? AuthColors.primary
+                : AuthColors.textMain.withValues(alpha: 0.1),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -935,14 +936,14 @@ class _PrintOption extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF6F4BFF) : Colors.white70,
+              color: isSelected ? AuthColors.primary : AuthColors.textSub,
               size: 24,
             ),
             const SizedBox(height: 8),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? const Color(0xFF6F4BFF) : Colors.white70,
+                color: isSelected ? AuthColors.primary : AuthColors.textSub,
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),

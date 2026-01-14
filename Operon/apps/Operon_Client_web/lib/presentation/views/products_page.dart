@@ -39,76 +39,17 @@ class ProductsPageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cubit = context.watch<ProductsCubit>();
+    // Background comes from PageWorkspaceLayout's Container (AuthColors.background)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: const Color(0xFF13131E),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: const Text(
-            'Manage products, GST, and pricing for this organization.',
-            style: TextStyle(color: Colors.white70),
-          ),
-        ),
-        const SizedBox(height: 20),
         if (canCreate)
-          Container(
+          SizedBox(
             width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _openProductDialog(context),
-                borderRadius: BorderRadius.circular(16),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Add Product',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            child: DashButton(
+              label: 'Add Product',
+              icon: Icons.add,
+              onPressed: () => _openProductDialog(context),
             ),
           )
         else
@@ -116,11 +57,11 @@ class ProductsPageContent extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0x22FFFFFF),
+              color: AuthColors.textMain.withOpacity(0.1),
             ),
-            child: const Text(
+            child: Text(
               'You have read-only access to products.',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AuthColors.textSub),
             ),
           ),
         const SizedBox(height: 20),
@@ -137,21 +78,20 @@ class ProductsPageContent extends StatelessWidget {
                       ? 'No products yet. Tap "Add Product".'
                       : 'No products to display.',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: AuthColors.textSub,
                     fontSize: 16,
                   ),
                   textAlign: TextAlign.center,
                 ),
               );
             }
-            return ListView.separated(
+            return ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: state.products.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final product = state.products[index];
-                return _ProductTile(
+                return _ProductDataListItem(
                   product: product,
                   canEdit: cubit.canEdit,
                   canDelete: cubit.canDelete,
@@ -176,7 +116,7 @@ class ProductsPageContent extends StatelessWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Product Dialog',
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: AuthColors.background.withValues(alpha: 0.8),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
         return BlocProvider.value(
@@ -205,8 +145,8 @@ class ProductsPageContent extends StatelessWidget {
   }
 }
 
-class _ProductTile extends StatelessWidget {
-  const _ProductTile({
+class _ProductDataListItem extends StatelessWidget {
+  const _ProductDataListItem({
     required this.product,
     required this.canEdit,
     required this.canDelete,
@@ -220,96 +160,87 @@ class _ProductTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
+  /// Get status ring color based on stock level
+  Color _getStatusRingColor() {
+    if (product.status == ProductStatus.archived) {
+      return AuthColors.textDisabled;
+    }
+    if (product.stock > 10) {
+      // In Stock - Green
+      return AuthColors.success;
+    } else if (product.stock > 0) {
+      // Low Stock - Orange (keep orange for visibility)
+      return const Color(0xFFFF9800);
+    } else {
+      // Out of Stock - Grey
+      return AuthColors.textDisabled;
+    }
+  }
+
+  /// Get status dot color based on product status
+  Color? _getStatusDotColor() {
+    if (product.status == ProductStatus.active) {
+      return AuthColors.primary; // Use primary color instead of Instagram blue
+    }
+    return AuthColors.textDisabled; // Paused or archived
+  }
+
+  /// Format subtitle with price and stock info
+  String _formatSubtitle() {
+    final priceText = '₹${product.unitPrice.toStringAsFixed(2)}';
+    final stockText = product.stock > 0
+        ? '${product.stock} in stock'
+        : 'Out of stock';
+    return '$priceText • $stockText';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
+    return DataList(
+      title: product.name,
+      subtitle: _formatSubtitle(),
+      leading: DataListAvatar(
+        initial: product.name.isNotEmpty ? product.name[0] : '?',
+        radius: 28,
+        statusRingColor: _getStatusRingColor(),
       ),
-      child: Row(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(Icons.inventory_2_outlined, color: Colors.white),
+          DataListStatusDot(
+            color: _getStatusDotColor(),
+            size: 8,
           ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  product.hasGst
-                      ? '₹${product.unitPrice.toStringAsFixed(2)} • GST ${product.gstPercent!.toStringAsFixed(1)}%'
-                      : '₹${product.unitPrice.toStringAsFixed(2)} • No GST',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                if (product.fixedQuantityPerTripOptions != null &&
-                    product.fixedQuantityPerTripOptions!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Fixed Qty/Trip: ${product.fixedQuantityPerTripOptions!.join(", ")}',
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  'Status: ${product.status.name}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
-                ),
-              ],
+          if (canEdit)
+            IconButton(
+              icon: Icon(
+                Icons.edit_outlined,
+                color: AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
-          ),
-          if (canEdit || canDelete)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (canEdit)
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.white54),
-                    onPressed: onEdit,
-                  ),
-                if (canEdit && canDelete) const SizedBox(height: 8),
-                if (canDelete)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                    onPressed: onDelete,
-                  ),
-              ],
+          if (canEdit && canDelete) const SizedBox(width: 8),
+          if (canDelete)
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline,
+                color: AuthColors.textSub,
+                size: 20,
+              ),
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
         ],
       ),
+      onTap: canEdit ? onEdit : null,
     );
   }
+
 }
 
 
@@ -375,10 +306,17 @@ class _ProductDialogState extends State<_ProductDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 600.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
       title: Text(
         isEditing ? 'Edit Product' : 'Add Product',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -390,7 +328,7 @@ class _ProductDialogState extends State<_ProductDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Product name'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -402,7 +340,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                   controller: _priceController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Unit price'),
                   validator: (value) {
                     final parsed = double.tryParse(value ?? '');
@@ -417,7 +355,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                   controller: _gstController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('GST (%) - Optional'),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -434,14 +372,14 @@ class _ProductDialogState extends State<_ProductDialog> {
                 TextFormField(
                   controller: _stockController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Stock (optional)'),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _fixedQuantityController,
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration(
                     'Fixed Quantity Per Trip (comma-separated, e.g., 1000, 1500, 2000) - Optional',
                   ),
@@ -464,8 +402,8 @@ class _ProductDialogState extends State<_ProductDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<ProductStatus>(
                   initialValue: _status,
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Status'),
                   onChanged: (value) {
                     if (value != null) setState(() => _status = value);
@@ -551,11 +489,28 @@ class _ProductDialogState extends State<_ProductDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: AuthColors.primary,
+          width: 2,
+        ),
       ),
     );
   }

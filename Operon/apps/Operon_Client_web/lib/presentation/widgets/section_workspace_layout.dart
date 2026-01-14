@@ -32,6 +32,11 @@ import 'package:dash_web/presentation/views/wage_settings_page.dart';
 import 'package:dash_web/presentation/blocs/wage_settings/wage_settings_cubit.dart';
 import 'package:dash_web/presentation/views/production_batch_templates_page.dart';
 import 'package:dash_web/presentation/blocs/production_batch_templates/production_batch_templates_cubit.dart';
+import 'package:dash_web/presentation/views/dm_settings_page.dart';
+import 'package:dash_web/presentation/blocs/dm_settings/dm_settings_cubit.dart';
+import 'package:dash_web/data/repositories/dm_settings_repository.dart';
+import 'package:dash_web/presentation/views/expense_sub_categories_page.dart';
+import 'package:dash_web/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_web/presentation/widgets/select_client_dialog.dart';
 import 'package:dash_web/presentation/widgets/record_payment_dialog.dart';
@@ -74,7 +79,7 @@ class SectionWorkspaceLayout extends StatefulWidget {
   State<SectionWorkspaceLayout> createState() => _SectionWorkspaceLayoutState();
 }
 
-enum ContentPage { none, roles, products, rawMaterials, paymentAccounts, users, employees, vehicles, zones, wageSettings, productionBatchTemplates }
+enum ContentPage { none, roles, products, vehicles, rawMaterials, paymentAccounts, users, employees, zones, wageSettings, productionBatchTemplates, dmSettings, expenseSubCategories }
 
 class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
   bool _isProfileOpen = false;
@@ -344,6 +349,16 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                 onOpenProductionBatchTemplates: () => setState(() {
                   _isSettingsOpen = false;
                   _contentPage = ContentPage.productionBatchTemplates;
+                }),
+                onOpenDmSettings: isAdminRole
+                    ? () => setState(() {
+                        _isSettingsOpen = false;
+                        _contentPage = ContentPage.dmSettings;
+                      })
+                    : null,
+                onOpenExpenseSubCategories: () => setState(() {
+                  _isSettingsOpen = false;
+                  _contentPage = ContentPage.expenseSubCategories;
                 }),
                 ),
               ),
@@ -1381,6 +1396,8 @@ class _SettingsSideSheet extends StatelessWidget {
     this.onOpenPaymentAccounts,
     this.onOpenWageSettings,
     this.onOpenProductionBatchTemplates,
+    this.onOpenDmSettings,
+    this.onOpenExpenseSubCategories,
   });
 
   final bool canManageRoles;
@@ -1397,6 +1414,8 @@ class _SettingsSideSheet extends StatelessWidget {
   final VoidCallback? onOpenPaymentAccounts;
   final VoidCallback? onOpenWageSettings;
   final VoidCallback? onOpenProductionBatchTemplates;
+  final VoidCallback? onOpenDmSettings;
+  final VoidCallback? onOpenExpenseSubCategories;
 
   @override
   Widget build(BuildContext context) {
@@ -1446,24 +1465,7 @@ class _SettingsSideSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              if (onOpenUsers != null)
-                _SettingsTile(
-                  label: 'Users',
-                  onTap: () {
-                    onClose();
-                    onOpenUsers!();
-                  },
-                ),
-              if (onOpenUsers != null) const SizedBox(height: 12),
-              if (onOpenVehicles != null)
-                _SettingsTile(
-                  label: 'Vehicles',
-                  onTap: () {
-                    onClose();
-                    onOpenVehicles!();
-                  },
-                ),
-              if (onOpenVehicles != null) const SizedBox(height: 12),
+              // 1. Roles
               if (canManageRoles)
                 _SettingsTile(
                   label: 'Roles',
@@ -1482,6 +1484,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 12),
+              // 2. Products
               _SettingsTile(
                 label: 'Products',
                 subtitle: canManageProducts ? null : 'Read only',
@@ -1491,6 +1494,17 @@ class _SettingsSideSheet extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
+              // 3. Vehicles
+              if (onOpenVehicles != null)
+                _SettingsTile(
+                  label: 'Vehicles',
+                  onTap: () {
+                    onClose();
+                    onOpenVehicles!();
+                  },
+                ),
+              if (onOpenVehicles != null) const SizedBox(height: 12),
+              // 4. Raw Materials
               _SettingsTile(
                 label: 'Raw Materials',
                 subtitle: canManageRawMaterials ? null : 'Read only',
@@ -1500,6 +1514,7 @@ class _SettingsSideSheet extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
+              // 5. Payment Accounts
               if (onOpenPaymentAccounts != null)
                 _SettingsTile(
                   label: 'Payment Accounts',
@@ -1518,6 +1533,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 12),
+              // 6. Wage Settings
               if (onOpenWageSettings != null)
                 _SettingsTile(
                   label: 'Wage Settings',
@@ -1527,12 +1543,33 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 ),
               if (onOpenWageSettings != null) const SizedBox(height: 12),
+              // 7. Production Batches
               if (onOpenProductionBatchTemplates != null)
                 _SettingsTile(
                   label: 'Production Batches',
                   onTap: () {
                     onClose();
                     onOpenProductionBatchTemplates!();
+                  },
+                ),
+              if (onOpenProductionBatchTemplates != null) const SizedBox(height: 12),
+              // 8. DM Settings
+              if (onOpenDmSettings != null)
+                _SettingsTile(
+                  label: 'DM Settings',
+                  onTap: () {
+                    onClose();
+                    onOpenDmSettings!();
+                  },
+                ),
+              if (onOpenDmSettings != null) const SizedBox(height: 12),
+              // 9. Expense Sub Categories
+              if (onOpenExpenseSubCategories != null)
+                _SettingsTile(
+                  label: 'Expense Sub Categories',
+                  onTap: () {
+                    onClose();
+                    onOpenExpenseSubCategories!();
                   },
                 ),
             ],
@@ -1824,6 +1861,42 @@ class _ContentSideSheet extends StatelessWidget {
           );
         }
         break;
+      case ContentPage.dmSettings:
+        title = 'DM Settings';
+        if (orgId == null) {
+          content = const Center(child: Text('No organization selected'));
+        } else {
+          final orgIdNonNull = orgId!;
+          final authState = context.read<AuthBloc>().state;
+          final userId = authState.userProfile?.id ?? '';
+          content = BlocProvider(
+            create: (context) => DmSettingsCubit(
+              repository: context.read<DmSettingsRepository>(),
+              orgId: orgIdNonNull,
+              userId: userId,
+            )..loadSettings(),
+            child: const DmSettingsPageContent(),
+          );
+        }
+        break;
+      case ContentPage.expenseSubCategories:
+        title = 'Expense Sub Categories';
+        if (orgId == null) {
+          content = const Center(child: Text('No organization selected'));
+        } else {
+          final orgIdNonNull = orgId!;
+          final authState = context.read<AuthBloc>().state;
+          final userId = authState.userProfile?.id ?? '';
+          content = BlocProvider(
+            create: (context) => ExpenseSubCategoriesCubit(
+              repository: context.read<ExpenseSubCategoriesRepository>(),
+              organizationId: orgIdNonNull,
+              userId: userId,
+            )..load(),
+            child: const ExpenseSubCategoriesPageContent(),
+          );
+        }
+        break;
       case ContentPage.none:
         title = '';
         content = const SizedBox.shrink();
@@ -1835,9 +1908,9 @@ class _ContentSideSheet extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF11111B),
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: AuthColors.surface,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(28),
               bottomLeft: Radius.circular(28),
             ),
@@ -1847,17 +1920,17 @@ class _ContentSideSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Color(0xFF1B1C2C),
-                        Color(0xFF161622),
+                        AuthColors.surface,
+                        AuthColors.background,
                       ],
                     ),
                     border: Border(
                       bottom: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: AuthColors.textMain.withOpacity(0.08),
                         width: 1,
                       ),
                     ),
@@ -1871,7 +1944,7 @@ class _ContentSideSheet extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: IconButton(
                           onPressed: onClose,
-                          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+                          icon: Icon(Icons.arrow_back, color: AuthColors.textSub),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           tooltip: 'Close',
@@ -1881,8 +1954,8 @@ class _ContentSideSheet extends StatelessWidget {
                         child: Text(
                           title,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AuthColors.textMain,
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
                           ),
