@@ -37,7 +37,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
   String _query = '';
   _SortOption _sortOption = _SortOption.nameAsc;
   String? _selectedRoleFilter;
-  bool _isListView = false;
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
 
   List<OrganizationEmployee> _applyFiltersAndSort(
     List<OrganizationEmployee> employees,
@@ -129,26 +130,26 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                   child: Container(
                     constraints: const BoxConstraints(maxWidth: 400),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                      color: AuthColors.surface.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textSub.withOpacity(0.2),
                       ),
                     ),
                     child: TextField(
                       onChanged: (v) => setState(() => _query = v),
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: AuthColors.textMain),
                       decoration: InputDecoration(
                         hintText: 'Search employees by name...',
                         hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: AuthColors.textDisabled,
                         ),
                         filled: true,
                         fillColor: Colors.transparent,
-                        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                        prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.white54),
+                                icon: Icon(Icons.clear, color: AuthColors.textSub),
                                 onPressed: () => setState(() => _query = ''),
                               )
                             : null,
@@ -167,10 +168,10 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                      color: AuthColors.surface.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textSub.withOpacity(0.2),
                       ),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -179,16 +180,16 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                         hint: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.filter_list, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+                            Icon(Icons.filter_list, size: 16, color: AuthColors.textSub),
                             const SizedBox(width: 6),
                             Text(
                               'All Roles',
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+                              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                             ),
                           ],
                         ),
-                        dropdownColor: const Color(0xFF1B1B2C),
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        dropdownColor: AuthColors.surface,
+                        style: TextStyle(color: AuthColors.textMain, fontSize: 14),
                         items: [
                           const DropdownMenuItem<String>(
                             value: null,
@@ -200,7 +201,7 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                           )),
                         ],
                         onChanged: (value) => setState(() => _selectedRoleFilter = value),
-                        icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7), size: 20),
+                        icon: Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
                         isDense: true,
                       ),
                     ),
@@ -210,30 +211,30 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                    color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textSub.withOpacity(0.2),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.sort, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+                      Icon(Icons.sort, size: 16, color: AuthColors.textSub),
                       const SizedBox(width: 6),
                       DropdownButtonHideUnderline(
                         child: DropdownButton<_SortOption>(
                           value: _sortOption,
-                          dropdownColor: const Color(0xFF1B1B2C),
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          dropdownColor: AuthColors.surface,
+                          style: TextStyle(color: AuthColors.textMain, fontSize: 14),
                           items: const [
                             DropdownMenuItem(
                               value: _SortOption.nameAsc,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.sort_by_alpha, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Name (A-Z)'),
                                 ],
                               ),
@@ -243,8 +244,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.sort_by_alpha, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Name (Z-A)'),
                                 ],
                               ),
@@ -254,8 +255,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.trending_down, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.trending_down, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Balance (High to Low)'),
                                 ],
                               ),
@@ -265,8 +266,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.trending_up, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.trending_up, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Balance (Low to High)'),
                                 ],
                               ),
@@ -276,7 +277,7 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.badge, size: 16, color: Colors.white70),
+                                  Icon(Icons.badge, size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Role'),
                                 ],
@@ -288,43 +289,10 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               setState(() => _sortOption = value);
                             }
                           },
-                          icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7), size: 20),
+                          icon: Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
                           isDense: true,
                           hint: const Text('Sort'),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // View Toggle
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ViewToggleButton(
-                        icon: Icons.grid_view,
-                        isSelected: !_isListView,
-                        onTap: () => setState(() => _isListView = false),
-                        tooltip: 'Grid View',
-                      ),
-                      Container(
-                        width: 1,
-                        height: 32,
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                      _ViewToggleButton(
-                        icon: Icons.list,
-                        isSelected: _isListView,
-                        onTap: () => setState(() => _isListView = true),
-                        tooltip: 'List View',
                       ),
                     ],
                   ),
@@ -334,16 +302,16 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                    color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textSub.withOpacity(0.2),
                     ),
                   ),
                   child: Text(
                     '${filtered.length} ${filtered.length == 1 ? 'employee' : 'employees'}',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: AuthColors.textSub,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -356,8 +324,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                   label: const Text('Add Employee'),
                   onPressed: () => _showEmployeeDialog(context, null),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6F4BFF),
-                    foregroundColor: Colors.white,
+                    backgroundColor: AuthColors.primary,
+                    foregroundColor: AuthColors.textMain,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 16,
@@ -372,50 +340,19 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
             ),
             const SizedBox(height: 24),
             
-            // Employee Grid/List
+            // Employee List
             if (filtered.isEmpty && (_query.isNotEmpty || _selectedRoleFilter != null))
               _EmptySearchState(query: _query)
             else if (filtered.isEmpty)
               _EmptyEmployeesState(
                 onAddEmployee: () => _showEmployeeDialog(context, null),
               )
-            else if (_isListView)
+            else
               _EmployeeListView(
                 employees: filtered,
                 onTap: (emp) => _openEmployeeDetail(emp),
                 onEdit: (emp) => _showEmployeeDialog(context, emp),
                 onDelete: (emp) => _showDeleteConfirmation(context, emp),
-              )
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final crossAxisCount = constraints.maxWidth > 1400
-                      ? 4
-                      : constraints.maxWidth > 1050
-                          ? 3
-                          : constraints.maxWidth > 700
-                              ? 2
-                              : 1;
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: 1.25,
-                    ),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      return _EmployeeCard(
-                        employee: filtered[index],
-                        onTap: () => _openEmployeeDetail(filtered[index]),
-                        onEdit: () => _showEmployeeDialog(context, filtered[index]),
-                        onDelete: () => _showDeleteConfirmation(context, filtered[index]),
-                      );
-                    },
-                  );
-                },
               ),
             ],
           );
@@ -433,433 +370,6 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
           context.read<EmployeesCubit>().loadEmployees();
         },
         onEdit: () => _showEmployeeDialog(context, employee),
-      ),
-    );
-  }
-}
-
-class _EmployeeCard extends StatefulWidget {
-  const _EmployeeCard({
-    required this.employee,
-    this.onTap,
-    this.onEdit,
-    this.onDelete,
-  });
-
-  final OrganizationEmployee employee;
-  final VoidCallback? onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-
-  @override
-  State<_EmployeeCard> createState() => _EmployeeCardState();
-}
-
-class _EmployeeCardState extends State<_EmployeeCard>
-    with SingleTickerProviderStateMixin {
-  bool _isHovered = false;
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Color _getRoleColor(String? roleTitle) {
-    if (roleTitle == null || roleTitle.isEmpty) return const Color(0xFF6F4BFF);
-    final hash = roleTitle.hashCode;
-    final colors = [
-      const Color(0xFF6F4BFF),
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
-    ];
-    return colors[hash.abs() % colors.length];
-  }
-
-  String _getWageTypeDisplayName(WageType type) {
-    switch (type) {
-      case WageType.perMonth:
-        return 'Per Month';
-      case WageType.perTrip:
-        return 'Per Trip';
-      case WageType.perBatch:
-        return 'Per Batch';
-      case WageType.perHour:
-        return 'Per Hour';
-      case WageType.perKm:
-        return 'Per Kilometer';
-      case WageType.commission:
-        return 'Commission';
-      case WageType.hybrid:
-        return 'Hybrid';
-    }
-  }
-
-  String _getInitials(String name) {
-    final parts = name.split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final roleColor = _getRoleColor(widget.employee.primaryJobRoleTitle);
-    final balanceDifference = widget.employee.currentBalance - widget.employee.openingBalance;
-    final isPositive = balanceDifference >= 0;
-
-    return MouseRegion(
-      onEnter: (_) {
-        setState(() => _isHovered = true);
-        _controller.forward();
-      },
-      onExit: (_) {
-        setState(() => _isHovered = false);
-        _controller.reverse();
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: 1.0 + (_controller.value * 0.02),
-              child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1F1F33),
-                    Color(0xFF1A1A28),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: _isHovered
-                      ? roleColor.withValues(alpha: 0.5)
-                      : Colors.white.withValues(alpha: 0.1),
-                  width: _isHovered ? 1.5 : 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                  if (_isHovered)
-                    BoxShadow(
-                      color: roleColor.withValues(alpha: 0.2),
-                      blurRadius: 20,
-                      spreadRadius: -5,
-                      offset: const Offset(0, 10),
-                    ),
-                ],
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 20,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Header with Avatar
-                        Row(
-                          children: [
-                            Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    roleColor,
-                                    roleColor.withValues(alpha: 0.7),
-                                  ],
-                                ),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: roleColor.withValues(alpha: 0.4),
-                                    blurRadius: 12,
-                                    spreadRadius: -2,
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _getInitials(widget.employee.name),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 20,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.employee.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 18,
-                                      letterSpacing: -0.5,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: roleColor.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: roleColor.withValues(alpha: 0.3),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      widget.employee.primaryJobRoleTitle,
-                                      style: TextStyle(
-                                        color: roleColor,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        
-                        // Balance Section
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.08),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Current Balance',
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.7),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  Builder(
-                                    builder: (context) {
-                                      final openingBalance = widget.employee.openingBalance;
-                                      final percentChange = openingBalance != 0
-                                          ? (balanceDifference / openingBalance * 100)
-                                          : 0.0;
-                                      
-                                      return Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isPositive
-                                              ? const Color(0xFF5AD8A4)
-                                                  .withValues(alpha: 0.2)
-                                              : Colors.redAccent.withValues(alpha: 0.2),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              isPositive
-                                                  ? Icons.arrow_upward
-                                                  : Icons.arrow_downward,
-                                              size: 12,
-                                              color: isPositive
-                                                  ? const Color(0xFF5AD8A4)
-                                                  : Colors.redAccent,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '${isPositive ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)}',
-                                              style: TextStyle(
-                                                color: isPositive
-                                                    ? const Color(0xFF5AD8A4)
-                                                    : Colors.redAccent,
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                            if (openingBalance != 0) ...[
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                '(${isPositive ? '+' : ''}${percentChange.abs().toStringAsFixed(1)}%)',
-                                                style: TextStyle(
-                                                  color: isPositive
-                                                      ? const Color(0xFF5AD8A4)
-                                                      : Colors.redAccent,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '₹${widget.employee.currentBalance.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 20,
-                                  letterSpacing: -0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Opening: ₹${widget.employee.openingBalance.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Salary Info
-                        if (widget.employee.wage.baseAmount != null || widget.employee.wage.rate != null)
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.account_balance_wallet_outlined,
-                                size: 16,
-                                color: Colors.white.withValues(alpha: 0.6),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '${_getWageTypeDisplayName(widget.employee.wage.type)} • ₹${(widget.employee.wage.baseAmount ?? widget.employee.wage.rate ?? 0).toStringAsFixed(2)}',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-                  
-                  // Action Buttons (appear on hover)
-                  if (_isHovered)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1B1B2C).withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (widget.onTap != null)
-                              IconButton(
-                                icon: const Icon(Icons.visibility, size: 18),
-                                color: Colors.white70,
-                                onPressed: widget.onTap,
-                                tooltip: 'View Details',
-                                padding: const EdgeInsets.all(8),
-                                constraints: const BoxConstraints(),
-                              ),
-                            if (widget.onEdit != null) ...[
-                              if (widget.onTap != null)
-                                Container(
-                                  width: 1,
-                                  height: 24,
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                ),
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 18),
-                                color: Colors.white70,
-                                onPressed: widget.onEdit,
-                                tooltip: 'Edit',
-                                padding: const EdgeInsets.all(8),
-                                constraints: const BoxConstraints(),
-                              ),
-                            ],
-                            if (widget.onDelete != null) ...[
-                              Container(
-                                width: 1,
-                                height: 24,
-                                color: Colors.white.withValues(alpha: 0.1),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, size: 18),
-                                color: Colors.redAccent,
-                                onPressed: widget.onDelete,
-                                tooltip: 'Delete',
-                                padding: const EdgeInsets.all(8),
-                                constraints: const BoxConstraints(),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
       ),
     );
   }
@@ -897,14 +407,14 @@ void _showDeleteConfirmation(BuildContext context, OrganizationEmployee employee
   showDialog(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
-      title: const Text(
+      backgroundColor: AuthColors.surface,
+      title: Text(
         'Delete Employee',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: Text(
         'Are you sure you want to delete ${employee.name}?',
-        style: const TextStyle(color: Colors.white70),
+        style: TextStyle(color: AuthColors.textSub),
       ),
       actions: [
         TextButton(
@@ -917,7 +427,7 @@ void _showDeleteConfirmation(BuildContext context, OrganizationEmployee employee
             Navigator.of(dialogContext).pop();
           },
           style: TextButton.styleFrom(
-            foregroundColor: Colors.redAccent,
+            foregroundColor: AuthColors.error,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(6),
             ),
@@ -1025,12 +535,12 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF11111B),
-              Color(0xFF0D0D15),
+              AuthColors.surface,
+              AuthColors.background,
             ],
           ),
           borderRadius: BorderRadius.circular(24),
@@ -1327,7 +837,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
+                      foregroundColor: AuthColors.textSub,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 12,
@@ -1405,8 +915,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       Navigator.of(context).pop();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6F4BFF),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AuthColors.primary,
+                      foregroundColor: AuthColors.textMain,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 14,
@@ -1468,7 +978,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
       labelText: label,
       prefixIcon: Icon(icon, color: Colors.white54, size: 20),
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
+      fillColor: AuthColors.surface,
       labelStyle: const TextStyle(color: Colors.white70),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -1539,7 +1049,7 @@ class _EmployeesStatsHeader extends StatelessWidget {
                       icon: Icons.people_outline,
                       label: 'Total Employees',
                       value: totalEmployees.toString(),
-                      color: const Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1548,7 +1058,7 @@ class _EmployeesStatsHeader extends StatelessWidget {
                       icon: Icons.account_balance_wallet_outlined,
                       label: 'Total Opening Balance',
                       value: '₹${totalOpeningBalance.toStringAsFixed(2)}',
-                      color: const Color(0xFF5AD8A4),
+                      color: AuthColors.success,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1560,8 +1070,8 @@ class _EmployeesStatsHeader extends StatelessWidget {
                       subtitle: balanceDifference != 0
                           ? '${balanceDifference >= 0 ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)} (${balanceChangePercent >= 0 ? '+' : ''}${balanceChangePercent.abs().toStringAsFixed(1)}%)'
                           : null,
-                      subtitleColor: balanceDifference >= 0 ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                      color: const Color(0xFFFF9800),
+                      subtitleColor: balanceDifference >= 0 ? AuthColors.success : AuthColors.error,
+                      color: AuthColors.secondary,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1570,7 +1080,7 @@ class _EmployeesStatsHeader extends StatelessWidget {
                       icon: Icons.analytics_outlined,
                       label: 'Average Balance',
                       value: '₹${avgBalance.toStringAsFixed(2)}',
-                      color: const Color(0xFF2196F3),
+                      color: AuthColors.primary,
                     ),
                   ),
                 ],
@@ -1583,13 +1093,13 @@ class _EmployeesStatsHeader extends StatelessWidget {
                     icon: Icons.people_outline,
                     label: 'Total Employees',
                     value: totalEmployees.toString(),
-                    color: const Color(0xFF6F4BFF),
+                    color: AuthColors.primary,
                   ),
                   _StatCard(
                     icon: Icons.account_balance_wallet_outlined,
                     label: 'Total Opening Balance',
                     value: '₹${totalOpeningBalance.toStringAsFixed(2)}',
-                    color: const Color(0xFF5AD8A4),
+                    color: AuthColors.success,
                   ),
                   _StatCard(
                     icon: Icons.trending_up,
@@ -1598,14 +1108,14 @@ class _EmployeesStatsHeader extends StatelessWidget {
                     subtitle: balanceDifference != 0
                         ? '${balanceDifference >= 0 ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)} (${balanceChangePercent >= 0 ? '+' : ''}${balanceChangePercent.abs().toStringAsFixed(1)}%)'
                         : null,
-                    subtitleColor: balanceDifference >= 0 ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                    color: const Color(0xFFFF9800),
+                    subtitleColor: balanceDifference >= 0 ? AuthColors.success : AuthColors.error,
+                    color: AuthColors.secondary,
                   ),
                   _StatCard(
                     icon: Icons.analytics_outlined,
                     label: 'Average Balance',
                     value: '₹${avgBalance.toStringAsFixed(2)}',
-                    color: const Color(0xFF2196F3),
+                    color: AuthColors.primary,
                   ),
                 ],
               );
@@ -1636,21 +1146,21 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
+            AuthColors.surface,
+            AuthColors.background,
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textSub.withOpacity(0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: AuthColors.background.withOpacity(0.5),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -1675,7 +1185,7 @@ class _StatCard extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: AuthColors.textSub,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1683,8 +1193,8 @@ class _StatCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AuthColors.textMain,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1694,7 +1204,7 @@ class _StatCard extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: TextStyle(
-                      color: subtitleColor ?? Colors.white.withValues(alpha: 0.6),
+                      color: subtitleColor ?? AuthColors.textSub,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1926,47 +1436,6 @@ class _EmptySearchState extends StatelessWidget {
   }
 }
 
-class _ViewToggleButton extends StatelessWidget {
-  const _ViewToggleButton({
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFF6F4BFF).withValues(alpha: 0.2)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withValues(alpha: 0.6),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _EmployeeListView extends StatelessWidget {
   const _EmployeeListView({
     required this.employees,
@@ -1981,14 +1450,14 @@ class _EmployeeListView extends StatelessWidget {
   final ValueChanged<OrganizationEmployee> onDelete;
 
   Color _getRoleColor(String? roleTitle) {
-    if (roleTitle == null || roleTitle.isEmpty) return const Color(0xFF6F4BFF);
+    if (roleTitle == null || roleTitle.isEmpty) return AuthColors.primary;
     final hash = roleTitle.hashCode;
     final colors = [
-      const Color(0xFF6F4BFF),
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
+      AuthColors.primary,
+      AuthColors.success,
+      AuthColors.secondary,
+      AuthColors.primary,
+      AuthColors.error,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -2022,211 +1491,101 @@ class _EmployeeListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: employees.map((employee) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: employees.length,
+      itemBuilder: (context, index) {
+        final employee = employees[index];
         final roleColor = _getRoleColor(employee.primaryJobRoleTitle);
         final balanceDifference = employee.currentBalance - employee.openingBalance;
         final isPositive = balanceDifference >= 0;
-        final percentChange = employee.openingBalance != 0
-            ? (balanceDifference / employee.openingBalance * 100)
-            : 0.0;
+        final roleTitle = employee.primaryJobRoleTitle.isNotEmpty
+            ? employee.primaryJobRoleTitle
+            : employee.jobRoleTitles;
+        final subtitleParts = <String>[];
+        if (roleTitle.isNotEmpty) subtitleParts.add(roleTitle);
+        subtitleParts.add('₹${employee.currentBalance.toStringAsFixed(2)}');
+        final subtitle = subtitleParts.join(' • ');
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1F1F33),
-                Color(0xFF1A1A28),
+            color: AuthColors.background,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: DataList(
+            title: employee.name,
+            subtitle: subtitle,
+            leading: DataListAvatar(
+              initial: _getInitials(employee.name),
+              radius: 28,
+              statusRingColor: roleColor,
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (balanceDifference != 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isPositive
+                            ? AuthColors.success.withOpacity(0.15)
+                            : AuthColors.error.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isPositive ? Icons.arrow_upward : Icons.arrow_downward,
+                            size: 10,
+                            color: isPositive ? AuthColors.success : AuthColors.error,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '₹${balanceDifference.abs().toStringAsFixed(2)}',
+                            style: TextStyle(
+                              color: isPositive ? AuthColors.success : AuthColors.error,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  icon: Icon(Icons.visibility_outlined, size: 20, color: AuthColors.textSub),
+                  onPressed: () => onTap?.call(employee),
+                  tooltip: 'View Details',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, size: 20, color: AuthColors.textSub),
+                  onPressed: () => onEdit(employee),
+                  tooltip: 'Edit',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(Icons.delete_outline, size: 20, color: AuthColors.error),
+                  onPressed: () => onDelete(employee),
+                  tooltip: 'Delete',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
               ],
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Avatar
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      roleColor,
-                      roleColor.withValues(alpha: 0.7),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    _getInitials(employee.name),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 20),
-              // Name and Role
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      employee.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: roleColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: roleColor.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Text(
-                        employee.primaryJobRoleTitle.isNotEmpty
-                            ? employee.primaryJobRoleTitle
-                            : employee.jobRoleTitles,
-                        style: TextStyle(
-                          color: roleColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Balance
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '₹${employee.currentBalance.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                          size: 12,
-                          color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${isPositive ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (employee.openingBalance != 0) ...[
-                          const SizedBox(width: 4),
-                          Text(
-                            '(${isPositive ? '+' : ''}${percentChange.abs().toStringAsFixed(1)}%)',
-                            style: TextStyle(
-                              color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              // Salary
-              Expanded(
-                flex: 2,
-                child: (employee.wage.baseAmount != null || employee.wage.rate != null)
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '₹${(employee.wage.baseAmount ?? employee.wage.rate ?? 0).toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                          Text(
-                            _getWageTypeDisplayName(employee.wage.type),
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      )
-                    : const SizedBox(),
-              ),
-              // Actions
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onTap != null)
-                    IconButton(
-                      icon: const Icon(Icons.visibility, size: 20),
-                      color: Colors.white70,
-                      onPressed: () => onTap!(employee),
-                      tooltip: 'View Details',
-                    ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 20),
-                    color: Colors.white70,
-                    onPressed: () => onEdit(employee),
-                    tooltip: 'Edit',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    color: Colors.redAccent,
-                    onPressed: () => onDelete(employee),
-                    tooltip: 'Delete',
-                  ),
-                ],
-              ),
-            ],
+            onTap: () => onTap?.call(employee),
           ),
         );
-      }).toList(),
+      },
     );
   }
 }

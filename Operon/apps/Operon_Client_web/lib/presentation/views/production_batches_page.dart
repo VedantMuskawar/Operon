@@ -50,6 +50,7 @@ class ProductionBatchesPage extends StatelessWidget {
           employeeWagesDataSource: EmployeeWagesDataSource(),
           productionBatchesDataSource: ProductionBatchesDataSource(),
           tripWagesDataSource: TripWagesDataSource(),
+          employeeAttendanceDataSource: EmployeeAttendanceDataSource(),
         ),
       )..loadBatches(),
       child: SectionWorkspaceLayout(

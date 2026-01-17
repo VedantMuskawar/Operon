@@ -58,6 +58,7 @@ import 'package:dash_mobile/presentation/views/dm_settings_page.dart';
 import 'package:dash_mobile/presentation/blocs/dm_settings/dm_settings_cubit.dart';
 import 'package:dash_mobile/data/repositories/dm_settings_repository.dart';
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
+import 'package:dash_mobile/presentation/views/attendance_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
@@ -758,6 +759,32 @@ GoRouter buildRouter() {
               )..watchTransactions(),
               child: const EmployeeWagesPage(),
             ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/attendance',
+        name: 'attendance',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          final role = orgState.appAccessRole;
+          if (organization == null || role == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          // Check if user can access employees page (attendance is related to employees)
+          if (!role.canAccessPage('employees') && !role.isAdmin) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const HomePage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: const AttendancePage(),
           );
         },
       ),

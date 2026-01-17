@@ -70,3 +70,34 @@ export function cleanDailyData(dailyData: Record<string, number>, keepDays: numb
   return cleaned;
 }
 
+/**
+ * Get year-month string in format YYYY-MM for attendance/ledger documents
+ * @param date - The date to format
+ * @returns Year-month string (e.g., "2024-01" for January 2024)
+ */
+export function getYearMonth(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+/**
+ * Get year-month string in format YYYYMM for document IDs (compact format)
+ * @param date - The date to format
+ * @returns Year-month string (e.g., "202401" for January 2024)
+ */
+export function getYearMonthCompact(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}${month}`;
+}
+
+/**
+ * Normalize date to start of day for comparison
+ * @param date - The date to normalize
+ * @returns Date at start of day in UTC
+ */
+export function normalizeDate(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+

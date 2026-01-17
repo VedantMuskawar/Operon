@@ -4,6 +4,9 @@ exports.getISOWeek = getISOWeek;
 exports.formatDate = formatDate;
 exports.formatMonth = formatMonth;
 exports.cleanDailyData = cleanDailyData;
+exports.getYearMonth = getYearMonth;
+exports.getYearMonthCompact = getYearMonthCompact;
+exports.normalizeDate = normalizeDate;
 /**
  * Get ISO week number for a date
  * ISO week starts on Monday and week 1 is the first week with at least 4 days in the new year
@@ -62,5 +65,33 @@ function cleanDailyData(dailyData, keepDays) {
         }
     }
     return cleaned;
+}
+/**
+ * Get year-month string in format YYYY-MM for attendance/ledger documents
+ * @param date - The date to format
+ * @returns Year-month string (e.g., "2024-01" for January 2024)
+ */
+function getYearMonth(date) {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+}
+/**
+ * Get year-month string in format YYYYMM for document IDs (compact format)
+ * @param date - The date to format
+ * @returns Year-month string (e.g., "202401" for January 2024)
+ */
+function getYearMonthCompact(date) {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}${month}`;
+}
+/**
+ * Normalize date to start of day for comparison
+ * @param date - The date to normalize
+ * @returns Date at start of day in UTC
+ */
+function normalizeDate(date) {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 //# sourceMappingURL=date-helpers.js.map

@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/data/repositories/raw_materials_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
@@ -223,7 +224,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
           Text(
             label,
             style: TextStyle(
-              color: isTotal ? Colors.white : Colors.white.withOpacity(0.7),
+              color: isTotal ? AuthColors.textMain : AuthColors.textMainWithOpacity(0.7),
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.normal,
               fontSize: isTotal ? 14 : 12,
             ),
@@ -231,7 +232,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
           Text(
             '₹${amount.toStringAsFixed(2)}',
             style: TextStyle(
-              color: isTotal ? const Color(0xFF6F4BFF) : Colors.white,
+              color: isTotal ? AuthColors.legacyAccent : AuthColors.textMain,
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
               fontSize: isTotal ? 16 : 12,
             ),
@@ -493,7 +494,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Purchase recorded successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: AuthColors.success,
           ),
         );
         Navigator.of(context).pop();
@@ -503,7 +504,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to record purchase: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -513,7 +514,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -532,12 +533,12 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6F4BFF).withOpacity(0.2),
+                        color: AuthColors.legacyAccent.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.shopping_cart,
-                        color: Color(0xFF6F4BFF),
+                        color: AuthColors.legacyAccent,
                         size: 20,
                       ),
                     ),
@@ -546,7 +547,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       child: Text(
                         'Record Purchase',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -554,7 +555,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: const Icon(Icons.close, color: AuthColors.textSub),
                     ),
                   ],
                 ),
@@ -582,10 +583,10 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         onSelected: (selected) {
                           _onVendorTypeSelected(selected ? type : null);
                         },
-                        selectedColor: const Color(0xFF6F4BFF).withOpacity(0.3),
-                        checkmarkColor: const Color(0xFF6F4BFF),
+                        selectedColor: AuthColors.legacyAccent.withOpacity(0.3),
+                        checkmarkColor: AuthColors.legacyAccent,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
+                          color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       );
@@ -598,8 +599,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                 DropdownButtonFormField<Vendor>(
                   value: _selectedVendor,
                   decoration: _inputDecoration('Vendor'),
-                  dropdownColor: const Color(0xFF2B2B3C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: const TextStyle(color: AuthColors.textMain),
                   items: _filteredVendors.map((vendor) {
                     return DropdownMenuItem<Vendor>(
                       value: vendor,
@@ -610,7 +611,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           Text(
                             vendor.name,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -664,7 +665,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           _formatDate(_selectedDate),
                           style: const TextStyle(color: Colors.white),
                         ),
-                        const Icon(Icons.calendar_today, color: Colors.white54, size: 20),
+                        const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 20),
                       ],
                     ),
                   ),
@@ -705,7 +706,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                               child: Text(
                                 vehicle.vehicleNumber,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AuthColors.textMain,
                                   fontWeight: FontWeight.w600,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -747,7 +748,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             const Text(
                               'Raw Materials Purchased',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AuthColors.textMain,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
                               ),
@@ -789,7 +790,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                     Text(
                                       material.name,
                                       style: const TextStyle(
-                                        color: Colors.white,
+                                        color: AuthColors.textMain,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -907,7 +908,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           const Text(
                             'Additional Charges',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),

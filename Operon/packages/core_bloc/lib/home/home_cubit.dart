@@ -86,7 +86,7 @@ class HomeCubit extends Cubit<HomeState> {
     }
 
     // Check section access using the role's canAccessSection method
-    // Section indices: 0=Overview, 1=PendingOrders, 2=ScheduleOrders, 3=OrdersMap, 4=Analytics
+    // Section indices: 0=Overview, 1=PendingOrders, 2=ScheduleOrders, 3=OrdersMap, 4=Analytics, 5=Attendance
     if (_canAccessSection(appAccessRole, 'pendingOrders')) {
       visible.add(1);
     }
@@ -98,6 +98,10 @@ class HomeCubit extends Cubit<HomeState> {
     }
     if (_canAccessSection(appAccessRole, 'analyticsDashboard')) {
       visible.add(4);
+    }
+    // Attendance is accessible if user can access employees page
+    if (_canAccessPage(appAccessRole, 'employees')) {
+      visible.add(5);
     }
 
     return visible;
@@ -118,6 +122,26 @@ class HomeCubit extends Cubit<HomeState> {
     } catch (e) {
       if (kDebugMode) {
         print('Error checking section access: $e');
+      }
+    }
+    return false;
+  }
+
+  /// Helper to check page access
+  /// Works with AppAccessRole from both Android and Web apps
+  bool _canAccessPage(dynamic appAccessRole, String pageName) {
+    try {
+      // Try to call canAccessPage method
+      if (appAccessRole is! Map && appAccessRole != null) {
+        // Use dynamic invocation for flexibility across apps
+        final result = (appAccessRole as dynamic).canAccessPage(pageName);
+        if (result is bool) {
+          return result;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking page access: $e');
       }
     }
     return false;

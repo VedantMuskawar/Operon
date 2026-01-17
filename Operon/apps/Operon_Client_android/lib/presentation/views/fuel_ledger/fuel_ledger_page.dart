@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
@@ -168,7 +169,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
     return Stack(
       children: [
         Scaffold(
-          backgroundColor: const Color(0xFF000000),
+          backgroundColor: AuthColors.background,
           appBar: const ModernPageHeader(
             title: 'Fuel Ledger',
           ),
@@ -206,8 +207,8 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                             ElevatedButton(
                               onPressed: _loadFuelPurchases,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF6F4BFF),
-                                foregroundColor: Colors.white,
+                                backgroundColor: AuthColors.legacyAccent,
+                                foregroundColor: AuthColors.textMain,
                               ),
                               child: const Text('Retry'),
                             ),
@@ -226,13 +227,13 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                 const Icon(
                                   Icons.local_gas_station_outlined,
                                   size: 64,
-                                  color: Colors.white24,
+                                  color: AuthColors.textDisabled,
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   'No fuel purchases found',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
+                                    color: AuthColors.textMainWithOpacity(0.6),
                                     fontSize: 16,
                                   ),
                                 ),
@@ -240,7 +241,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                 Text(
                                   'Tap the button below to record a fuel purchase',
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.4),
+                                    color: AuthColors.textMainWithOpacity(0.4),
                                     fontSize: 14,
                                   ),
                                   textAlign: TextAlign.center,
@@ -296,7 +297,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF),
+                      color: AuthColors.legacyAccent,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
@@ -309,12 +310,12 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add, color: Colors.white, size: 24),
+                        Icon(Icons.add, color: AuthColors.textMain, size: 24),
                         SizedBox(width: 8),
                         Text(
                           'Record Fuel Purchase',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -359,12 +360,12 @@ class _FuelPurchasesTable extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
+            AuthColors.surface,
+            AuthColors.background,
           ],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Table(
         columnWidths: const {
@@ -378,7 +379,7 @@ class _FuelPurchasesTable extends StatelessWidget {
         },
         border: TableBorder(
           horizontalInside: BorderSide(
-            color: Colors.white.withOpacity(0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
             width: 1,
           ),
         ),
@@ -418,7 +419,7 @@ class _FuelPurchasesTable extends StatelessWidget {
               decoration: BoxDecoration(
                 color: index % 2 == 0
                     ? Colors.transparent
-                    : Colors.white.withOpacity(0.02),
+                    : AuthColors.textMainWithOpacity(0.02),
                 borderRadius: isLast
                     ? const BorderRadius.only(
                         bottomLeft: Radius.circular(12),
@@ -478,7 +479,7 @@ class _TableHeaderCell extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(
-          color: Colors.white,
+          color: AuthColors.textMain,
           fontSize: 13,
           fontWeight: FontWeight.w700,
         ),

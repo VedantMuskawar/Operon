@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 
 class OrdersMapView extends StatelessWidget {
   const OrdersMapView({super.key});
@@ -11,7 +12,7 @@ class OrdersMapView extends StatelessWidget {
         Text(
           'Orders Map',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontWeight: FontWeight.w600,
               ),
         ),
@@ -20,12 +21,12 @@ class OrdersMapView extends StatelessWidget {
           height: 220,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1F1F33), Color(0xFF13131F)],
+            gradient: LinearGradient(
+              colors: [AuthColors.surface, AuthColors.background],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            border: Border.all(color: Colors.white12),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
           ),
           child: CustomPaint(
             painter: _GridPainter(),
@@ -41,7 +42,7 @@ class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0x22FFFFFF)
+      ..color = AuthColors.textMainWithOpacity(0.13)
       ..strokeWidth = 1;
     const step = 32.0;
     for (double x = 0; x < size.width; x += step) {
@@ -60,7 +61,7 @@ class _GridPainter extends CustomPainter {
         dot,
         5,
         Paint()
-          ..color = const Color(0xFF6F4BFF)
+          ..color = AuthColors.legacyAccent
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
     }

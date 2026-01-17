@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/delivery_memo_repository.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -42,17 +43,17 @@ class ScheduledTripTile extends StatelessWidget {
     final orderStatus = trip['orderStatus'] as String? ?? 'pending';
     switch (orderStatus.toLowerCase()) {
       case 'pending':
-        return Colors.red;
+        return AuthColors.error;
       case 'scheduled':
-        return const Color(0xFFD10202); // Scheduled status color
+        return AuthColors.error; // Scheduled status color
       case 'dispatched':
-        return const Color(0xFFD16D02); // Dispatched status color
+        return AuthColors.warning; // Dispatched status color
       case 'delivered':
-        return const Color(0xFF0502D1); // Blue color for delivered
+        return AuthColors.info; // Blue color for delivered
       case 'returned':
-        return Colors.green;
+        return AuthColors.success;
       default:
-        return const Color(0xFFD10202); // Default to scheduled color
+        return AuthColors.error; // Default to scheduled color
     }
   }
 
@@ -60,15 +61,15 @@ class ScheduledTripTile extends StatelessWidget {
     final orderStatus = trip['orderStatus'] as String? ?? 'pending';
     switch (orderStatus.toLowerCase()) {
       case 'pending':
-        return const Color(0xFFBB0000); // #bb0000 for pending
+        return AuthColors.error.withOpacity(0.2); // #bb0000 for pending
       case 'dispatched':
-        return const Color(0xFF1A150F); // Dark orange background
+        return AuthColors.warning.withOpacity(0.2); // Dark orange background
       case 'delivered':
-        return const Color(0xFF0F0F1A); // Dark blue background
+        return AuthColors.info.withOpacity(0.2); // Dark blue background
       case 'returned':
-        return const Color(0xFF0F1A0F); // Dark green background
+        return AuthColors.success.withOpacity(0.2); // Dark green background
       default:
-        return const Color(0xFF131324);
+        return AuthColors.surface;
     }
   }
 
@@ -136,7 +137,7 @@ class ScheduledTripTile extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('DM generated successfully: $dmId'),
-          backgroundColor: Colors.green,
+          backgroundColor: AuthColors.success,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -165,7 +166,7 @@ class ScheduledTripTile extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
-          backgroundColor: Colors.red,
+          backgroundColor: AuthColors.error,
           duration: const Duration(seconds: 5),
         ),
       );
@@ -195,14 +196,14 @@ class ScheduledTripTile extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: AuthColors.surface,
         title: const Text(
           'Cancel DM',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: const Text(
           'Are you sure you want to cancel this DM?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -213,7 +214,7 @@ class ScheduledTripTile extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text(
               'Yes, Cancel',
-              style: TextStyle(color: Colors.red),
+              style: TextStyle(color: AuthColors.error),
             ),
           ),
         ],

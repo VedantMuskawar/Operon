@@ -50,6 +50,7 @@ class ProductionWagesPage extends StatelessWidget {
           employeeWagesDataSource: EmployeeWagesDataSource(),
           productionBatchesDataSource: ProductionBatchesDataSource(),
           tripWagesDataSource: TripWagesDataSource(),
+          employeeAttendanceDataSource: EmployeeAttendanceDataSource(),
         ),
       )..loadBatches(),
       child: SectionWorkspaceLayout(
@@ -116,15 +117,15 @@ class _ProductionWagesContent extends StatelessWidget {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
+              // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'Production Wages',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontWeight: FontWeight.bold,
                         ),
                   ),
@@ -158,72 +159,75 @@ class _ProductionWagesContent extends StatelessWidget {
               Text(
                 'Record and manage production batches for wage calculation.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white70,
+                      color: AuthColors.textSub,
                     ),
               ),
               const SizedBox(height: 24),
+              // Statistics Cards
+              _StatisticsCards(),
+              const SizedBox(height: 24),
+              // Workflow Tabs
+              _WorkflowTabs(),
+              const SizedBox(height: 24),
+              // Filters Bar
               _FiltersBar(),
               const SizedBox(height: 24),
-              if (filteredBatches.isEmpty)
-                Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inventory_2_outlined,
-                          size: 64,
-                          color: Colors.white.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          state.batches.isEmpty
-                              ? 'No production batches yet'
-                              : 'No batches match your filters',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          state.batches.isEmpty
-                              ? 'Create your first production batch to get started'
-                              : 'Try adjusting your filters',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ...filteredBatches.map((batch) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: ProductionBatchCard(
-                      batch: batch,
-                      onTap: () {
-                        context.read<ProductionBatchesCubit>().setSelectedBatch(batch);
-                        showDialog(
-                          context: context,
-                          builder: (dialogContext) => BlocProvider.value(
-                            value: context.read<ProductionBatchesCubit>(),
-                            child: ProductionBatchDetailModal(
-                              batch: batch,
-                              organizationId: organization?.id ?? '',
-                              employeesRepository: context.read<EmployeesRepository>(),
-                              productsRepository: context.read<ProductsRepository>(),
-                              wageSettingsRepository: context.read<WageSettingsRepository>(),
+              // Batches List
+              Expanded(
+                child: filteredBatches.isEmpty
+                    ? _EmptyState(
+                        state: state,
+                        organization: organization,
+                        context: context,
+                      )
+                    : LayoutBuilder(
+                        builder: (context, constraints) {
+                          // Use 2 columns if screen width >= 1024px, otherwise 1 column
+                          final screenWidth = MediaQuery.of(context).size.width;
+                          final isTwoColumn = screenWidth >= 1024;
+                          final crossAxisCount = isTwoColumn ? 2 : 1;
+                          
+                          // Calculate aspect ratio (width/height) based on layout
+                          // Cards typically have more content vertically, so we estimate:
+                          // - Single column: ~1.0 (square-ish to tall)
+                          // - Two columns: ~1.3-1.4 (wider relative to height)
+                          final aspectRatio = isTwoColumn ? 1.35 : 1.0;
+                          
+                          return GridView.builder(
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: crossAxisCount,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: aspectRatio,
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                }).toList(),
+                            padding: const EdgeInsets.only(bottom: 16),
+                            itemCount: filteredBatches.length,
+                            itemBuilder: (context, index) {
+                              final batch = filteredBatches[index];
+                              return ProductionBatchCard(
+                                batch: batch,
+                                onTap: () {
+                                  context.read<ProductionBatchesCubit>().setSelectedBatch(batch);
+                                  showDialog(
+                                    context: context,
+                                    builder: (dialogContext) => BlocProvider.value(
+                                      value: context.read<ProductionBatchesCubit>(),
+                                      child: ProductionBatchDetailModal(
+                                        batch: batch,
+                                        organizationId: organization?.id ?? '',
+                                        employeesRepository: context.read<EmployeesRepository>(),
+                                        productsRepository: context.read<ProductsRepository>(),
+                                        wageSettingsRepository: context.read<WageSettingsRepository>(),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      ),
+              ),
             ],
           ),
         );
@@ -232,77 +236,436 @@ class _ProductionWagesContent extends StatelessWidget {
   }
 }
 
-class _FiltersBar extends StatelessWidget {
-  const _FiltersBar();
+class _StatisticsCards extends StatelessWidget {
+  const _StatisticsCards();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ProductionBatchesCubit, ProductionBatchesState>(
+      builder: (context, state) {
+        return Row(
+          children: [
+            Expanded(
+              child: _StatCard(
+                icon: Icons.inventory_2_outlined,
+                label: 'Total Batches',
+                value: state.totalBatches.toString(),
+                color: AuthColors.legacyAccent,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _StatCard(
+                icon: Icons.calculate_outlined,
+                label: 'Pending Calculations',
+                value: state.pendingCalculations.toString(),
+                color: Colors.orange,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _StatCard(
+                icon: Icons.check_circle_outline,
+                label: 'Pending Approvals',
+                value: state.pendingApprovals.toString(),
+                color: AuthColors.info,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _StatCard(
+                icon: Icons.today_outlined,
+                label: 'Processed Today',
+                value: state.processedToday.toString(),
+                color: AuthColors.success,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _StatCard(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Total Wages Processed',
+                value: '₹${state.totalWagesProcessed.toStringAsFixed(0)}',
+                color: Colors.purple,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AuthColors.textMainWithOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AuthColors.textMainWithOpacity(0.1),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AuthColors.textMainWithOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowTabs extends StatelessWidget {
+  const _WorkflowTabs();
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ProductionBatchesCubit, ProductionBatchesState>(
       builder: (context, state) {
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: AuthColors.textMainWithOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AuthColors.textMainWithOpacity(0.1),
             ),
           ),
           child: Row(
             children: [
-              // Status Filter
-              Expanded(
-                child: DropdownButtonFormField<ProductionBatchStatus?>(
-                  value: state.selectedStatus,
-                  decoration: InputDecoration(
-                    labelText: 'Status',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.05),
-                    border: OutlineInputBorder(
+              _TabButton(
+                label: 'All',
+                isSelected: state.selectedTab == WorkflowTab.all,
+                count: state.batches.length,
+                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.all),
+              ),
+              _TabButton(
+                label: 'Needs Action',
+                isSelected: state.selectedTab == WorkflowTab.needsAction,
+                count: state.needsActionCount,
+                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.needsAction),
+              ),
+              _TabButton(
+                label: 'Recorded',
+                isSelected: state.selectedTab == WorkflowTab.recorded,
+                count: state.pendingCalculations,
+                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.recorded),
+              ),
+              _TabButton(
+                label: 'Calculated',
+                isSelected: state.selectedTab == WorkflowTab.calculated,
+                count: state.pendingApprovals,
+                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.calculated),
+              ),
+              _TabButton(
+                label: 'Approved',
+                isSelected: state.selectedTab == WorkflowTab.approved,
+                count: state.batches.where((b) => b.status == ProductionBatchStatus.approved).length,
+                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.approved),
+              ),
+              _TabButton(
+                label: 'Processed',
+                isSelected: state.selectedTab == WorkflowTab.processed,
+                count: state.batches.where((b) => b.status == ProductionBatchStatus.processed).length,
+                onTap: () => context.read<ProductionBatchesCubit>().setSelectedTab(WorkflowTab.processed),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  const _TabButton({
+    required this.label,
+    required this.isSelected,
+    required this.count,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AuthColors.legacyAccent.withValues(alpha: 0.2)
+                : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF6F4BFF),
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+          ),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? AuthColors.textMain : AuthColors.textMainWithOpacity(0.7),
+                    fontSize: 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AuthColors.legacyAccent
+                        : AuthColors.textMainWithOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    count.toString(),
+                    style: TextStyle(
+                      color: isSelected ? AuthColors.textMain : AuthColors.textMainWithOpacity(0.7),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
-                  items: [
-                    const DropdownMenuItem<ProductionBatchStatus?>(
-                      value: null,
-                      child: Text('All Statuses'),
-                    ),
-                    ...ProductionBatchStatus.values.map((status) {
-                      return DropdownMenuItem<ProductionBatchStatus?>(
-                        value: status,
-                        child: Text(_getStatusLabel(status)),
-                      );
-                    }),
-                  ],
-                  onChanged: (value) {
-                    context.read<ProductionBatchesCubit>().setStatusFilter(value);
-                  },
                 ),
-              ),
-              const SizedBox(width: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.state,
+    required this.organization,
+    required this.context,
+  });
+
+  final ProductionBatchesState state;
+  final dynamic organization;
+  final BuildContext context;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFilters = state.searchQuery != null ||
+        state.startDate != null ||
+        state.endDate != null ||
+        state.selectedTab != WorkflowTab.all;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 64,
+            color: AuthColors.textMainWithOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            state.batches.isEmpty
+                ? 'No production batches yet'
+                : hasFilters
+                    ? 'No batches match your filters'
+                    : _getTabEmptyMessage(state.selectedTab),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            state.batches.isEmpty
+                ? 'Create your first production batch to get started'
+                : hasFilters
+                    ? 'Try adjusting your filters or clearing them'
+                    : _getTabEmptySubMessage(state.selectedTab),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (hasFilters)
+            ElevatedButton.icon(
+              onPressed: () {
+                context.read<ProductionBatchesCubit>().clearAllFilters();
+              },
+              icon: const Icon(Icons.clear_all),
+              label: const Text('Clear Filters'),
+            )
+          else if (state.batches.isEmpty)
+            ElevatedButton.icon(
+              onPressed: () {
+                if (organization != null) {
+                  final cubit = context.read<ProductionBatchesCubit>();
+                  final employeesRepo = context.read<EmployeesRepository>();
+                  final productsRepo = context.read<ProductsRepository>();
+                  final wageSettingsRepo = context.read<WageSettingsRepository>();
+                  showDialog(
+                    context: context,
+                    builder: (dialogContext) => BlocProvider.value(
+                      value: cubit,
+                      child: ProductionBatchForm(
+                        organizationId: organization.id,
+                        employeesRepository: employeesRepo,
+                        productsRepository: productsRepo,
+                        wageSettingsRepository: wageSettingsRepo,
+                      ),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Create First Batch'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getTabEmptyMessage(WorkflowTab tab) {
+    switch (tab) {
+      case WorkflowTab.all:
+        return 'No production batches yet';
+      case WorkflowTab.needsAction:
+        return 'No batches need action';
+      case WorkflowTab.recorded:
+        return 'No recorded batches';
+      case WorkflowTab.calculated:
+        return 'No calculated batches';
+      case WorkflowTab.approved:
+        return 'No approved batches';
+      case WorkflowTab.processed:
+        return 'No processed batches';
+    }
+  }
+
+  String _getTabEmptySubMessage(WorkflowTab tab) {
+    switch (tab) {
+      case WorkflowTab.all:
+        return 'Create your first production batch to get started';
+      case WorkflowTab.needsAction:
+        return 'All batches are up to date';
+      case WorkflowTab.recorded:
+        return 'Recorded batches will appear here';
+      case WorkflowTab.calculated:
+        return 'Calculated batches will appear here';
+      case WorkflowTab.approved:
+        return 'Approved batches will appear here';
+      case WorkflowTab.processed:
+        return 'Processed batches will appear here';
+    }
+  }
+}
+
+class _FiltersBar extends StatelessWidget {
+  const _FiltersBar();
+
+  Future<void> _showDateRangePicker(BuildContext context) async {
+    final cubit = context.read<ProductionBatchesCubit>();
+    final state = cubit.state;
+
+    final pickedRange = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDateRange: state.startDate != null && state.endDate != null
+          ? DateTimeRange(start: state.startDate!, end: state.endDate!)
+          : null,
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.dark().copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AuthColors.legacyAccent,
+              onPrimary: AuthColors.textMain,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedRange != null) {
+      cubit.setDateRange(pickedRange.start, pickedRange.end);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ProductionBatchesCubit, ProductionBatchesState>(
+      builder: (context, state) {
+        final hasActiveFilters = state.searchQuery != null ||
+            state.startDate != null ||
+            state.endDate != null;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AuthColors.textMainWithOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: AuthColors.textMainWithOpacity(0.1),
+            ),
+          ),
+          child: Row(
+            children: [
               // Search
               Expanded(
                 flex: 2,
@@ -315,13 +678,13 @@ class _FiltersBar extends StatelessWidget {
                   decoration: InputDecoration(
                     labelText: 'Search',
                     hintText: 'Batch ID, employee, product...',
-                    labelStyle: const TextStyle(color: Colors.white70),
+                    labelStyle: const TextStyle(color: AuthColors.textSub),
                     hintStyle: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5),
                     ),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                    prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
                     filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.05),
+                    fillColor: AuthColors.textMainWithOpacity(0.05),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
@@ -350,35 +713,53 @@ class _FiltersBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              // Date Range (simplified - can be enhanced with date range picker)
-              TextButton.icon(
-                onPressed: () {
-                  // TODO: Implement date range picker
-                },
+              // Date Range
+              OutlinedButton.icon(
+                onPressed: () => _showDateRangePicker(context),
                 icon: const Icon(Icons.date_range, size: 18),
-                label: const Text('Date Range'),
-                style: TextButton.styleFrom(
+                label: Text(
+                  state.startDate != null && state.endDate != null
+                      ? '${state.startDate!.day}/${state.startDate!.month}/${state.startDate!.year} - ${state.endDate!.day}/${state.endDate!.month}/${state.endDate!.year}'
+                      : 'Date Range',
+                ),
+                style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white70,
+                  side: BorderSide(
+                    color: state.startDate != null && state.endDate != null
+                        ? const Color(0xFF6F4BFF)
+                        : Colors.white.withValues(alpha: 0.2),
+                  ),
                 ),
               ),
+              if (state.startDate != null && state.endDate != null) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    context.read<ProductionBatchesCubit>().clearDateRange();
+                  },
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: 'Clear date range',
+                  color: Colors.white70,
+                ),
+              ],
+              if (hasActiveFilters) ...[
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    context.read<ProductionBatchesCubit>().clearAllFilters();
+                  },
+                  icon: const Icon(Icons.clear_all, size: 18),
+                  label: const Text('Clear All'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                  ),
+                ),
+              ],
             ],
           ),
         );
       },
     );
-  }
-
-  static String _getStatusLabel(ProductionBatchStatus status) {
-    switch (status) {
-      case ProductionBatchStatus.recorded:
-        return 'Recorded';
-      case ProductionBatchStatus.calculated:
-        return 'Calculated';
-      case ProductionBatchStatus.approved:
-        return 'Approved';
-      case ProductionBatchStatus.processed:
-        return 'Processed';
-    }
   }
 }
 

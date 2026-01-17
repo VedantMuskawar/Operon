@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 
 /// Generic empty state widget with icon, title, message, and optional action button
 class EmptyStateWidget extends StatelessWidget {
@@ -30,13 +31,13 @@ class EmptyStateWidget extends StatelessWidget {
             Icon(
               icon,
               size: 64,
-              color: iconColor ?? Colors.white38,
+              color: iconColor ?? AuthColors.textDisabled,
             ),
             const SizedBox(height: 16),
             Text(
               title,
               style: const TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -46,7 +47,7 @@ class EmptyStateWidget extends StatelessWidget {
             Text(
               message,
               style: const TextStyle(
-                color: Colors.white60,
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -58,7 +59,7 @@ class EmptyStateWidget extends StatelessWidget {
                 icon: const Icon(Icons.add, size: 18),
                 label: Text(actionLabel!),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6F4BFF),
+                  backgroundColor: AuthColors.legacyAccent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,

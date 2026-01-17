@@ -371,15 +371,15 @@ class _AccountDialogState extends State<_AccountDialog> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C),
+                        color: AuthColors.surface,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.white10),
+                        border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.info_outline,
-                            color: Color(0xFF6F4BFF),
+                            color: AuthColors.primary,
                             size: 16,
                           ),
                           const SizedBox(width: 8),
@@ -439,7 +439,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                 ],
                 const SizedBox(height: 12),
                 SwitchListTile(
-                  title: const Text(
+                  title: Text(
                     'Active',
                     style: TextStyle(color: AuthColors.textSub),
                   ),
@@ -455,9 +455,10 @@ class _AccountDialogState extends State<_AccountDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
           onPressed: _isSubmitting
               ? null
               : () async {
@@ -517,13 +518,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                     }
                   }
                 },
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(isEditing ? 'Save' : 'Create'),
+          isLoading: _isSubmitting,
         ),
       ],
     );

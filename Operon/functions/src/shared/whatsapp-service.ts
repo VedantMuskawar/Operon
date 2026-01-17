@@ -1,0 +1,337 @@
+import * as functions from 'firebase-functions';
+import { WHATSAPP_SETTINGS_COLLECTION } from './constants';
+import { getFirestore } from './firestore-helpers';
+
+const db = getFirestore();
+
+/**
+ * WhatsApp settings interface
+ */
+export interface WhatsappSettings {
+  enabled: boolean;
+  token: string;
+  phoneId: string;
+  welcomeTemplateId?: string;
+  languageCode?: string;
+  orderConfirmationTemplateId?: string;
+  tripDispatchTemplateId?: string;
+  tripDeliveryTemplateId?: string;
+}
+
+/**
+ * Send WhatsApp template message using Meta Graph API
+ * 
+ * @param url - Graph API endpoint URL
+ * @param token - WhatsApp API token
+ * @param to - Recipient phone number (E.164 format)
+ * @param templateName - Template name to use
+ * @param languageCode - Language code (default: 'en')
+ * @param parameters - Array of text parameters for the template
+ * @param messageType - Type of message for logging purposes
+ * @param context - Context information for logging
+ * @returns Promise that resolves when message is sent
+ */
+export async function sendWhatsappTemplateMessage(
+  url: string,
+  token: string,
+  to: string,
+  templateName: string,
+  languageCode: string,
+  parameters: string[],
+  messageType: string,
+  context: { organizationId?: string; [key: string]: any },
+): Promise<void> {
+  const payload = {
+    messaging_product: 'whatsapp',
+    to: to,
+    type: 'template',
+    template: {
+      name: templateName,
+      language: {
+        code: languageCode,
+      },
+      components: [
+        {
+          type: 'body',
+          parameters: parameters.map((param) => ({
+            type: 'text',
+            text: param,
+          })),
+        },
+      ],
+    },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let errorDetails: any;
+    try {
+      errorDetails = JSON.parse(errorText);
+    } catch {
+      errorDetails = errorText;
+    }
+    throw new Error(`WhatsApp API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorDetails)}`);
+  }
+
+  const result = await response.json() as {
+    messages?: Array<{ id?: string }>;
+    errors?: Array<{ message?: string; code?: number }>;
+  };
+
+  if (result.errors && result.errors.length > 0) {
+    const errorMessages = result.errors.map((e) => e.message || 'Unknown error').join(', ');
+    throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
+  }
+
+  console.log(`[WhatsApp Service] ${messageType} template message sent`, {
+    ...context,
+    to: to.substring(0, 4) + '****',
+    templateName,
+    messageId: result.messages?.[0]?.id,
+  });
+}
+
+/**
+ * Load WhatsApp settings for an organization
+ * First tries organization-specific settings, then falls back to global config
+ * 
+ * @param organizationId - Organization ID to load settings for
+ * @param verbose - If true, logs detailed debug information
+ * @returns WhatsApp settings or null if not enabled/configured
+ */
+export async function loadWhatsappSettings(
+  organizationId: string | undefined,
+  verbose: boolean = false,
+): Promise<WhatsappSettings | null> {
+  // First, try to load organization-specific settings
+  if (organizationId) {
+    const trimmedOrgId = organizationId.trim();
+    const orgSettingsRef = db.collection(WHATSAPP_SETTINGS_COLLECTION).doc(trimmedOrgId);
+    const docPath = `${WHATSAPP_SETTINGS_COLLECTION}/${trimmedOrgId}`;
+
+    if (verbose) {
+      console.log('[WhatsApp Service] Attempting to load org settings', {
+        organizationId,
+        trimmedOrgId,
+        docPath,
+      });
+    }
+
+    const orgSettingsDoc = await orgSettingsRef.get();
+
+    if (verbose) {
+      console.log('[WhatsApp Service] Document read result', {
+        organizationId,
+        trimmedOrgId,
+        docPath,
+        exists: orgSettingsDoc.exists,
+        hasData: !!orgSettingsDoc.data(),
+      });
+    }
+
+    if (orgSettingsDoc.exists) {
+      const data = orgSettingsDoc.data();
+
+      if (verbose) {
+        console.log('[WhatsApp Service] Found org settings document', {
+          organizationId,
+          trimmedOrgId,
+          docPath,
+          enabled: data?.enabled,
+          enabledType: typeof data?.enabled,
+          hasToken: !!data?.token,
+          hasPhoneId: !!data?.phoneId,
+          dataKeys: data ? Object.keys(data) : [],
+        });
+      }
+
+      if (data && data.enabled === true) {
+        if (!data.token || !data.phoneId) {
+          if (verbose) {
+            console.log('[WhatsApp Service] Org settings missing token or phoneId', {
+              organizationId,
+              trimmedOrgId,
+              hasToken: !!data.token,
+              hasPhoneId: !!data.phoneId,
+            });
+          }
+          return null;
+        }
+        return {
+          enabled: true,
+          token: data.token as string,
+          phoneId: data.phoneId as string,
+          welcomeTemplateId: (data.welcomeTemplateId as string | undefined) ?? 'lakshmee_client_added',
+          languageCode: (data.languageCode as string | undefined) ?? 'en',
+          orderConfirmationTemplateId: (data.orderConfirmationTemplateId as string | undefined) ?? 'lakshmee_order_added',
+          tripDispatchTemplateId: (data.tripDispatchTemplateId as string | undefined) ?? 'lakshmee_trip_dispatch',
+          tripDeliveryTemplateId: (data.tripDeliveryTemplateId as string | undefined) ?? 'lakshmee_trip_delivered',
+        };
+      } else {
+        if (verbose) {
+          console.log('[WhatsApp Service] Org settings exist but enabled is false or missing', {
+            organizationId,
+            trimmedOrgId,
+            enabled: data?.enabled,
+            enabledType: typeof data?.enabled,
+          });
+        }
+        return null;
+      }
+    } else if (verbose) {
+      // Try to list documents in the collection to debug
+      try {
+        const snapshot = await db.collection(WHATSAPP_SETTINGS_COLLECTION).limit(5).get();
+        const existingDocIds = snapshot.docs.map((doc) => doc.id);
+        console.log('[WhatsApp Service] No org settings document found', {
+          organizationId,
+          trimmedOrgId,
+          collection: WHATSAPP_SETTINGS_COLLECTION,
+          docPath,
+          lookingFor: trimmedOrgId,
+          existingDocIds,
+          docCount: snapshot.size,
+        });
+      } catch (error) {
+        console.error('[WhatsApp Service] Error checking collection', {
+          organizationId,
+          trimmedOrgId,
+          collection: WHATSAPP_SETTINGS_COLLECTION,
+          error,
+        });
+      }
+    }
+  }
+
+  // Fallback to global config (for backward compatibility)
+  const globalConfig: any = (functions.config() as any).whatsapp ?? {};
+  if (
+    globalConfig.token &&
+    globalConfig.phone_id &&
+    globalConfig.enabled !== 'false'
+  ) {
+    if (verbose) {
+      console.log('[WhatsApp Service] Using global config fallback');
+    }
+    return {
+      enabled: true,
+      token: globalConfig.token,
+      phoneId: globalConfig.phone_id,
+      welcomeTemplateId: globalConfig.welcome_template_id ?? 'lakshmee_client_added',
+      languageCode: globalConfig.language_code ?? 'en',
+      orderConfirmationTemplateId: globalConfig.order_confirmation_template_id ?? 'lakshmee_order_added',
+      tripDispatchTemplateId: globalConfig.trip_dispatch_template_id ?? 'lakshmee_trip_dispatch',
+      tripDeliveryTemplateId: globalConfig.trip_delivery_template_id ?? 'lakshmee_trip_delivered',
+    };
+  }
+
+  if (verbose) {
+    console.log('[WhatsApp Service] No settings found (neither org-specific nor global)');
+  }
+  return null;
+}
+
+/**
+ * Send WhatsApp message using Meta Graph API
+ * 
+ * @param url - Graph API endpoint URL
+ * @param token - WhatsApp API token
+ * @param to - Recipient phone number (E.164 format)
+ * @param messageBody - Message text to send
+ * @param messageType - Type of message for logging purposes
+ * @param context - Context information for logging
+ * @returns Promise that resolves when message is sent
+ */
+export async function sendWhatsappMessage(
+  url: string,
+  token: string,
+  to: string,
+  messageBody: string,
+  messageType: string,
+  context: { organizationId?: string; [key: string]: any },
+): Promise<void> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: to,
+      type: 'text',
+      text: {
+        body: messageBody,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`WhatsApp API error: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  const result = await response.json() as {
+    messages?: Array<{ id?: string }>;
+    errors?: Array<{ message?: string; code?: number }>;
+  };
+
+  if (result.errors && result.errors.length > 0) {
+    const errorMessages = result.errors.map((e) => e.message || 'Unknown error').join(', ');
+    throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
+  }
+
+  console.log(`[WhatsApp Service] ${messageType} message sent`, {
+    ...context,
+    to: to.substring(0, 4) + '****',
+    messageId: result.messages?.[0]?.id,
+  });
+}
+
+/**
+ * Check WhatsApp message delivery status using Meta Graph API
+ * Note: The Cloud API primarily uses webhooks for status updates, but this can help verify if a message was accepted
+ * 
+ * @param messageId - The WhatsApp message ID (wamid.*) from the send response
+ * @param phoneId - The WhatsApp Business Phone Number ID
+ * @param token - WhatsApp API access token
+ * @returns Promise with message status information
+ */
+export async function checkWhatsappMessageStatus(
+  messageId: string,
+  phoneId: string,
+  token: string,
+): Promise<{
+  status?: string;
+  errors?: Array<{ message?: string; code?: number }>;
+  [key: string]: any;
+}> {
+  // Note: The Cloud API doesn't have a direct "get status" endpoint
+  // Status updates are sent via webhooks. However, we can verify the message was accepted
+  // by checking if messageId is valid format
+  
+  if (!messageId || !messageId.startsWith('wamid.')) {
+    throw new Error(`Invalid message ID format: ${messageId}. Expected format: wamid.*`);
+  }
+
+  console.log('[WhatsApp Service] Checking message status', {
+    messageId,
+    phoneId,
+    note: 'Status updates are primarily delivered via webhooks. See Meta Business Suite for real-time status.',
+  });
+
+  // Return basic validation - actual status should be checked via webhooks
+  return {
+    messageId,
+    note: 'Message ID is valid. To check delivery status: 1) Use Meta Business Suite 2) Set up webhooks 3) Check webhook payloads',
+  };
+}

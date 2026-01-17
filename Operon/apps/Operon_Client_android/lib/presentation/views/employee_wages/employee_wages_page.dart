@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_state.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
@@ -213,7 +214,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Transaction deleted successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: AuthColors.success,
           ),
         );
       }
@@ -222,7 +223,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to delete transaction: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -240,17 +241,17 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.surface,
         title: const Text(
           'Delete Transaction',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete this transaction?\n\n'
           'Employee: $employeeName\n'
           'Type: $categoryName\n'
           'Amount: ${_formatCurrency(transaction.amount)}',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -262,7 +263,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
               _deleteTransaction(transaction.id);
               Navigator.of(dialogContext).pop();
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            style: TextButton.styleFrom(foregroundColor: AuthColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -305,7 +306,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
             }
           },
           child: Scaffold(
-            backgroundColor: const Color(0xFF000000),
+            backgroundColor: AuthColors.background,
             appBar: const ModernPageHeader(
               title: 'Employee Wages',
             ),
@@ -393,12 +394,12 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                     // Search Bar
                                     TextField(
                                       controller: _searchController,
-                                      style: const TextStyle(color: Colors.white),
+                                      style: const TextStyle(color: AuthColors.textMain),
                                       decoration: InputDecoration(
-                                        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                                        prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
                                         suffixIcon: _query.isNotEmpty
                                             ? IconButton(
-                                                icon: const Icon(Icons.close, color: Colors.white54),
+                                                icon: const Icon(Icons.close, color: AuthColors.textSub),
                                                 onPressed: () => _searchController.clear(),
                                               )
                                             : null,
@@ -425,8 +426,8 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<_WagesSortOption>(
                                           value: _sortOption,
-                                          dropdownColor: const Color(0xFF1B1B2C),
-                                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                                          dropdownColor: AuthColors.surface,
+                                          style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
                                           isExpanded: true,
                                           items: const [
                                             DropdownMenuItem(
@@ -455,7 +456,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                               setState(() => _sortOption = value);
                                             }
                                           },
-                                          icon: const Icon(Icons.sort, color: Colors.white70, size: 20),
+                                          icon: const Icon(Icons.sort, color: AuthColors.textSub, size: 20),
                                           isDense: true,
                                         ),
                                       ),
@@ -466,7 +467,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                     Text(
                                       '${filtered.length} ${filtered.length == 1 ? 'transaction' : 'transactions'}',
                                       style: TextStyle(
-                                        color: Colors.white.withOpacity(0.7),
+                                        color: AuthColors.textMainWithOpacity(0.7),
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -574,7 +575,7 @@ class _PageIndicator extends StatelessWidget {
               width: isActive ? 24 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: isActive ? const Color(0xFF6F4BFF) : Colors.white24,
+                color: isActive ? AuthColors.legacyAccent : AuthColors.textDisabled,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),

@@ -207,7 +207,7 @@ class _ProductDataListItem extends StatelessWidget {
       return AuthColors.success;
     } else if (product.stock > 0) {
       // Low Stock - Orange (keep orange for visibility)
-      return const Color(0xFFFF9800);
+      return AuthColors.warning;
     } else {
       // Out of Stock - Grey
       return AuthColors.textDisabled;

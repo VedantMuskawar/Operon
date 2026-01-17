@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 
 class DateRangePicker extends StatelessWidget {
   const DateRangePicker({
@@ -38,10 +39,10 @@ class DateRangePicker extends StatelessWidget {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
+              primary: AuthColors.legacyAccent,
+              onPrimary: AuthColors.textMain,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
             ),
           ),
           child: child!,
@@ -69,23 +70,23 @@ class DateRangePicker extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: startDate != null
-                      ? const Color(0xFF6F4BFF).withOpacity(0.5)
-                      : Colors.white.withOpacity(0.1),
+                      ? AuthColors.legacyAccent.withOpacity(0.5)
+                      : AuthColors.textMainWithOpacity(0.1),
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
+                  const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       startDate != null ? _formatDate(startDate!) : 'Start Date',
                       style: TextStyle(
-                        color: startDate != null ? Colors.white : Colors.white54,
+                        color: startDate != null ? AuthColors.textMain : AuthColors.textSub,
                         fontSize: 14,
                       ),
                     ),
@@ -108,23 +109,23 @@ class DateRangePicker extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: endDate != null
-                      ? const Color(0xFF6F4BFF).withOpacity(0.5)
-                      : Colors.white.withOpacity(0.1),
+                      ? AuthColors.legacyAccent.withOpacity(0.5)
+                      : AuthColors.textMainWithOpacity(0.1),
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
+                  const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       endDate != null ? _formatDate(endDate!) : 'End Date',
                       style: TextStyle(
-                        color: endDate != null ? Colors.white : Colors.white54,
+                        color: endDate != null ? AuthColors.textMain : AuthColors.textSub,
                         fontSize: 14,
                       ),
                     ),

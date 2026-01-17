@@ -6,6 +6,7 @@ import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/views/pending_orders_view.dart';
 import 'package:dash_web/presentation/views/schedule_orders_view.dart';
+import 'package:dash_web/presentation/views/home_sections/attendance_view.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -28,6 +29,7 @@ class _HomePageState extends State<HomePage> {
     const ScheduleOrdersView(),
     const _OrdersMapView(),
     const _AnalyticsPlaceholder(),
+    const AttendanceView(),
   ];
 
   static const _sectionTitles = [
@@ -36,6 +38,7 @@ class _HomePageState extends State<HomePage> {
     '',
     'Orders Map',
     '',
+    'Attendance',
   ];
 
   @override
@@ -205,8 +208,17 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.badge_outlined,
         label: 'Employees',
         description: 'Manage team members',
-        color: const Color(0xFFFF9800), // Orange
+        color: AuthColors.warning, // Orange
         onTap: () => context.go('/employees'),
+      ));
+    }
+    if (isAdmin || appAccessRole?.canAccessPage('employees') == true) {
+      peopleTiles.add(_TileData(
+        icon: Icons.event_available_outlined,
+        label: 'Attendance',
+        description: 'Track employee attendance',
+        color: AuthColors.warning, // Orange
+        onTap: () => context.go('/attendance'),
       ));
     }
     if (isAdmin || appAccessRole?.canAccessPage('clients') == true) {
@@ -214,7 +226,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.people_outline,
         label: 'Clients',
         description: 'Client management',
-        color: const Color(0xFFFF9800), // Orange
+        color: AuthColors.warning, // Orange
         onTap: () => context.go('/clients'),
       ));
     }
@@ -223,7 +235,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.store_outlined,
         label: 'Vendors',
         description: 'Manage vendors',
-        color: const Color(0xFFFF9800), // Orange
+        color: AuthColors.warning, // Orange
         onTap: () => context.go('/vendors'),
       ));
     }
@@ -233,21 +245,21 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
       icon: Icons.receipt_long_outlined,
       label: 'Transactions',
       description: 'View transactions',
-      color: const Color(0xFF4CAF50), // Green
+      color: AuthColors.success, // Green
       onTap: () => context.go('/transactions'),
     ));
     financialTiles.add(_TileData(
       icon: Icons.account_balance_wallet_outlined,
       label: 'Expenses',
       description: 'Manage expenses',
-      color: const Color(0xFF4CAF50), // Green
+      color: AuthColors.success, // Green
       onTap: () => context.go('/expenses'),
     ));
     financialTiles.add(_TileData(
       icon: Icons.shopping_cart,
       label: 'Purchases',
       description: 'View purchases',
-      color: const Color(0xFF4CAF50), // Green
+      color: AuthColors.success, // Green
       onTap: () => context.go('/purchases'),
     ));
     if (isAdmin || appAccessRole?.canAccessPage('employees') == true) {
@@ -255,7 +267,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.payments_outlined,
         label: 'Employee Wages',
         description: 'Manage salaries',
-        color: const Color(0xFF4CAF50), // Green
+        color: AuthColors.success, // Green
         onTap: () => context.go('/employee-wages'),
       ));
     }
@@ -263,21 +275,21 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
       icon: Icons.local_gas_station,
       label: 'Fuel Ledger',
       description: 'Track fuel purchases',
-      color: const Color(0xFF4CAF50), // Green
+      color: AuthColors.success, // Green
       onTap: () => context.go('/fuel-ledger'),
     ));
     financialTiles.add(_TileData(
       icon: Icons.construction_outlined,
       label: 'Production Wages',
       description: 'Batch wages',
-      color: const Color(0xFF4CAF50), // Green
+      color: AuthColors.success, // Green
       onTap: () => context.go('/production-batches'),
     ));
     financialTiles.add(_TileData(
       icon: Icons.local_shipping_outlined,
       label: 'Trip Wages',
       description: 'Loading/unloading',
-      color: const Color(0xFF4CAF50), // Green
+      color: AuthColors.success, // Green
       onTap: () => context.go('/trip-wages'),
     ));
     
@@ -289,7 +301,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.description_outlined,
         label: 'Delivery Memos',
         description: 'Track delivery memos',
-        color: const Color(0xFF2196F3), // Blue
+        color: AuthColors.info, // Blue
         onTap: () => context.go('/delivery-memos'),
       ));
     }
@@ -301,7 +313,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.location_city_outlined,
         label: 'Zones',
         description: 'Delivery zones & prices',
-        color: const Color(0xFF2196F3), // Blue
+        color: AuthColors.info, // Blue
         onTap: () => context.go('/zones'),
       ));
     }
@@ -317,10 +329,10 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         ? Container(
             padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
-              color: const Color(0xFF1B1B2C).withValues(alpha: 0.5),
+              color: AuthColors.surface.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: AuthColors.textMainWithOpacity(0.1),
               ),
             ),
             child: Column(
@@ -329,13 +341,13 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
                 Icon(
                   Icons.dashboard_outlined,
                   size: 64,
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: AuthColors.textMainWithOpacity(0.3),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Overview content coming soon',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: AuthColors.textMainWithOpacity(0.7),
                     fontSize: 16,
                   ),
                 ),
@@ -457,10 +469,10 @@ class _NotificationSection extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A), // Same as HomeTile background
+                color: AuthColors.surface, // Same as HomeTile background
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: AuthColors.textMainWithOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -472,14 +484,14 @@ class _NotificationSection extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.notifications_outlined,
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
                       Text(
                         'Notifications',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontSize: 20,
                           fontWeight: FontWeight.w600,
                           fontFamily: 'SF Pro Display',
@@ -494,7 +506,7 @@ class _NotificationSection extends StatelessWidget {
                       child: Text(
                         'No notifications',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: AuthColors.textMainWithOpacity(0.5),
                           fontSize: 14,
                           fontFamily: 'SF Pro Display',
                         ),
@@ -534,16 +546,16 @@ class _OrdersMapView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF5AD8A4).withValues(alpha: 0.2),
+                color: AuthColors.successVariant.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF5AD8A4).withValues(alpha: 0.3),
+                  color: AuthColors.successVariant.withValues(alpha: 0.3),
                 ),
               ),
               child: const Text(
                 'Coming Soon',
                 style: TextStyle(
-                  color: Color(0xFF5AD8A4),
+                  color: AuthColors.successVariant,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -573,7 +585,7 @@ class _AnalyticsPlaceholder extends StatelessWidget {
         icon: Icons.dashboard_outlined,
         title: 'Analytics Dashboard',
         description: 'View insights and performance metrics',
-        color: Color(0xFF6F4BFF),
+        color: AuthColors.legacyAccent,
         isCentered: true,
       ),
     );
@@ -604,8 +616,8 @@ class _EmptyStateCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-            const Color(0xFF161622).withValues(alpha: 0.8),
+            AuthColors.surface.withValues(alpha: 0.6),
+            AuthColors.background.withValues(alpha: 0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
@@ -642,7 +654,7 @@ class _EmptyStateCard extends StatelessWidget {
           Text(
             description,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: AuthColors.textMainWithOpacity(0.6),
               fontSize: 16,
             ),
             textAlign: TextAlign.center,
@@ -685,7 +697,7 @@ class _DeliveryProgressWidget extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
             ),
           );
         }
@@ -717,8 +729,8 @@ class _DeliveryProgressWidget extends StatelessWidget {
                   CircularProgressIndicator(
                     value: 0.0,
                     strokeWidth: 14,
-                    backgroundColor: Colors.white.withOpacity(0.1),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF5AD8A4)),
+                    backgroundColor: AuthColors.textMainWithOpacity(0.1),
+                    valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.successVariant),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -726,7 +738,7 @@ class _DeliveryProgressWidget extends StatelessWidget {
                       Text(
                         '0%',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: AuthColors.textMainWithOpacity(0.5),
                           fontSize: 36,
                           fontWeight: FontWeight.w700,
                           fontFamily: 'SF Pro Display',
@@ -736,7 +748,7 @@ class _DeliveryProgressWidget extends StatelessWidget {
                       Text(
                         'No trips',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.4),
+                          color: AuthColors.textMainWithOpacity(0.4),
                           fontSize: 12,
                           fontFamily: 'SF Pro Display',
                         ),

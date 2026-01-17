@@ -39,27 +39,17 @@ const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
 const date_helpers_1 = require("../shared/date-helpers");
+const transaction_helpers_1 = require("../shared/transaction-helpers");
+// Note: transaction-handlers.ts still uses console.log for detailed ledger debugging
+// Consider migrating to logger helpers in future refactoring
 const db = (0, firestore_helpers_1.getFirestore)();
-/**
- * Get transaction date from transaction document
- */
-function getTransactionDate(snapshot) {
-    var _a, _b;
-    const createdAt = snapshot.get('createdAt');
-    if (createdAt) {
-        return createdAt.toDate();
-    }
-    return (_b = (_a = snapshot.createTime) === null || _a === void 0 ? void 0 : _a.toDate()) !== null && _b !== void 0 ? _b : new Date();
-}
 /**
  * Get year-month string in format YYYYMM for document IDs
  * @param date - The date to format
  * @returns Year-month string (e.g., "202401" for January 2024)
  */
 function getYearMonth(date) {
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    return `${year}${month}`;
+    return (0, date_helpers_1.getYearMonthCompact)(date);
 }
 /**
  * Get previous financial year label
@@ -238,44 +228,7 @@ function getLedgerDelta(ledgerType, type, amount) {
     });
     return delta;
 }
-/**
- * Remove all undefined values from an object (recursive cleanup for nested objects)
- * Also explicitly excludes the 'status' field which is no longer part of the transaction model
- * @param obj - The object to clean
- * @returns A cleaned object without undefined values and without 'status' field
- */
-function removeUndefinedFields(obj) {
-    if (obj === null || obj === undefined) {
-        return obj;
-    }
-    if (Array.isArray(obj)) {
-        return obj.map(item => removeUndefinedFields(item));
-    }
-    if (typeof obj !== 'object') {
-        return obj;
-    }
-    const cleaned = {};
-    const excludeFields = ['status']; // Fields to explicitly exclude
-    for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            // Skip excluded fields (like status)
-            if (excludeFields.includes(key)) {
-                continue;
-            }
-            const value = obj[key];
-            // Skip undefined values
-            if (value !== undefined) {
-                if (typeof value === 'object' && value !== null && !(value instanceof admin.firestore.Timestamp) && !(value instanceof admin.firestore.FieldValue)) {
-                    cleaned[key] = removeUndefinedFields(value);
-                }
-                else {
-                    cleaned[key] = value;
-                }
-            }
-        }
-    }
-    return cleaned;
-}
+// removeUndefinedFields now imported from shared/transaction-helpers
 /**
  * Update client ledger when transaction is created or cancelled
  * Returns the balanceBefore and balanceAfter values for the transaction
@@ -302,7 +255,7 @@ async function updateClientLedger(organizationId, clientId, financialYear, trans
         isCancellation,
     });
     const fyDates = getFinancialYearDates(financialYear);
-    const transactionDate = getTransactionDate(snapshot);
+    const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
     const yearMonth = getYearMonth(transactionDate);
     const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
     let balanceBefore = 0;
@@ -405,7 +358,7 @@ async function updateClientLedger(organizationId, clientId, financialYear, trans
             }
             tx.set(ledgerRef, ledgerData);
             // Create monthly transaction document atomically
-            const cleanData = removeUndefinedFields(transactionData);
+            const cleanData = (0, transaction_helpers_1.removeUndefinedFields)(transactionData);
             tx.set(monthlyRef, {
                 yearMonth,
                 transactions: [cleanData],
@@ -479,7 +432,7 @@ async function updateClientLedger(organizationId, clientId, financialYear, trans
             }
             tx.update(ledgerRef, updates);
             // Update monthly transaction document atomically (monthlyDoc already read above)
-            const cleanData = removeUndefinedFields(transactionData);
+            const cleanData = (0, transaction_helpers_1.removeUndefinedFields)(transactionData);
             if (isCancellation) {
                 // Remove from monthly array
                 if (monthlyDoc.exists) {
@@ -585,7 +538,7 @@ async function updateVendorLedger(organizationId, vendorId, financialYear, trans
         multiplier,
         isCancellation,
     });
-    const transactionDate = getTransactionDate(snapshot);
+    const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
     const yearMonth = getYearMonth(transactionDate);
     const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
     let balanceBefore = 0;
@@ -796,7 +749,7 @@ async function updateEmployeeLedger(organizationId, employeeId, financialYear, t
         multiplier,
         isCancellation,
     });
-    const transactionDate = getTransactionDate(snapshot);
+    const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
     const yearMonth = getYearMonth(transactionDate);
     const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
     let balanceBefore = 0;
@@ -912,7 +865,7 @@ async function updateEmployeeLedger(organizationId, employeeId, financialYear, t
                 const monthlyData = monthlyDoc.data();
                 const transactions = monthlyData.transactions || [];
                 // Clean transaction data
-                const cleanData = removeUndefinedFields(transactionData);
+                const cleanData = (0, transaction_helpers_1.removeUndefinedFields)(transactionData);
                 const index = transactions.findIndex((t) => t.transactionId === transactionId);
                 if (index >= 0) {
                     transactions[index] = cleanData;
@@ -1001,7 +954,7 @@ async function updateOrganizationLedger(organizationId, financialYear, transacti
         isCancellation,
     });
     const fyDates = getFinancialYearDates(financialYear);
-    const transactionDate = getTransactionDate(snapshot);
+    const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
     const yearMonth = getYearMonth(transactionDate);
     const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
     let balanceBefore = 0;
@@ -1080,7 +1033,7 @@ async function updateOrganizationLedger(organizationId, financialYear, transacti
             };
             tx.set(ledgerRef, ledgerData);
             // Create monthly transaction document
-            const cleanData = removeUndefinedFields(transactionData);
+            const cleanData = (0, transaction_helpers_1.removeUndefinedFields)(transactionData);
             tx.set(monthlyRef, {
                 yearMonth,
                 transactions: [cleanData],
@@ -1127,7 +1080,7 @@ async function updateOrganizationLedger(organizationId, financialYear, transacti
             }
             tx.update(ledgerRef, updates);
             // Update monthly transaction document
-            const cleanData = removeUndefinedFields(transactionData);
+            const cleanData = (0, transaction_helpers_1.removeUndefinedFields)(transactionData);
             if (isCancellation) {
                 if (monthlyDoc.exists) {
                     const monthlyData = monthlyDoc.data();
@@ -1587,7 +1540,7 @@ exports.onTransactionCreated = functions.firestore
         });
         return;
     }
-    const transactionDate = getTransactionDate(snapshot);
+    const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
     const amount = transaction.amount;
     const type = transaction.type;
     try {
@@ -1720,7 +1673,7 @@ exports.onTransactionDeleted = functions.firestore
         });
         return;
     }
-    const transactionDate = getTransactionDate(snapshot);
+    const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
     const amount = transaction.amount;
     const type = transaction.type;
     const originalBalanceBefore = transaction.balanceBefore;

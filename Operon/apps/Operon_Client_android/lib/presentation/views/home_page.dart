@@ -10,6 +10,7 @@ import 'package:dash_mobile/presentation/views/home_sections/home_overview_view.
 import 'package:dash_mobile/presentation/views/home_sections/pending_orders_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/schedule_orders_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/orders_map_view.dart';
+import 'package:dash_mobile/presentation/views/home_sections/attendance_view.dart';
 import 'package:dash_mobile/presentation/widgets/permissions_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -48,6 +49,7 @@ class _HomePageState extends State<HomePage> {
     ScheduleOrdersView(),
     OrdersMapView(),
     _AnalyticsPlaceholder(),
+    AttendanceView(),
   ];
 
   static const _sectionTitles = [
@@ -56,6 +58,7 @@ class _HomePageState extends State<HomePage> {
     '',
     'Orders Map',
     '',
+    'Attendance',
   ];
 
   @override

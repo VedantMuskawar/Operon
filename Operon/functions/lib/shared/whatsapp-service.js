@@ -1,0 +1,211 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.loadWhatsappSettings = loadWhatsappSettings;
+exports.sendWhatsappMessage = sendWhatsappMessage;
+const functions = __importStar(require("firebase-functions"));
+const constants_1 = require("./constants");
+const firestore_helpers_1 = require("./firestore-helpers");
+const db = (0, firestore_helpers_1.getFirestore)();
+/**
+ * Load WhatsApp settings for an organization
+ * First tries organization-specific settings, then falls back to global config
+ *
+ * @param organizationId - Organization ID to load settings for
+ * @param verbose - If true, logs detailed debug information
+ * @returns WhatsApp settings or null if not enabled/configured
+ */
+async function loadWhatsappSettings(organizationId, verbose = false) {
+    var _a;
+    // First, try to load organization-specific settings
+    if (organizationId) {
+        const trimmedOrgId = organizationId.trim();
+        const orgSettingsRef = db.collection(constants_1.WHATSAPP_SETTINGS_COLLECTION).doc(trimmedOrgId);
+        const docPath = `${constants_1.WHATSAPP_SETTINGS_COLLECTION}/${trimmedOrgId}`;
+        if (verbose) {
+            console.log('[WhatsApp Service] Attempting to load org settings', {
+                organizationId,
+                trimmedOrgId,
+                docPath,
+            });
+        }
+        const orgSettingsDoc = await orgSettingsRef.get();
+        if (verbose) {
+            console.log('[WhatsApp Service] Document read result', {
+                organizationId,
+                trimmedOrgId,
+                docPath,
+                exists: orgSettingsDoc.exists,
+                hasData: !!orgSettingsDoc.data(),
+            });
+        }
+        if (orgSettingsDoc.exists) {
+            const data = orgSettingsDoc.data();
+            if (verbose) {
+                console.log('[WhatsApp Service] Found org settings document', {
+                    organizationId,
+                    trimmedOrgId,
+                    docPath,
+                    enabled: data === null || data === void 0 ? void 0 : data.enabled,
+                    enabledType: typeof (data === null || data === void 0 ? void 0 : data.enabled),
+                    hasToken: !!(data === null || data === void 0 ? void 0 : data.token),
+                    hasPhoneId: !!(data === null || data === void 0 ? void 0 : data.phoneId),
+                    dataKeys: data ? Object.keys(data) : [],
+                });
+            }
+            if (data && data.enabled === true) {
+                if (!data.token || !data.phoneId) {
+                    if (verbose) {
+                        console.log('[WhatsApp Service] Org settings missing token or phoneId', {
+                            organizationId,
+                            trimmedOrgId,
+                            hasToken: !!data.token,
+                            hasPhoneId: !!data.phoneId,
+                        });
+                    }
+                    return null;
+                }
+                return {
+                    enabled: true,
+                    token: data.token,
+                    phoneId: data.phoneId,
+                    welcomeTemplateId: data.welcomeTemplateId,
+                    languageCode: data.languageCode,
+                    orderConfirmationTemplateId: data.orderConfirmationTemplateId,
+                    tripDispatchTemplateId: data.tripDispatchTemplateId,
+                    tripDeliveryTemplateId: data.tripDeliveryTemplateId,
+                };
+            }
+            else {
+                if (verbose) {
+                    console.log('[WhatsApp Service] Org settings exist but enabled is false or missing', {
+                        organizationId,
+                        trimmedOrgId,
+                        enabled: data === null || data === void 0 ? void 0 : data.enabled,
+                        enabledType: typeof (data === null || data === void 0 ? void 0 : data.enabled),
+                    });
+                }
+                return null;
+            }
+        }
+        else if (verbose) {
+            // Try to list documents in the collection to debug
+            try {
+                const snapshot = await db.collection(constants_1.WHATSAPP_SETTINGS_COLLECTION).limit(5).get();
+                const existingDocIds = snapshot.docs.map((doc) => doc.id);
+                console.log('[WhatsApp Service] No org settings document found', {
+                    organizationId,
+                    trimmedOrgId,
+                    collection: constants_1.WHATSAPP_SETTINGS_COLLECTION,
+                    docPath,
+                    lookingFor: trimmedOrgId,
+                    existingDocIds,
+                    docCount: snapshot.size,
+                });
+            }
+            catch (error) {
+                console.error('[WhatsApp Service] Error checking collection', {
+                    organizationId,
+                    trimmedOrgId,
+                    collection: constants_1.WHATSAPP_SETTINGS_COLLECTION,
+                    error,
+                });
+            }
+        }
+    }
+    // Fallback to global config (for backward compatibility)
+    const globalConfig = (_a = functions.config().whatsapp) !== null && _a !== void 0 ? _a : {};
+    if (globalConfig.token &&
+        globalConfig.phone_id &&
+        globalConfig.enabled !== 'false') {
+        if (verbose) {
+            console.log('[WhatsApp Service] Using global config fallback');
+        }
+        return {
+            enabled: true,
+            token: globalConfig.token,
+            phoneId: globalConfig.phone_id,
+            welcomeTemplateId: globalConfig.welcome_template_id,
+            languageCode: globalConfig.language_code,
+            orderConfirmationTemplateId: globalConfig.order_confirmation_template_id,
+            tripDispatchTemplateId: globalConfig.trip_dispatch_template_id,
+            tripDeliveryTemplateId: globalConfig.trip_delivery_template_id,
+        };
+    }
+    if (verbose) {
+        console.log('[WhatsApp Service] No settings found (neither org-specific nor global)');
+    }
+    return null;
+}
+/**
+ * Send WhatsApp message using Meta Graph API
+ *
+ * @param url - Graph API endpoint URL
+ * @param token - WhatsApp API token
+ * @param to - Recipient phone number (E.164 format)
+ * @param messageBody - Message text to send
+ * @param messageType - Type of message for logging purposes
+ * @param context - Context information for logging
+ * @returns Promise that resolves when message is sent
+ */
+async function sendWhatsappMessage(url, token, to, messageBody, messageType, context) {
+    var _a, _b;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            to: to,
+            type: 'text',
+            text: {
+                body: messageBody,
+            },
+        }),
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`WhatsApp API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+    const result = await response.json();
+    if (result.errors && result.errors.length > 0) {
+        const errorMessages = result.errors.map((e) => e.message || 'Unknown error').join(', ');
+        throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
+    }
+    console.log(`[WhatsApp Service] ${messageType} message sent`, Object.assign(Object.assign({}, context), { to: to.substring(0, 4) + '****', messageId: (_b = (_a = result.messages) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id }));
+}
+//# sourceMappingURL=whatsapp-service.js.map

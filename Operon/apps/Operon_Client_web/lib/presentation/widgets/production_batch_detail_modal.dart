@@ -1,5 +1,6 @@
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
 import 'package:dash_web/presentation/blocs/production_batches/production_batches_cubit.dart';
@@ -59,13 +60,13 @@ class _ProductionBatchDetailModalState
   Color _getStatusColor(ProductionBatchStatus status) {
     switch (status) {
       case ProductionBatchStatus.recorded:
-        return Colors.grey;
+        return AuthColors.textDisabled;
       case ProductionBatchStatus.calculated:
-        return const Color(0xFF2196F3);
+        return AuthColors.info;
       case ProductionBatchStatus.approved:
-        return const Color(0xFF4CAF50);
+        return AuthColors.success;
       case ProductionBatchStatus.processed:
-        return const Color(0xFF9C27B0);
+        return AuthColors.accentPurple;
     }
   }
 
@@ -82,30 +83,29 @@ class _ProductionBatchDetailModalState
     }
   }
 
-  Future<void> _handleCalculate() async {
-    setState(() => _isLoading = true);
-    try {
-      await context.read<ProductionBatchesCubit>().calculateWages(widget.batch.batchId);
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Wages calculated successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+  IconData _getStatusIcon(ProductionBatchStatus status) {
+    switch (status) {
+      case ProductionBatchStatus.recorded:
+        return Icons.edit_outlined;
+      case ProductionBatchStatus.calculated:
+        return Icons.calculate_outlined;
+      case ProductionBatchStatus.approved:
+        return Icons.check_circle_outline;
+      case ProductionBatchStatus.processed:
+        return Icons.done_all;
     }
   }
 
   Future<void> _handleApprove() async {
+    if (widget.batch.batchId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Batch ID is missing. Please refresh and try again.')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       await context.read<ProductionBatchesCubit>().approveBatch(widget.batch.batchId);
@@ -129,6 +129,15 @@ class _ProductionBatchDetailModalState
   }
 
   Future<void> _handleProcess() async {
+    if (widget.batch.batchId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Batch ID is missing. Please refresh and try again.')),
+        );
+      }
+      return;
+    }
+
     final paymentDate = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -138,10 +147,10 @@ class _ProductionBatchDetailModalState
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
+              primary: AuthColors.legacyAccent,
+              onPrimary: AuthColors.textMain,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
             ),
           ),
           child: child!,
@@ -178,6 +187,110 @@ class _ProductionBatchDetailModalState
     }
   }
 
+  Future<void> _handleDelete() async {
+    if (widget.batch.batchId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error: Batch ID is missing. Please refresh and try again.')),
+        );
+      }
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AuthColors.surface,
+        title: const Text(
+          'Delete Production Batch',
+          style: TextStyle(color: AuthColors.textMain),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Are you sure you want to delete this production batch?',
+              style: TextStyle(color: AuthColors.textSub),
+            ),
+            if (widget.batch.status == ProductionBatchStatus.processed) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.warning_outlined,
+                      color: Colors.orange,
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This batch has processed wages. Deleting will revert all wage transactions and attendance records.',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AuthColors.error,
+              foregroundColor: AuthColors.textMain,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await context.read<ProductionBatchesCubit>().deleteBatch(widget.batch.batchId);
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Production batch deleted successfully. Wages and attendance have been reverted.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting batch: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusColor = _getStatusColor(widget.batch.status);
@@ -189,63 +302,133 @@ class _ProductionBatchDetailModalState
         : false;
 
     return Dialog(
-      backgroundColor: const Color(0xFF1B1B2C),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
       child: Container(
-        width: 700,
-        constraints: const BoxConstraints(maxHeight: 800),
-        padding: const EdgeInsets.all(24),
+        width: 750,
+        constraints: const BoxConstraints(maxHeight: 850),
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         child: _isLoadingData
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: CircularProgressIndicator(),
+                ),
+              )
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Batch Details',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(28, 24, 16, 20),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          width: 1,
                         ),
                       ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: statusColor.withValues(alpha: 0.5),
-                            width: 1,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        ),
-                        child: Text(
-                          statusLabel,
-                          style: TextStyle(
+                          child: Icon(
+                            Icons.inventory_2_outlined,
                             color: statusColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            size: 24,
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Batch Details',
+                                style: TextStyle(
+                                  color: AuthColors.textMain,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${widget.batch.batchDate.day}/${widget.batch.batchDate.month}/${widget.batch.batchDate.year} • ${employeeCount} employee${employeeCount != 1 ? 's' : ''}',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: statusColor.withValues(alpha: 0.5),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _getStatusIcon(widget.batch.status),
+                                color: statusColor,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                statusLabel,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       const SizedBox(width: 12),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, color: Colors.white70),
-                      ),
-                    ],
+                          icon: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AuthColors.textMainWithOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.close, color: AuthColors.textSub, size: 20),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 24),
                   Flexible(
                     child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(28),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -290,13 +473,13 @@ class _ProductionBatchDetailModalState
                                         vertical: 6,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.1),
+                                        color: AuthColors.textMainWithOpacity(0.1),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
                                         name,
                                         style: const TextStyle(
-                                          color: Colors.white,
+                                          color: AuthColors.textMain,
                                           fontSize: 14,
                                         ),
                                       ),
@@ -307,7 +490,7 @@ class _ProductionBatchDetailModalState
                                 Text(
                                   'No employee names available',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
+                                    color: AuthColors.textMainWithOpacity(0.7),
                                   ),
                                 ),
                             ],
@@ -380,7 +563,7 @@ class _ProductionBatchDetailModalState
                                                 '${widget.batch.totalBricksStacked} × ₹${stackingPrice.toStringAsFixed(2)} = ₹${stackingWages.toStringAsFixed(2)}',
                                           ),
                                           const Divider(
-                                            color: Colors.white24,
+                                            color: AuthColors.textDisabled,
                                             height: 24,
                                           ),
                                           _InfoRow(
@@ -418,7 +601,7 @@ class _ProductionBatchDetailModalState
                                 Text(
                                   '${widget.batch.wageTransactionIds!.length} transaction(s) created',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
+                                    color: AuthColors.textMainWithOpacity(0.7),
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -428,7 +611,7 @@ class _ProductionBatchDetailModalState
                                     child: Text(
                                       id,
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.6),
+                                        color: AuthColors.textMainWithOpacity(0.6),
                                         fontSize: 12,
                                         fontFamily: 'monospace',
                                       ),
@@ -439,7 +622,7 @@ class _ProductionBatchDetailModalState
                                   Text(
                                     '+${widget.batch.wageTransactionIds!.length - 5} more',
                                     style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.5),
+                                      color: AuthColors.textMainWithOpacity(0.5),
                                       fontSize: 12,
                                     ),
                                   ),
@@ -451,73 +634,147 @@ class _ProductionBatchDetailModalState
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  // Actions
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        child: const Text('Close'),
-                      ),
-                      if (widget.batch.status == ProductionBatchStatus.recorded) ...[
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _handleCalculate,
-                          icon: const Icon(Icons.calculate_outlined, size: 18),
-                          label: const Text('Calculate Wages'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2196F3),
-                            foregroundColor: Colors.white,
-                          ),
+                  // Footer with Actions
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: AuthColors.textMainWithOpacity(0.03),
+                      border: Border(
+                        top: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          width: 1,
                         ),
-                      ],
-                      if (widget.batch.status == ProductionBatchStatus.calculated) ...[
-                        if (requiresApproval) ...[
-                          const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: _isLoading ? null : _handleApprove,
-                            icon: const Icon(Icons.check_circle_outline, size: 18),
-                            label: const Text('Approve'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF4CAF50),
-                              foregroundColor: Colors.white,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : _handleDelete,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Delete'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red, width: 1.5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                        ],
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _handleProcess,
-                          icon: const Icon(Icons.account_balance_wallet_outlined,
-                              size: 18),
-                          label: const Text('Process Wages'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF9C27B0),
-                            foregroundColor: Colors.white,
-                          ),
+                        ),
+                        Row(
+                          children: [
+                            OutlinedButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => Navigator.of(context).pop(),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.white70,
+                                side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text('Close'),
+                            ),
+                            // Only show actions for batches that have calculated wages
+                            if (widget.batch.status == ProductionBatchStatus.calculated ||
+                                widget.batch.status == ProductionBatchStatus.approved) ...[
+                              if (widget.batch.status == ProductionBatchStatus.calculated &&
+                                  requiresApproval) ...[
+                                const SizedBox(width: 12),
+                                ElevatedButton.icon(
+                                  onPressed: _isLoading ? null : _handleApprove,
+                                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                                  label: const Text('Approve'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF4CAF50),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                onPressed: _isLoading ? null : _handleProcess,
+                                icon: const Icon(Icons.account_balance_wallet_outlined,
+                                    size: 18),
+                                label: const Text('Process Wages'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF9C27B0),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                            // If batch is in recorded status (shouldn't happen with new flow, but handle it)
+                            if (widget.batch.status == ProductionBatchStatus.recorded &&
+                                widget.batch.totalWages == null) ...[
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.orange.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 18,
+                                      color: Colors.orange.withValues(alpha: 0.9),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Edit batch to calculate wages',
+                                      style: TextStyle(
+                                        color: Colors.orange.withValues(alpha: 0.9),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
-                      if (widget.batch.status == ProductionBatchStatus.approved) ...[
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: _isLoading ? null : _handleProcess,
-                          icon: const Icon(Icons.account_balance_wallet_outlined,
-                              size: 18),
-                          label: const Text('Process Wages'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF9C27B0),
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ],
               ),
-      ),
-    );
+            ),
+        );
   }
 }
 
@@ -547,7 +804,7 @@ class _Section extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: Colors.white,
+                                          color: AuthColors.textMain,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),

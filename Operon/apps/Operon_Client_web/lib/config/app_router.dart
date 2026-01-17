@@ -43,6 +43,7 @@ import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_web/presentation/views/fuel_ledger_page.dart';
 import 'package:dash_web/presentation/views/employee_wages_page.dart';
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_cubit.dart';
+import 'package:dash_web/presentation/views/attendance_page.dart';
 import 'package:dash_web/presentation/views/expenses_page.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_web/presentation/views/wage_settings_page.dart';
@@ -683,6 +684,46 @@ GoRouter buildRouter() {
               )..watchTransactions(),
               child: const EmployeeWagesPage(),
             ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/attendance',
+        name: 'attendance',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          final appAccessRole = orgState.appAccessRole;
+          if (organization == null || appAccessRole == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          // Check if user can access employees page (attendance is related to employees)
+          if (!appAccessRole.canAccessPage('employees') && !appAccessRole.isAdmin) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const HomePage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const AttendancePage(),
           );
         },
       ),

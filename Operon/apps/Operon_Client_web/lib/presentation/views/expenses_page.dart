@@ -1,5 +1,6 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_state.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
@@ -77,10 +78,10 @@ class _ExpensesPageState extends State<ExpensesPage>
               // Tabs
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                  color: AuthColors.surface.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: AuthColors.textMainWithOpacity(0.1),
                   ),
                 ),
                 child: TabBar(
@@ -104,9 +105,9 @@ class _ExpensesPageState extends State<ExpensesPage>
                     Tab(text: 'Salary Payments'),
                     Tab(text: 'General Expenses'),
                   ],
-                  labelColor: const Color(0xFF6F4BFF),
-                  unselectedLabelColor: Colors.white54,
-                  indicatorColor: const Color(0xFF6F4BFF),
+                  labelColor: AuthColors.legacyAccent,
+                  unselectedLabelColor: AuthColors.textSub,
+                  indicatorColor: AuthColors.legacyAccent,
                   indicatorSize: TabBarIndicatorSize.tab,
                 ),
               ),
@@ -142,7 +143,7 @@ class _ExpensesPageState extends State<ExpensesPage>
               child: _SummaryCard(
                 title: 'Vendor Payments',
                 amount: state.totalVendorExpenses,
-                color: const Color(0xFF6F4BFF),
+                color: AuthColors.legacyAccent,
                 icon: Icons.store,
               ),
             ),
@@ -151,7 +152,7 @@ class _ExpensesPageState extends State<ExpensesPage>
               child: _SummaryCard(
                 title: 'Salary Payments',
                 amount: state.totalEmployeeExpenses,
-                color: const Color(0xFF5AD8A4),
+                color: AuthColors.successVariant,
                 icon: Icons.person,
               ),
             ),
@@ -160,7 +161,7 @@ class _ExpensesPageState extends State<ExpensesPage>
               child: _SummaryCard(
                 title: 'General Expenses',
                 amount: state.totalGeneralExpenses,
-                color: const Color(0xFFFF9800),
+                color: AuthColors.warning,
                 icon: Icons.receipt,
               ),
             ),
@@ -175,12 +176,12 @@ class _ExpensesPageState extends State<ExpensesPage>
       builder: (context, state) {
         return TextField(
           controller: _searchController,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search, color: Colors.white54),
+            prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: _clearSearch,
                   )
                 : null,

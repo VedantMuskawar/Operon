@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/views/fuel_ledger/record_fuel_purchase_dialog.dart';
@@ -365,10 +366,10 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                     child: Container(
                       constraints: const BoxConstraints(maxWidth: 400),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                        color: AuthColors.surface.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: AuthColors.textMainWithOpacity(0.1),
                         ),
                       ),
                       child: TextField(
@@ -376,18 +377,18 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                           _query = v;
                           _currentPage = 0; // Reset to first page on search
                         }),
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: InputDecoration(
                           hintText: 'Search by vehicle, voucher, or vendor...',
                           hintStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
+                            color: AuthColors.textMainWithOpacity(0.4),
                           ),
                           filled: true,
                           fillColor: Colors.transparent,
-                          prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                          prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
                           suffixIcon: _query.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear, color: Colors.white54),
+                                  icon: const Icon(Icons.clear, color: AuthColors.textSub),
                                   onPressed: () => setState(() => _query = ''),
                                 )
                               : null,
@@ -419,15 +420,15 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                         DropdownButtonHideUnderline(
                           child: DropdownButton<_FuelSortOption>(
                             value: _sortOption,
-                            dropdownColor: const Color(0xFF1B1B2C),
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            dropdownColor: AuthColors.surface,
+                            style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
                             items: const [
                               DropdownMenuItem(
                                 value: _FuelSortOption.dateNewest,
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.calendar_today, size: 16, color: Colors.white70),
+                                    Icon(Icons.calendar_today, size: 16, color: AuthColors.textSub),
                                     SizedBox(width: 8),
                                     Text('Date (Newest)'),
                                   ],
@@ -438,7 +439,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.calendar_today, size: 16, color: Colors.white70),
+                                    Icon(Icons.calendar_today, size: 16, color: AuthColors.textSub),
                                     SizedBox(width: 8),
                                     Text('Date (Oldest)'),
                                   ],
@@ -449,7 +450,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.trending_down, size: 16, color: Colors.white70),
+                                    Icon(Icons.trending_down, size: 16, color: AuthColors.textSub),
                                     SizedBox(width: 8),
                                     Text('Amount (High to Low)'),
                                   ],
@@ -460,7 +461,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.trending_up, size: 16, color: Colors.white70),
+                                    Icon(Icons.trending_up, size: 16, color: AuthColors.textSub),
                                     SizedBox(width: 8),
                                     Text('Amount (Low to High)'),
                                   ],
@@ -471,7 +472,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.directions_car, size: 16, color: Colors.white70),
+                                    Icon(Icons.directions_car, size: 16, color: AuthColors.textSub),
                                     SizedBox(width: 8),
                                     Text('Vehicle (A-Z)'),
                                   ],
@@ -486,7 +487,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                 });
                               }
                             },
-                            icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7), size: 20),
+                            icon: Icon(Icons.arrow_drop_down, color: AuthColors.textMainWithOpacity(0.7), size: 20),
                             isDense: true,
                           ),
                         ),

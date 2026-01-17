@@ -308,38 +308,90 @@ class _VehicleDataListItem extends StatelessWidget {
               size: 8,
             ),
             const SizedBox(width: 12),
-            IconButton(
+            PopupMenuButton<String>(
               icon: Icon(
-                vehicle.driver != null ? Icons.person : Icons.person_add_outlined,
-                color: vehicle.driver != null ? AuthColors.primary : AuthColors.textSub,
-                size: 20,
-              ),
-              onPressed: onAssignDriver,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              tooltip: vehicle.driver != null ? 'Change Driver' : 'Assign Driver',
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: Icon(
-                Icons.edit_outlined,
+                Icons.more_vert,
                 color: AuthColors.textSub,
                 size: 20,
               ),
-              onPressed: onEdit,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: Icon(
-                Icons.delete_outline,
-                color: AuthColors.error,
-                size: 20,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              onPressed: onDelete,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
+              color: AuthColors.surface,
+              onSelected: (value) {
+                switch (value) {
+                  case 'edit':
+                    onEdit();
+                    break;
+                  case 'assign_driver':
+                    onAssignDriver();
+                    break;
+                  case 'delete':
+                    onDelete();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem<String>(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.edit_outlined,
+                        color: AuthColors.textMain,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Edit',
+                        style: TextStyle(color: AuthColors.textMain),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'assign_driver',
+                  child: Row(
+                    children: [
+                      Icon(
+                        vehicle.driver != null
+                            ? Icons.person
+                            : Icons.person_add_outlined,
+                        color: vehicle.driver != null
+                            ? AuthColors.primary
+                            : AuthColors.textMain,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        vehicle.driver != null
+                            ? 'Change Driver'
+                            : 'Assign Driver',
+                        style: TextStyle(color: AuthColors.textMain),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.delete_outline,
+                        color: AuthColors.error,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Delete',
+                        style: TextStyle(color: AuthColors.error),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -385,9 +437,9 @@ class _DocStatusChip extends StatelessWidget {
     if (expiry == null) return _ExpiryStatus('N/A', AuthColors.textDisabled);
     final today = DateTime.now();
     final days = expiry!.difference(DateTime(today.year, today.month, today.day)).inDays;
-    if (days < 0) return const _ExpiryStatus('Expired', Colors.redAccent);
-    if (days <= 15) return _ExpiryStatus('Due $days d', Colors.orangeAccent);
-    return const _ExpiryStatus('OK', Colors.greenAccent);
+    if (days < 0) return const _ExpiryStatus('Expired', AuthColors.error);
+    if (days <= 15) return _ExpiryStatus('Due $days d', AuthColors.warning);
+    return const _ExpiryStatus('OK', AuthColors.success);
   }
 }
 
@@ -647,7 +699,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                             },
                             selectedColor: AuthColors.primary,
                             labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : Colors.white70,
+                              color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                             ),
                             backgroundColor: AuthColors.surface,
                           );
@@ -661,11 +713,11 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                               _showCustomTag = true;
                             });
                           },
-                          selectedColor: const Color(0xFF6F4BFF),
+                          selectedColor: AuthColors.legacyAccent,
                           labelStyle: TextStyle(
-                            color: _selectedTag == 'Custom' ? Colors.white : Colors.white70,
+                            color: _selectedTag == 'Custom' ? AuthColors.textMain : AuthColors.textSub,
                           ),
-                          backgroundColor: const Color(0xFF2A2A3D),
+                          backgroundColor: AuthColors.surface,
                         ),
                         if (_selectedTag == null)
                           ChoiceChip(
@@ -678,7 +730,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                 _customTagController.clear();
                               });
                             },
-                            selectedColor: const Color(0xFF2A2A3D),
+                            selectedColor: AuthColors.surface,
                             labelStyle: TextStyle(color: AuthColors.textSub),
                             backgroundColor: AuthColors.surface,
                           ),
@@ -688,7 +740,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _customTagController,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
                         decoration: _compactInputDecoration('Custom Tag'),
                         onChanged: (_) {
                           // Tag will be read from controller on submit
@@ -721,7 +773,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                               width: 120,
                               child: TextFormField(
                                 controller: _weeklyControllers[day],
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
                                 decoration: _compactInputDecoration(day.capitalize()),
                                 keyboardType:
                                     const TextInputType.numberWithOptions(decimal: true),
@@ -731,7 +783,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                         ),
                       ],
                     ),
-                    const Divider(color: Colors.white10, height: 24),
+                    Divider(color: AuthColors.textMainWithOpacity(0.1), height: 24),
                     _isLoadingProducts
                         ? const Center(
                             child: Padding(
@@ -745,7 +797,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                 child: Text(
                                   'No products available.',
                                   style: TextStyle(
-                                    color: Colors.white54,
+                                    color: AuthColors.textSub,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -1158,7 +1210,7 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                     const SizedBox(height: 12),
                     const Text(
                       'No employees available. Add employees first.',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                     ),
                   ],
                 ],
@@ -1200,21 +1252,21 @@ class _FormSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2A).withOpacity(0.5),
+        color: AuthColors.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFF6F4BFF), size: 18),
+              Icon(icon, color: AuthColors.legacyAccent, size: 18),
               const SizedBox(width: 8),
               Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1253,7 +1305,7 @@ class _CompactDocumentFields extends StatelessWidget {
             style: const TextStyle(color: Colors.white, fontSize: 13),
             decoration: InputDecoration(
               labelText: '$title Number',
-              labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+              labelStyle: const TextStyle(color: AuthColors.textSub, fontSize: 12),
               filled: true,
               fillColor: AuthColors.surface,
               border: OutlineInputBorder(
@@ -1279,10 +1331,10 @@ class _CompactDocumentFields extends StatelessWidget {
                   return Theme(
                     data: Theme.of(context).copyWith(
                       colorScheme: const ColorScheme.dark(
-                        primary: Color(0xFF6F4BFF),
-                        onPrimary: Colors.white,
-                        surface: Color(0xFF1B1B2C),
-                        onSurface: Colors.white,
+                        primary: AuthColors.legacyAccent,
+                        onPrimary: AuthColors.textMain,
+                        surface: AuthColors.surface,
+                        onSurface: AuthColors.textMain,
                       ),
                     ),
                     child: child!,
@@ -1295,9 +1347,9 @@ class _CompactDocumentFields extends StatelessWidget {
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white10),
+                border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               alignment: Alignment.centerLeft,
               child: Text(
@@ -1307,7 +1359,7 @@ class _CompactDocumentFields extends StatelessWidget {
                         '${expiry!.month.toString().padLeft(2, '0')}/'
                         '${expiry!.year}',
                 style: TextStyle(
-                  color: expiry == null ? Colors.white54 : Colors.white,
+                  color: expiry == null ? AuthColors.textSub : AuthColors.textMain,
                   fontSize: 13,
                 ),
               ),

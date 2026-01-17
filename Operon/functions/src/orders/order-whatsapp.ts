@@ -2,74 +2,12 @@ import * as functions from 'firebase-functions';
 import {
   PENDING_ORDERS_COLLECTION,
   CLIENTS_COLLECTION,
-  WHATSAPP_SETTINGS_COLLECTION,
 } from '../shared/constants';
 import { getFirestore } from '../shared/firestore-helpers';
+import { loadWhatsappSettings, sendWhatsappTemplateMessage } from '../shared/whatsapp-service';
+import { logInfo } from '../shared/logger';
 
 const db = getFirestore();
-
-interface WhatsappSettings {
-  enabled: boolean;
-  token: string;
-  phoneId: string;
-  welcomeTemplateId?: string;
-  languageCode?: string;
-  orderConfirmationTemplateId?: string;
-  tripDispatchTemplateId?: string;
-  tripDeliveryTemplateId?: string;
-}
-
-async function loadWhatsappSettings(
-  organizationId: string | undefined,
-): Promise<WhatsappSettings | null> {
-  // First, try to load organization-specific settings
-  if (organizationId) {
-    const trimmedOrgId = organizationId.trim();
-    const orgSettingsRef = db.collection(WHATSAPP_SETTINGS_COLLECTION).doc(trimmedOrgId);
-    const orgSettingsDoc = await orgSettingsRef.get();
-
-    if (orgSettingsDoc.exists) {
-      const data = orgSettingsDoc.data();
-      if (data && data.enabled === true) {
-        if (!data.token || !data.phoneId) {
-          return null;
-        }
-        return {
-          enabled: true,
-          token: data.token as string,
-          phoneId: data.phoneId as string,
-          welcomeTemplateId: data.welcomeTemplateId as string | undefined,
-          languageCode: data.languageCode as string | undefined,
-          orderConfirmationTemplateId: data.orderConfirmationTemplateId as string | undefined,
-          tripDispatchTemplateId: data.tripDispatchTemplateId as string | undefined,
-          tripDeliveryTemplateId: data.tripDeliveryTemplateId as string | undefined,
-        };
-      }
-      return null;
-    }
-  }
-
-  // Fallback to global config
-  const globalConfig: any = (functions.config() as any).whatsapp ?? {};
-  if (
-    globalConfig.token &&
-    globalConfig.phone_id &&
-    globalConfig.enabled !== 'false'
-  ) {
-    return {
-      enabled: true,
-      token: globalConfig.token,
-      phoneId: globalConfig.phone_id,
-      welcomeTemplateId: globalConfig.welcome_template_id,
-      languageCode: globalConfig.language_code,
-      orderConfirmationTemplateId: globalConfig.order_confirmation_template_id,
-      tripDispatchTemplateId: globalConfig.trip_dispatch_template_id,
-      tripDeliveryTemplateId: globalConfig.trip_delivery_template_id,
-    };
-  }
-
-  return null;
-}
 
 /**
  * Sends WhatsApp notification to client when an order is created
@@ -83,9 +21,10 @@ async function sendOrderConfirmationMessage(
     orderNumber?: string;
     items: Array<{
       productName: string;
-      totalQuantity: number;
-      estimatedTrips: number;
-      total: number;
+      totalQuantity?: number;
+      estimatedTrips?: number;
+      fixedQuantityPerTrip?: number;
+      total?: number;
     }>;
     pricing: {
       subtotal: number;
@@ -114,51 +53,66 @@ async function sendOrderConfirmationMessage(
     ? clientName.trim()
     : 'there';
 
-  // Format order items for message
+  // Format order items for template parameter 2
   const itemsText = orderData.items
     .map((item, index) => {
       const itemNum = index + 1;
-      return `${itemNum}. ${item.productName}\n   Qty: ${item.totalQuantity} units (${item.estimatedTrips} trips)\n   Amount: ₹${item.total.toFixed(2)}`;
+      // Calculate totalQuantity if not present: estimatedTrips × fixedQuantityPerTrip
+      const estimatedTrips = item.estimatedTrips ?? 0;
+      const fixedQtyPerTrip = item.fixedQuantityPerTrip ?? 1;
+      const totalQuantity = item.totalQuantity ?? (estimatedTrips * fixedQtyPerTrip);
+      const total = item.total ?? 0;
+      
+      return `${itemNum}. ${item.productName} - Qty: ${totalQuantity} units (${estimatedTrips} trips) - ₹${total.toFixed(2)}`;
     })
-    .join('\n\n');
+    .join('\n');
 
-  // Format delivery zone
+  // Format delivery zone for parameter 3
   const deliveryInfo = orderData.deliveryZone
     ? `${orderData.deliveryZone.city_name}, ${orderData.deliveryZone.region}`
     : 'To be confirmed';
 
-  // Format pricing summary
-  const pricingText = `Subtotal: ₹${orderData.pricing.subtotal.toFixed(2)}\n` +
-    (orderData.pricing.totalGst > 0
-      ? `GST: ₹${orderData.pricing.totalGst.toFixed(2)}\n`
-      : '') +
-    `Total: ₹${orderData.pricing.totalAmount.toFixed(2)}`;
+  // Format total amount for parameter 4
+  const totalAmountText = orderData.pricing.totalGst > 0
+    ? `₹${orderData.pricing.totalAmount.toFixed(2)} (Subtotal: ₹${orderData.pricing.subtotal.toFixed(2)}, GST: ₹${orderData.pricing.totalGst.toFixed(2)})`
+    : `₹${orderData.pricing.totalAmount.toFixed(2)} (Subtotal: ₹${orderData.pricing.subtotal.toFixed(2)})`;
 
-  // Format advance payment info if applicable
+  // Format advance payment info for parameter 5 (optional)
   const advanceText = orderData.advanceAmount && orderData.advanceAmount > 0
-    ? `\n\nAdvance Paid: ₹${orderData.advanceAmount.toFixed(2)}\nRemaining: ₹${(orderData.pricing.totalAmount - orderData.advanceAmount).toFixed(2)}`
+    ? `Advance Paid: ₹${orderData.advanceAmount.toFixed(2)} | Remaining: ₹${(orderData.pricing.totalAmount - orderData.advanceAmount).toFixed(2)}`
     : '';
 
-  // Build message body
-  const messageBody = `Hello ${displayName}!\n\n` +
-    `Your order has been placed successfully!\n\n` +
-    `Items:\n${itemsText}\n\n` +
-    `Delivery: ${deliveryInfo}\n\n` +
-    `Pricing:\n${pricingText}${advanceText}\n\n` +
-    `Thank you for your order!`;
+  // Prepare template parameters
+  const parameters = [
+    displayName,        // Parameter 1: Client name
+    itemsText,          // Parameter 2: Order items list
+    deliveryInfo,       // Parameter 3: Delivery zone
+    totalAmountText,    // Parameter 4: Total amount with breakdown
+    advanceText,        // Parameter 5: Advance payment info (can be empty)
+  ];
 
-  console.log('[WhatsApp Order] Sending order confirmation', {
+  logInfo('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Sending order confirmation', {
     organizationId,
     orderId,
-    to: to.substring(0, 4) + '****', // Mask phone number
+    to: to.substring(0, 4) + '****',
     phoneId: settings.phoneId,
+    templateId: settings.orderConfirmationTemplateId,
     hasItems: orderData.items.length > 0,
   });
 
-  await sendWhatsappMessage(url, settings.token, to, messageBody, 'confirmation', {
-    organizationId,
-    orderId,
-  });
+  await sendWhatsappTemplateMessage(
+    url,
+    settings.token,
+    to,
+    settings.orderConfirmationTemplateId,
+    settings.languageCode ?? 'en',
+    parameters,
+    'order-confirmation',
+    {
+      organizationId,
+      orderId,
+    },
+  );
 }
 
 /**
@@ -173,9 +127,10 @@ async function sendOrderUpdateMessage(
     orderNumber?: string;
     items: Array<{
       productName: string;
-      totalQuantity: number;
-      estimatedTrips: number;
-      total: number;
+      totalQuantity?: number;
+      estimatedTrips?: number;
+      fixedQuantityPerTrip?: number;
+      total?: number;
     }>;
     pricing: {
       subtotal: number;
@@ -209,7 +164,13 @@ async function sendOrderUpdateMessage(
   const itemsText = orderData.items
     .map((item, index) => {
       const itemNum = index + 1;
-      return `${itemNum}. ${item.productName}\n   Qty: ${item.totalQuantity} units (${item.estimatedTrips} trips)\n   Amount: ₹${item.total.toFixed(2)}`;
+      // Calculate totalQuantity if not present: estimatedTrips × fixedQuantityPerTrip
+      const estimatedTrips = item.estimatedTrips ?? 0;
+      const fixedQtyPerTrip = item.fixedQuantityPerTrip ?? 1;
+      const totalQuantity = item.totalQuantity ?? (estimatedTrips * fixedQtyPerTrip);
+      const total = item.total ?? 0;
+      
+      return `${itemNum}. ${item.productName}\n   Qty: ${totalQuantity} units (${estimatedTrips} trips)\n   Amount: ₹${total.toFixed(2)}`;
     })
     .join('\n\n');
 
@@ -243,10 +204,10 @@ async function sendOrderUpdateMessage(
     `Pricing:\n${pricingText}${advanceText}${statusText}\n\n` +
     `Thank you!`;
 
-  console.log('[WhatsApp Order] Sending order update', {
+  logInfo('Order/WhatsApp', 'sendOrderUpdateMessage', 'Sending order update', {
     organizationId,
     orderId,
-    to: to.substring(0, 4) + '****', // Mask phone number
+    to: to.substring(0, 4) + '****',
     phoneId: settings.phoneId,
     hasItems: orderData.items.length > 0,
     status: orderData.status,
@@ -258,69 +219,12 @@ async function sendOrderUpdateMessage(
   });
 }
 
-async function sendWhatsappMessage(
-  url: string,
-  token: string,
-  to: string,
-  messageBody: string,
-  messageType: 'confirmation' | 'update',
-  context: { organizationId?: string; orderId: string },
-): Promise<void> {
-  const payload = {
-    messaging_product: 'whatsapp',
-    to: to,
-    type: 'text',
-    text: {
-      body: messageBody,
-    },
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    let errorDetails: any;
-    try {
-      errorDetails = JSON.parse(text);
-    } catch {
-      errorDetails = text;
-    }
-
-    console.error(
-      `[WhatsApp Order] Failed to send order ${messageType}`,
-      {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorDetails,
-        organizationId: context.organizationId,
-        orderId: context.orderId,
-        url,
-      },
-    );
-  } else {
-    const result = await response.json().catch(() => ({}));
-    console.log(`[WhatsApp Order] Order ${messageType} sent successfully`, {
-      orderId: context.orderId,
-      to: to.substring(0, 4) + '****',
-      organizationId: context.organizationId,
-      messageId: result.messages?.[0]?.id,
-    });
-  }
-}
-
 /**
  * Cloud Function: Triggered when an order is created
  * Sends WhatsApp notification to client with order details
  */
 export const onOrderCreatedSendWhatsapp = functions
-  .region('asia-south1')
+  .region('us-central1')
   .firestore
   .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
   .onCreate(async (snapshot, context) => {
@@ -333,9 +237,10 @@ export const onOrderCreatedSendWhatsapp = functions
       orderNumber?: string;
       items?: Array<{
         productName: string;
-        totalQuantity: number;
-        estimatedTrips: number;
-        total: number;
+        totalQuantity?: number;
+        estimatedTrips?: number;
+        fixedQuantityPerTrip?: number;
+        total?: number;
       }>;
       pricing?: {
         subtotal: number;
@@ -422,7 +327,7 @@ export const onOrderCreatedSendWhatsapp = functions
  * Only sends for significant changes (items, pricing, status, delivery zone)
  */
 export const onOrderUpdatedSendWhatsapp = functions
-  .region('asia-south1')
+  .region('us-central1')
   .firestore
   .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
   .onUpdate(async (change, context) => {
@@ -439,7 +344,7 @@ export const onOrderUpdatedSendWhatsapp = functions
 
     // Only send notification if significant changes occurred
     if (!itemsChanged && !pricingChanged && !statusChanged && !deliveryZoneChanged && !advanceAmountChanged) {
-      console.log('[WhatsApp Order] No significant changes detected, skipping update notification', {
+      logInfo('Order/WhatsApp', 'onOrderUpdatedSendWhatsapp', 'No significant changes detected, skipping update notification', {
         orderId,
       });
       return;
@@ -496,29 +401,16 @@ export const onOrderUpdatedSendWhatsapp = functions
           }
         }
       } catch (error) {
-        console.error('[WhatsApp Order] Error fetching client data', {
-          orderId,
-          clientId: orderData.clientId,
-          error,
-        });
+        // Error already handled, continue silently
       }
     }
 
     if (!clientPhone) {
-      console.log(
-        '[WhatsApp Order] No phone found for order, skipping notification.',
-        { orderId, clientId: orderData.clientId },
-      );
       return;
     }
 
     // Validate required order data
     if (!orderData.items || !orderData.pricing) {
-      console.log('[WhatsApp Order] Missing required order data', {
-        orderId,
-        hasItems: !!orderData.items,
-        hasPricing: !!orderData.pricing,
-      });
       return;
     }
 

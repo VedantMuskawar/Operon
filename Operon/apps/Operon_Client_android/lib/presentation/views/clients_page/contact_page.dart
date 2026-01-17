@@ -12,6 +12,7 @@ import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dar
 import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:core_ui/core_ui.dart';
 
 class ContactPage extends StatefulWidget {
   const ContactPage({super.key});
@@ -21,10 +22,12 @@ class ContactPage extends StatefulWidget {
 }
 
 class _ContactPageState extends State<ContactPage> {
-  static const int _contactBatchSize = 25;
+  static const int _contactBatchSize = 20; // Reduced for faster initial load
+  static const int _initialDisplayCount = 20; // Show fewer initially
 
   bool _isCallLogLoading = true;
-  bool _isContactsLoading = true;
+  bool _isContactsLoading = false; // Start as false to allow initial load
+  bool _hasContactsPermission = false;
   String? _callLogMessage;
   String? _contactsMessage;
 
@@ -134,9 +137,19 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<void> _loadContacts() async {
-    _allContacts.clear();
+    // Prevent concurrent loads
+    if (_isContactsLoading) {
+      debugPrint('Contact loading already in progress, skipping...');
+      return;
+    }
+
+    debugPrint('Starting contact load...');
+
+    // Reset state
     _visibleContactLimit = _contactBatchSize;
     _isLoadingMoreContacts = false;
+
+    if (!mounted) return;
 
     setState(() {
       _filteredContacts = [];
@@ -145,6 +158,7 @@ class _ContactPageState extends State<ContactPage> {
     });
 
     if (!Platform.isAndroid) {
+      if (!mounted) return;
       setState(() {
         _contactsMessage = 'Phone contacts are only available on Android devices.';
         _isContactsLoading = false;
@@ -152,89 +166,189 @@ class _ContactPageState extends State<ContactPage> {
       return;
     }
 
-    final hasPermission =
-        await device_contacts.FlutterContacts.requestPermission(readonly: true);
-    if (!hasPermission) {
-      setState(() {
-        _contactsMessage = 'Contacts permission denied. Enable it in settings.';
-        _isContactsLoading = false;
-      });
-      debugPrint('Contact permission denied.');
-      return;
-    }
-
     try {
-      // Load contacts in background isolate for better performance
-      final contacts = await device_contacts.FlutterContacts.getContacts(
-        withProperties: true,
-        withPhoto: false,
-        sorted: true,
+      // Check permission with better error handling
+      debugPrint('Requesting contacts permission...');
+      final hasPermission = await device_contacts.FlutterContacts.requestPermission(
+        readonly: true,
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('Permission request timed out');
+          return false;
+        },
       );
       
-      // Process contacts in background isolate
-      final entries = await compute(_processContactsInBackground, contacts);
+      debugPrint('Permission result: $hasPermission');
+      
+      if (!mounted) return;
+      
+      setState(() {
+        _hasContactsPermission = hasPermission;
+      });
+      
+      if (!hasPermission) {
+        debugPrint('Permission denied, showing error message');
+        if (!mounted) return;
+        setState(() {
+          _contactsMessage = 'Contacts permission denied. Enable it in settings.';
+          _isContactsLoading = false;
+        });
+        return;
+      }
+
+      // Load contacts with timeout and error handling
+      debugPrint('Loading contacts from device...');
+      final contacts = await device_contacts.FlutterContacts.getContacts(
+        withProperties: true, // Required to get phone numbers
+        withPhoto: false, // Photos not needed - saves memory
+        sorted: false, // Sort in isolate instead to avoid blocking
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('Contact loading timed out after 30 seconds');
+          throw TimeoutException('Contact loading timed out after 30 seconds');
+        },
+      );
+      
+      debugPrint('Loaded ${contacts.length} raw contacts from device');
+      
+      if (!mounted) return;
+
+      // Process contacts in background isolate with error handling
+      debugPrint('Processing contacts in isolate...');
+      final entries = await compute(_processContactsInBackground, contacts)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              debugPrint('Contact processing timed out');
+              return <_ContactEntry>[];
+            },
+          );
+
+      debugPrint('Processed ${entries.length} valid contacts');
 
       if (!mounted) return;
 
+      // Update state with processed contacts
+      debugPrint('Updating UI with ${entries.length} contacts');
+      
+      // Optimize: Show minimal initial batch for fastest first render
+      final initialLimit = entries.length < _initialDisplayCount
+          ? entries.length
+          : _initialDisplayCount;
+      
+      if (!mounted) return;
+      
+      // Update state immediately with small batch
       setState(() {
-        _allContacts
-          ..clear()
-          ..addAll(entries);
-        final limit = entries.length < _visibleContactLimit
-            ? entries.length
-            : _visibleContactLimit;
-        _filteredContacts = entries.take(limit).toList();
+        _allContacts.clear();
+        _allContacts.addAll(entries);
+        
+        _filteredContacts = entries.take(initialLimit).toList();
+        _visibleContactLimit = initialLimit;
+        
         _contactsMessage = entries.isEmpty
             ? 'No phone contacts found on this device.'
             : null;
         _isContactsLoading = false;
       });
+      
+      // Load more contacts after first frame for smoother experience
+      if (entries.length > initialLimit) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_isSearchActive) {
+            setState(() {
+              final nextLimit = entries.length < _contactBatchSize * 2
+                  ? entries.length
+                  : _contactBatchSize * 2;
+              _filteredContacts = entries.take(nextLimit).toList();
+              _visibleContactLimit = nextLimit;
+            });
+          }
+        });
+      }
+      
+      debugPrint('Contact loading completed successfully');
     } catch (error) {
       if (!mounted) return;
-      final errorMessage = NetworkErrorHelper.isNetworkError(error)
-          ? NetworkErrorHelper.getNetworkErrorMessage(error)
-          : 'Unable to read contacts: $error';
+      
+      // Better error messages
+      String errorMessage;
+      if (error is TimeoutException) {
+        errorMessage = 'Loading contacts took too long. Please try again.';
+      } else if (error is PlatformException) {
+        errorMessage = 'Unable to access contacts. Please check permissions.';
+      } else if (NetworkErrorHelper.isNetworkError(error)) {
+        errorMessage = NetworkErrorHelper.getNetworkErrorMessage(error);
+      } else {
+        errorMessage = 'Unable to read contacts: ${error.toString()}';
+      }
+      
+      debugPrint('Error loading contacts: $error');
+      
       setState(() {
         _contactsMessage = errorMessage;
         _isContactsLoading = false;
+        // Don't clear contacts on error - keep what we have
       });
     }
   }
 
   // Helper function to process contacts in background isolate
+  // Optimized with better error handling and validation
   static List<_ContactEntry> _processContactsInBackground(
       List<device_contacts.Contact> contacts) {
+    if (contacts.isEmpty) return <_ContactEntry>[];
+    
     final entries = <_ContactEntry>[];
+    
     for (final contact in contacts) {
-      if (contact.phones.isEmpty) continue;
+      try {
+        // Skip contacts without phone numbers
+        if (contact.phones.isEmpty) continue;
 
-      final displayPhones = contact.phones
-          .map((phone) => phone.number.trim())
-          .where((number) => number.isNotEmpty)
-          .toList();
-      final normalizedPhones = displayPhones
-          .map((number) => number.replaceAll(RegExp(r'[^0-9+]'), ''))
-          .where((number) => number.isNotEmpty)
-          .toList();
-      if (displayPhones.isEmpty || normalizedPhones.isEmpty) {
+        // Extract and validate phone numbers
+        final displayPhones = contact.phones
+            .map((phone) => phone.number.trim())
+            .where((number) => number.isNotEmpty)
+            .toList();
+            
+        if (displayPhones.isEmpty) continue;
+
+        // Normalize phone numbers (digits only for matching)
+        final normalizedPhones = displayPhones
+            .map((number) => number.replaceAll(RegExp(r'[^0-9+]'), ''))
+            .where((number) => number.isNotEmpty && number.length >= 3) // Minimum 3 digits
+            .toList();
+            
+        if (normalizedPhones.isEmpty) continue;
+
+        // Get contact name or use phone as fallback
+        final name = (contact.displayName.trim().isNotEmpty
+                ? contact.displayName.trim()
+                : displayPhones.first)
+            .trim();
+            
+        // Skip if name is still empty
+        if (name.isEmpty) continue;
+
+        // Create contact entry
+        entries.add(
+          _ContactEntry(
+            id: contact.id.isNotEmpty ? contact.id : 'unknown_${entries.length}',
+            name: name,
+            normalizedName: name.toLowerCase(),
+            displayPhones: displayPhones,
+            normalizedPhones: normalizedPhones,
+          ),
+        );
+      } catch (e) {
+        // Skip invalid contacts silently
         continue;
       }
-
-      final name = (contact.displayName.trim().isNotEmpty
-              ? contact.displayName.trim()
-              : displayPhones.first)
-          .trim();
-
-      entries.add(
-        _ContactEntry(
-          id: contact.id,
-          name: name,
-          normalizedName: name.toLowerCase(),
-          displayPhones: displayPhones,
-          normalizedPhones: normalizedPhones,
-        ),
-      );
     }
+    
     return entries;
   }
 
@@ -247,63 +361,97 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<void> _performContactSearch(String rawQuery) async {
+    if (!mounted) return;
+    
     final query = rawQuery.trim();
     
+    // Handle empty query - reset to paginated list
     if (query.isEmpty) {
       final limit = _allContacts.length < _visibleContactLimit
           ? _allContacts.length
           : _visibleContactLimit;
+      
+      if (!mounted) return;
+      
       setState(() {
         _filteredContacts = _allContacts.take(limit).toList();
-        _contactsMessage = _allContacts.isEmpty
-            ? 'Contacts not available yet. Pull down to refresh or check permissions.'
-            : null;
+        // Only show permission message if permission is not granted
+        if (_allContacts.isEmpty) {
+          _contactsMessage = _hasContactsPermission
+              ? null // Permission granted, no message needed
+              : 'Contacts permission is required. Please grant permission to view contacts.';
+        } else {
+          _contactsMessage = null;
+        }
       });
       return;
     }
 
-    // Optimize search by processing in background and limiting results early
-    final normalized = query.toLowerCase();
-    final digitsQuery = query.replaceAll(RegExp(r'[^0-9+]'), '');
-    
-    // Optimize search - process directly for better performance
-    // Only use compute if contact list is very large (>1000)
-    List<_ContactEntry> results;
-    if (_allContacts.length > 1000) {
-      results = await compute(
-        _searchContactsInBackground,
-        _SearchContactsParams(
-          contacts: _allContacts,
-          normalizedQuery: normalized,
-          digitsQuery: digitsQuery,
-          maxResults: 50,
-        ),
-      );
-    } else {
-      // Direct search for smaller lists (faster)
-      results = <_ContactEntry>[];
-      for (final contact in _allContacts) {
-        if (results.length >= 50) break;
+    try {
+      // Normalize query for matching
+      final normalized = query.toLowerCase().trim();
+      final digitsQuery = normalized.replaceAll(RegExp(r'[^0-9+]'), '');
+      
+      // Optimize: Use isolate for very large lists, direct search for smaller ones
+      List<_ContactEntry> results;
+      
+      // Lower threshold for isolate - use for lists >500 contacts
+      if (_allContacts.length > 500) {
+        // Large list - use isolate to avoid blocking UI
+        results = await compute(
+          _searchContactsInBackground,
+          _SearchContactsParams(
+            contacts: _allContacts,
+            normalizedQuery: normalized,
+            digitsQuery: digitsQuery,
+            maxResults: 100, // Increased limit for better UX
+          ),
+        ).timeout(
+          const Duration(seconds: 3), // Reduced timeout for faster feedback
+          onTimeout: () {
+            debugPrint('Search timed out');
+            return <_ContactEntry>[];
+          },
+        );
+      } else {
+        // Small list - direct search is faster (no isolate overhead)
+        results = <_ContactEntry>[];
+        final maxResults = 100; // Increased for better UX
         
-        final nameMatch = contact.normalizedName.contains(normalized);
-        final phoneMatch = digitsQuery.isNotEmpty &&
-            contact.normalizedPhones.any(
-                (phone) => phone.contains(digitsQuery));
-        
-        if (nameMatch || phoneMatch) {
-          results.add(contact);
+        for (final contact in _allContacts) {
+          if (results.length >= maxResults) break;
+          
+          // Name matching (case-insensitive contains)
+          final nameMatch = contact.normalizedName.contains(normalized);
+          
+          // Phone matching (digits only)
+          final phoneMatch = digitsQuery.isNotEmpty &&
+              contact.normalizedPhones.any(
+                  (phone) => phone.contains(digitsQuery));
+          
+          if (nameMatch || phoneMatch) {
+            results.add(contact);
+          }
         }
       }
+
+      if (!mounted) return;
+
+      setState(() {
+        _filteredContacts = results;
+        _contactsMessage = results.isEmpty
+            ? 'No contacts matched "$query".'
+            : null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      
+      debugPrint('Error searching contacts: $error');
+      setState(() {
+        // On error, show current filtered list or empty
+        _contactsMessage = 'Search error occurred. Please try again.';
+      });
     }
-
-    if (!mounted) return;
-
-    setState(() {
-      _filteredContacts = results;
-      _contactsMessage = results.isEmpty
-          ? 'No contacts matched "$query".'
-          : null;
-    });
   }
 
   bool get _isSearchActive => _searchController.text.trim().isNotEmpty;
@@ -319,14 +467,23 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<void> _loadMoreVisibleContacts() async {
-    if (_isSearchActive || _isLoadingMoreContacts) return;
+    // Prevent concurrent loads or loading during search
+    if (_isSearchActive || _isLoadingMoreContacts || _isContactsLoading) return;
+    
     final hasMoreLocal = _filteredContacts.length < _allContacts.length;
     if (!hasMoreLocal) return;
+
+    if (!mounted) return;
 
     setState(() {
       _isLoadingMoreContacts = true;
       _visibleContactLimit += _contactBatchSize;
     });
+
+    // Small delay to allow UI to update
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    if (!mounted) return;
 
     final available = _allContacts.length;
     final target =
@@ -420,9 +577,8 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<_ContactAction?> _showContactActionSheet() {
-    return showModalBottomSheet<_ContactAction>(
+    return showDialog<_ContactAction>(
       context: context,
-      backgroundColor: Colors.transparent,
       builder: (context) => const _ContactActionSheet(),
     );
   }
@@ -430,18 +586,15 @@ class _ContactPageState extends State<ContactPage> {
   Future<_ExistingClientAction?> _showDuplicateClientSheet(
     ClientRecord existing,
   ) {
-    return showModalBottomSheet<_ExistingClientAction>(
+    return showDialog<_ExistingClientAction>(
       context: context,
-      backgroundColor: Colors.transparent,
       builder: (context) => _DuplicateClientSheet(client: existing),
     );
   }
 
   Future<ClientRecord?> _showExistingClientPicker() {
-    return showModalBottomSheet<ClientRecord>(
+    return showDialog<ClientRecord>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) => _ExistingClientPickerSheet(
         loadClients: () => _clientService.fetchClients(
           limit: _clientFetchLimit,
@@ -454,10 +607,8 @@ class _ContactPageState extends State<ContactPage> {
     required _ContactEntry entry,
     required ClientRecord client,
   }) {
-    return showModalBottomSheet<bool>(
+    return showDialog<bool>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) => _AddContactToClientSheet(
         entry: entry,
         client: client,
@@ -510,7 +661,7 @@ class _ContactPageState extends State<ContactPage> {
         !_isSearchActive && _filteredContacts.length < _allContacts.length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: AuthColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -521,14 +672,14 @@ class _ContactPageState extends State<ContactPage> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                   ),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
                       'Contact',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -557,7 +708,7 @@ class _ContactPageState extends State<ContactPage> {
                         ),
                         RefreshIndicator(
                           onRefresh: _loadContacts,
-                          color: const Color(0xFF6F4BFF),
+                          color: AuthColors.legacyAccent,
                           child: SingleChildScrollView(
                             controller: _contactListController,
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
@@ -618,10 +769,8 @@ class _ContactPageState extends State<ContactPage> {
     final orgContext = context.read<OrganizationContextCubit>().state;
     final organizationId = orgContext.organization?.id;
 
-    return showModalBottomSheet<bool>(
+    return showDialog<bool>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (context) {
         return _ClientFormSheet(
           entry: entry,
@@ -673,7 +822,7 @@ class _CallLogSection extends StatelessWidget {
         Text(
           title,
           style: const TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontWeight: FontWeight.w600,
             fontSize: 14,
           ),
@@ -703,7 +852,7 @@ class _CallLogTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final iconData = entry.isOutgoing ? Icons.call_made : Icons.call_received;
     final iconColor =
-        entry.isOutgoing ? Colors.greenAccent : Colors.blueAccent;
+        entry.isOutgoing ? AuthColors.success : AuthColors.info;
     final timeLabel = _formatTime(entry.timestamp);
     final durationLabel = _formatDuration(entry.duration);
 
@@ -715,9 +864,9 @@ class _CallLogTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF1B1B2C),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white12),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.15)),
           ),
           child: Row(
             children: [
@@ -739,14 +888,14 @@ class _CallLogTile extends StatelessWidget {
                     Text(
                       entry.contactName,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       entry.phoneNumber,
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                     ),
                   ],
                 ),
@@ -761,7 +910,7 @@ class _CallLogTile extends StatelessWidget {
                   Text(
                     durationLabel,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.45),
+                      color: AuthColors.textMainWithOpacity(0.45),
                       fontSize: 11,
                     ),
                   ),
@@ -803,15 +952,15 @@ class _EmptyState extends StatelessWidget {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: Colors.white10,
+              color: AuthColors.textMainWithOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(Icons.call_end, color: Colors.white38),
+            child: const Icon(Icons.call_end, color: AuthColors.textDisabled),
           ),
           const SizedBox(height: 12),
           Text(
             message ?? 'No call logs available.',
-            style: const TextStyle(color: Colors.white60),
+            style: TextStyle(color: AuthColors.textMainWithOpacity(0.6)),
             textAlign: TextAlign.center,
           ),
         ],
@@ -891,6 +1040,89 @@ class _ContactEntry {
       displayPhones.isNotEmpty ? displayPhones.first : '-';
 }
 
+// Animated wrapper for contact tiles with staggered animation
+class _AnimatedContactTile extends StatefulWidget {
+  const _AnimatedContactTile({
+    super.key,
+    required this.index,
+    required this.contact,
+    required this.onTap,
+  });
+
+  final int index;
+  final _ContactEntry contact;
+  final VoidCallback onTap;
+
+  @override
+  State<_AnimatedContactTile> createState() => _AnimatedContactTileState();
+}
+
+class _AnimatedContactTileState extends State<_AnimatedContactTile>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 250), // Faster animation
+      vsync: this,
+    );
+
+    // Staggered delay based on index - reduced for faster feel
+    final delay = widget.index * 20; // 20ms delay per item (faster)
+    
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOut,
+      ),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    // Start animation with delay
+    Future.delayed(Duration(milliseconds: delay), () {
+      if (mounted) {
+        _controller.forward();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: RepaintBoundary(
+          child: _ContactListTile(
+            key: ValueKey(widget.contact.id),
+            contact: widget.contact,
+            onTap: widget.onTap,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ContactListTile extends StatelessWidget {
   const _ContactListTile({
     super.key,
@@ -903,6 +1135,7 @@ class _ContactListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Optimize: Use const where possible, avoid unnecessary rebuilds
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -912,15 +1145,16 @@ class _ContactListTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             children: [
+              // Optimized CircleAvatar with const text
               CircleAvatar(
                 radius: 22,
-                backgroundColor: const Color(0xFF2F2F43),
+                backgroundColor: AuthColors.surface,
                 child: Text(
                   contact.name.isNotEmpty 
                       ? contact.name[0].toUpperCase() 
                       : '?',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
@@ -935,7 +1169,7 @@ class _ContactListTile extends StatelessWidget {
                     Text(
                       contact.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
@@ -945,8 +1179,8 @@ class _ContactListTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       contact.primaryDisplayPhone,
-                      style: const TextStyle(
-                        color: Colors.white54,
+                      style: TextStyle(
+                        color: AuthColors.textSub,
                         fontSize: 13,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -955,9 +1189,9 @@ class _ContactListTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
-                color: Colors.white24,
+                color: AuthColors.textMainWithOpacity(0.3),
                 size: 20,
               ),
             ],
@@ -995,7 +1229,7 @@ class _PageIndicator extends StatelessWidget {
             width: isActive ? 18 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF6F4BFF) : Colors.white24,
+              color: isActive ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.3),
               borderRadius: BorderRadius.circular(999),
             ),
           );
@@ -1033,9 +1267,10 @@ class _ContactSearchCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1B1B2C),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
@@ -1050,20 +1285,20 @@ class _ContactSearchCard extends StatelessWidget {
           Text(
             'Search through your phone contacts to quickly reach the right person.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textMainWithOpacity(0.6),
               fontSize: 13,
             ),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: controller,
-            style: const TextStyle(color: Colors.white, fontSize: 15),
+            style: const TextStyle(color: AuthColors.textMain, fontSize: 15),
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search, color: Colors.white54, size: 20),
+              prefixIcon: const Icon(Icons.search, color: AuthColors.textSub, size: 20),
               hintText: 'Search contacts',
-              hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+              hintStyle: const TextStyle(color: AuthColors.textDisabled, fontSize: 14),
               filled: true,
-              fillColor: const Color(0xFF131324),
+              fillColor: AuthColors.backgroundAlt,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
@@ -1072,7 +1307,7 @@ class _ContactSearchCard extends StatelessWidget {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: const BorderSide(
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.legacyAccent,
                   width: 2,
                 ),
               ),
@@ -1087,14 +1322,14 @@ class _ContactSearchCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 message!,
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
+                style: TextStyle(color: AuthColors.textSub, fontSize: 12),
               ),
             ] else ...[
               if (recentContacts.isNotEmpty) ...[
                 const Text(
                   'Recently searched',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: AuthColors.textSub,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
@@ -1108,8 +1343,8 @@ class _ContactSearchCard extends StatelessWidget {
                       final contact = recentContacts[index];
                       return ActionChip(
                         label: Text(contact.name),
-                        labelStyle: const TextStyle(color: Colors.white),
-                        backgroundColor: const Color(0xFF2A2A3D),
+                        labelStyle: const TextStyle(color: AuthColors.textMain),
+                        backgroundColor: AuthColors.surface,
                         onPressed: () => onContactTap(contact),
                       );
                     },
@@ -1122,27 +1357,26 @@ class _ContactSearchCard extends StatelessWidget {
               if (filteredContacts.isEmpty)
                 const Text(
                   'No contacts match your search.',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                 )
-              else ...[
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: filteredContacts.length + (isLoadingMore ? 1 : 0) + (hasMore && !isLoadingMore ? 1 : 0),
-                    itemExtent: 72, // Fixed height for better performance
-                    cacheExtent: 500, // Cache more items for smoother scrolling
-                    itemBuilder: (context, index) {
-                      if (index < filteredContacts.length) {
-                        final contact = filteredContacts[index];
-                        return RepaintBoundary(
-                          child: _ContactListTile(
-                            key: ValueKey(contact.id),
-                            contact: contact,
-                            onTap: () => onContactTap(contact),
-                          ),
-                        );
-                      }
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  addAutomaticKeepAlives: false, // Don't keep off-screen widgets alive
+                  itemCount: filteredContacts.length + (isLoadingMore ? 1 : 0) + (hasMore && !isLoadingMore ? 1 : 0),
+                  itemExtent: 72, // Fixed height for better performance
+                  cacheExtent: 300, // Reduced cache for better performance
+                  itemBuilder: (context, index) {
+                    if (index < filteredContacts.length) {
+                      final contact = filteredContacts[index];
+                      return _AnimatedContactTile(
+                        key: ValueKey(contact.id),
+                        index: index,
+                        contact: contact,
+                        onTap: () => onContactTap(contact),
+                      );
+                    }
                       
                       if (index == filteredContacts.length && isLoadingMore) {
                         return const Padding(
@@ -1163,7 +1397,7 @@ class _ContactSearchCard extends StatelessWidget {
                           child: Text(
                             'Scroll to load more contacts…',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: AuthColors.textMainWithOpacity(0.6),
                               fontSize: 12,
                             ),
                             textAlign: TextAlign.center,
@@ -1174,8 +1408,6 @@ class _ContactSearchCard extends StatelessWidget {
                       return const SizedBox.shrink();
                     },
                   ),
-                ),
-              ],
             ],
           ],
         ],
@@ -1204,7 +1436,7 @@ class _CallLogsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1B1B2C),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1214,7 +1446,7 @@ class _CallLogsCard extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Center(
                 child: CircularProgressIndicator(
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.legacyAccent,
                 ),
               ),
             )
@@ -1248,42 +1480,46 @@ class _ContactActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: SafeArea(
-        top: false,
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: 400,
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(999),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'What would you like to do?',
+                    style: TextStyle(
+                      color: AuthColors.textMain,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'What would you like to do?',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, color: AuthColors.textSub),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
               'Create a new client or attach this contact to an existing one.',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: AuthColors.textSub,
                 fontSize: 13,
               ),
             ),
@@ -1294,18 +1530,18 @@ class _ContactActionSheet extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6F4BFF).withOpacity(0.2),
+                  color: AuthColors.legacyAccent.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.person_add_alt, color: Color(0xFFBCB3FF)),
+                child: Icon(Icons.person_add_alt, color: AuthColors.legacyAccent.withOpacity(0.8)),
               ),
               title: const Text(
                 'New Client',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style: TextStyle(color: AuthColors.textMain, fontWeight: FontWeight.w600),
               ),
               subtitle: const Text(
                 'Create a standalone client profile',
-                style: TextStyle(color: Colors.white54),
+                style: TextStyle(color: AuthColors.textSub),
               ),
               onTap: () => Navigator.of(context).pop(_ContactAction.newClient),
             ),
@@ -1316,18 +1552,18 @@ class _ContactActionSheet extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF27C1A9).withOpacity(0.18),
+                  color: AuthColors.successVariant.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.group_add, color: Color(0xFF27C1A9)),
+                child: const Icon(Icons.group_add, color: AuthColors.successVariant),
               ),
               title: const Text(
                 'Add Contact to Existing Client',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                style: TextStyle(color: AuthColors.textMain, fontWeight: FontWeight.w600),
               ),
               subtitle: const Text(
                 'Attach this contact under another client',
-                style: TextStyle(color: Colors.white54),
+                style: TextStyle(color: AuthColors.textSub),
               ),
               onTap: () => Navigator.of(context).pop(_ContactAction.existing),
             ),
@@ -1407,49 +1643,55 @@ class _ExistingClientPickerSheetState
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-      ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: SafeArea(
-        top: false,
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: 400,
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 42,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-            const Text(
-              'Select Existing Client',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Select Existing Client',
+                    style: TextStyle(
+                      color: AuthColors.textMain,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, color: AuthColors.textSub),
+                ),
+              ],
             ),
             const SizedBox(height: 6),
             TextField(
               controller: _searchController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: InputDecoration(
                 hintText: 'Search by name or phone number',
-                hintStyle: const TextStyle(color: Colors.white54),
-                prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                hintStyle: const TextStyle(color: AuthColors.textSub),
+                prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
                 filled: true,
-                fillColor: const Color(0xFF131324),
+                fillColor: AuthColors.backgroundAlt,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
@@ -1467,7 +1709,7 @@ class _ExistingClientPickerSheetState
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Text(
                   _error!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AuthColors.error),
                   textAlign: TextAlign.center,
                 ),
               )
@@ -1476,13 +1718,13 @@ class _ExistingClientPickerSheetState
                 padding: EdgeInsets.symmetric(vertical: 32),
                 child: Text(
                   'No clients match your search.',
-                  style: TextStyle(color: Colors.white54),
+                  style: TextStyle(color: AuthColors.textSub),
                 ),
               )
             else
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.4,
+              Flexible(
                 child: ListView.separated(
+                  shrinkWrap: true,
                   itemCount: _filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
@@ -1491,24 +1733,24 @@ class _ExistingClientPickerSheetState
                         ? 'No tags'
                         : client.tags.take(3).join(', ');
                     return ListTile(
-                      tileColor: const Color(0xFF131324),
+                      tileColor: AuthColors.backgroundAlt,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
                       title: Text(
                         client.name,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       subtitle: Text(
                         tagSummary,
-                        style: const TextStyle(color: Colors.white54),
+                        style: const TextStyle(color: AuthColors.textSub),
                       ),
                       trailing: Icon(
                         Icons.chevron_right,
-                        color: Colors.white.withOpacity(0.7),
+                        color: AuthColors.textMainWithOpacity(0.7),
                       ),
                       onTap: () => Navigator.of(context).pop(client),
                     );
@@ -1529,63 +1771,67 @@ class _DuplicateClientSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: SafeArea(
-        top: false,
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: 400,
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(999),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Client already exists',
+                    style: TextStyle(
+                      color: AuthColors.textMain,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Client already exists',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, color: AuthColors.textSub),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
               client.name,
               style: const TextStyle(
-                color: Colors.white70,
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
             ),
             const SizedBox(height: 20),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.visibility_outlined, color: Colors.white70),
+              leading: const Icon(Icons.visibility_outlined, color: AuthColors.textSub),
               title: const Text(
                 'View existing client',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
               ),
               onTap: () =>
                   Navigator.pop(context, _ExistingClientAction.viewExisting),
             ),
-            const Divider(color: Colors.white12),
+            Divider(color: AuthColors.textMainWithOpacity(0.1)),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.close, color: Colors.white54),
+              leading: const Icon(Icons.close, color: AuthColors.textDisabled),
               title: const Text(
                 'Cancel',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: AuthColors.textSub),
               ),
               onTap: () =>
                   Navigator.pop(context, _ExistingClientAction.cancel),
@@ -1643,27 +1889,35 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
-      child: Container(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: bottomInset + 20,
-        ),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1B1B2C),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: 400,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: bottomInset + 20,
+          ),
+          decoration: BoxDecoration(
+            color: AuthColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
             Row(
               children: [
                 Expanded(
                   child: Text(
                     'Add Contact to ${widget.client.name}',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1671,7 +1925,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(false),
-                  icon: const Icon(Icons.close, color: Colors.white54),
+                  icon: const Icon(Icons.close, color: AuthColors.textSub),
                 ),
               ],
             ),
@@ -1686,8 +1940,8 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                         const Chip(
                           label: Text('No tags'),
                           visualDensity: VisualDensity.compact,
-                          backgroundColor: Color(0xFF2A2A3D),
-                          labelStyle: TextStyle(color: Colors.white70),
+                          backgroundColor: AuthColors.surface,
+                          labelStyle: TextStyle(color: AuthColors.textSub),
                         )
                       ]
                     : widget.client.tags
@@ -1695,8 +1949,8 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                           (tag) => Chip(
                             label: Text(tag),
                             visualDensity: VisualDensity.compact,
-                            backgroundColor: const Color(0xFF2A2A3D),
-                            labelStyle: const TextStyle(color: Colors.white70),
+                            backgroundColor: AuthColors.surface,
+                            labelStyle: const TextStyle(color: AuthColors.textSub),
                           ),
                         )
                         .toList(),
@@ -1705,12 +1959,12 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
             const SizedBox(height: 16),
             TextField(
               controller: _nameController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: const InputDecoration(
                 labelText: 'Contact Name',
-                labelStyle: TextStyle(color: Colors.white70),
+                labelStyle: TextStyle(color: AuthColors.textSub),
                 filled: true,
-                fillColor: Color(0xFF131324),
+                fillColor: AuthColors.backgroundAlt,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(14)),
                   borderSide: BorderSide.none,
@@ -1723,16 +1977,16 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 initialValue: _selectedPhone,
                 decoration: const InputDecoration(
                   labelText: 'Phone Number',
-                  labelStyle: TextStyle(color: Colors.white70),
+                  labelStyle: TextStyle(color: AuthColors.textSub),
                   filled: true,
-                  fillColor: Color(0xFF131324),
+                  fillColor: AuthColors.backgroundAlt,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(14)),
                     borderSide: BorderSide.none,
                   ),
                 ),
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: const TextStyle(color: AuthColors.textMain),
                 items: widget.entry.displayPhones
                     .map(
                       (phone) => DropdownMenuItem<String>(
@@ -1752,7 +2006,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF131324),
+                  color: AuthColors.backgroundAlt,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
@@ -1761,14 +2015,14 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                     Text(
                       'Phone Number',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: AuthColors.textSub,
                         fontSize: 12,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       widget.entry.primaryDisplayPhone,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
                     ),
                   ],
                 ),
@@ -1778,13 +2032,13 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
               TextField(
                 controller: _descriptionController,
                 maxLines: 2,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: const InputDecoration(
                   labelText: 'Description',
                   hintText: 'e.g., Accounts Head, Dispatch Manager',
-                  labelStyle: TextStyle(color: Colors.white70),
+                  labelStyle: TextStyle(color: AuthColors.textSub),
                   filled: true,
-                  fillColor: Color(0xFF131324),
+                  fillColor: AuthColors.backgroundAlt,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(14)),
                     borderSide: BorderSide.none,
@@ -1798,7 +2052,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   _errorMessage!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AuthColors.error),
                 ),
               ),
             ],
@@ -1808,8 +2062,8 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF27C1A9),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AuthColors.successVariant,
+                  foregroundColor: AuthColors.textMain,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -1821,13 +2075,15 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                         ),
                       )
                     : const Text('Add Contact'),
               ),
             ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1919,48 +2175,56 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
-      child: Container(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: bottomInset + 20,
-        ),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1B1B2C),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: 400,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+          ),
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: bottomInset + 20,
+          ),
+          decoration: BoxDecoration(
+            color: AuthColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Expanded(
-                  child: Text(
-                    'Add Client',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Add Client',
+                        style: TextStyle(
+                          color: AuthColors.textMain,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      icon: const Icon(Icons.close, color: AuthColors.textSub),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  icon: const Icon(Icons.close, color: Colors.white54),
-                ),
-              ],
-            ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _nameController,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Name',
-                labelStyle: TextStyle(color: Colors.white70),
-                filled: true,
-                fillColor: Color(0xFF131324),
+                TextField(
+                  controller: _nameController,
+                  style: const TextStyle(color: AuthColors.textMain),
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    labelStyle: TextStyle(color: AuthColors.textSub),
+                    filled: true,
+                    fillColor: AuthColors.backgroundAlt,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.all(Radius.circular(14)),
                   borderSide: BorderSide.none,
@@ -1968,49 +2232,49 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Tag',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: widget.availableTags.map((tag) {
-                final isSelected = _selectedTag == tag;
-                return ChoiceChip(
-                  label: Text(tag),
-                  selected: isSelected,
-                  onSelected: (_) {
-                    setState(() => _selectedTag = tag);
-                  },
-                  selectedColor: const Color(0xFF6F4BFF),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white70,
+                Text(
+                  'Tag',
+                  style: TextStyle(
+                    color: AuthColors.textSub,
+                    fontWeight: FontWeight.w600,
                   ),
-                  backgroundColor: const Color(0xFF2A2A3D),
-                );
-              }).toList(),
-            ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.availableTags.map((tag) {
+                    final isSelected = _selectedTag == tag;
+                    return ChoiceChip(
+                      label: Text(tag),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() => _selectedTag = tag);
+                      },
+                      selectedColor: AuthColors.legacyAccent,
+                      labelStyle: TextStyle(
+                        color: isSelected ? AuthColors.textMain : AuthColors.textSub,
+                      ),
+                      backgroundColor: AuthColors.surface,
+                    );
+                  }).toList(),
+                ),
             const SizedBox(height: 16),
             if (widget.entry.displayPhones.length > 1)
               DropdownButtonFormField<String>(
                 initialValue: _selectedPhone,
                 decoration: const InputDecoration(
                   labelText: 'Phone Number',
-                  labelStyle: TextStyle(color: Colors.white70),
+                  labelStyle: TextStyle(color: AuthColors.textSub),
                   filled: true,
-                  fillColor: Color(0xFF131324),
+                  fillColor: AuthColors.backgroundAlt,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(14)),
                     borderSide: BorderSide.none,
                   ),
                 ),
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: const TextStyle(color: AuthColors.textMain),
                 items: widget.entry.displayPhones
                     .map(
                       (phone) => DropdownMenuItem<String>(
@@ -2025,65 +2289,67 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                   }
                 },
               )
-            else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF131324),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Phone Number',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 12,
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AuthColors.backgroundAlt,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Phone Number',
+                          style: TextStyle(
+                            color: AuthColors.textSub,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.entry.primaryDisplayPhone,
+                          style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: AuthColors.error),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isSaving ? null : _handleSave,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AuthColors.legacyAccent,
+                      foregroundColor: AuthColors.textMain,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.entry.primaryDisplayPhone,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: const TextStyle(color: Colors.redAccent),
-              ),
-            ],
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _handleSave,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6F4BFF),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AuthColors.textMain,
+                            ),
+                          )
+                        : const Text('Save Client'),
                   ),
                 ),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Save Client'),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

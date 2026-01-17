@@ -14,16 +14,18 @@ class ProductionBatchesDataSource {
 
   Future<String> createProductionBatch(ProductionBatch batch) async {
     try {
-      final batchJson = batch.toJson();
-      batchJson['createdAt'] = FieldValue.serverTimestamp();
-      batchJson['updatedAt'] = FieldValue.serverTimestamp();
-
       final docRef = _batchesRef.doc();
       final batchId = docRef.id;
       
       if (batchId.isEmpty) {
         throw Exception('Generated batch ID is empty');
       }
+      
+      final batchJson = batch.toJson();
+      // Ensure batchId is set to the document ID (overrides any empty value)
+      batchJson['batchId'] = batchId;
+      batchJson['createdAt'] = FieldValue.serverTimestamp();
+      batchJson['updatedAt'] = FieldValue.serverTimestamp();
       
       await docRef.set(batchJson);
       return batchId;

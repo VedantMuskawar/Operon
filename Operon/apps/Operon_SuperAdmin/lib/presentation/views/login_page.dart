@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 
 class LoginPageShell extends StatelessWidget {
   const LoginPageShell({
@@ -11,9 +12,9 @@ class LoginPageShell extends StatelessWidget {
   final Widget child;
   final String title;
 
-  static const _outerBackground = Color(0xFF020205);
-  static const _panelColor = Color(0xFF0B0B12);
-  static const _dividerColor = Color(0x1AFFFFFF);
+  static const _outerBackground = AuthColors.background;
+  static const _panelColor = AuthColors.surface;
+  static const _dividerColor = AuthColors.textMainWithOpacity(0.1);
 
   @override
   Widget build(BuildContext context) {

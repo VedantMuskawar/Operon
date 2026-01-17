@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
@@ -106,8 +107,8 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
   Color _getPriorityColor() {
     final priority = widget.order['priority'] as String? ?? 'normal';
     return priority == 'high' || priority == 'priority'
-        ? const Color(0xFFD4AF37)
-        : const Color(0xFFC0C0C0);
+        ? AuthColors.secondary
+        : AuthColors.textDisabled;
   }
 
   Future<void> _deleteOrder() async {

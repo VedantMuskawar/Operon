@@ -373,7 +373,7 @@ class _RoleInfoPanel extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.2),
+                color: AuthColors.success.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
@@ -447,7 +447,7 @@ class _RoleInfoPanel extends StatelessWidget {
           const Text(
             'Permissions Managed in Access Control',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontWeight: FontWeight.w700,
               fontSize: 16,
             ),
@@ -457,7 +457,7 @@ class _RoleInfoPanel extends StatelessWidget {
           Text(
             'Manage this role\'s permissions from the Access Control page in Settings.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: AuthColors.textMainWithOpacity(0.7),
               fontSize: 13,
             ),
             textAlign: TextAlign.center,
@@ -541,7 +541,7 @@ class _RoleDialogState extends State<_RoleDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 600.0);
     
     return AlertDialog(
-      backgroundColor: AuthColors.background,
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Role' : 'Add Role',
         style: TextStyle(color: AuthColors.textMain),

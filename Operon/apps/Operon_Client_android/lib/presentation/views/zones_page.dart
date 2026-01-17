@@ -77,11 +77,11 @@ class _ZonesPageState extends State<ZonesPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message!),
-              backgroundColor: isNetworkError ? Colors.orange : Colors.redAccent,
+              backgroundColor: isNetworkError ? AuthColors.warning : AuthColors.error,
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
                 label: 'Retry',
-                textColor: Colors.white,
+                textColor: AuthColors.textMain,
                 onPressed: () {
                   context.read<DeliveryZonesCubit>().loadZones();
                 },
@@ -91,7 +91,7 @@ class _ZonesPageState extends State<ZonesPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         appBar: const ModernPageHeader(
           title: 'Delivery Zones',
         ),
@@ -155,7 +155,7 @@ class _ZonesPageState extends State<ZonesPage> {
                             child: Text(
                               'City',
                               style: TextStyle(
-                                color: Colors.white70,
+                                color: AuthColors.textSub,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -164,7 +164,7 @@ class _ZonesPageState extends State<ZonesPage> {
                             child: Text(
                               'Region',
                               style: TextStyle(
-                                color: Colors.white70,
+                                color: AuthColors.textSub,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -317,7 +317,7 @@ class _ZonesPageState extends State<ZonesPage> {
   ) async {
     await showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -335,7 +335,7 @@ class _ZonesPageState extends State<ZonesPage> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white12,
+                      color: AuthColors.textMainWithOpacity(0.12),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -343,7 +343,7 @@ class _ZonesPageState extends State<ZonesPage> {
                 Text(
                   city.name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
@@ -351,9 +351,9 @@ class _ZonesPageState extends State<ZonesPage> {
                 const SizedBox(height: 4),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.edit, color: Colors.white),
+                  leading: const Icon(Icons.edit, color: AuthColors.textMain),
                   title: const Text('Rename city',
-                      style: TextStyle(color: Colors.white)),
+                      style: TextStyle(color: AuthColors.textMain)),
                   onTap: () {
                     Navigator.of(_).pop();
                     _openRenameCityDialog(context, city);
@@ -362,9 +362,9 @@ class _ZonesPageState extends State<ZonesPage> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading:
-                      const Icon(Icons.delete_outline, color: Colors.redAccent),
+                      const Icon(Icons.delete_outline, color: AuthColors.error),
                   title: const Text('Delete city',
-                      style: TextStyle(color: Colors.redAccent)),
+                      style: TextStyle(color: AuthColors.error)),
                   onTap: () {
                     Navigator.of(_).pop();
                     _confirmDeleteCity(context, city);
@@ -389,16 +389,16 @@ class _ZonesPageState extends State<ZonesPage> {
       builder: (_) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF0A0A0A),
-            title: const Text('Rename City', style: TextStyle(color: Colors.white)),
+            backgroundColor: AuthColors.surface,
+            title: const Text('Rename City', style: TextStyle(color: AuthColors.textMain)),
             content: TextField(
               controller: controller,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: const InputDecoration(
                 labelText: 'City name',
                 filled: true,
-                fillColor: Color(0xFF1B1B2C),
-                labelStyle: TextStyle(color: Colors.white70),
+                fillColor: AuthColors.surface,
+                labelStyle: TextStyle(color: AuthColors.textSub),
                 border: OutlineInputBorder(borderSide: BorderSide.none),
               ),
             ),
@@ -454,8 +454,8 @@ class _ZonesPageState extends State<ZonesPage> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
-        title: const Text('Delete City', style: TextStyle(color: Colors.white)),
+        backgroundColor: AuthColors.surface,
+        title: const Text('Delete City', style: TextStyle(color: AuthColors.textMain)),
         content: Text(
           'Deleting "${city.name}" will remove all regions and prices in this city. This cannot be undone.',
           style: const TextStyle(color: Colors.white70),
@@ -469,7 +469,7 @@ class _ZonesPageState extends State<ZonesPage> {
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text(
               'Delete',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: AuthColors.error),
             ),
           ),
         ],
@@ -526,11 +526,11 @@ class _CityColumn extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0x22FFFFFF),
+              color: AuthColors.textMainWithOpacity(0.13),
             ),
             child: const Text(
               'You do not have permission to add new addresses.',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AuthColors.textSub),
             ),
           ),
         const SizedBox(height: 16),
@@ -558,7 +558,7 @@ class _CityColumn extends StatelessWidget {
                           : 'No cities available. Admins can add cities.',
                       actionLabel: canCreate ? 'Add City' : null,
                       onAction: canCreate ? onAddCity : null,
-                      iconColor: Colors.white38,
+                      iconColor: AuthColors.textDisabled,
                     )
                   : ListView.separated(
                       itemCount: cities.length,
@@ -578,10 +578,10 @@ class _CityColumn extends StatelessWidget {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
                               color: isSelected
-                                  ? const Color(0xFF1E1E2F)
-                                  : const Color(0xFF13131E),
+                                  ? AuthColors.surface
+                                  : AuthColors.surface,
                               border: Border.all(
-                                color: isSelected ? const Color(0xFF6F4BFF) : Colors.white12,
+                                color: isSelected ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.12),
                                 width: isSelected ? 2 : 1,
                               ),
                             ),
@@ -591,14 +591,14 @@ class _CityColumn extends StatelessWidget {
                                   child: Text(
                                     city.name,
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: AuthColors.textMain,
                                       fontWeight: FontWeight.w600,
                                       fontSize: isSelected ? 16 : 15,
                                     ),
                                   ),
                                 ),
                                 if (isSelected)
-                                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white54),
+                                  const Icon(Icons.arrow_forward_ios, size: 14, color: AuthColors.textSub),
                               ],
                             ),
                           ),
@@ -673,7 +673,7 @@ class _RegionColumn extends StatelessWidget {
                   ? const Center(
                       child: Text(
                         'No cities available.',
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(color: AuthColors.textSub),
                       ),
                     )
                   : regions.isEmpty
@@ -685,7 +685,7 @@ class _RegionColumn extends StatelessWidget {
                               : 'Select a city to view its regions.',
                           actionLabel: canCreateRegion ? 'Add Region' : null,
                           onAction: canCreateRegion ? onAddRegion : null,
-                          iconColor: Colors.white38,
+                          iconColor: AuthColors.textDisabled,
                         )
                       : ListView.separated(
                           itemCount: regions.length,
@@ -706,12 +706,12 @@ class _RegionColumn extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isSelected ? const Color(0xFF6F4BFF) : Colors.white12,
+            color: isSelected ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.12),
             width: isSelected ? 2 : 1,
           ),
                           color: isSelected
-                              ? const Color(0xFF1E1E2F)
-                              : const Color(0xFF13131E),
+                              ? AuthColors.surface
+                              : AuthColors.surface,
         ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,7 +719,7 @@ class _RegionColumn extends StatelessWidget {
                   Text(
                           zone.region,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                             fontWeight: FontWeight.w600,
                             fontSize: 16,
                     ),
@@ -731,8 +731,8 @@ class _RegionColumn extends StatelessWidget {
                               zone.isActive ? 'Active' : 'Inactive',
                               style: TextStyle(
                                 color: zone.isActive
-                                    ? const Color(0xFF5AD8A4)
-                                    : Colors.white54,
+                                    ? AuthColors.successVariant
+                                    : AuthColors.textSub,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -742,13 +742,13 @@ class _RegionColumn extends StatelessWidget {
                         const Icon(
                           Icons.straighten,
                           size: 14,
-                          color: Colors.white54,
+                          color: AuthColors.textSub,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${zone.roundtripKm!.toStringAsFixed(1)} km',
                           style: const TextStyle(
-                            color: Colors.white54,
+                            color: AuthColors.textSub,
                             fontSize: 12,
                           ),
                         ),
@@ -788,8 +788,8 @@ class _AddCityDialogState extends State<_AddCityDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
-      title: const Text('Add City', style: TextStyle(color: Colors.white)),
+      backgroundColor: AuthColors.surface,
+      title: const Text('Add City', style: TextStyle(color: AuthColors.textMain)),
       content: Form(
         key: _formKey,
         child: TextFormField(
@@ -799,7 +799,7 @@ class _AddCityDialogState extends State<_AddCityDialog> {
             labelText: 'City name',
             filled: true,
             fillColor: Color(0xFF1B1B2C),
-            labelStyle: TextStyle(color: Colors.white70),
+            labelStyle: TextStyle(color: AuthColors.textSub),
             border: OutlineInputBorder(borderSide: BorderSide.none),
           ),
           validator: (value) =>
@@ -881,12 +881,12 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
-      title: const Text('Add Region', style: TextStyle(color: Colors.white)),
+      backgroundColor: AuthColors.surface,
+      title: const Text('Add Region', style: TextStyle(color: AuthColors.textMain)),
       content: widget.cities.isEmpty
           ? const Text(
               'Please add a city first.',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AuthColors.textSub),
             )
           : Form(
               key: _formKey,
@@ -899,8 +899,8 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                     decoration: const InputDecoration(
                       labelText: 'City',
                       filled: true,
-                      fillColor: Color(0xFF1B1B2C),
-                      labelStyle: TextStyle(color: Colors.white70),
+                      fillColor: AuthColors.surface,
+                      labelStyle: TextStyle(color: AuthColors.textSub),
                       border: OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     items: widget.cities
@@ -918,12 +918,12 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _regionController,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: const InputDecoration(
                       labelText: 'Region / Address',
                       filled: true,
-                      fillColor: Color(0xFF1B1B2C),
-                      labelStyle: TextStyle(color: Colors.white70),
+                      fillColor: AuthColors.surface,
+                      labelStyle: TextStyle(color: AuthColors.textSub),
                       border: OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     validator: (value) =>
@@ -933,14 +933,14 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                   TextFormField(
                     controller: _roundtripKmController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: const InputDecoration(
                       labelText: 'Round Trip Distance (KM)',
                       hintText: 'e.g., 25.5',
-                      prefixIcon: Icon(Icons.straighten, color: Colors.white54),
+                      prefixIcon: Icon(Icons.straighten, color: AuthColors.textSub),
                       filled: true,
-                      fillColor: Color(0xFF1B1B2C),
-                      labelStyle: TextStyle(color: Colors.white70),
+                      fillColor: AuthColors.surface,
+                      labelStyle: TextStyle(color: AuthColors.textSub),
                       border: OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     validator: (value) {
@@ -1076,13 +1076,13 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
         final canEditPrice = widget.pricePermission.canEdit;
 
         return AlertDialog(
-          backgroundColor: const Color(0xFF0A0A0A),
+          backgroundColor: AuthColors.surface,
           insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(widget.zone.region, style: const TextStyle(color: Colors.white)),
-              Text(widget.zone.cityName, style: const TextStyle(color: Colors.white54)),
+              Text(widget.zone.cityName, style: const TextStyle(color: AuthColors.textSub)),
             ],
           ),
           content: SingleChildScrollView(
@@ -1091,7 +1091,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
               child: products.isEmpty
                 ? const Text(
                     'No products available to configure prices.',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: AuthColors.textSub),
                   )
                 : Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1102,8 +1102,8 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                         decoration: const InputDecoration(
                           labelText: 'Product',
                           filled: true,
-                          fillColor: Color(0xFF1B1B2C),
-                          labelStyle: TextStyle(color: Colors.white70),
+                          fillColor: AuthColors.surface,
+                          labelStyle: TextStyle(color: AuthColors.textSub),
                           border: OutlineInputBorder(borderSide: BorderSide.none),
                         ),
                         items: products
@@ -1119,7 +1119,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _priceController,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         keyboardType:
                             const TextInputType.numberWithOptions(decimal: true),
                         enabled: canEditPrice,
@@ -1141,7 +1141,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                           labelStyle: const TextStyle(color: Colors.white70),
                           filled: true,
                           fillColor: const Color(0xFF1B1B2C),
-                          errorStyle: const TextStyle(color: Colors.redAccent),
+                          errorStyle: const TextStyle(color: AuthColors.error),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -1160,14 +1160,14 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                           errorBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(
-                              color: Colors.redAccent,
+                              color: AuthColors.error,
                               width: 1,
                             ),
                           ),
                           focusedErrorBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(
-                              color: Colors.redAccent,
+                              color: AuthColors.error,
                               width: 2,
                             ),
                           ),
@@ -1189,7 +1189,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                   final confirmed = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
-                      backgroundColor: const Color(0xFF0A0A0A),
+                      backgroundColor: AuthColors.surface,
                       title: const Text('Delete Region', style: TextStyle(color: Colors.white)),
                       content: Text(
                         'Are you sure you want to delete "${widget.zone.region}"? This will also delete all prices for this region.',
@@ -1204,7 +1204,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                           onPressed: () => Navigator.of(context).pop(true),
                           child: const Text(
                             'Delete',
-                            style: TextStyle(color: Colors.redAccent),
+                            style: TextStyle(color: AuthColors.error),
                           ),
                         ),
                       ],
@@ -1228,7 +1228,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('Failed to delete region: ${err.toString()}'),
-                          backgroundColor: Colors.redAccent,
+                          backgroundColor: AuthColors.error,
                         ),
                       );
                     }
@@ -1236,7 +1236,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                 },
                 child: const Text(
                   'Delete Region',
-                  style: TextStyle(color: Colors.redAccent),
+                  style: TextStyle(color: AuthColors.error),
                 ),
               ),
             TextButton(
@@ -1281,7 +1281,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('Failed to update price: ${err.toString()}'),
-                              backgroundColor: Colors.redAccent,
+                              backgroundColor: AuthColors.error,
                               action: SnackBarAction(
                                 label: 'Retry',
                                 onPressed: () {
@@ -1374,7 +1374,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
         'ZoneDialog editing=$isEditing canSubmit=$canSubmit cityPerm=${widget.cityPermission} regionPerm=${widget.regionPermission}');
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Zone' : 'Add Zone',
         style: const TextStyle(color: Colors.white),
@@ -1386,7 +1386,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
           children: [
             TextFormField(
               controller: _cityController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('City'),
               enabled: canEditCityField,
               validator: (value) =>
@@ -1397,7 +1397,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _regionController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('Region'),
               enabled: canEditRegionField,
               validator: (value) =>
@@ -1409,7 +1409,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
             TextFormField(
               controller: _roundtripKmController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('Round Trip Distance (KM)'),
               enabled: canEditRegionField,
               validator: (value) {

@@ -53,7 +53,7 @@ android {
 
 // Suppress warnings from dependencies using older Java versions
 tasks.withType<JavaCompile>().configureEach {
-    options.compilerArgs.add("-Xlint:-options")
+    options.compilerArgs.addAll(listOf("-Xlint:-options", "-Xlint:-deprecation"))
 }
 
 flutter {

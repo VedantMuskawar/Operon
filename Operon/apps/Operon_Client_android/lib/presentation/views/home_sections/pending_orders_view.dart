@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/clients_repository.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
@@ -638,7 +639,7 @@ class _CustomerTypeDialog extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       decoration: const BoxDecoration(
-        color: Color(0xFF1B1B2C),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
@@ -651,7 +652,7 @@ class _CustomerTypeDialog extends StatelessWidget {
               height: 4,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: AuthColors.textDisabled,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -660,7 +661,7 @@ class _CustomerTypeDialog extends StatelessWidget {
               child: Text(
                 'Select Customer Type',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -758,9 +759,9 @@ class _CustomerTypeOption extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF131324),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
         ),
         child: Row(
           children: [
@@ -768,12 +769,12 @@ class _CustomerTypeOption extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withOpacity(0.2),
+                color: AuthColors.legacyAccent.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 icon,
-                color: const Color(0xFF6F4BFF),
+                color: AuthColors.legacyAccent,
                 size: 24,
               ),
             ),
@@ -785,7 +786,7 @@ class _CustomerTypeOption extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -794,7 +795,7 @@ class _CustomerTypeOption extends StatelessWidget {
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      color: Colors.white60,
+                      color: AuthColors.textSub,
                       fontSize: 13,
                     ),
                   ),
@@ -803,7 +804,7 @@ class _CustomerTypeOption extends StatelessWidget {
             ),
             const Icon(
               Icons.chevron_right,
-              color: Colors.white54,
+              color: AuthColors.textSub,
             ),
           ],
         ),

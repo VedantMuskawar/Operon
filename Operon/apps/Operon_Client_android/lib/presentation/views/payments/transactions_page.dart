@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/payments/payments_cubit.dart';
 import 'package:core_bloc/core_bloc.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
@@ -42,7 +43,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message!),
-              backgroundColor: Colors.red,
+              backgroundColor: AuthColors.error,
               duration: const Duration(seconds: 5),
             ),
           );
@@ -50,7 +51,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
       },
       builder: (context, state) {
         return Scaffold(
-          backgroundColor: const Color(0xFF000000),
+          backgroundColor: AuthColors.background,
           appBar: const ModernPageHeader(
             title: 'Transactions',
           ),
@@ -128,13 +129,13 @@ class _TransactionsPageState extends State<TransactionsPage> {
                   const Icon(
                     Icons.receipt_long_outlined,
                     size: 64,
-                    color: Colors.white24,
+                    color: AuthColors.textDisabled,
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'No payment transactions found',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: AuthColors.textMainWithOpacity(0.6),
                       fontSize: 16,
                     ),
                   ),
@@ -143,7 +144,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                     Text(
                       'Try adjusting the date range',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
+                        color: AuthColors.textMainWithOpacity(0.4),
                         fontSize: 12,
                       ),
                     ),
@@ -226,7 +227,7 @@ class _TransactionsTable extends StatelessWidget {
       case TransactionType.credit:
         return Colors.orange;
       case TransactionType.debit:
-        return Colors.green;
+        return AuthColors.success;
     }
   }
 
@@ -240,12 +241,12 @@ class _TransactionsTable extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
+            AuthColors.surface,
+            AuthColors.background,
           ],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Table(
         columnWidths: const {
@@ -258,7 +259,7 @@ class _TransactionsTable extends StatelessWidget {
         },
         border: TableBorder(
           horizontalInside: BorderSide(
-            color: Colors.white.withOpacity(0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
             width: 1,
           ),
         ),
@@ -296,7 +297,7 @@ class _TransactionsTable extends StatelessWidget {
               decoration: BoxDecoration(
                 color: index % 2 == 0
                     ? Colors.transparent
-                    : Colors.white.withOpacity(0.02),
+                    : AuthColors.textMainWithOpacity(0.02),
                 borderRadius: isLast
                     ? const BorderRadius.only(
                         bottomLeft: Radius.circular(12),
@@ -355,7 +356,7 @@ class _TableHeaderCell extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(
-          color: Colors.white,
+          color: AuthColors.textMain,
           fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
@@ -385,12 +386,12 @@ class _TableDataCell extends StatelessWidget {
       text,
       style: TextStyle(
         color: isAmount
-            ? const Color(0xFFFF9800)
+            ? AuthColors.warning
             : typeColor != null
                 ? typeColor!
                 : hasReceipt
-                    ? Colors.green
-                    : Colors.white70,
+                    ? AuthColors.success
+                    : AuthColors.textSub,
         fontSize: 13,
         fontWeight: isAmount ? FontWeight.w700 : FontWeight.w500,
       ),

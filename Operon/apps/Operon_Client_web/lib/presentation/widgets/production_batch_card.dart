@@ -129,6 +129,9 @@ class ProductionBatchCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
+              // Workflow Progress Indicator
+              _WorkflowProgress(status: batch.status),
+              const SizedBox(height: 16),
               // Production quantities
               Row(
                 children: [
@@ -254,6 +257,114 @@ class ProductionBatchCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WorkflowProgress extends StatelessWidget {
+  const _WorkflowProgress({required this.status});
+
+  final ProductionBatchStatus status;
+
+  int get _currentStep {
+    switch (status) {
+      case ProductionBatchStatus.recorded:
+        return 1;
+      case ProductionBatchStatus.calculated:
+        return 2;
+      case ProductionBatchStatus.approved:
+        return 3;
+      case ProductionBatchStatus.processed:
+        return 4;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = [
+      _WorkflowStep(label: 'Recorded', completed: _currentStep >= 1),
+      _WorkflowStep(label: 'Calculated', completed: _currentStep >= 2),
+      _WorkflowStep(label: 'Approved', completed: _currentStep >= 3),
+      _WorkflowStep(label: 'Processed', completed: _currentStep >= 4),
+    ];
+
+    return Row(
+      children: steps.asMap().entries.map((entry) {
+        final index = entry.key;
+        final step = entry.value;
+        final isLast = index == steps.length - 1;
+
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: step.completed
+                            ? const Color(0xFF6F4BFF)
+                            : Colors.white.withValues(alpha: 0.1),
+                        border: Border.all(
+                          color: step.completed
+                              ? const Color(0xFF6F4BFF)
+                              : Colors.white.withValues(alpha: 0.3),
+                          width: 2,
+                        ),
+                      ),
+                      child: step.completed
+                          ? const Icon(
+                              Icons.check,
+                              size: 14,
+                              color: Colors.white,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      step.label,
+                      style: TextStyle(
+                        color: step.completed
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontWeight: step.completed ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    height: 2,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: step.completed
+                          ? const Color(0xFF6F4BFF)
+                          : Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _WorkflowStep {
+  const _WorkflowStep({
+    required this.label,
+    required this.completed,
+  });
+
+  final String label;
+  final bool completed;
 }
 
 class _InfoItem extends StatelessWidget {

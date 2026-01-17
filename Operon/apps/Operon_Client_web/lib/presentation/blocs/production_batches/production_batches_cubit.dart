@@ -139,9 +139,33 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
     }
   }
 
-  /// Delete production batch
+  /// Delete production batch with wage and attendance revert
+  /// Uses Cloud Function to atomically revert all changes
   Future<void> deleteBatch(String batchId) async {
     try {
+      // Get batch details before deletion to check if revert is needed
+      final batch = await _repository.getProductionBatch(batchId);
+      if (batch == null) {
+        throw Exception('Batch not found');
+      }
+
+      // If batch was processed (has wage transactions), use Cloud Function to revert and delete atomically
+      if (batch.status == ProductionBatchStatus.processed &&
+          batch.wageTransactionIds != null &&
+          batch.wageTransactionIds!.isNotEmpty) {
+        final wageService = _wageCalculationService;
+        if (wageService != null) {
+          // Cloud Function handles transaction deletion, attendance revert, and batch deletion atomically
+          await wageService.revertProductionBatchWages(batch: batch);
+          // Batch is already deleted by Cloud Function, just reload
+          await loadBatches();
+          return;
+        } else {
+          throw Exception('Wage calculation service not available for revert');
+        }
+      }
+
+      // If batch was not processed, just delete the batch document
       await _repository.deleteProductionBatch(batchId);
       await loadBatches();
     } catch (e, stackTrace) {
@@ -170,14 +194,35 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
     }
   }
 
-  /// Set filter status
+  /// Set filter status (kept for backward compatibility)
   void setStatusFilter(ProductionBatchStatus? status) {
     emit(state.copyWith(selectedStatus: status));
+  }
+
+  /// Set workflow tab
+  void setSelectedTab(WorkflowTab tab) {
+    emit(state.copyWith(selectedTab: tab));
   }
 
   /// Set date range filter
   void setDateRange(DateTime? start, DateTime? end) {
     emit(state.copyWith(startDate: start, endDate: end));
+  }
+
+  /// Clear date range filter
+  void clearDateRange() {
+    emit(state.copyWith(startDate: null, endDate: null));
+  }
+
+  /// Clear all filters
+  void clearAllFilters() {
+    emit(state.copyWith(
+      selectedTab: WorkflowTab.all,
+      startDate: null,
+      endDate: null,
+      searchQuery: null,
+      selectedStatus: null,
+    ));
   }
 
   /// Set search query

@@ -1,20 +1,33 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/employee_wages/employee_wages_data_source.dart';
 import 'package:core_datasources/production_batches/production_batches_data_source.dart';
 import 'package:core_datasources/trip_wages/trip_wages_data_source.dart';
+import 'package:core_datasources/employee_attendance/employee_attendance_data_source.dart';
 
 class WageCalculationService {
   WageCalculationService({
     required EmployeeWagesDataSource employeeWagesDataSource,
     required ProductionBatchesDataSource productionBatchesDataSource,
     required TripWagesDataSource tripWagesDataSource,
+    EmployeeAttendanceDataSource? employeeAttendanceDataSource,
+    FirebaseFunctions? functions,
   })  : _employeeWagesDataSource = employeeWagesDataSource,
         _productionBatchesDataSource = productionBatchesDataSource,
-        _tripWagesDataSource = tripWagesDataSource;
+        _tripWagesDataSource = tripWagesDataSource,
+        _employeeAttendanceDataSource = employeeAttendanceDataSource,
+        _functions = functions ?? _initializeFunctions();
+
+  static FirebaseFunctions _initializeFunctions() {
+    // Initialize with us-central1 region to match Cloud Function
+    return FirebaseFunctions.instanceFor(region: 'us-central1');
+  }
 
   final EmployeeWagesDataSource _employeeWagesDataSource;
   final ProductionBatchesDataSource _productionBatchesDataSource;
   final TripWagesDataSource _tripWagesDataSource;
+  final EmployeeAttendanceDataSource? _employeeAttendanceDataSource;
+  final FirebaseFunctions _functions;
 
   /// Calculate wages for a production batch
   /// Returns calculated totalWages and wagePerEmployee
@@ -158,7 +171,7 @@ class WageCalculationService {
     return fallback ?? 0.0;
   }
 
-  /// Process production batch wages - creates transactions for all employees
+  /// Process production batch wages - creates transactions for all employees atomically via Cloud Function
   Future<List<String>> processProductionBatchWages(
     ProductionBatch batch,
     WageCalculationMethod method,
@@ -169,41 +182,39 @@ class WageCalculationService {
       throw ArgumentError('Batch must have calculated wages before processing');
     }
 
-    final transactionIds = <String>[];
+    // Call Cloud Function to process wages atomically
+    final callable = _functions.httpsCallable('processProductionBatchWages');
 
-    // Create a transaction for each employee
-    for (final employeeId in batch.employeeIds) {
-      final transactionId = await _employeeWagesDataSource
-          .createWageCreditTransaction(
-        organizationId: batch.organizationId,
-        employeeId: employeeId,
-        amount: batch.wagePerEmployee!,
-        paymentDate: paymentDate,
-        createdBy: createdBy,
-        description: 'Production Batch #${batch.batchId}',
-        metadata: {
-          'sourceType': 'productionBatch',
-          'sourceId': batch.batchId,
-          'methodId': method.methodId,
-          'batchId': batch.batchId,
-        },
-      );
-      transactionIds.add(transactionId);
+    try {
+      // Convert paymentDate to Timestamp for Cloud Function
+      final paymentDateTimestamp = {
+        '_seconds': paymentDate.millisecondsSinceEpoch ~/ 1000,
+        '_nanoseconds': (paymentDate.millisecondsSinceEpoch % 1000) * 1000000,
+      };
+
+      final result = await callable.call({
+        'batchId': batch.batchId,
+        'paymentDate': paymentDateTimestamp,
+        'createdBy': createdBy,
+      });
+
+      final data = result.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        final transactionIds = (data['transactionIds'] as List<dynamic>?)
+                ?.map((id) => id.toString())
+                .toList() ??
+            [];
+        return transactionIds;
+      } else {
+        throw Exception('Cloud Function returned unsuccessful result: $data');
+      }
+    } catch (e) {
+      // Re-throw with more context
+      throw Exception('Failed to process production batch wages via Cloud Function: $e');
     }
-
-    // Update batch with transaction IDs and status
-    await _productionBatchesDataSource.updateProductionBatch(
-      batch.batchId,
-      {
-        'wageTransactionIds': transactionIds,
-        'status': ProductionBatchStatus.processed.name,
-      },
-    );
-
-    return transactionIds;
   }
 
-  /// Process trip wages - creates transactions for loading and unloading employees
+  /// Process trip wages - creates transactions and records attendance atomically via Cloud Function
   Future<List<String>> processTripWages(
     TripWage tripWage,
     WageCalculationMethod method,
@@ -217,62 +228,98 @@ class WageCalculationService {
       throw ArgumentError('Trip wage must have calculated wages before processing');
     }
 
-    final transactionIds = <String>[];
+    // Call Cloud Function to process wages atomically
+    final callable = _functions.httpsCallable('processTripWages');
 
-    // Create transactions for loading employees
-    for (final employeeId in tripWage.loadingEmployeeIds) {
-      final transactionId = await _employeeWagesDataSource
-          .createWageCreditTransaction(
-        organizationId: tripWage.organizationId,
-        employeeId: employeeId,
-        amount: tripWage.loadingWagePerEmployee!,
-        paymentDate: paymentDate,
-        createdBy: createdBy,
-        description: 'Trip Wage - Loading (DM: ${tripWage.dmId})',
-        metadata: {
-          'sourceType': 'tripWage',
-          'sourceId': tripWage.tripWageId,
-          'methodId': method.methodId,
-          'tripId': tripWage.tripId,
-          'dmId': tripWage.dmId,
-          'taskType': 'loading',
-        },
-      );
-      transactionIds.add(transactionId);
+    try {
+      // Validate tripWageId is not empty
+      if (tripWage.tripWageId.isEmpty) {
+        throw Exception('Trip wage ID cannot be empty');
+      }
+
+      // Convert paymentDate to ISO string for Cloud Function (more reliable than timestamp format)
+      final paymentDateIsoString = paymentDate.toIso8601String();
+
+      final result = await callable.call({
+        'tripWageId': tripWage.tripWageId,
+        'paymentDate': paymentDateIsoString,
+        'createdBy': createdBy,
+      });
+
+      final data = result.data as Map<String, dynamic>;
+      if (data['success'] == true) {
+        final transactionIds = (data['transactionIds'] as List<dynamic>?)
+                ?.map((id) => id.toString())
+                .toList() ??
+            [];
+        return transactionIds;
+      } else {
+        throw Exception('Cloud Function returned unsuccessful result: $data');
+      }
+    } catch (e) {
+      // Re-throw with more context
+      throw Exception('Failed to process trip wages via Cloud Function: $e');
+    }
+  }
+
+  /// Revert trip wages - deletes transactions and reverts attendance atomically via Cloud Function
+  Future<void> revertTripWages({
+    required TripWage tripWage,
+  }) async {
+    // Only revert if trip wage was processed (has transactions)
+    if (tripWage.status != TripWageStatus.processed ||
+        tripWage.wageTransactionIds == null ||
+        tripWage.wageTransactionIds!.isEmpty) {
+      // No transactions to revert, just return
+      return;
     }
 
-    // Create transactions for unloading employees
-    for (final employeeId in tripWage.unloadingEmployeeIds) {
-      final transactionId = await _employeeWagesDataSource
-          .createWageCreditTransaction(
-        organizationId: tripWage.organizationId,
-        employeeId: employeeId,
-        amount: tripWage.unloadingWagePerEmployee!,
-        paymentDate: paymentDate,
-        createdBy: createdBy,
-        description: 'Trip Wage - Unloading (DM: ${tripWage.dmId})',
-        metadata: {
-          'sourceType': 'tripWage',
-          'sourceId': tripWage.tripWageId,
-          'methodId': method.methodId,
-          'tripId': tripWage.tripId,
-          'dmId': tripWage.dmId,
-          'taskType': 'unloading',
-        },
-      );
-      transactionIds.add(transactionId);
+    // Call Cloud Function to revert wages and attendance atomically
+    final callable = _functions.httpsCallable('revertTripWages');
+
+    try {
+      final result = await callable.call({
+        'tripWageId': tripWage.tripWageId,
+      });
+
+      final data = result.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        throw Exception('Cloud Function returned unsuccessful result: $data');
+      }
+    } catch (e) {
+      // Re-throw with more context
+      throw Exception('Failed to revert trip wages via Cloud Function: $e');
+    }
+  }
+
+  /// Revert production batch wages - deletes transactions and reverts attendance atomically via Cloud Function
+  Future<void> revertProductionBatchWages({
+    required ProductionBatch batch,
+  }) async {
+    // Only revert if batch was processed (has transactions)
+    if (batch.status != ProductionBatchStatus.processed ||
+        batch.wageTransactionIds == null ||
+        batch.wageTransactionIds!.isEmpty) {
+      // No transactions to revert, just return
+      return;
     }
 
-    // Update trip wage with transaction IDs and status
-    await _tripWagesDataSource.updateTripWage(
-      tripWage.tripWageId,
-      {
-        'wageTransactionIds': transactionIds,
-        'status': TripWageStatus.processed.name,
-      },
-    );
+    // Call Cloud Function to revert wages and attendance atomically
+    final callable = _functions.httpsCallable('revertProductionBatchWages');
 
-    return transactionIds;
+    try {
+      final result = await callable.call({
+        'batchId': batch.batchId,
+      });
+
+      final data = result.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        throw Exception('Cloud Function returned unsuccessful result: $data');
+      }
+    } catch (e) {
+      // Re-throw with more context
+      throw Exception('Failed to revert production batch wages via Cloud Function: $e');
+    }
   }
 
   /// Recalculate and update wages - deletes old transactions and creates new ones

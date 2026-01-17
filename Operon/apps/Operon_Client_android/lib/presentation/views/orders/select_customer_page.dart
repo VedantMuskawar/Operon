@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/views/orders/create_order_page.dart';
@@ -132,9 +133,9 @@ class _SearchResultsSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF131324),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

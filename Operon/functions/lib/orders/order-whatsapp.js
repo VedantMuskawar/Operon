@@ -37,53 +37,14 @@ exports.onOrderUpdatedSendWhatsapp = exports.onOrderCreatedSendWhatsapp = void 0
 const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
+const whatsapp_service_1 = require("../shared/whatsapp-service");
+const logger_1 = require("../shared/logger");
 const db = (0, firestore_helpers_1.getFirestore)();
-async function loadWhatsappSettings(organizationId) {
-    var _a;
-    // First, try to load organization-specific settings
-    if (organizationId) {
-        const trimmedOrgId = organizationId.trim();
-        const orgSettingsRef = db.collection(constants_1.WHATSAPP_SETTINGS_COLLECTION).doc(trimmedOrgId);
-        const orgSettingsDoc = await orgSettingsRef.get();
-        if (orgSettingsDoc.exists) {
-            const data = orgSettingsDoc.data();
-            if (data && data.enabled === true) {
-                if (!data.token || !data.phoneId) {
-                    return null;
-                }
-                return {
-                    enabled: true,
-                    token: data.token,
-                    phoneId: data.phoneId,
-                    welcomeTemplateId: data.welcomeTemplateId,
-                    languageCode: data.languageCode,
-                    orderConfirmationTemplateId: data.orderConfirmationTemplateId,
-                };
-            }
-            return null;
-        }
-    }
-    // Fallback to global config
-    const globalConfig = (_a = functions.config().whatsapp) !== null && _a !== void 0 ? _a : {};
-    if (globalConfig.token &&
-        globalConfig.phone_id &&
-        globalConfig.enabled !== 'false') {
-        return {
-            enabled: true,
-            token: globalConfig.token,
-            phoneId: globalConfig.phone_id,
-            welcomeTemplateId: globalConfig.welcome_template_id,
-            languageCode: globalConfig.language_code,
-            orderConfirmationTemplateId: globalConfig.order_confirmation_template_id,
-        };
-    }
-    return null;
-}
 /**
  * Sends WhatsApp notification to client when an order is created
  */
 async function sendOrderConfirmationMessage(to, clientName, organizationId, orderId, orderData) {
-    const settings = await loadWhatsappSettings(organizationId);
+    const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId);
     if (!settings) {
         console.log('[WhatsApp Order] Skipping send – no settings or disabled.', { orderId, organizationId });
         return;
@@ -120,14 +81,14 @@ async function sendOrderConfirmationMessage(to, clientName, organizationId, orde
         `Delivery: ${deliveryInfo}\n\n` +
         `Pricing:\n${pricingText}${advanceText}\n\n` +
         `Thank you for your order!`;
-    console.log('[WhatsApp Order] Sending order confirmation', {
+    (0, logger_1.logInfo)('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Sending order confirmation', {
         organizationId,
         orderId,
-        to: to.substring(0, 4) + '****', // Mask phone number
+        to: to.substring(0, 4) + '****',
         phoneId: settings.phoneId,
         hasItems: orderData.items.length > 0,
     });
-    await sendWhatsappMessage(url, settings.token, to, messageBody, 'confirmation', {
+    await (0, whatsapp_service_1.sendWhatsappMessage)(url, settings.token, to, messageBody, 'confirmation', {
         organizationId,
         orderId,
     });
@@ -136,7 +97,7 @@ async function sendOrderConfirmationMessage(to, clientName, organizationId, orde
  * Sends WhatsApp notification to client when an order is updated
  */
 async function sendOrderUpdateMessage(to, clientName, organizationId, orderId, orderData) {
-    const settings = await loadWhatsappSettings(organizationId);
+    const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId);
     if (!settings) {
         console.log('[WhatsApp Order] Skipping send – no settings or disabled.', { orderId, organizationId });
         return;
@@ -177,71 +138,25 @@ async function sendOrderUpdateMessage(to, clientName, organizationId, orderId, o
         `Delivery: ${deliveryInfo}\n\n` +
         `Pricing:\n${pricingText}${advanceText}${statusText}\n\n` +
         `Thank you!`;
-    console.log('[WhatsApp Order] Sending order update', {
+    (0, logger_1.logInfo)('Order/WhatsApp', 'sendOrderUpdateMessage', 'Sending order update', {
         organizationId,
         orderId,
-        to: to.substring(0, 4) + '****', // Mask phone number
+        to: to.substring(0, 4) + '****',
         phoneId: settings.phoneId,
         hasItems: orderData.items.length > 0,
         status: orderData.status,
     });
-    await sendWhatsappMessage(url, settings.token, to, messageBody, 'update', {
+    await (0, whatsapp_service_1.sendWhatsappMessage)(url, settings.token, to, messageBody, 'update', {
         organizationId,
         orderId,
     });
-}
-async function sendWhatsappMessage(url, token, to, messageBody, messageType, context) {
-    var _a, _b;
-    const payload = {
-        messaging_product: 'whatsapp',
-        to: to,
-        type: 'text',
-        text: {
-            body: messageBody,
-        },
-    };
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-        const text = await response.text();
-        let errorDetails;
-        try {
-            errorDetails = JSON.parse(text);
-        }
-        catch (_c) {
-            errorDetails = text;
-        }
-        console.error(`[WhatsApp Order] Failed to send order ${messageType}`, {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorDetails,
-            organizationId: context.organizationId,
-            orderId: context.orderId,
-            url,
-        });
-    }
-    else {
-        const result = await response.json().catch(() => ({}));
-        console.log(`[WhatsApp Order] Order ${messageType} sent successfully`, {
-            orderId: context.orderId,
-            to: to.substring(0, 4) + '****',
-            organizationId: context.organizationId,
-            messageId: (_b = (_a = result.messages) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id,
-        });
-    }
 }
 /**
  * Cloud Function: Triggered when an order is created
  * Sends WhatsApp notification to client with order details
  */
 exports.onOrderCreatedSendWhatsapp = functions
-    .region('asia-south1')
+    .region('us-central1')
     .firestore
     .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
     .onCreate(async (snapshot, context) => {
@@ -304,7 +219,7 @@ exports.onOrderCreatedSendWhatsapp = functions
  * Only sends for significant changes (items, pricing, status, delivery zone)
  */
 exports.onOrderUpdatedSendWhatsapp = functions
-    .region('asia-south1')
+    .region('us-central1')
     .firestore
     .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
     .onUpdate(async (change, context) => {
@@ -319,7 +234,7 @@ exports.onOrderUpdatedSendWhatsapp = functions
     const advanceAmountChanged = before.advanceAmount !== after.advanceAmount;
     // Only send notification if significant changes occurred
     if (!itemsChanged && !pricingChanged && !statusChanged && !deliveryZoneChanged && !advanceAmountChanged) {
-        console.log('[WhatsApp Order] No significant changes detected, skipping update notification', {
+        (0, logger_1.logInfo)('Order/WhatsApp', 'onOrderUpdatedSendWhatsapp', 'No significant changes detected, skipping update notification', {
             orderId,
         });
         return;
@@ -348,24 +263,14 @@ exports.onOrderUpdatedSendWhatsapp = functions
             }
         }
         catch (error) {
-            console.error('[WhatsApp Order] Error fetching client data', {
-                orderId,
-                clientId: orderData.clientId,
-                error,
-            });
+            // Error already handled, continue silently
         }
     }
     if (!clientPhone) {
-        console.log('[WhatsApp Order] No phone found for order, skipping notification.', { orderId, clientId: orderData.clientId });
         return;
     }
     // Validate required order data
     if (!orderData.items || !orderData.pricing) {
-        console.log('[WhatsApp Order] Missing required order data', {
-            orderId,
-            hasItems: !!orderData.items,
-            hasPricing: !!orderData.pricing,
-        });
         return;
     }
     await sendOrderUpdateMessage(clientPhone, clientName, orderData.organizationId, orderId, {

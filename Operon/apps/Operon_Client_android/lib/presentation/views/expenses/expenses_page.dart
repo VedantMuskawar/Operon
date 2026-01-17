@@ -1,5 +1,6 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/expenses/expenses_state.dart';
 import 'package:dash_mobile/presentation/views/expenses/record_expense_page.dart';
@@ -63,7 +64,7 @@ class _ExpensesPageState extends State<ExpensesPage>
       child: Stack(
         children: [
           Scaffold(
-            backgroundColor: const Color(0xFF000000),
+            backgroundColor: AuthColors.background,
             appBar: const ModernPageHeader(
               title: 'Expenses',
             ),
@@ -104,9 +105,9 @@ class _ExpensesPageState extends State<ExpensesPage>
                 Tab(text: 'Salary Payments'),
                 Tab(text: 'General Expenses'),
               ],
-              labelColor: const Color(0xFF6F4BFF),
-              unselectedLabelColor: Colors.white54,
-              indicatorColor: const Color(0xFF6F4BFF),
+              labelColor: AuthColors.legacyAccent,
+              unselectedLabelColor: AuthColors.textSub,
+              indicatorColor: AuthColors.legacyAccent,
             ),
             const SizedBox(height: 16),
             // Search Bar
@@ -202,7 +203,7 @@ class _ExpensesPageState extends State<ExpensesPage>
               child: _SummaryCard(
                 title: 'Vendor Payments',
                 amount: state.totalVendorExpenses,
-                color: const Color(0xFF6F4BFF),
+                color: AuthColors.legacyAccent,
                 icon: Icons.store,
               ),
             ),
@@ -211,7 +212,7 @@ class _ExpensesPageState extends State<ExpensesPage>
               child: _SummaryCard(
                 title: 'Salary Payments',
                 amount: state.totalEmployeeExpenses,
-                color: const Color(0xFF5AD8A4),
+                color: AuthColors.successVariant,
                 icon: Icons.person,
               ),
             ),
@@ -220,7 +221,7 @@ class _ExpensesPageState extends State<ExpensesPage>
               child: _SummaryCard(
                 title: 'General Expenses',
                 amount: state.totalGeneralExpenses,
-                color: const Color(0xFFFF9800),
+                color: AuthColors.warning,
                 icon: Icons.receipt,
               ),
             ),
@@ -235,12 +236,12 @@ class _ExpensesPageState extends State<ExpensesPage>
       builder: (context, state) {
         return TextField(
           controller: _searchController,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search, color: Colors.white54),
+            prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: _clearSearch,
                   )
                 : null,
@@ -440,8 +441,8 @@ class _ExpenseTile extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1F1F33).withOpacity(0.6),
-            const Color(0xFF1A1A28).withOpacity(0.8),
+            AuthColors.surface.withOpacity(0.6),
+            AuthColors.background.withOpacity(0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(18),

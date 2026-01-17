@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/analytics_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
@@ -84,13 +85,13 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
               Icon(
                 Icons.analytics_outlined,
                 size: 64,
-                color: Colors.white.withOpacity(0.3),
+                color: AuthColors.textSub.withOpacity(0.5),
               ),
               const SizedBox(height: 16),
               Text(
                 'No analytics data available',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: AuthColors.textMain,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -180,20 +181,20 @@ class _InfoTile extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF6F4BFF).withOpacity(0.2),
-            const Color(0xFF4CE0B3).withOpacity(0.1),
+            AuthColors.primary.withOpacity(0.2),
+            AuthColors.success.withOpacity(0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: AuthColors.textSub,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -201,8 +202,8 @@ class _InfoTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AuthColors.textMain,
               fontSize: 28,
               fontWeight: FontWeight.w700,
             ),
@@ -239,17 +240,17 @@ class _OnboardingChart extends StatelessWidget {
       height: chartHeight + 60,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF131324),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Onboarding Trend',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -312,7 +313,7 @@ class _LineChartPainter extends CustomPainter {
 
     // Draw grid lines
     final gridPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = AuthColors.textSub.withOpacity(0.2)
       ..strokeWidth = 1;
 
     for (int i = 0; i <= 4; i++) {
@@ -326,7 +327,7 @@ class _LineChartPainter extends CustomPainter {
 
     // Draw Y-axis labels
     final textStyle = TextStyle(
-      color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textSub,
       fontSize: 11,
     );
     for (int i = 0; i <= 4; i++) {
@@ -366,7 +367,7 @@ class _LineChartPainter extends CustomPainter {
     if (dataPoints.length > 1) {
       final path = Path();
       final pointPaint = Paint()
-        ..color = const Color(0xFF6F4BFF)
+        ..color = AuthColors.primary
         ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke;
 
@@ -389,7 +390,7 @@ class _LineChartPainter extends CustomPainter {
 
       // Draw points
       final pointPaint2 = Paint()
-        ..color = const Color(0xFF6F4BFF)
+        ..color = AuthColors.primary
         ..style = PaintingStyle.fill;
 
       for (int i = 0; i < dataPoints.length; i++) {
@@ -418,7 +419,7 @@ class _LineChartPainter extends CustomPainter {
             text: TextSpan(
               text: dataPoints[i].toInt().toString(),
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: AuthColors.textMain,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -441,7 +442,7 @@ class _LineChartPainter extends CustomPainter {
     } else if (dataPoints.length == 1) {
       // Handle single data point - just draw a point
       final pointPaint2 = Paint()
-        ..color = const Color(0xFF6F4BFF)
+        ..color = AuthColors.primary
         ..style = PaintingStyle.fill;
       
       final x = padding + chartWidth / 2;
@@ -450,7 +451,7 @@ class _LineChartPainter extends CustomPainter {
       
       if (!x.isNaN && !y.isNaN && x.isFinite && y.isFinite) {
         canvas.drawCircle(Offset(x, y), 4, pointPaint2);
-        canvas.drawCircle(Offset(x, y), 2, Paint()..color = Colors.white);
+        canvas.drawCircle(Offset(x, y), 2, Paint()..color = AuthColors.textMain);
       }
     }
 
@@ -471,7 +472,7 @@ class _LineChartPainter extends CustomPainter {
           text: TextSpan(
             text: label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textSub,
               fontSize: 10,
             ),
           ),
@@ -497,7 +498,7 @@ class _LineChartPainter extends CustomPainter {
         text: TextSpan(
           text: label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textSub,
             fontSize: 10,
           ),
         ),
@@ -558,7 +559,7 @@ class _SummaryStats extends StatelessWidget {
           child: _StatChip(
             label: 'Current',
             value: currentValue.toInt().toString(),
-            color: const Color(0xFF6F4BFF),
+            color: AuthColors.primary,
           ),
         ),
         const SizedBox(width: 12),
@@ -567,7 +568,7 @@ class _SummaryStats extends StatelessWidget {
             label: 'Max',
             value: maxValue.toInt().toString(),
             subtitle: _formatMonth(maxKey),
-            color: const Color(0xFF4CE0B3),
+            color: AuthColors.success,
           ),
         ),
         const SizedBox(width: 12),
@@ -629,7 +630,7 @@ class _StatChip extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: AuthColors.textMain,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -653,7 +654,7 @@ class _StatChip extends StatelessWidget {
                   child: Text(
                     subtitle!,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: AuthColors.textSub,
                       fontSize: 10,
                     ),
                   ),
@@ -691,7 +692,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                 icon: Icons.people_outline,
                 label: 'Total',
                 value: totalClients.toString(),
-                color: const Color(0xFF6F4BFF),
+                color: AuthColors.primary,
               ),
             ),
             const SizedBox(width: 12),
@@ -700,7 +701,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                 icon: Icons.business_outlined,
                 label: 'Corporate',
                 value: corporateCount.toString(),
-                color: const Color(0xFF5AD8A4),
+                color: AuthColors.success,
               ),
             ),
           ],
@@ -713,7 +714,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                 icon: Icons.person_outline,
                 label: 'Individual',
                 value: individualCount.toString(),
-                color: const Color(0xFFFF9800),
+                color: AuthColors.secondary,
               ),
             ),
             const SizedBox(width: 12),
@@ -722,7 +723,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                 icon: Icons.shopping_bag_outlined,
                 label: 'Orders',
                 value: totalOrders.toString(),
-                color: const Color(0xFF2196F3),
+                color: AuthColors.primary,
               ),
             ),
           ],
@@ -750,21 +751,21 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
+            AuthColors.surface,
+            AuthColors.background,
           ],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: AuthColors.textSub.withOpacity(0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: AuthColors.background.withOpacity(0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -791,8 +792,8 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -801,7 +802,7 @@ class _StatCard extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: AuthColors.textSub,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),

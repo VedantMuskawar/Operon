@@ -1,75 +1,13 @@
 import * as functions from 'firebase-functions';
 import {
   CLIENTS_COLLECTION,
-  WHATSAPP_SETTINGS_COLLECTION,
 } from '../shared/constants';
 import { getFirestore } from '../shared/firestore-helpers';
+import { loadWhatsappSettings, sendWhatsappTemplateMessage } from '../shared/whatsapp-service';
+import { logInfo, logWarning, logError } from '../shared/logger';
 
 const db = getFirestore();
 const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
-
-interface WhatsappSettings {
-  enabled: boolean;
-  token: string;
-  phoneId: string;
-  welcomeTemplateId?: string;
-  languageCode?: string;
-  orderConfirmationTemplateId?: string;
-  tripDispatchTemplateId?: string;
-  tripDeliveryTemplateId?: string;
-}
-
-async function loadWhatsappSettings(
-  organizationId: string | undefined,
-): Promise<WhatsappSettings | null> {
-  // First, try to load organization-specific settings
-  if (organizationId) {
-    const trimmedOrgId = organizationId.trim();
-    const orgSettingsRef = db.collection(WHATSAPP_SETTINGS_COLLECTION).doc(trimmedOrgId);
-    const orgSettingsDoc = await orgSettingsRef.get();
-
-    if (orgSettingsDoc.exists) {
-      const data = orgSettingsDoc.data();
-      if (data && data.enabled === true) {
-        if (!data.token || !data.phoneId) {
-          return null;
-        }
-        return {
-          enabled: true,
-          token: data.token as string,
-          phoneId: data.phoneId as string,
-          welcomeTemplateId: data.welcomeTemplateId as string | undefined,
-          languageCode: data.languageCode as string | undefined,
-          orderConfirmationTemplateId: data.orderConfirmationTemplateId as string | undefined,
-          tripDispatchTemplateId: data.tripDispatchTemplateId as string | undefined,
-          tripDeliveryTemplateId: data.tripDeliveryTemplateId as string | undefined,
-        };
-      }
-      return null;
-    }
-  }
-
-  // Fallback to global config
-  const globalConfig: any = (functions.config() as any).whatsapp ?? {};
-  if (
-    globalConfig.token &&
-    globalConfig.phone_id &&
-    globalConfig.enabled !== 'false'
-  ) {
-    return {
-      enabled: true,
-      token: globalConfig.token,
-      phoneId: globalConfig.phone_id,
-      welcomeTemplateId: globalConfig.welcome_template_id,
-      languageCode: globalConfig.language_code,
-      orderConfirmationTemplateId: globalConfig.order_confirmation_template_id,
-      tripDispatchTemplateId: globalConfig.trip_dispatch_template_id,
-      tripDeliveryTemplateId: globalConfig.trip_delivery_template_id,
-    };
-  }
-
-  return null;
-}
 
 /**
  * Sends WhatsApp notification to client when a trip is dispatched
@@ -103,10 +41,10 @@ async function sendTripDispatchMessage(
 ): Promise<void> {
   const settings = await loadWhatsappSettings(organizationId);
   if (!settings) {
-    console.log(
-      '[WhatsApp Trip Dispatch] Skipping send – no settings or disabled.',
-      { tripId, organizationId },
-    );
+    logWarning('Trip/WhatsApp', 'sendTripDispatchMessage', 'Skipping send – no settings or disabled', {
+      tripId,
+      organizationId,
+    });
     return;
   }
 
@@ -115,28 +53,7 @@ async function sendTripDispatchMessage(
     ? clientName.trim()
     : 'there';
 
-  // Format trip items for message
-  const itemsText = tripData.items && tripData.items.length > 0
-    ? tripData.items
-        .map((item, index) => {
-          const itemNum = index + 1;
-          const gstText = item.gstAmount && item.gstAmount > 0
-            ? `\n   GST: ₹${item.gstAmount.toFixed(2)}`
-            : '';
-          return `${itemNum}. ${item.productName}\n   Qty: ${item.fixedQuantityPerTrip} units\n   Unit Price: ₹${item.unitPrice.toFixed(2)}${gstText}`;
-        })
-        .join('\n\n')
-    : 'No items';
-
-  // Format trip pricing
-  const pricing = tripData.tripPricing;
-  const pricingText = pricing
-    ? `Subtotal: ₹${pricing.subtotal.toFixed(2)}\n` +
-      (pricing.gstAmount > 0 ? `GST: ₹${pricing.gstAmount.toFixed(2)}\n` : '') +
-      `Total: ₹${pricing.total.toFixed(2)}`
-    : 'Pricing not available';
-
-  // Format scheduled date
+  // Format scheduled date for parameter 2
   let scheduledDateText = 'N/A';
   if (tripData.scheduledDate) {
     try {
@@ -149,103 +66,74 @@ async function sendTripDispatchMessage(
         year: 'numeric',
       });
     } catch (e) {
-      console.error('[WhatsApp Trip Dispatch] Error formatting date', e);
+      logError('Trip/WhatsApp', 'sendTripDispatchMessage', 'Error formatting date', e instanceof Error ? e : new Error(String(e)));
     }
   }
 
-  // Format driver info
-  const driverInfo = tripData.driverName && tripData.driverPhone
-    ? `Driver: ${tripData.driverName}\nDriver Contact: ${tripData.driverPhone}`
-    : tripData.driverName
-      ? `Driver: ${tripData.driverName}`
-      : 'Driver information not available';
-
-  // Format vehicle and slot info
+  // Format vehicle and slot info for parameter 3
   const vehicleInfo = tripData.vehicleNumber
     ? `Vehicle: ${tripData.vehicleNumber}`
     : '';
   const slotInfo = tripData.slotName || (tripData.slot ? `Slot ${tripData.slot}` : '');
-  const scheduleInfo = [vehicleInfo, slotInfo].filter(Boolean).join(' | ');
+  const scheduleInfo = [vehicleInfo, slotInfo].filter(Boolean).join(' | ') || '';
 
-  // Build message body
-  const messageBody = `Hello ${displayName}!\n\n` +
-    `Your trip has been dispatched!\n\n` +
-    `Trip Details:\n` +
-    `Date: ${scheduledDateText}\n` +
-    (scheduleInfo ? `${scheduleInfo}\n` : '') +
-    `\nItems:\n${itemsText}\n\n` +
-    `Pricing:\n${pricingText}\n\n` +
-    `${driverInfo}\n\n` +
-    `Thank you!`;
+  // Format items list for parameter 4
+  const itemsText = tripData.items && tripData.items.length > 0
+    ? tripData.items
+        .map((item, index) => {
+          const itemNum = index + 1;
+          return `${itemNum}. ${item.productName} - Qty: ${item.fixedQuantityPerTrip} units - ₹${item.unitPrice.toFixed(2)}`;
+        })
+        .join('\n')
+    : 'No items';
 
-  console.log('[WhatsApp Trip Dispatch] Sending dispatch notification', {
+  // Format total amount for parameter 5
+  const pricing = tripData.tripPricing;
+  const totalAmountText = pricing
+    ? pricing.gstAmount > 0
+      ? `₹${pricing.total.toFixed(2)} (Subtotal: ₹${pricing.subtotal.toFixed(2)}, GST: ₹${pricing.gstAmount.toFixed(2)})`
+      : `₹${pricing.total.toFixed(2)} (Subtotal: ₹${pricing.subtotal.toFixed(2)})`
+    : 'Pricing not available';
+
+  // Format driver information for parameter 6
+  const driverInfo = tripData.driverName && tripData.driverPhone
+    ? `Driver: ${tripData.driverName} | Contact: ${tripData.driverPhone}`
+    : tripData.driverName
+      ? `Driver: ${tripData.driverName}`
+      : 'Driver information not available';
+
+  // Prepare template parameters
+  const parameters = [
+    displayName,        // Parameter 1: Client name
+    scheduledDateText,  // Parameter 2: Trip date
+    scheduleInfo,      // Parameter 3: Vehicle and slot info
+    itemsText,         // Parameter 4: Items list
+    totalAmountText,   // Parameter 5: Total amount with breakdown
+    driverInfo,        // Parameter 6: Driver information
+  ];
+
+  logInfo('Trip/WhatsApp', 'sendTripDispatchMessage', 'Sending dispatch notification', {
     organizationId,
     tripId,
-    to: to.substring(0, 4) + '****', // Mask phone number
+    to: to.substring(0, 4) + '****',
     phoneId: settings.phoneId,
+    templateId: settings.tripDispatchTemplateId,
     hasItems: tripData.items && tripData.items.length > 0,
   });
 
-  await sendWhatsappMessage(url, settings.token, to, messageBody, {
-    organizationId,
-    tripId,
-  });
-}
-
-async function sendWhatsappMessage(
-  url: string,
-  token: string,
-  to: string,
-  messageBody: string,
-  context: { organizationId?: string; tripId: string },
-): Promise<void> {
-  const payload = {
-    messaging_product: 'whatsapp',
-    to: to,
-    type: 'text',
-    text: {
-      body: messageBody,
+  await sendWhatsappTemplateMessage(
+    url,
+    settings.token,
+    to,
+    settings.tripDispatchTemplateId,
+    settings.languageCode ?? 'en',
+    parameters,
+    'trip-dispatch',
+    {
+      organizationId,
+      tripId,
     },
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    let errorDetails: any;
-    try {
-      errorDetails = JSON.parse(text);
-    } catch {
-      errorDetails = text;
-    }
-
-    console.error(
-      '[WhatsApp Trip Dispatch] Failed to send dispatch notification',
-      {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorDetails,
-        organizationId: context.organizationId,
-        tripId: context.tripId,
-        url,
-      },
-    );
-  } else {
-    const result = await response.json().catch(() => ({}));
-    console.log('[WhatsApp Trip Dispatch] Dispatch notification sent successfully', {
-      tripId: context.tripId,
-      to: to.substring(0, 4) + '****',
-      organizationId: context.organizationId,
-      messageId: result.messages?.[0]?.id,
-    });
-  }
+  );
 }
 
 /**
@@ -264,7 +152,7 @@ export const onTripDispatchedSendWhatsapp = functions.firestore
     const afterStatus = after.tripStatus as string | undefined;
 
     if (beforeStatus === afterStatus || afterStatus !== 'dispatched') {
-      console.log('[WhatsApp Trip Dispatch] Trip status not changed to dispatched, skipping', {
+      logInfo('Trip/WhatsApp', 'onTripDispatchedSendWhatsapp', 'Trip status not changed to dispatched, skipping', {
         tripId,
         beforeStatus,
         afterStatus,
@@ -299,7 +187,7 @@ export const onTripDispatchedSendWhatsapp = functions.firestore
     };
 
     if (!tripData) {
-      console.log('[WhatsApp Trip Dispatch] No trip data found', { tripId });
+      logWarning('Trip/WhatsApp', 'onTripDispatchedSendWhatsapp', 'No trip data found', { tripId });
       return;
     }
 
@@ -323,19 +211,18 @@ export const onTripDispatchedSendWhatsapp = functions.firestore
           }
         }
       } catch (error) {
-        console.error('[WhatsApp Trip Dispatch] Error fetching client data', {
+        logError('Trip/WhatsApp', 'onTripDispatchedSendWhatsapp', 'Error fetching client data', error instanceof Error ? error : new Error(String(error)), {
           tripId,
           clientId: tripData.clientId,
-          error,
         });
       }
     }
 
     if (!clientPhone) {
-      console.log(
-        '[WhatsApp Trip Dispatch] No phone found for trip, skipping notification.',
-        { tripId, clientId: tripData.clientId },
-      );
+      logWarning('Trip/WhatsApp', 'onTripDispatchedSendWhatsapp', 'No phone found for trip, skipping notification', {
+        tripId,
+        clientId: tripData.clientId,
+      });
       return;
     }
 

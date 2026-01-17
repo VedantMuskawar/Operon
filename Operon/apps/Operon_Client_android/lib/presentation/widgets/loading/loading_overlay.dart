@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 
 /// Overlay widget that shows loading indicator and prevents interaction
 class LoadingOverlay extends StatelessWidget {
@@ -31,7 +32,7 @@ class LoadingOverlay extends StatelessWidget {
                       const SizedBox(height: 16),
                       Text(
                         message!,
-                        style: const TextStyle(color: Colors.white70),
+                        style: const TextStyle(color: AuthColors.textSub),
                       ),
                     ],
                   ],
@@ -72,7 +73,7 @@ class ModalLoadingOverlay extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF11111B),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -84,7 +85,7 @@ class ModalLoadingOverlay extends StatelessWidget {
                     Text(
                       message!,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 14,
                       ),
                     ),

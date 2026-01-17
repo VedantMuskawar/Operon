@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 
 class QuickActionItem {
   const QuickActionItem({
@@ -225,18 +226,18 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                             end: Alignment.bottomRight,
                             colors: _isExpanded
                                 ? [
-                                    const Color(0xFF6F4BFF),
-                                    const Color(0xFF5A3FD9),
+                                    AuthColors.legacyAccent,
+                                    AuthColors.legacyAccent.withOpacity(0.8),
                                   ]
                                 : [
-                                    const Color(0xFF6F4BFF),
-                                    const Color(0xFF8B6FFF),
+                                    AuthColors.legacyAccent,
+                                    AuthColors.legacyAccent.withOpacity(0.9),
                                   ],
                           ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF6F4BFF).withOpacity(
+                              color: AuthColors.legacyAccent.withOpacity(
                                 _isExpanded ? 0.5 : 0.4,
                               ),
                               blurRadius: _isExpanded ? 20 : 12,
@@ -247,7 +248,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                         ),
                         child: Icon(
                           _isExpanded ? Icons.close : Icons.add,
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           size: 24,
                         ),
                       ),
@@ -285,10 +286,10 @@ class _ActionButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF1B1B2C),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.15),
+              color: AuthColors.textMainWithOpacity(0.15),
               width: 1.5,
             ),
             boxShadow: [
@@ -307,18 +308,18 @@ class _ActionButton extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF6F4BFF),
-                      Color(0xFF8B6FFF),
+                      AuthColors.legacyAccent,
+                      AuthColors.legacyAccent.withOpacity(0.9),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6F4BFF).withOpacity(0.3),
+                      color: AuthColors.legacyAccent.withOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),

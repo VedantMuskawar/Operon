@@ -2,6 +2,7 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/presentation/blocs/production_batch_templates/production_batch_templates_cubit.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -51,10 +52,21 @@ class _ProductionBatchTemplateFormState
   Future<void> _loadEmployees() async {
     setState(() => _isLoadingEmployees = true);
     try {
-      final employees =
+      final allEmployees =
           await widget.employeesRepository.fetchEmployees(widget.organizationId);
+      // Filter employees to only show those with "Production" role
+      final filteredEmployees = allEmployees.where((employee) {
+        // Check if any of the employee's job roles contains "Production"
+        return employee.jobRoles.values.any(
+          (jobRole) => jobRole.jobRoleTitle
+              .toLowerCase()
+              .contains('production'),
+        ) || employee.primaryJobRoleTitle
+            .toLowerCase()
+            .contains('production');
+      }).toList();
       setState(() {
-        _employees = employees;
+        _employees = filteredEmployees;
         _isLoadingEmployees = false;
       });
     } catch (e) {
@@ -147,9 +159,13 @@ class _ProductionBatchTemplateFormState
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1B1B2C),
+      backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: AuthColors.textMain.withOpacity(0.1),
+          width: 1,
+        ),
       ),
       child: Container(
         width: 600,
@@ -166,8 +182,8 @@ class _ProductionBatchTemplateFormState
                     widget.template != null
                         ? 'Edit Batch Template'
                         : 'Create Batch Template',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AuthColors.textMain,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
@@ -175,7 +191,7 @@ class _ProductionBatchTemplateFormState
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: Icon(Icons.close, color: AuthColors.textSub),
                   ),
                 ],
               ),
@@ -184,30 +200,30 @@ class _ProductionBatchTemplateFormState
                 controller: _nameController,
                 decoration: InputDecoration(
                   labelText: 'Batch Name',
-                  labelStyle: const TextStyle(color: Colors.white70),
+                  labelStyle: TextStyle(color: AuthColors.textSub),
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  fillColor: AuthColors.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: AuthColors.textMain.withOpacity(0.1),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: AuthColors.textMain.withOpacity(0.1),
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF6F4BFF),
+                    borderSide: BorderSide(
+                      color: AuthColors.primary,
                       width: 2,
                     ),
                   ),
                 ),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please enter a batch name';
@@ -216,42 +232,45 @@ class _ProductionBatchTemplateFormState
                 },
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'Select Employees',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 12),
               if (_isLoadingEmployees)
-                const Center(
+                Center(
                   child: Padding(
-                    padding: EdgeInsets.all(24.0),
-                    child: CircularProgressIndicator(),
+                    padding: const EdgeInsets.all(24.0),
+                    child: CircularProgressIndicator(color: AuthColors.primary),
                   ),
                 )
               else if (_employees.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: AuthColors.background,
                     borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AuthColors.textMain.withOpacity(0.1),
+                    ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'No employees available',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: AuthColors.textSub),
                   ),
                 )
               else
                 Container(
                   constraints: const BoxConstraints(maxHeight: 300),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: AuthColors.background,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: AuthColors.textMain.withOpacity(0.1),
                     ),
                   ),
                   child: ListView.builder(
@@ -264,13 +283,13 @@ class _ProductionBatchTemplateFormState
                       return CheckboxListTile(
                         title: Text(
                           employee.name,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: AuthColors.textMain),
                         ),
                         subtitle: employee.primaryJobRoleTitle.isNotEmpty
                             ? Text(
                                 employee.primaryJobRoleTitle,
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.7),
+                                  color: AuthColors.textSub,
                                 ),
                               )
                             : null,
@@ -284,8 +303,8 @@ class _ProductionBatchTemplateFormState
                             }
                           });
                         },
-                        activeColor: const Color(0xFF6F4BFF),
-                        checkColor: Colors.white,
+                        activeColor: AuthColors.primary,
+                        checkColor: AuthColors.textMain,
                       );
                     },
                   ),
@@ -294,7 +313,7 @@ class _ProductionBatchTemplateFormState
               Text(
                 '${_selectedEmployeeIds.length} employee${_selectedEmployeeIds.length != 1 ? 's' : ''} selected',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: AuthColors.textSub,
                   fontSize: 12,
                 ),
               ),
@@ -306,27 +325,26 @@ class _ProductionBatchTemplateFormState
                     onPressed: _isLoading
                         ? null
                         : () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
+                    child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: _isLoading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6F4BFF),
-                      foregroundColor: Colors.white,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AuthColors.primary,
+                      foregroundColor: AuthColors.textMain,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 12,
                       ),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                             ),
                           )
                         : Text(widget.template != null ? 'Update' : 'Create'),

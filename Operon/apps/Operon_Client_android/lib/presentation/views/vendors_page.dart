@@ -1,4 +1,5 @@
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/vendors/vendors_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/vendors/vendors_state.dart';
@@ -20,8 +21,10 @@ class VendorsPage extends StatefulWidget {
 class _VendorsPageState extends State<VendorsPage> {
   late final TextEditingController _searchController;
   late final PageController _pageController;
+  late final ScrollController _scrollController;
   double _currentPage = 0;
   String _searchQuery = '';
+  bool _isLoadingMore = false;
 
   @override
   void initState() {
@@ -34,6 +37,16 @@ class _VendorsPageState extends State<VendorsPage> {
           _currentPage = _pageController.page ?? 0;
         });
       });
+    _scrollController = ScrollController()
+      ..addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent * 0.8) {
+      // Load more if needed - placeholder for future pagination
+    }
   }
 
   @override
@@ -41,6 +54,8 @@ class _VendorsPageState extends State<VendorsPage> {
     _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
     _pageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -100,7 +115,7 @@ class _VendorsPageState extends State<VendorsPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         appBar: const ModernPageHeader(
           title: 'Vendors',
         ),
@@ -147,59 +162,106 @@ class _VendorsPageState extends State<VendorsPage> {
                               final allVendors = state.vendors;
                               final filteredVendors = _applySearch(allVendors);
 
-                              return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-          children: [
-                                    // Search Bar
-                                    _buildSearchBar(state),
-                                    const SizedBox(height: 16),
-                                    // Filter Chips
-                                    _VendorFilterChips(
-                                      selectedType: state.selectedVendorType,
-                                      onTypeChanged: (type) {
-                                        context.read<VendorsCubit>().filterByType(type);
-                                      },
-                                    ),
-                                    const SizedBox(height: 16),
-                                    // Results count
-                                    if (state.searchQuery.isEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 12),
-                                        child: Text(
-                                          '${filteredVendors.length} ${filteredVendors.length == 1 ? 'vendor' : 'vendors'}',
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(0.6),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                              return CustomScrollView(
+                                controller: _scrollController,
+                                slivers: [
+                                  SliverToBoxAdapter(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _buildSearchBar(state),
+                                        const SizedBox(height: 16),
+                                        _VendorFilterChips(
+                                          selectedType: state.selectedVendorType,
+                                          onTypeChanged: (type) {
+                                            context.read<VendorsCubit>().filterByType(type);
+                                          },
                                         ),
-                                      ),
-                                    // Search Results or Recent Vendors
-                                    if (state.searchQuery.isNotEmpty)
-                                      _SearchResultsCard(
+                                        const SizedBox(height: 16),
+                                        if (state.searchQuery.isEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 12),
+                                            child: Text(
+                                              '${filteredVendors.length} ${filteredVendors.length == 1 ? 'vendor' : 'vendors'}',
+                                              style: TextStyle(
+                                                color: AuthColors.textSub,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (state.searchQuery.isNotEmpty)
+                                    SliverToBoxAdapter(
+                                      child: _SearchResultsCard(
                                         vendors: filteredVendors,
                                         onClear: _clearSearch,
                                         searchQuery: _searchQuery,
-                                      )
-                                    else if (filteredVendors.isEmpty && state.status != ViewStatus.loading)
-                                      _EmptyVendorsState(
+                                      ),
+                                    )
+                                  else if (filteredVendors.isEmpty && state.status != ViewStatus.loading)
+                                    SliverFillRemaining(
+                                      child: _EmptyVendorsState(
                                         onAddVendor: _openVendorDialog,
                                         canCreate: context.read<VendorsCubit>().canCreate,
-                                      )
-                                    else
-                                      _RecentVendorsList(
-                                        state: state,
-                                        vendors: filteredVendors,
-                                        onEdit: (vendor) => _openVendorDialogInternal(context, vendor: vendor),
-                                        onDelete: (vendor) => context.read<VendorsCubit>().deleteVendor(vendor.id),
                                       ),
+                                    )
+                                  else ...[
+                                    SliverToBoxAdapter(
+                                      child: Row(
+                                        children: [
+                                          const Expanded(
+                                            child: Text(
+                                              'All vendors',
+                                              style: TextStyle(
+                                                color: AuthColors.textMain,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          if (state.status == ViewStatus.loading)
+                                            const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                                    SliverList(
+                                      delegate: SliverChildBuilderDelegate(
+                                        (context, index) {
+                                          if (index >= filteredVendors.length) {
+                                            return _isLoadingMore
+                                                ? const Padding(
+                                                    padding: EdgeInsets.all(16),
+                                                    child: Center(child: CircularProgressIndicator()),
+                                                  )
+                                                : const SizedBox.shrink();
+                                          }
+                                          final vendor = filteredVendors[index];
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 12),
+                                            child: _VendorTile(
+                                              vendor: vendor,
+                                              onEdit: () => _openVendorDialogInternal(context, vendor: vendor),
+                                              onDelete: () => context.read<VendorsCubit>().deleteVendor(vendor.id),
+                                            ),
+                                          );
+                                        },
+                                        childCount: filteredVendors.length + (_isLoadingMore ? 1 : 0),
+                                      ),
+                                    ),
                                   ],
-                  ),
-                );
-              },
-            ),
+                                ],
+                              );
+                            },
+                          ),
                           const SingleChildScrollView(
                             child: VendorAnalyticsPage(),
                           ),
@@ -261,19 +323,19 @@ class _VendorsPageState extends State<VendorsPage> {
   Widget _buildSearchBar(VendorsState state) {
     return TextField(
       controller: _searchController,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: AuthColors.textMain),
       decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+        prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
         suffixIcon: _searchQuery.isNotEmpty
             ? IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54),
+                icon: Icon(Icons.close, color: AuthColors.textSub),
                 onPressed: _clearSearch,
               )
             : null,
         hintText: 'Search vendors by name, phone, or GST',
-        hintStyle: const TextStyle(color: Colors.white38),
+        hintStyle: TextStyle(color: AuthColors.textDisabled),
         filled: true,
-        fillColor: const Color(0xFF1B1B2C),
+        fillColor: AuthColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -300,9 +362,9 @@ class _SearchResultsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-        color: const Color(0xFF131324),
+        color: AuthColors.surface,
           borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,7 +375,7 @@ class _SearchResultsCard extends StatelessWidget {
                 child: Text(
                   'Search Results',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -329,18 +391,12 @@ class _SearchResultsCard extends StatelessWidget {
           if (vendors.isEmpty)
             _EmptySearchState(query: searchQuery)
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: vendors.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final vendor = vendors[index];
-                return _VendorTile(
-                  vendor: vendor,
-                );
-              },
-            ),
+            ...vendors.map((vendor) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _VendorTile(
+                    vendor: vendor,
+                  ),
+                )),
         ],
       ),
     );
@@ -371,7 +427,7 @@ class _RecentVendorsList extends StatelessWidget {
         child: Text(
                 'All vendors',
           style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
           ),
@@ -422,12 +478,12 @@ class _VendorTile extends StatelessWidget {
   Color _getVendorColor() {
     final hash = vendor.vendorType.name.hashCode;
     final colors = [
-      const Color(0xFF6F4BFF),
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
-      const Color(0xFF9C27B0),
+      AuthColors.primary,
+      AuthColors.success,
+      AuthColors.secondary,
+      AuthColors.primary,
+      AuthColors.error,
+      AuthColors.primary,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -483,237 +539,109 @@ class _VendorTile extends StatelessWidget {
     final vendorColor = _getVendorColor();
     final balanceDifference = vendor.currentBalance - vendor.openingBalance;
     final isPositive = balanceDifference >= 0;
+    final subtitleParts = <String>[];
+    subtitleParts.add(_formatVendorType());
+    subtitleParts.add(vendor.phoneNumber);
+    final subtitle = subtitleParts.join(' • ');
 
-    return InkWell(
-      onTap: () => context.pushNamed('vendor-detail', extra: vendor),
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-      padding: const EdgeInsets.all(16),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-          gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF1F1F33).withOpacity(0.6),
-              const Color(0xFF1A1A28).withOpacity(0.8),
-            ],
-        ),
+        color: AuthColors.background,
         borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: vendorColor.withOpacity(0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      ),
+      child: DataList(
+        title: vendor.name,
+        subtitle: subtitle,
+        leading: DataListAvatar(
+          initial: vendor.name.isNotEmpty ? vendor.name[0] : '?',
+          radius: 28,
+          statusRingColor: vendorColor,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (balanceDifference != 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isPositive
+                        ? AuthColors.success.withOpacity(0.15)
+                        : AuthColors.error.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isPositive ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 10,
+                        color: isPositive ? AuthColors.success : AuthColors.error,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '₹${balanceDifference.abs().toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: isPositive ? AuthColors.success : AuthColors.error,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Text(
+              '₹${vendor.currentBalance.toStringAsFixed(2)}',
+              style: TextStyle(
+                color: vendor.currentBalance >= 0 ? AuthColors.secondary : AuthColors.success,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
+            if (onEdit != null || onDelete != null) ...[
+              const SizedBox(width: 8),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert, color: AuthColors.textSub, size: 20),
+                color: AuthColors.surface,
+                onSelected: (value) {
+                  if (value == 'edit' && onEdit != null) {
+                    onEdit!();
+                  } else if (value == 'delete' && onDelete != null) {
+                    onDelete!();
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onEdit != null)
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(Icons.edit_outlined, color: AuthColors.textSub, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Edit', style: TextStyle(color: AuthColors.textSub)),
+                        ],
+                      ),
+                    ),
+                  if (onDelete != null)
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, color: AuthColors.error, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Delete', style: TextStyle(color: AuthColors.error)),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-            Row(
-              children: [
-                // Avatar
-          Container(
-                  width: 48,
-                  height: 48,
-            decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        vendorColor,
-                        vendorColor.withOpacity(0.7),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: vendorColor.withOpacity(0.4),
-                        blurRadius: 8,
-                        spreadRadius: -1,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-            child: Icon(
-                      _getVendorTypeIcon(),
-              color: Colors.white,
-                      size: 24,
-                    ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                  vendor.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          // Type Badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: vendorColor.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: vendorColor.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Text(
-                              _formatVendorType(),
-                              style: TextStyle(
-                                color: vendorColor,
-                    fontWeight: FontWeight.w600,
-                                fontSize: 10,
-                  ),
-                            ),
-                          ),
-                        ],
-                ),
-                const SizedBox(height: 6),
-                      // Phone
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.phone_outlined,
-                            size: 14,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                  vendor.phoneNumber,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Balance
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.account_balance_wallet_outlined,
-                            size: 14,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              '₹${vendor.currentBalance.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: vendor.currentBalance >= 0
-                                    ? const Color(0xFFFF9800)
-                                    : const Color(0xFF4CAF50),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (balanceDifference != 0)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isPositive
-                                    ? const Color(0xFF5AD8A4).withOpacity(0.15)
-                                    : Colors.redAccent.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                                    size: 10,
-                                    color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    '₹${balanceDifference.abs().toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // Action buttons
-                if (onEdit != null || onDelete != null)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: Colors.white54),
-                    color: const Color(0xFF1B1B2C),
-                    onSelected: (value) {
-                      if (value == 'edit' && onEdit != null) {
-                        onEdit!();
-                      } else if (value == 'delete' && onDelete != null) {
-                        onDelete!();
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      if (onEdit != null)
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-              children: [
-                              Icon(Icons.edit, color: Colors.white70, size: 18),
-                              SizedBox(width: 8),
-                              Text('Edit', style: TextStyle(color: Colors.white70)),
-                            ],
-                          ),
-                        ),
-                      if (onDelete != null)
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline, color: Colors.redAccent, size: 18),
-                              SizedBox(width: 8),
-                              Text('Delete', style: TextStyle(color: Colors.redAccent)),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-              ],
-            ),
-          ],
-        ),
+        onTap: () => context.pushNamed('vendor-detail', extra: vendor),
       ),
     );
   }
@@ -737,13 +665,13 @@ class _EmptyVendorsState extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1B1B2C).withOpacity(0.6),
-            const Color(0xFF161622).withOpacity(0.8),
+            AuthColors.surface.withOpacity(0.6),
+            AuthColors.backgroundAlt.withOpacity(0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: AuthColors.textSub.withOpacity(0.2),
         ),
       ),
       child: Column(
@@ -753,20 +681,20 @@ class _EmptyVendorsState extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFF6F4BFF).withOpacity(0.15),
+              color: AuthColors.primary.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.store_outlined,
               size: 32,
-              color: Color(0xFF6F4BFF),
+              color: AuthColors.primary,
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'No vendors yet',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -777,7 +705,7 @@ class _EmptyVendorsState extends StatelessWidget {
                 ? 'Start by adding your first vendor to the system'
                 : 'No vendors to display.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textSub,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -789,8 +717,8 @@ class _EmptyVendorsState extends StatelessWidget {
               label: const Text('Add Vendor'),
               onPressed: onAddVendor,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 14,
@@ -822,13 +750,13 @@ class _EmptySearchState extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 48,
-            color: Colors.white.withOpacity(0.3),
+            color: AuthColors.textSub.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No results found',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -837,7 +765,7 @@ class _EmptySearchState extends StatelessWidget {
           Text(
             'No vendors match "$query"',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textSub,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -918,13 +846,13 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withOpacity(0.2)
-              : const Color(0xFF1B1B2C).withOpacity(0.6),
+              ? AuthColors.primary.withOpacity(0.2)
+              : AuthColors.surface.withOpacity(0.6),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withOpacity(0.1),
+                ? AuthColors.primary
+                : AuthColors.textSub.withOpacity(0.2),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -935,14 +863,14 @@ class _FilterChip extends StatelessWidget {
               icon,
               size: 16,
               color: isSelected
-                  ? const Color(0xFF6F4BFF)
-                  : Colors.white.withOpacity(0.7),
+                  ? AuthColors.primary
+                  : AuthColors.textSub,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
@@ -981,7 +909,7 @@ class _PageIndicator extends StatelessWidget {
               width: isActive ? 24 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: isActive ? const Color(0xFF6F4BFF) : Colors.white24,
+                color: isActive ? AuthColors.primary : AuthColors.textSub.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -1041,10 +969,10 @@ class _VendorDialogState extends State<_VendorDialog> {
     final isEditing = widget.vendor != null;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Vendor' : 'Add Vendor',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -1054,7 +982,7 @@ class _VendorDialogState extends State<_VendorDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Vendor name'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -1064,7 +992,7 @@ class _VendorDialogState extends State<_VendorDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _phoneController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Phone number'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -1074,8 +1002,8 @@ class _VendorDialogState extends State<_VendorDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<VendorType>(
                 initialValue: _selectedVendorType,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: TextStyle(color: AuthColors.textMain),
                 items: VendorType.values
                     .map(
                       (type) => DropdownMenuItem(
@@ -1097,7 +1025,7 @@ class _VendorDialogState extends State<_VendorDialog> {
                 controller: _openingBalanceController,
                 enabled: !isEditing && cubit.canCreate,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Opening balance'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -1111,8 +1039,8 @@ class _VendorDialogState extends State<_VendorDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<VendorStatus>(
                 initialValue: _selectedStatus,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: TextStyle(color: AuthColors.textMain),
                 items: VendorStatus.values
                     .map(
                       (status) => DropdownMenuItem(
@@ -1187,8 +1115,8 @@ class _VendorDialogState extends State<_VendorDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

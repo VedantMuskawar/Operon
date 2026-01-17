@@ -24,4 +24,9 @@ allprojects {
         google()
         mavenCentral()
     }
+    
+    // Suppress Java 8 obsolete warnings from dependencies
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.addAll(listOf("-Xlint:-options", "-Xlint:-deprecation"))
+    }
 }

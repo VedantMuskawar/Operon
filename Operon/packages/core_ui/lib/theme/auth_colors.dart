@@ -27,6 +27,14 @@ class AuthColors {
   static const Color unselectedTile = Color(0xFFF7ABAB); // Light pink for unselected org tiles
   static const Color error = Color(0xFFFF5252); // Error red
   static const Color success = Color(0xFF4CAF50); // Success green
+  static const Color successVariant = Color(0xFF5AD8A4); // Lighter success green
+  static const Color warning = Color(0xFFFF9800); // Warning orange (used for people/tiles)
+  static const Color info = Color(0xFF2196F3); // Info blue (used for operations)
+  static const Color accentPurple = Color(0xFF9C27B0); // Accent purple (used for documents/status)
+
+  // Legacy accent color - widely used in UI (0xFF6F4BFF)
+  // Note: This differs from primary (burgundy). Consider migration to primary or keeping as accent.
+  static const Color legacyAccent = Color(0xFF6F4BFF);
 
   // Opacity variants
   static Color primaryWithOpacity(double opacity) => primary.withOpacity(opacity);

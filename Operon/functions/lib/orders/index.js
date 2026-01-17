@@ -19,6 +19,9 @@ __exportStar(require("./order-handlers"), exports);
 __exportStar(require("./order-whatsapp"), exports);
 __exportStar(require("./order-scheduling"), exports);
 __exportStar(require("./trip-scheduling"), exports);
+__exportStar(require("./trip-status-update"), exports);
 __exportStar(require("./delivery-memo"), exports);
 __exportStar(require("./trip-return-dm"), exports);
+__exportStar(require("./trip-dispatch-whatsapp"), exports);
+__exportStar(require("./trip-delivery-whatsapp"), exports);
 //# sourceMappingURL=index.js.map

@@ -128,7 +128,7 @@ async function markTripsAsOrderDeleted(orderId, deletedBy, tripsSnapshot) {
  * Automatically deletes all associated transactions and marks trips for audit
  */
 exports.onOrderDeleted = functions
-    .region('asia-south1')
+    .region('us-central1')
     .firestore
     .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
     .onDelete(async (snapshot, context) => {
@@ -355,7 +355,7 @@ async function generateOrderNumber(organizationId) {
  * Generates order number and creates advance transaction if advance payment was provided
  */
 exports.onPendingOrderCreated = functions
-    .region('asia-south1')
+    .region('us-central1')
     .firestore
     .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
     .onCreate(async (snapshot, context) => {
@@ -586,7 +586,7 @@ exports.onPendingOrderCreated = functions
  * Cleans up auto-schedule data if order is cancelled
  */
 exports.onOrderUpdated = functions
-    .region('asia-south1')
+    .region('us-central1')
     .firestore
     .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
     .onUpdate(async (change, context) => {

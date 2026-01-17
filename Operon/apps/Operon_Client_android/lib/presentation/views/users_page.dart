@@ -59,11 +59,11 @@ class UsersPage extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: const Color(0x22FFFFFF),
+                  color: AuthColors.textMainWithOpacity(0.13),
                 ),
                 child: const Text(
                   'You have read-only access to users.',
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: AuthColors.textSub),
                 ),
               ),
             const SizedBox(height: 20),
@@ -77,7 +77,7 @@ class UsersPage extends StatelessWidget {
                     child: Text(
                       'No users yet. Tap “Add User” to invite someone.',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: AuthColors.textMainWithOpacity(0.6),
                         fontSize: 16,
                       ),
                       textAlign: TextAlign.center,
@@ -156,12 +156,12 @@ class _UserTile extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
+          colors: [AuthColors.surface, AuthColors.background],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
         children: [
@@ -169,11 +169,11 @@ class _UserTile extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.white10,
+              color: AuthColors.textMainWithOpacity(0.1),
               borderRadius: BorderRadius.circular(14),
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.person_outline, color: Colors.white),
+            child: const Icon(Icons.person_outline, color: AuthColors.textMain),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -183,31 +183,31 @@ class _UserTile extends StatelessWidget {
                 Text(
                   user.name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   user.phone,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: const TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   user.roleTitle,
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  style: const TextStyle(color: AuthColors.textDisabled, fontSize: 12),
                 ),
               ],
             ),
           ),
           if (canManage)
             IconButton(
-              icon: const Icon(Icons.edit, color: Colors.white54),
+              icon: const Icon(Icons.edit, color: AuthColors.textSub),
               onPressed: onEdit,
             ),
           if (canManage)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              icon: const Icon(Icons.delete_outline, color: AuthColors.error),
               onPressed: onDelete,
             ),
         ],
@@ -301,26 +301,26 @@ class _UserDialogState extends State<_UserDialog> {
 
     if (roles.isEmpty) {
       return AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
-        title: const Text('Add User', style: TextStyle(color: Colors.white)),
-        content: const Text(
+        backgroundColor: AuthColors.surface,
+        title: Text('Add User', style: TextStyle(color: AuthColors.textMain)),
+        content: Text(
           'Create at least one role before adding users.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            child: Text('Close', style: TextStyle(color: AuthColors.textSub)),
           ),
         ],
       );
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit User' : 'Add User',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -330,7 +330,7 @@ class _UserDialogState extends State<_UserDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Name'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -340,7 +340,7 @@ class _UserDialogState extends State<_UserDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _phoneController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 keyboardType: TextInputType.phone,
                 decoration: _inputDecoration('Phone number'),
                 validator: (value) =>
@@ -351,8 +351,8 @@ class _UserDialogState extends State<_UserDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<OrganizationRole>(
                 initialValue: _currentRole(roles),
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: TextStyle(color: AuthColors.textMain),
                 items: roles
                     .map(
                       (role) => DropdownMenuItem(
@@ -383,9 +383,10 @@ class _UserDialogState extends State<_UserDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
           onPressed: _isSubmitting
               ? null
               : () async {
@@ -395,7 +396,7 @@ class _UserDialogState extends State<_UserDialog> {
                   if (role.title.toUpperCase() != 'ADMIN' &&
                       _selectedEmployeeId == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text(
                           'Select an employee for non-admin users.',
                         ),
@@ -426,13 +427,7 @@ class _UserDialogState extends State<_UserDialog> {
                     }
                   }
                 },
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
+          isLoading: _isSubmitting,
         ),
       ],
     );
@@ -458,18 +453,21 @@ class _UserDialogState extends State<_UserDialog> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: const Color(0x22FFFFFF),
+          color: AuthColors.surface,
+          border: Border.all(
+            color: AuthColors.textMain.withOpacity(0.1),
+          ),
         ),
-        child: const Text(
+        child: Text(
           'No employees found. Add employees first.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
       );
     }
     return DropdownButtonFormField<String>(
       initialValue: _selectedEmployeeId,
-      dropdownColor: const Color(0xFF1B1B2C),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: AuthColors.surface,
+      style: TextStyle(color: AuthColors.textMain),
       items: _employees
           .map(
             (employee) => DropdownMenuItem(
@@ -491,8 +489,8 @@ class _UserDialogState extends State<_UserDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

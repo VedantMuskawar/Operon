@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/employees/employees_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -170,7 +171,7 @@ class _EmployeesStatsHeader extends StatelessWidget {
                 icon: Icons.people_outline,
                 label: 'Total',
                 value: totalEmployees.toString(),
-                color: const Color(0xFF6F4BFF),
+                color: AuthColors.primary,
               ),
             ),
             const SizedBox(width: 12),
@@ -179,7 +180,7 @@ class _EmployeesStatsHeader extends StatelessWidget {
                 icon: Icons.account_balance_wallet_outlined,
                 label: 'Opening Balance',
                 value: '₹${totalOpeningBalance.toStringAsFixed(2)}',
-                color: const Color(0xFF5AD8A4),
+                color: AuthColors.success,
               ),
             ),
           ],
@@ -195,8 +196,8 @@ class _EmployeesStatsHeader extends StatelessWidget {
                 subtitle: balanceDifference != 0
                     ? '${balanceDifference >= 0 ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)} (${balanceChangePercent >= 0 ? '+' : ''}${balanceChangePercent.abs().toStringAsFixed(1)}%)'
                     : null,
-                subtitleColor: balanceDifference >= 0 ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                color: const Color(0xFFFF9800),
+                subtitleColor: balanceDifference >= 0 ? AuthColors.success : AuthColors.error,
+                color: AuthColors.secondary,
               ),
             ),
             const SizedBox(width: 12),
@@ -205,7 +206,7 @@ class _EmployeesStatsHeader extends StatelessWidget {
                 icon: Icons.analytics_outlined,
                 label: 'Average Balance',
                 value: '₹${avgBalance.toStringAsFixed(2)}',
-                color: const Color(0xFF2196F3),
+                color: AuthColors.primary,
               ),
             ),
           ],
@@ -237,21 +238,21 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
+            AuthColors.surface,
+            AuthColors.background,
           ],
         ),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: AuthColors.textSub.withOpacity(0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: AuthColors.background.withOpacity(0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -278,8 +279,8 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -288,7 +289,7 @@ class _StatCard extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: AuthColors.textSub,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -298,7 +299,7 @@ class _StatCard extends StatelessWidget {
             Text(
               subtitle!,
               style: TextStyle(
-                color: subtitleColor ?? Colors.white.withOpacity(0.6),
+                    color: subtitleColor ?? AuthColors.textSub,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),

@@ -634,7 +634,7 @@ async function autoScheduleOrder(
  * Automatically calculates ETA and suggests vehicle assignment
  */
 export const onOrderCreatedAutoSchedule = functions
-  .region('asia-south1')
+  .region('us-central1')
   .firestore
   .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
   .onCreate(async (snapshot, context) => {

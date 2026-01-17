@@ -14,10 +14,10 @@ class HomeOverviewView extends StatefulWidget {
 
 class _HomeOverviewViewState extends State<HomeOverviewView> {
   // Category color mapping
-  static const Color _peopleColor = Color(0xFFFF9800); // Orange
-  static const Color _financialColor = Color(0xFF4CAF50); // Green
-  static const Color _operationsColor = Color(0xFF2196F3); // Blue
-  static const Color _documentsColor = Color(0xFF9C27B0); // Purple
+  static const Color _peopleColor = AuthColors.warning; // Orange
+  static const Color _financialColor = AuthColors.success; // Green
+  static const Color _operationsColor = AuthColors.info; // Blue
+  static const Color _documentsColor = AuthColors.accentPurple; // Purple
 
   // Memoized tile list - only rebuilds when role changes
   List<_TileData>? _cachedTiles;
@@ -39,6 +39,16 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
         color: _peopleColor,
       ),
     ];
+
+    // Add attendance tile if user can access employees page
+    if (role?.canAccessPage('employees') == true) {
+      peopleTiles.add(const _TileData(
+        icon: Icons.event_available_outlined,
+        title: 'Attendance',
+        route: '/attendance',
+        color: _peopleColor,
+      ));
+    }
 
     if (role?.canAccessPage('vendors') == true) {
       peopleTiles.add(const _TileData(

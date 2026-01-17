@@ -1,4 +1,5 @@
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/employees/employees_cubit.dart';
@@ -22,8 +23,10 @@ class EmployeesPage extends StatefulWidget {
 class _EmployeesPageState extends State<EmployeesPage> {
   late final TextEditingController _searchController;
   late final PageController _pageController;
+  late final ScrollController _scrollController;
   double _currentPage = 0;
   String _searchQuery = '';
+  bool _isLoadingMore = false;
 
   @override
   void initState() {
@@ -36,6 +39,17 @@ class _EmployeesPageState extends State<EmployeesPage> {
           _currentPage = _pageController.page ?? 0;
         });
       });
+    _scrollController = ScrollController()
+      ..addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent * 0.8) {
+      // Load more if needed - for now just a placeholder
+      // Future pagination support can be added here
+    }
   }
 
   @override
@@ -43,6 +57,8 @@ class _EmployeesPageState extends State<EmployeesPage> {
     _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
     _pageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -97,7 +113,7 @@ class _EmployeesPageState extends State<EmployeesPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         appBar: const ModernPageHeader(
           title: 'Employees',
         ),
@@ -144,48 +160,96 @@ class _EmployeesPageState extends State<EmployeesPage> {
                               final allEmployees = state.employees;
                               final filteredEmployees = _applySearch(allEmployees);
 
-                              return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-          children: [
-                                    // Search Bar
-                                    _buildSearchBar(),
-                                    const SizedBox(height: 16),
-                                    // Results count
-                                    if (_searchQuery.isEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 12),
-                                        child: Text(
-                                          '${filteredEmployees.length} ${filteredEmployees.length == 1 ? 'employee' : 'employees'}',
-                                          style: TextStyle(
-                                            color: Colors.white.withOpacity(0.6),
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
+                              return CustomScrollView(
+                                controller: _scrollController,
+                                slivers: [
+                                  SliverToBoxAdapter(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _buildSearchBar(),
+                                        const SizedBox(height: 16),
+                                        if (_searchQuery.isEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(bottom: 12),
+                                            child: Text(
+                                              '${filteredEmployees.length} ${filteredEmployees.length == 1 ? 'employee' : 'employees'}',
+                                              style: TextStyle(
+                                                color: AuthColors.textSub,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                    // Search Results or Recent Employees
-                                    if (_searchQuery.isNotEmpty)
-                                      _SearchResultsCard(
+                                      ],
+                                    ),
+                                  ),
+                                  if (_searchQuery.isNotEmpty)
+                                    SliverToBoxAdapter(
+                                      child: _SearchResultsCard(
                                         employees: filteredEmployees,
                                         onClear: _clearSearch,
                                         searchQuery: _searchQuery,
-                                      )
-                                    else if (filteredEmployees.isEmpty && state.status != ViewStatus.loading)
-                                      _EmptyEmployeesState(
+                                      ),
+                                    )
+                                  else if (filteredEmployees.isEmpty && state.status != ViewStatus.loading)
+                                    SliverFillRemaining(
+                                      child: _EmptyEmployeesState(
                                         onAddEmployee: _openEmployeeDialog,
                                         canCreate: context.read<EmployeesCubit>().canCreate,
-              )
-            else
-                                      _RecentEmployeesList(
-                                        state: state,
-                                        employees: filteredEmployees,
-                                        onEdit: (emp) => _openEmployeeDialogInternal(context, employee: emp),
-                                        onDelete: (emp) => context.read<EmployeesCubit>().deleteEmployee(emp.id),
                                       ),
+                                    )
+                                  else ...[
+                                    SliverToBoxAdapter(
+                                      child: Row(
+                                        children: [
+                                          const Expanded(
+                                            child: Text(
+                                              'All employees',
+                                              style: TextStyle(
+                                                color: AuthColors.textMain,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                          if (state.status == ViewStatus.loading)
+                                            const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                                    SliverList(
+                                      delegate: SliverChildBuilderDelegate(
+                                        (context, index) {
+                                          if (index >= filteredEmployees.length) {
+                                            return _isLoadingMore
+                                                ? const Padding(
+                                                    padding: EdgeInsets.all(16),
+                                                    child: Center(child: CircularProgressIndicator()),
+                                                  )
+                                                : const SizedBox.shrink();
+                                          }
+                                          final employee = filteredEmployees[index];
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 12),
+                                            child: _EmployeeTile(
+                                              employee: employee,
+                                              onEdit: () => _openEmployeeDialogInternal(context, employee: employee),
+                                              onDelete: () => context.read<EmployeesCubit>().deleteEmployee(employee.id),
+                                            ),
+                                          );
+                                        },
+                                        childCount: filteredEmployees.length + (_isLoadingMore ? 1 : 0),
+                                      ),
+                                    ),
                                   ],
-                                ),
+                                ],
                               );
                             },
                           ),
@@ -244,19 +308,19 @@ class _EmployeesPageState extends State<EmployeesPage> {
   Widget _buildSearchBar() {
     return TextField(
       controller: _searchController,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: AuthColors.textMain),
       decoration: InputDecoration(
-        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+        prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
         suffixIcon: _searchQuery.isNotEmpty
             ? IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54),
+                icon: Icon(Icons.close, color: AuthColors.textSub),
                 onPressed: _clearSearch,
               )
             : null,
         hintText: 'Search employees by name',
-        hintStyle: const TextStyle(color: Colors.white38),
+        hintStyle: TextStyle(color: AuthColors.textDisabled),
         filled: true,
-        fillColor: const Color(0xFF1B1B2C),
+        fillColor: AuthColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -283,9 +347,9 @@ class _SearchResultsCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF131324),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +360,7 @@ class _SearchResultsCard extends StatelessWidget {
                 child: Text(
                   'Search Results',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -312,16 +376,10 @@ class _SearchResultsCard extends StatelessWidget {
           if (employees.isEmpty)
             _EmptySearchState(query: searchQuery)
           else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: employees.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final employee = employees[index];
-                return _EmployeeTile(employee: employee);
-              },
-            ),
+            ...employees.map((employee) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _EmployeeTile(employee: employee),
+                )),
         ],
       ),
     );
@@ -352,7 +410,7 @@ class _RecentEmployeesList extends StatelessWidget {
               child: Text(
                 'All employees',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -403,11 +461,11 @@ class _EmployeeTile extends StatelessWidget {
   Color _getEmployeeColor() {
     final hash = employee.roleTitle.hashCode;
     final colors = [
-      const Color(0xFF6F4BFF),
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
+      AuthColors.primary,
+      AuthColors.success,
+      AuthColors.secondary,
+      AuthColors.primary,
+      AuthColors.error,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -425,225 +483,120 @@ class _EmployeeTile extends StatelessWidget {
     final employeeColor = _getEmployeeColor();
     final balanceDifference = employee.currentBalance - employee.openingBalance;
     final isPositive = balanceDifference >= 0;
+    final subtitleParts = <String>[];
+    subtitleParts.add(employee.roleTitle);
+    subtitleParts.add('₹${employee.currentBalance.toStringAsFixed(2)}');
+    if (employee.salaryAmount != null) {
+      subtitleParts.add('Salary: ₹${employee.salaryAmount!.toStringAsFixed(2)}/${_getSalaryTypeLabel(employee.salaryType)}');
+    }
+    final subtitle = subtitleParts.join(' • ');
 
-    return ModernTile(
-      onTap: () => context.pushNamed('employee-detail', extra: employee),
-      accentColor: employeeColor,
-      elevation: 0,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Avatar
-              Container(
-                width: AppSpacing.avatarMD,
-                height: AppSpacing.avatarMD,
-            decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        employeeColor,
-                        employeeColor.withOpacity(0.7),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: employeeColor.withOpacity(0.4),
-                        blurRadius: 8,
-                        spreadRadius: -1,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AuthColors.background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: DataList(
+        title: employee.name,
+        subtitle: subtitle,
+        leading: DataListAvatar(
+          initial: _getInitials(employee.name),
+          radius: 28,
+          statusRingColor: employeeColor,
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (balanceDifference != 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isPositive
+                        ? AuthColors.success.withOpacity(0.15)
+                        : AuthColors.error.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isPositive ? Icons.arrow_upward : Icons.arrow_downward,
+                        size: 10,
+                        color: isPositive ? AuthColors.success : AuthColors.error,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '₹${balanceDifference.abs().toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: isPositive ? AuthColors.success : AuthColors.error,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
-                child: Center(
-                  child: Text(
-                    _getInitials(employee.name),
-                    style: AppTypography.h4.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
                 ),
               ),
-              SizedBox(width: AppSpacing.itemSpacing),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            employee.name,
-                            style: AppTypography.h4,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        // Role Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: employeeColor.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: employeeColor.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Text(
-                            employee.roleTitle,
-                            style: TextStyle(
-                              color: employeeColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: AppSpacing.paddingXS),
-                    // Balance
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.account_balance_wallet_outlined,
-                          size: 14,
-                          color: AppColors.textSecondary,
-                        ),
-                        SizedBox(width: AppSpacing.paddingXS / 2),
-                        Expanded(
-                          child: Text(
-                            '₹${employee.currentBalance.toStringAsFixed(2)}',
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (balanceDifference != 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isPositive
-                                  ? AppColors.success.withOpacity(0.15)
-                                  : AppColors.error.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                                  size: 10,
-                                  color: isPositive ? AppColors.success : AppColors.error,
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '₹${balanceDifference.abs().toStringAsFixed(2)}',
-                                  style: AppTypography.caption.copyWith(
-                                    color: isPositive ? AppColors.success : AppColors.error,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
+            if (onEdit != null || onDelete != null)
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_vert,
+                  color: AuthColors.textSub,
+                  size: 20,
                 ),
+                color: AuthColors.surface,
+                onSelected: (value) {
+                  if (value == 'edit' && onEdit != null) {
+                    onEdit!();
+                  } else if (value == 'delete' && onDelete != null) {
+                    onDelete!();
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (onEdit != null)
+                    PopupMenuItem(
+                      value: 'edit',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.edit_outlined,
+                            color: AuthColors.textSub,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Edit',
+                            style: TextStyle(color: AuthColors.textSub),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (onDelete != null)
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            color: AuthColors.error,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Delete',
+                            style: TextStyle(color: AuthColors.error),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
-              // Action buttons
-              if (onEdit != null || onDelete != null)
-                PopupMenuButton<String>(
-                  icon: Icon(
-                    Icons.more_vert,
-                    color: AppColors.textTertiary,
-                    size: AppSpacing.iconSM,
-                  ),
-                  color: AppColors.cardBackgroundElevated,
-                  onSelected: (value) {
-                    if (value == 'edit' && onEdit != null) {
-                      onEdit!();
-                    } else if (value == 'delete' && onDelete != null) {
-                      onDelete!();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    if (onEdit != null)
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.edit_outlined,
-                              color: AppColors.textSecondary,
-                              size: 18,
-                            ),
-                            SizedBox(width: AppSpacing.paddingXS),
-                            Text(
-                              'Edit',
-                              style: AppTypography.bodySmall.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (onDelete != null)
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete_outline,
-                              color: AppColors.error,
-                              size: 18,
-                            ),
-                            SizedBox(width: AppSpacing.paddingXS),
-                            Text(
-                              'Delete',
-                              style: AppTypography.bodySmall.copyWith(
-                                color: AppColors.error,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-            ],
-          ),
-          // Salary info if available
-          if (employee.salaryAmount != null) ...[
-            SizedBox(height: AppSpacing.paddingSM),
-            Row(
-              children: [
-                Icon(
-                  Icons.payments_outlined,
-                  size: 12,
-                  color: AppColors.textTertiary,
-                ),
-                SizedBox(width: AppSpacing.paddingXS / 2),
-                Text(
-                  'Salary: ₹${employee.salaryAmount!.toStringAsFixed(2)}/${_getSalaryTypeLabel(employee.salaryType)}',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
           ],
-        ],
+        ),
+        onTap: () => context.pushNamed('employee-detail', extra: employee),
       ),
     );
   }
@@ -676,13 +629,13 @@ class _EmptyEmployeesState extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1B1B2C).withOpacity(0.6),
-            const Color(0xFF161622).withOpacity(0.8),
+            AuthColors.surface.withOpacity(0.6),
+            AuthColors.backgroundAlt.withOpacity(0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+          color: AuthColors.textSub.withOpacity(0.2),
         ),
       ),
       child: Column(
@@ -692,20 +645,20 @@ class _EmptyEmployeesState extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFF6F4BFF).withOpacity(0.15),
+              color: AuthColors.primary.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.badge_outlined,
               size: 32,
-              color: Color(0xFF6F4BFF),
+              color: AuthColors.primary,
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'No employees yet',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
@@ -716,7 +669,7 @@ class _EmptyEmployeesState extends StatelessWidget {
                 ? 'Start by adding your first employee to the system'
                 : 'No employees to display.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textSub,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -728,8 +681,8 @@ class _EmptyEmployeesState extends StatelessWidget {
               label: const Text('Add Employee'),
               onPressed: onAddEmployee,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 14,
@@ -761,13 +714,13 @@ class _EmptySearchState extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 48,
-            color: Colors.white.withOpacity(0.3),
+            color: AuthColors.textSub.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No results found',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -776,7 +729,7 @@ class _EmptySearchState extends StatelessWidget {
           Text(
             'No employees match "$query"',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textSub,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -814,7 +767,7 @@ class _PageIndicator extends StatelessWidget {
               width: isActive ? 24 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: isActive ? const Color(0xFF6F4BFF) : Colors.white24,
+                color: isActive ? AuthColors.primary : AuthColors.textSub.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -903,10 +856,10 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     final selectedRole = _findSelectedRole(roles);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Employee' : 'Add Employee',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -916,7 +869,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Employee name'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -926,8 +879,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _selectedRoleId,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: TextStyle(color: AuthColors.textMain),
                 items: roles
                     .map(
                       (role) => DropdownMenuItem(
@@ -954,7 +907,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                 enabled: !isEditing && cubit.canCreate,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Opening balance'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -971,7 +924,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                   controller: _salaryController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Salary amount'),
                   validator: (value) {
                     final parsed = double.tryParse(value ?? '');
@@ -1045,8 +998,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

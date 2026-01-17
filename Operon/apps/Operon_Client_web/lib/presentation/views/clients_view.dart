@@ -1,4 +1,5 @@
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
@@ -32,17 +33,34 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
   String _query = '';
   _ClientSortOption _sortOption = _ClientSortOption.nameAsc;
   _ClientFilterType _filterType = _ClientFilterType.all;
-  bool _isListView = false;
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     // Load clients and recent clients on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ClientsCubit>()
         ..loadClients()
         ..loadRecentClients();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent * 0.8) {
+      // Load more if needed - placeholder for future pagination
+    }
   }
 
   List<Client> _applyFiltersAndSort(List<Client> clients) {
@@ -157,10 +175,10 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                   child: Container(
                     constraints: const BoxConstraints(maxWidth: 400),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                      color: AuthColors.surface.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textSub.withOpacity(0.2),
                       ),
                     ),
                     child: TextField(
@@ -168,18 +186,18 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                         setState(() => _query = v);
                         context.read<ClientsCubit>().search(v);
                       },
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: AuthColors.textMain),
                       decoration: InputDecoration(
                         hintText: 'Search clients by name, phone, or tags...',
                         hintStyle: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: AuthColors.textDisabled,
                         ),
                         filled: true,
                         fillColor: Colors.transparent,
-                        prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                        prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.white54),
+                                icon: Icon(Icons.clear, color: AuthColors.textSub),
                                 onPressed: () => setState(() => _query = ''),
                               )
                             : null,
@@ -197,25 +215,25 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                    color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textSub.withOpacity(0.2),
                     ),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<_ClientFilterType>(
                       value: _filterType,
-                      dropdownColor: const Color(0xFF1B1B2C),
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      dropdownColor: AuthColors.surface,
+                      style: TextStyle(color: AuthColors.textMain, fontSize: 14),
                       items: const [
                         DropdownMenuItem(
                           value: _ClientFilterType.all,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.people, size: 16, color: Colors.white70),
-                              SizedBox(width: 6),
+                              Icon(Icons.people, size: 16, color: AuthColors.textSub),
+                              const SizedBox(width: 6),
                               Text('All Clients'),
                             ],
                           ),
@@ -225,8 +243,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.business, size: 16, color: Colors.white70),
-                              SizedBox(width: 6),
+                              Icon(Icons.business, size: 16, color: AuthColors.textSub),
+                              const SizedBox(width: 6),
                               Text('Corporate'),
                             ],
                           ),
@@ -236,7 +254,7 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.person, size: 16, color: Colors.white70),
+                              Icon(Icons.person, size: 16, color: AuthColors.textSub),
                               SizedBox(width: 6),
                               Text('Individual'),
                             ],
@@ -248,7 +266,7 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                           setState(() => _filterType = value);
                         }
                       },
-                      icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7), size: 20),
+                          icon: Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
                       isDense: true,
                     ),
                   ),
@@ -258,30 +276,30 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                    color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textSub.withOpacity(0.2),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.sort, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+                      Icon(Icons.sort, size: 16, color: AuthColors.textSub),
                       const SizedBox(width: 6),
                       DropdownButtonHideUnderline(
                         child: DropdownButton<_ClientSortOption>(
                           value: _sortOption,
-                          dropdownColor: const Color(0xFF1B1B2C),
-                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                          dropdownColor: AuthColors.surface,
+                          style: TextStyle(color: AuthColors.textMain, fontSize: 14),
                           items: const [
                             DropdownMenuItem(
                               value: _ClientSortOption.nameAsc,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.sort_by_alpha, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Name (A-Z)'),
                                 ],
                               ),
@@ -291,8 +309,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.sort_by_alpha, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Name (Z-A)'),
                                 ],
                               ),
@@ -302,8 +320,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.trending_down, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.trending_down, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Orders (High to Low)'),
                                 ],
                               ),
@@ -313,8 +331,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.trending_up, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.trending_up, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Orders (Low to High)'),
                                 ],
                               ),
@@ -324,8 +342,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.business, size: 16, color: Colors.white70),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.business, size: 16, color: AuthColors.textSub),
+                                  const SizedBox(width: 8),
                                   Text('Corporate First'),
                                 ],
                               ),
@@ -335,7 +353,7 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.person, size: 16, color: Colors.white70),
+                                  Icon(Icons.person, size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Individual First'),
                                 ],
@@ -347,42 +365,9 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               setState(() => _sortOption = value);
                             }
                           },
-                          icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7), size: 20),
+                          icon: Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
                           isDense: true,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // View Toggle
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ViewToggleButton(
-                        icon: Icons.grid_view,
-                        isSelected: !_isListView,
-                        onTap: () => setState(() => _isListView = false),
-                        tooltip: 'Grid View',
-                      ),
-                      Container(
-                        width: 1,
-                        height: 32,
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                      _ViewToggleButton(
-                        icon: Icons.list,
-                        isSelected: _isListView,
-                        onTap: () => setState(() => _isListView = true),
-                        tooltip: 'List View',
                       ),
                     ],
                   ),
@@ -392,16 +377,16 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                    color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textSub.withOpacity(0.2),
                     ),
                   ),
                   child: Text(
                     '${filtered.length} ${filtered.length == 1 ? 'client' : 'clients'}',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: AuthColors.textSub,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -414,8 +399,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                   label: const Text('Add Client'),
                   onPressed: () => _showClientDialog(context, null),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6F4BFF),
-                    foregroundColor: Colors.white,
+                    backgroundColor: AuthColors.primary,
+                    foregroundColor: AuthColors.textMain,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 16,
@@ -430,50 +415,19 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
             ),
             const SizedBox(height: 24),
             
-            // Client Grid/List
+            // Client List
             if (filtered.isEmpty && (_query.isNotEmpty || _filterType != _ClientFilterType.all))
               _EmptySearchState(query: _query)
             else if (filtered.isEmpty)
               _EmptyClientsState(
                 onAddClient: () => _showClientDialog(context, null),
               )
-            else if (_isListView)
+            else
               _ClientListView(
                 clients: filtered,
                 onTap: (client) => _openClientDetail(client),
                 onEdit: (client) => _showClientDialog(context, client),
                 onDelete: (client) => _showDeleteConfirmation(context, client),
-              )
-            else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final crossAxisCount = constraints.maxWidth > 1400
-                      ? 4
-                      : constraints.maxWidth > 1050
-                          ? 3
-                          : constraints.maxWidth > 700
-                              ? 2
-                              : 1;
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                      childAspectRatio: 1.25,
-                    ),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      return _ClientCard(
-                        client: filtered[index],
-                        onTap: () => _openClientDetail(filtered[index]),
-                        onEdit: () => _showClientDialog(context, filtered[index]),
-                        onDelete: () => _showDeleteConfirmation(context, filtered[index]),
-                      );
-                    },
-                  );
-                },
               ),
             ],
           );
@@ -496,409 +450,6 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
   }
 }
 
-class _ClientCard extends StatefulWidget {
-  const _ClientCard({
-    required this.client,
-    this.onTap,
-    this.onEdit,
-    this.onDelete,
-  });
-
-  final Client client;
-  final VoidCallback? onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-
-  @override
-  State<_ClientCard> createState() => _ClientCardState();
-}
-
-class _ClientCardState extends State<_ClientCard>
-    with SingleTickerProviderStateMixin {
-  bool _isHovered = false;
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Color _getClientColor() {
-    if (widget.client.isCorporate) {
-      return const Color(0xFF6F4BFF);
-    }
-    final hash = widget.client.name.hashCode;
-    final colors = [
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
-    ];
-    return colors[hash.abs() % colors.length];
-  }
-
-  String _getInitials(String name) {
-    final parts = name.split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final clientColor = _getClientColor();
-    final orderCount = widget.client.stats?['orders'] ?? 0;
-
-    return MouseRegion(
-      onEnter: (_) {
-        setState(() => _isHovered = true);
-        _controller.forward();
-      },
-      onExit: (_) {
-        setState(() => _isHovered = false);
-        _controller.reverse();
-      },
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: 1.0 + (_controller.value * 0.02),
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF1F1F33),
-                      Color(0xFF1A1A28),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _isHovered
-                        ? clientColor.withValues(alpha: 0.5)
-                        : Colors.white.withValues(alpha: 0.1),
-                    width: _isHovered ? 1.5 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                    if (_isHovered)
-                      BoxShadow(
-                        color: clientColor.withValues(alpha: 0.2),
-                        blurRadius: 20,
-                        spreadRadius: -5,
-                        offset: const Offset(0, 10),
-                      ),
-                  ],
-                ),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 20,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Header with Avatar
-                          Row(
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      clientColor,
-                                      clientColor.withValues(alpha: 0.7),
-                                    ],
-                                  ),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: clientColor.withValues(alpha: 0.4),
-                                      blurRadius: 12,
-                                      spreadRadius: -2,
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    _getInitials(widget.client.name),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.client.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 18,
-                                        letterSpacing: -0.5,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    if (widget.client.isCorporate)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: clientColor.withValues(alpha: 0.2),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: clientColor.withValues(alpha: 0.3),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(
-                                              Icons.business,
-                                              size: 12,
-                                              color: Color(0xFF6F4BFF),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Corporate',
-                                              style: TextStyle(
-                                                color: clientColor,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          
-                          // Phone Info
-                          if (widget.client.primaryPhone != null)
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.08),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.phone_outlined,
-                                    size: 16,
-                                    color: Colors.white.withValues(alpha: 0.7),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      widget.client.primaryPhone!,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          
-                          // Tags and Stats
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Tags
-                              if (widget.client.tags.isNotEmpty) ...[
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: widget.client.tags.take(3).map((tag) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 5,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: Colors.white.withValues(alpha: 0.1),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        tag,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.8),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                                if (widget.client.tags.length > 3)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      '+${widget.client.tags.length - 3} more',
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.5),
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                              
-                              // Stats
-                              if (widget.client.stats != null && orderCount > 0) ...[
-                                if (widget.client.tags.isNotEmpty) const SizedBox(height: 12),
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF5AD8A4).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: const Color(0xFF5AD8A4).withValues(alpha: 0.2),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.shopping_bag_outlined,
-                                        size: 16,
-                                        color: Color(0xFF5AD8A4),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '$orderCount ${orderCount == 1 ? 'order' : 'orders'}',
-                                        style: const TextStyle(
-                                          color: Color(0xFF5AD8A4),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // Action Buttons (appear on hover)
-                    if (_isHovered)
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF1B1B2C).withValues(alpha: 0.95),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.1),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (widget.onTap != null)
-                                IconButton(
-                                  icon: const Icon(Icons.visibility, size: 18),
-                                  color: Colors.white70,
-                                  onPressed: widget.onTap,
-                                  tooltip: 'View Details',
-                                  padding: const EdgeInsets.all(8),
-                                  constraints: const BoxConstraints(),
-                                ),
-                              if (widget.onEdit != null) ...[
-                                if (widget.onTap != null)
-                                  Container(
-                                    width: 1,
-                                    height: 24,
-                                    color: Colors.white.withValues(alpha: 0.1),
-                                  ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit, size: 18),
-                                  color: Colors.white70,
-                                  onPressed: widget.onEdit,
-                                  tooltip: 'Edit',
-                                  padding: const EdgeInsets.all(8),
-                                  constraints: const BoxConstraints(),
-                                ),
-                              ],
-                              if (widget.onDelete != null) ...[
-                                Container(
-                                  width: 1,
-                                  height: 24,
-                                  color: Colors.white.withValues(alpha: 0.1),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 18),
-                                  color: Colors.redAccent,
-                                  onPressed: widget.onDelete,
-                                  tooltip: 'Delete',
-                                  padding: const EdgeInsets.all(8),
-                                  constraints: const BoxConstraints(),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
 void _showClientDialog(BuildContext context, Client? client) {
   final cubit = context.read<ClientsCubit>();
   showDialog(
@@ -914,14 +465,14 @@ void _showDeleteConfirmation(BuildContext context, Client client) {
   showDialog(
     context: context,
     builder: (dialogContext) => AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
-      title: const Text(
+      backgroundColor: AuthColors.surface,
+      title: Text(
         'Delete Client',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: Text(
         'Are you sure you want to delete ${client.name}?',
-        style: const TextStyle(color: Colors.white70),
+        style: TextStyle(color: AuthColors.textSub),
       ),
       actions: [
         TextButton(
@@ -939,7 +490,7 @@ void _showDeleteConfirmation(BuildContext context, Client client) {
             Navigator.of(dialogContext).pop();
           },
           style: TextButton.styleFrom(
-            foregroundColor: Colors.redAccent,
+            foregroundColor: AuthColors.error,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(6),
             ),
@@ -1015,21 +566,21 @@ class _ClientDialogState extends State<_ClientDialog> {
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF11111B),
-              Color(0xFF0D0D15),
+              AuthColors.surface,
+              AuthColors.background,
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textSub.withOpacity(0.2),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: AuthColors.background.withOpacity(0.7),
               blurRadius: 30,
               spreadRadius: -10,
               offset: const Offset(0, 20),
@@ -1043,12 +594,12 @@ class _ClientDialogState extends State<_ClientDialog> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF1B1C2C),
-                    Color(0xFF161622),
+                    AuthColors.surface,
+                    AuthColors.backgroundAlt,
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1108,7 +659,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                     children: [
                       TextFormField(
                         controller: _nameController,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Client name', Icons.person_outline),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
@@ -1119,7 +670,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Primary phone', Icons.phone_outlined),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
@@ -1141,7 +692,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                           Expanded(
                             child: TextFormField(
                               controller: _tagController,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: AuthColors.textMain),
                               decoration: InputDecoration(
                                 hintText: 'Enter tag and press Enter',
                                 hintStyle: TextStyle(
@@ -1149,7 +700,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                                 ),
                                 prefixIcon: const Icon(Icons.tag, color: Colors.white54, size: 20),
                                 filled: true,
-                                fillColor: const Color(0xFF1B1B2C),
+                                fillColor: AuthColors.surface,
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
@@ -1175,8 +726,8 @@ class _ClientDialogState extends State<_ClientDialog> {
                           ElevatedButton(
                             onPressed: _addTag,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6F4BFF),
-                              foregroundColor: Colors.white,
+                              backgroundColor: AuthColors.primary,
+                              foregroundColor: AuthColors.textMain,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 16,
@@ -1323,8 +874,8 @@ class _ClientDialogState extends State<_ClientDialog> {
       labelText: label,
       prefixIcon: Icon(icon, color: Colors.white54, size: 20),
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
@@ -1391,7 +942,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                       icon: Icons.people_outline,
                       label: 'Total Clients',
                       value: totalClients.toString(),
-                      color: const Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1400,7 +951,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                       icon: Icons.business_outlined,
                       label: 'Corporate',
                       value: corporateCount.toString(),
-                      color: const Color(0xFF5AD8A4),
+                      color: AuthColors.success,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1409,7 +960,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                       icon: Icons.person_outline,
                       label: 'Individual',
                       value: individualCount.toString(),
-                      color: const Color(0xFFFF9800),
+                      color: AuthColors.secondary,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -1418,7 +969,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                       icon: Icons.shopping_bag_outlined,
                       label: 'Total Orders',
                       value: totalOrders.toString(),
-                      color: const Color(0xFF2196F3),
+                      color: AuthColors.primary,
                     ),
                   ),
                 ],
@@ -1431,25 +982,25 @@ class _ClientsStatsHeader extends StatelessWidget {
                     icon: Icons.people_outline,
                     label: 'Total Clients',
                     value: totalClients.toString(),
-                    color: const Color(0xFF6F4BFF),
+                    color: AuthColors.primary,
                   ),
                   _StatCard(
                     icon: Icons.business_outlined,
                     label: 'Corporate',
                     value: corporateCount.toString(),
-                    color: const Color(0xFF5AD8A4),
+                    color: AuthColors.success,
                   ),
                   _StatCard(
                     icon: Icons.person_outline,
                     label: 'Individual',
                     value: individualCount.toString(),
-                    color: const Color(0xFFFF9800),
+                    color: AuthColors.secondary,
                   ),
                   _StatCard(
                     icon: Icons.shopping_bag_outlined,
                     label: 'Total Orders',
                     value: totalOrders.toString(),
-                    color: const Color(0xFF2196F3),
+                    color: AuthColors.primary,
                   ),
                 ],
               );
@@ -1476,21 +1027,21 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
+            AuthColors.surface,
+            AuthColors.background,
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textSub.withOpacity(0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: AuthColors.background.withOpacity(0.5),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -1515,7 +1066,7 @@ class _StatCard extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: AuthColors.textSub,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1523,8 +1074,8 @@ class _StatCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AuthColors.textMain,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1550,7 +1101,7 @@ class _LoadingState extends StatelessWidget {
           Text(
             'Loading clients...',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AuthColors.textSub,
               fontSize: 16,
             ),
           ),
@@ -1755,47 +1306,6 @@ class _EmptySearchState extends StatelessWidget {
   }
 }
 
-class _ViewToggleButton extends StatelessWidget {
-  const _ViewToggleButton({
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFF6F4BFF).withValues(alpha: 0.2)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withValues(alpha: 0.6),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ClientListView extends StatelessWidget {
   const _ClientListView({
     required this.clients,
@@ -1811,14 +1321,14 @@ class _ClientListView extends StatelessWidget {
 
   Color _getClientColor(Client client) {
     if (client.isCorporate) {
-      return const Color(0xFF6F4BFF);
+      return AuthColors.primary;
     }
     final hash = client.name.hashCode;
     final colors = [
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
+      AuthColors.success,
+      AuthColors.secondary,
+      AuthColors.primary,
+      AuthColors.error,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -1833,231 +1343,92 @@ class _ClientListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: clients.map((client) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: clients.length,
+      itemBuilder: (context, index) {
+        final client = clients[index];
         final clientColor = _getClientColor(client);
         final orderCount = client.stats?['orders'] ?? 0;
+        final phoneLabel = client.primaryPhone ?? '';
+        final subtitleParts = <String>[];
+        if (phoneLabel.isNotEmpty) subtitleParts.add(phoneLabel);
+        if (client.isCorporate) subtitleParts.add('Corporate');
+        final subtitle = subtitleParts.join(' • ');
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1F1F33),
-                Color(0xFF1A1A28),
+            color: AuthColors.background,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: DataList(
+            title: client.name,
+            subtitle: subtitle.isNotEmpty ? subtitle : null,
+            leading: DataListAvatar(
+              initial: _getInitials(client.name),
+              radius: 28,
+              statusRingColor: clientColor,
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (orderCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AuthColors.success.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shopping_bag_outlined, size: 12, color: AuthColors.success),
+                          const SizedBox(width: 4),
+                          Text(
+                            orderCount.toString(),
+                            style: TextStyle(
+                              color: AuthColors.success,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  icon: Icon(Icons.visibility_outlined, size: 20, color: AuthColors.textSub),
+                  onPressed: () => onTap(client),
+                  tooltip: 'View Details',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, size: 20, color: AuthColors.textSub),
+                  onPressed: () => onEdit(client),
+                  tooltip: 'Edit',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: Icon(Icons.delete_outline, size: 20, color: AuthColors.error),
+                  onPressed: () => onDelete(client),
+                  tooltip: 'Delete',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
               ],
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Avatar
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      clientColor,
-                      clientColor.withValues(alpha: 0.7),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    _getInitials(client.name),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 20),
-              // Name and Type
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      client.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    if (client.isCorporate)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: clientColor.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: clientColor.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.business,
-                              size: 12,
-                              color: Color(0xFF6F4BFF),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Corporate',
-                              style: TextStyle(
-                                color: clientColor,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              // Phone
-              Expanded(
-                flex: 2,
-                child: client.primaryPhone != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.phone_outlined,
-                                size: 16,
-                                color: Colors.white.withValues(alpha: 0.7),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                client.primaryPhone!,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : const SizedBox(),
-              ),
-              // Tags
-              Expanded(
-                flex: 2,
-                child: client.tags.isNotEmpty
-                    ? Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: client.tags.take(3).map((tag) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              tag,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 11,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      )
-                    : const SizedBox(),
-              ),
-              // Orders
-              Expanded(
-                flex: 1,
-                child: orderCount > 0
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.shopping_bag_outlined,
-                                size: 16,
-                                color: Color(0xFF5AD8A4),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                orderCount.toString(),
-                                style: const TextStyle(
-                                  color: Color(0xFF5AD8A4),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : const SizedBox(),
-              ),
-              // Actions
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.visibility, size: 20),
-                    color: Colors.white70,
-                    onPressed: () => onTap(client),
-                    tooltip: 'View Details',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 20),
-                    color: Colors.white70,
-                    onPressed: () => onEdit(client),
-                    tooltip: 'Edit',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    color: Colors.redAccent,
-                    onPressed: () => onDelete(client),
-                    tooltip: 'Delete',
-                  ),
-                ],
-              ),
-            ],
+            onTap: () => onTap(client),
           ),
         );
-      }).toList(),
+      },
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
@@ -171,10 +172,10 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF0A0A0A),
+            backgroundColor: AuthColors.surface,
             title: const Text(
               'Reschedule Trip',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: AuthColors.textMain),
             ),
             content: SizedBox(
               width: double.maxFinite,
@@ -184,27 +185,27 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                 children: [
                   const Text(
                     'This will delete the current scheduled trip and allow you to reschedule it.',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: AuthColors.textSub),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: reasonController,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: InputDecoration(
                       labelText: 'Reason for rescheduling *',
-                      labelStyle: const TextStyle(color: Colors.white60),
+                      labelStyle: const TextStyle(color: AuthColors.textSub),
                       hintText: 'Enter reason...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      hintStyle: TextStyle(color: AuthColors.textMainWithOpacity(0.3)),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.orange),
+                        borderSide: const BorderSide(color: AuthColors.warning),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
-                      fillColor: const Color(0xFF1A1A2E),
+                      fillColor: AuthColors.surface,
                     ),
                     maxLines: 3,
                     onChanged: (_) => setDialogState(() {}),
@@ -226,7 +227,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                         }),
                 child: const Text(
                   'Reschedule',
-                  style: TextStyle(color: Colors.orange),
+                  style: TextStyle(color: AuthColors.warning),
                 ),
               ),
             ],
@@ -517,10 +518,10 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF131324),
+              color: AuthColors.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: AuthColors.textMainWithOpacity(0.1),
                 width: 1,
               ),
               boxShadow: [
@@ -539,7 +540,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     flex: 1,
                     child: _SummaryItem(
                       value: '${_getTotalTrips()}',
-                      color: const Color(0xFF6F4BFF),
+                      color: AuthColors.legacyAccent,
                     ),
                   ),
                   Container(
@@ -552,7 +553,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     flex: 2,
                     child: _SummaryItem(
                       value: _formatCurrency(_getTotalValue()),
-                      color: const Color(0xFF4CAF50),
+                      color: AuthColors.success,
                     ),
                   ),
                   Container(
@@ -565,7 +566,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     flex: 1,
                     child: _SummaryItem(
                       value: _formatNumber(_getTotalQuantity()),
-                      color: Colors.orange,
+                      color: AuthColors.warning,
                     ),
                   ),
                 ],
@@ -603,13 +604,13 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF6F4BFF)
-                        : const Color(0xFF13131E),
+                        ? AuthColors.legacyAccent
+                        : AuthColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isSelected
-                          ? const Color(0xFF6F4BFF)
-                          : Colors.white.withOpacity(0.1),
+                          ? AuthColors.legacyAccent
+                          : AuthColors.textMainWithOpacity(0.1),
                       width: 1,
                     ),
                   ),
@@ -620,8 +621,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                         _getMonthAbbr(date),
                         style: TextStyle(
                           color: isSelected
-                              ? Colors.white
-                              : Colors.white60,
+                              ? AuthColors.textMain
+                              : AuthColors.textSub,
                           fontSize: 9,
                           fontWeight: FontWeight.w500,
                         ),
@@ -640,8 +641,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                         _getDayAbbr(date),
                         style: TextStyle(
                           color: isSelected
-                              ? Colors.white
-                              : Colors.white60,
+                              ? AuthColors.textMain
+                              : AuthColors.textSub,
                           fontSize: 9,
                           fontWeight: FontWeight.w500,
                         ),
@@ -708,7 +709,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               child: Text(
                 'No scheduled trips for this date',
                 style: TextStyle(
-                  color: Colors.white60,
+                  color: AuthColors.textSub,
                   fontSize: 14,
                 ),
               ),
@@ -792,20 +793,20 @@ class _VehicleFilterButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF)
-              : const Color(0xFF13131E),
+              ? AuthColors.legacyAccent
+              : AuthColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withOpacity(0.1),
+                ? AuthColors.legacyAccent
+                : AuthColors.textMainWithOpacity(0.1),
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
+            color: isSelected ? AuthColors.textMain : AuthColors.textSub,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),

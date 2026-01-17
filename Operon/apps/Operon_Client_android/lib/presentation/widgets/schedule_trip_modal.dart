@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
@@ -393,17 +394,17 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           SnackBar(
             content: const Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                Icon(Icons.check_circle, color: AuthColors.textMain, size: 20),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Trip scheduled successfully',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                   ),
                 ),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AuthColors.success,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -423,17 +424,17 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const Icon(Icons.error_outline, color: AuthColors.textMain, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     errorMessage,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AuthColors.textMain),
                   ),
                 ),
               ],
             ),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AuthColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -441,7 +442,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Retry',
-              textColor: Colors.white,
+              textColor: AuthColors.textMain,
               onPressed: _scheduleTrip,
             ),
           ),
@@ -465,7 +466,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -487,14 +488,14 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub, size: 20),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
                 ],
               ),
             ),
-            const Divider(color: Colors.white10, height: 1),
+            Divider(color: AuthColors.textMainWithOpacity(0.1), height: 1),
             // Compact Content
             Flexible(
               child: SingleChildScrollView(
@@ -521,7 +522,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
-                color: Color(0xFF13131E),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),
@@ -544,7 +545,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                       child: const Text(
                         'Cancel',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: AuthColors.textSub,
                           fontSize: 14,
                         ),
                       ),
@@ -561,8 +562,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                               _scheduleTrip();
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6F4BFF),
-                        disabledBackgroundColor: const Color(0xFF6F4BFF).withOpacity(0.6),
+                        backgroundColor: AuthColors.legacyAccent,
+                        disabledBackgroundColor: AuthColors.legacyAccent.withOpacity(0.6),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -575,7 +576,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                               ),
                             )
                           : const Text(
@@ -583,7 +584,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                                color: AuthColors.textMain,
                               ),
                             ),
                     ),
@@ -615,23 +616,23 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             initialValue: _selectedPhoneNumber,
             decoration: InputDecoration(
               filled: true,
-              fillColor: const Color(0xFF13131E),
+              fillColor: AuthColors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 1.5),
+                borderSide: const BorderSide(color: AuthColors.legacyAccent, width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             ),
-            dropdownColor: const Color(0xFF1B1B2C),
-            style: const TextStyle(color: Colors.white),
+            dropdownColor: AuthColors.surface,
+            style: const TextStyle(color: AuthColors.textMain),
             items: [
               ...widget.clientPhones.map((phone) {
               final number = (phone['e164'] as String?) ??
@@ -646,7 +647,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                 value: '__add_new__',
                 child: Row(
                   children: [
-                    Icon(Icons.add, size: 18, color: Color(0xFF6F4BFF)),
+                    Icon(Icons.add, size: 18, color: AuthColors.legacyAccent),
                     SizedBox(width: 8),
                     Text('Add New Number'),
                   ],
@@ -668,29 +669,29 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         ] else ...[
           TextField(
             controller: _newPhoneController,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: AuthColors.textMain),
             keyboardType: TextInputType.phone,
             decoration: InputDecoration(
               labelText: 'Phone Number',
-              labelStyle: const TextStyle(color: Colors.white70),
+              labelStyle: const TextStyle(color: AuthColors.textSub),
               filled: true,
-              fillColor: const Color(0xFF13131E),
+              fillColor: AuthColors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 1.5),
+                borderSide: const BorderSide(color: AuthColors.legacyAccent, width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              prefixIcon: const Icon(Icons.add_call, color: Colors.white54, size: 18),
+              prefixIcon: const Icon(Icons.add_call, color: AuthColors.textSub, size: 18),
               suffixIcon: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                icon: const Icon(Icons.close, color: AuthColors.textSub, size: 18),
                 onPressed: () {
                   HapticFeedback.lightImpact();
                   setState(() {
@@ -757,11 +758,11 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withOpacity(0.2)
-              : const Color(0xFF13131E),
+              ? AuthColors.legacyAccent.withOpacity(0.2)
+              : AuthColors.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? const Color(0xFF6F4BFF) : Colors.white.withOpacity(0.15),
+            color: isSelected ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.15),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -770,7 +771,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           children: [
             Icon(
               icon,
-              color: isSelected ? const Color(0xFF6F4BFF) : Colors.white70,
+              color: isSelected ? AuthColors.legacyAccent : AuthColors.textSub,
               size: 16,
             ),
             const SizedBox(width: 6),
@@ -778,7 +779,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
+                  color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -816,10 +817,10 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                 return Theme(
                   data: Theme.of(context).copyWith(
                     colorScheme: const ColorScheme.dark(
-                      primary: Color(0xFF6F4BFF),
-                      onPrimary: Colors.white,
-                      surface: Color(0xFF1B1B2C),
-                      onSurface: Colors.white,
+                      primary: AuthColors.legacyAccent,
+                      onPrimary: AuthColors.textMain,
+                      surface: AuthColors.surface,
+                      onSurface: AuthColors.textMain,
                     ),
                   ),
                   child: child!,
@@ -843,14 +844,14 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: _selectedDate != null
-                    ? const Color(0xFF6F4BFF).withOpacity(0.5)
-                    : Colors.white.withOpacity(0.1),
+                    ? AuthColors.legacyAccent.withOpacity(0.5)
+                    : AuthColors.textMainWithOpacity(0.1),
                 width: 1,
               ),
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today, color: Colors.white70, size: 18),
+                const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -858,7 +859,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                         ? _formatDate(_selectedDate!)
                         : 'Select Date',
                     style: TextStyle(
-                      color: _selectedDate != null ? Colors.white : Colors.white54,
+                      color: _selectedDate != null ? AuthColors.textMain : AuthColors.textSub,
                       fontSize: 14,
                     ),
                   ),
@@ -889,7 +890,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Center(
               child: CircularProgressIndicator(
-                color: Color(0xFF6F4BFF),
+                color: AuthColors.legacyAccent,
                 strokeWidth: 2,
               ),
             ),
@@ -900,19 +901,19 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             decoration: BoxDecoration(
               color: const Color(0xFF13131E),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+              border: Border.all(color: AuthColors.error.withOpacity(0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                    const Icon(Icons.error_outline, color: AuthColors.error, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _vehiclesError!,
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                        style: const TextStyle(color: AuthColors.error, fontSize: 12),
                       ),
                     ),
                   ],
@@ -927,7 +928,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                     ),
                     child: const Text(
                       'Retry',
-                      style: TextStyle(color: Color(0xFF6F4BFF), fontSize: 12),
+                      style: TextStyle(color: AuthColors.legacyAccent, fontSize: 12),
                     ),
                   ),
                 ),
@@ -943,12 +944,12 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.white70, size: 18),
+                Icon(Icons.info_outline, color: AuthColors.textSub, size: 18),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'No eligible vehicles available',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                   ),
                 ),
               ],
@@ -959,23 +960,23 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             initialValue: _selectedVehicle,
             decoration: InputDecoration(
               filled: true,
-              fillColor: const Color(0xFF13131E),
+              fillColor: AuthColors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 1.5),
+                borderSide: const BorderSide(color: AuthColors.legacyAccent, width: 1.5),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             ),
-            dropdownColor: const Color(0xFF1B1B2C),
-            style: const TextStyle(color: Colors.white),
+            dropdownColor: AuthColors.surface,
+            style: const TextStyle(color: AuthColors.textMain),
             items: _eligibleVehicles.map((vehicle) {
               return DropdownMenuItem(
                 value: vehicle,
@@ -1024,7 +1025,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               Text(
                 '${_availableSlots.length} available',
                 style: const TextStyle(
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.legacyAccent,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1041,7 +1042,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.legacyAccent,
                 ),
               ),
             ),
@@ -1052,7 +1053,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             decoration: BoxDecoration(
               color: const Color(0xFF13131E),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+              border: Border.all(color: AuthColors.error.withOpacity(0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,7 +1103,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                 Expanded(
                   child: Text(
                     'No slots available for this day',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                   ),
                 ),
               ],
@@ -1132,23 +1133,23 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF6F4BFF).withOpacity(0.2)
+                            ? AuthColors.legacyAccent.withOpacity(0.2)
                           : isBooked
-                              ? const Color(0xFF13131E).withOpacity(0.5)
-                              : const Color(0xFF13131E),
+                              ? AuthColors.surface.withOpacity(0.5)
+                              : AuthColors.surface,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: isSelected
-                            ? const Color(0xFF6F4BFF)
+                            ? AuthColors.legacyAccent
                             : isBooked
-                                ? Colors.white.withOpacity(0.1)
-                                : Colors.white.withOpacity(0.15),
+                                ? AuthColors.textMainWithOpacity(0.1)
+                                : AuthColors.textMainWithOpacity(0.15),
                         width: isSelected ? 1.5 : 1,
                       ),
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: const Color(0xFF6F4BFF).withOpacity(0.3),
+                                color: AuthColors.legacyAccent.withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -1159,16 +1160,16 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (isBooked)
-                          const Icon(
+                          Icon(
                             Icons.lock,
                             size: 14,
-                            color: Colors.white30,
+                            color: AuthColors.textMainWithOpacity(0.3),
                           )
                         else if (isSelected)
                           const Icon(
                             Icons.check_circle,
                             size: 14,
-                            color: Color(0xFF6F4BFF),
+                            color: AuthColors.legacyAccent,
                           )
                         else
                           const SizedBox(width: 14),
@@ -1177,10 +1178,10 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                           'Slot $slot',
                           style: TextStyle(
                             color: isSelected
-                                ? Colors.white
+                                ? AuthColors.textMain
                                 : isBooked
-                                    ? Colors.white30
-                                    : Colors.white70,
+                                    ? AuthColors.textMainWithOpacity(0.3)
+                                    : AuthColors.textSub,
                             fontSize: 12,
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                           ),

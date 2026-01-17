@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:flutter/material.dart';
 
@@ -76,10 +77,10 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: const Text(
         'Payments (Return)',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: 420,
@@ -93,7 +94,7 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
             if (_entries.isEmpty)
               const Text(
                 'Add a payment entry',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: AuthColors.textSub),
               ),
             Flexible(
               child: SingleChildScrollView(
@@ -122,7 +123,7 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
             if (_isOverpay)
               const Text(
                 'Amount exceeds remaining',
-                style: TextStyle(color: Colors.redAccent, fontSize: 12),
+                style: TextStyle(color: AuthColors.error, fontSize: 12),
               ),
             const SizedBox(height: 6),
             Row(
@@ -136,8 +137,8 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
                   'After: ₹${_remainingAfterEntries.toStringAsFixed(2)}',
                   style: TextStyle(
                     color: _remainingAfterEntries == 0
-                        ? Colors.greenAccent
-                        : Colors.white70,
+                        ? AuthColors.success
+                        : AuthColors.textSub,
                   ),
                 ),
               ],
@@ -147,10 +148,10 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 onPressed: _addEmptyEntry,
-                icon: const Icon(Icons.add, color: Colors.white70),
+                icon: const Icon(Icons.add, color: AuthColors.textSub),
                 label: const Text(
                   'Add Payment',
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: AuthColors.textSub),
                 ),
               ),
             ),
@@ -178,7 +179,7 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
                 }
               : null,
           style: FilledButton.styleFrom(
-            backgroundColor: Colors.blue,
+            backgroundColor: AuthColors.info,
           ),
           child: const Text('Save Payments'),
         ),
@@ -192,7 +193,7 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(label, style: const TextStyle(color: AuthColors.textSub, fontSize: 12)),
           Text('₹${value.toStringAsFixed(2)}',
               style: const TextStyle(color: Colors.white)),
         ],
@@ -238,7 +239,7 @@ class _PaymentEntryRow extends StatelessWidget {
           flex: 3,
           child: DropdownButtonFormField<PaymentAccount>(
             initialValue: entry.account,
-            dropdownColor: const Color(0xFF11111B),
+            dropdownColor: AuthColors.surface,
             decoration: InputDecoration(
               labelText: 'Payment Account',
               labelStyle: const TextStyle(color: Colors.white70),
@@ -251,8 +252,8 @@ class _PaymentEntryRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            iconEnabledColor: Colors.white70,
-            style: const TextStyle(color: Colors.white),
+            iconEnabledColor: AuthColors.textSub,
+            style: const TextStyle(color: AuthColors.textMain),
             items: paymentAccounts
                 .map(
                   (account) => DropdownMenuItem(

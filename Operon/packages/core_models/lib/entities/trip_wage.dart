@@ -88,8 +88,12 @@ class TripWage {
       orElse: () => TripWageStatus.recorded,
     );
 
+    // Use docId if tripWageId is null, empty, or missing
+    final tripWageIdValue = json['tripWageId'] as String?;
+    final finalTripWageId = (tripWageIdValue != null && tripWageIdValue.isNotEmpty) ? tripWageIdValue : docId;
+    
     return TripWage(
-      tripWageId: json['tripWageId'] as String? ?? docId,
+      tripWageId: finalTripWageId,
       organizationId: json['organizationId'] as String? ?? '',
       dmId: json['dmId'] as String? ?? '',
       tripId: json['tripId'] as String? ?? '',

@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/views/orders/pending_order_detail_page.dart';
@@ -33,7 +34,7 @@ class _OrderTileState extends State<OrderTile> {
 
   Color _getPriorityBorderColor() {
     return _isHighPriority()
-        ? const Color(0xFFD4AF37) // Gold
+        ? AuthColors.secondary // Gold
         : AppColors.borderMedium;
   }
 
@@ -41,13 +42,13 @@ class _OrderTileState extends State<OrderTile> {
     if (!_isHighPriority()) return AppShadows.none;
     return [
       BoxShadow(
-        color: const Color(0xFFD4AF37).withOpacity(0.4),
+        color: AuthColors.secondary.withOpacity(0.4),
         blurRadius: 12,
         spreadRadius: 0,
         offset: const Offset(0, 0),
       ),
       BoxShadow(
-        color: const Color(0xFFD4AF37).withOpacity(0.2),
+        color: AuthColors.secondary.withOpacity(0.2),
         blurRadius: 6,
         spreadRadius: -2,
         offset: const Offset(0, 2),
@@ -181,11 +182,11 @@ class _OrderTileState extends State<OrderTile> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
-        title: const Text('Delete Order', style: TextStyle(color: Colors.white)),
+        backgroundColor: AuthColors.surface,
+        title: const Text('Delete Order', style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to delete this order?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -194,7 +195,7 @@ class _OrderTileState extends State<OrderTile> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: AuthColors.error)),
           ),
         ],
       ),

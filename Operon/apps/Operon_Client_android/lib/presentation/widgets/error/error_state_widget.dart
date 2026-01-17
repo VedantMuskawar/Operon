@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 
 enum ErrorType {
   network,
@@ -34,15 +35,15 @@ class ErrorStateWidget extends StatelessWidget {
         break;
       case ErrorType.permission:
         icon = Icons.lock_outline;
-        iconColor = Colors.red;
+        iconColor = AuthColors.error;
         break;
       case ErrorType.notFound:
         icon = Icons.search_off;
-        iconColor = Colors.white70;
+        iconColor = AuthColors.textSub;
         break;
       case ErrorType.generic:
         icon = Icons.error_outline;
-        iconColor = Colors.redAccent;
+        iconColor = AuthColors.error;
         break;
     }
 
@@ -61,7 +62,7 @@ class ErrorStateWidget extends StatelessWidget {
             Text(
               message,
               style: const TextStyle(
-                color: Colors.white70,
+                color: AuthColors.textSub,
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -73,7 +74,7 @@ class ErrorStateWidget extends StatelessWidget {
                 icon: const Icon(Icons.refresh, size: 18),
                 label: Text(retryLabel),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6F4BFF),
+                  backgroundColor: AuthColors.legacyAccent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,

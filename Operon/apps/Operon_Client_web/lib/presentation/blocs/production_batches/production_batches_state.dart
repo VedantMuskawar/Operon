@@ -1,6 +1,15 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 
+enum WorkflowTab {
+  all,
+  needsAction,
+  recorded,
+  calculated,
+  approved,
+  processed,
+}
+
 class ProductionBatchesState extends BaseState {
   const ProductionBatchesState({
     super.status = ViewStatus.initial,
@@ -11,6 +20,7 @@ class ProductionBatchesState extends BaseState {
     this.endDate,
     this.searchQuery,
     this.selectedBatch,
+    this.selectedTab = WorkflowTab.all,
   });
 
   final List<ProductionBatch> batches;
@@ -19,14 +29,37 @@ class ProductionBatchesState extends BaseState {
   final DateTime? endDate;
   final String? searchQuery;
   final ProductionBatch? selectedBatch;
+  final WorkflowTab selectedTab;
 
   List<ProductionBatch> get filteredBatches {
     var filtered = batches;
 
-    if (selectedStatus != null) {
-      filtered = filtered.where((b) => b.status == selectedStatus).toList();
+    // Apply workflow tab filter
+    switch (selectedTab) {
+      case WorkflowTab.all:
+        // Show all batches
+        break;
+      case WorkflowTab.needsAction:
+        // Show batches that need calculation or approval
+        filtered = filtered.where((b) =>
+            b.status == ProductionBatchStatus.recorded ||
+            b.status == ProductionBatchStatus.calculated).toList();
+        break;
+      case WorkflowTab.recorded:
+        filtered = filtered.where((b) => b.status == ProductionBatchStatus.recorded).toList();
+        break;
+      case WorkflowTab.calculated:
+        filtered = filtered.where((b) => b.status == ProductionBatchStatus.calculated).toList();
+        break;
+      case WorkflowTab.approved:
+        filtered = filtered.where((b) => b.status == ProductionBatchStatus.approved).toList();
+        break;
+      case WorkflowTab.processed:
+        filtered = filtered.where((b) => b.status == ProductionBatchStatus.processed).toList();
+        break;
     }
 
+    // Apply date range filter
     if (startDate != null) {
       filtered = filtered.where((b) => b.batchDate.isAfter(startDate!) || 
           b.batchDate.isAtSameMomentAs(startDate!)).toList();
@@ -38,6 +71,7 @@ class ProductionBatchesState extends BaseState {
           b.batchDate.isAtSameMomentAs(endOfDay)).toList();
     }
 
+    // Apply search query filter
     if (searchQuery != null && searchQuery!.isNotEmpty) {
       final query = searchQuery!.toLowerCase();
       filtered = filtered.where((b) {
@@ -50,6 +84,34 @@ class ProductionBatchesState extends BaseState {
     return filtered;
   }
 
+  // Statistics getters
+  int get totalBatches => batches.length;
+
+  int get pendingCalculations => batches.where((b) => 
+      b.status == ProductionBatchStatus.recorded).length;
+
+  int get pendingApprovals => batches.where((b) => 
+      b.status == ProductionBatchStatus.calculated).length;
+
+  int get processedToday {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    return batches.where((b) => 
+        b.status == ProductionBatchStatus.processed &&
+        b.updatedAt.isAfter(startOfDay)).length;
+  }
+
+  double get totalWagesProcessed {
+    return batches.where((b) => 
+        b.status == ProductionBatchStatus.processed && 
+        b.totalWages != null)
+        .fold(0.0, (sum, b) => sum + (b.totalWages ?? 0.0));
+  }
+
+  int get needsActionCount => batches.where((b) =>
+      b.status == ProductionBatchStatus.recorded ||
+      b.status == ProductionBatchStatus.calculated).length;
+
   @override
   ProductionBatchesState copyWith({
     ViewStatus? status,
@@ -60,6 +122,7 @@ class ProductionBatchesState extends BaseState {
     DateTime? endDate,
     String? searchQuery,
     ProductionBatch? selectedBatch,
+    WorkflowTab? selectedTab,
   }) {
     return ProductionBatchesState(
       status: status ?? this.status,
@@ -70,6 +133,7 @@ class ProductionBatchesState extends BaseState {
       endDate: endDate ?? this.endDate,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedBatch: selectedBatch ?? this.selectedBatch,
+      selectedTab: selectedTab ?? this.selectedTab,
     );
   }
 }

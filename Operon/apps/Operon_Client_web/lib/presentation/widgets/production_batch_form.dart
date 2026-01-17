@@ -232,7 +232,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
     });
   }
 
-  Future<void> _submit({bool calculateWages = false}) async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedMethodId == null) {
@@ -245,6 +245,14 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
     if (_selectedEmployeeIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select at least one employee')),
+      );
+      return;
+    }
+
+    // Validate wage calculation can be performed
+    if (_totalWages == null || _wagePerEmployee == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to calculate wages. Please check your inputs.')),
       );
       return;
     }
@@ -267,50 +275,50 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
       final product = _products.firstWhereOrNull((p) => p.id == _selectedProductId);
 
       final now = DateTime.now();
-      final batch = ProductionBatch(
-        batchId: widget.batch?.batchId ?? '',
-        organizationId: widget.organizationId,
-        batchDate: _batchDate,
-        methodId: _selectedMethodId!,
-        totalBricksProduced: int.parse(_bricksProducedController.text),
-        totalBricksStacked: int.parse(_bricksStackedController.text),
-        employeeIds: _selectedEmployeeIds.toList(),
-        employeeNames: employeeNames,
-        status: widget.batch?.status ?? ProductionBatchStatus.recorded,
-        createdBy: widget.batch?.createdBy ?? currentUser.uid,
-        createdAt: widget.batch?.createdAt ?? now,
-        updatedAt: now,
-        productId: _selectedProductId,
-        productName: product?.name,
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
-        totalWages: widget.batch?.totalWages,
-        wagePerEmployee: widget.batch?.wagePerEmployee,
-      );
-
       final cubit = context.read<ProductionBatchesCubit>();
 
       if (widget.batch != null) {
-        // Update existing batch
+        // Update existing batch with calculated wages
         await cubit.updateBatch(widget.batch!.batchId, {
-          'batchDate': batch.batchDate,
-          'methodId': batch.methodId,
-          'productId': batch.productId,
-          'productName': batch.productName,
-          'totalBricksProduced': batch.totalBricksProduced,
-          'totalBricksStacked': batch.totalBricksStacked,
-          'employeeIds': batch.employeeIds,
-          'employeeNames': batch.employeeNames,
-          'notes': batch.notes,
+          'batchDate': _batchDate,
+          'methodId': _selectedMethodId!,
+          'productId': _selectedProductId,
+          'productName': product?.name,
+          'totalBricksProduced': int.parse(_bricksProducedController.text),
+          'totalBricksStacked': int.parse(_bricksStackedController.text),
+          'employeeIds': _selectedEmployeeIds.toList(),
+          'employeeNames': employeeNames,
+          'notes': _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+          'totalWages': _totalWages,
+          'wagePerEmployee': _wagePerEmployee,
+          'status': ProductionBatchStatus.calculated.name,
         });
-
-        // Recalculate if needed
-        if (calculateWages || widget.batch!.status == ProductionBatchStatus.calculated) {
-          await cubit.calculateWages(widget.batch!.batchId);
-        }
       } else {
-        // Create new batch
+        // Create new batch with calculated wages
+        final batch = ProductionBatch(
+          batchId: '', // Will be set by data source
+          organizationId: widget.organizationId,
+          batchDate: _batchDate,
+          methodId: _selectedMethodId!,
+          totalBricksProduced: int.parse(_bricksProducedController.text),
+          totalBricksStacked: int.parse(_bricksStackedController.text),
+          employeeIds: _selectedEmployeeIds.toList(),
+          employeeNames: employeeNames,
+          status: ProductionBatchStatus.calculated, // Directly set to calculated
+          createdBy: currentUser.uid,
+          createdAt: now,
+          updatedAt: now,
+          productId: _selectedProductId,
+          productName: product?.name,
+          notes: _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+          totalWages: _totalWages,
+          wagePerEmployee: _wagePerEmployee,
+        );
+
         final batchId = await cubit.createBatch(batch);
         
         if (kDebugMode) {
@@ -320,19 +328,6 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
         if (batchId.isEmpty) {
           throw Exception('Failed to create batch: batchId is empty');
         }
-
-        // Auto-calculate if enabled
-        if (calculateWages) {
-          if (kDebugMode) {
-            print('[ProductionBatchForm] Calculating wages for batch: $batchId');
-          }
-          
-          // Wait a bit for the batch to be fully written to Firestore
-          await Future.delayed(const Duration(milliseconds: 500));
-          
-          // Use the returned batchId directly
-          await cubit.calculateWages(batchId);
-        }
       }
 
       if (mounted) {
@@ -340,8 +335,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(widget.batch != null
-                ? 'Batch updated successfully'
-                : 'Batch created successfully'),
+                ? 'Batch updated and wages calculated successfully'
+                : 'Batch created and wages calculated successfully'),
           ),
         );
       }
@@ -361,44 +356,103 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1B1B2C),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
       child: Container(
-        width: 700,
-        constraints: const BoxConstraints(maxHeight: 800),
-        padding: const EdgeInsets.all(24),
+        width: 750,
+        constraints: const BoxConstraints(maxHeight: 850),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1B1B2C),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         child: _isLoadingData
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child: CircularProgressIndicator(),
+                ),
+              )
             : Form(
                 key: _formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          widget.batch != null
-                              ? 'Edit Production Batch'
-                              : 'Create Production Batch',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(28, 24, 16, 20),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            width: 1,
                           ),
                         ),
-                        const Spacer(),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close, color: Colors.white70),
-                        ),
-                      ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.inventory_2_outlined,
+                              color: Color(0xFF6F4BFF),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.batch != null
+                                      ? 'Edit Production Batch'
+                                      : 'Create Production Batch',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Record production data and calculate wages',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.close, color: Colors.white70, size: 20),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 24),
                     Flexible(
                       child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(28),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -846,89 +900,172 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                               ],
                             ),
                             const SizedBox(height: 24),
-                            // Wage Preview
-                            if (_totalWages != null && _wagePerEmployee != null) ...[
+                            // Wage Calculation Section (Always shown when method is selected)
+                            if (_selectedMethodId != null && _wageSettings != null) ...[
                               Container(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
                                     colors: [
-                                      const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                                      const Color(0xFF6F4BFF).withValues(alpha: 0.15),
                                       const Color(0xFF9C27B0).withValues(alpha: 0.1),
                                     ],
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: const Color(0xFF6F4BFF).withValues(alpha: 0.3),
+                                    color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
+                                    width: 1.5,
                                   ),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Row(
+                                    Row(
                                       children: [
-                                        Icon(
-                                          Icons.preview_outlined,
-                                          color: Color(0xFF6F4BFF),
-                                          size: 20,
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Icon(
+                                            Icons.calculate_outlined,
+                                            color: Color(0xFF6F4BFF),
+                                            size: 24,
+                                          ),
                                         ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Wage Preview',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
+                                        const SizedBox(width: 12),
+                                        const Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Calculated Wages',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              SizedBox(height: 4),
+                                              Text(
+                                                'Wages are calculated automatically',
+                                                style: TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                    if (_totalWages != null && _wagePerEmployee != null) ...[
+                                      const SizedBox(height: 20),
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.05),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
                                           children: [
-                                            Text(
-                                              'Total Wages',
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(alpha: 0.7),
-                                                fontSize: 12,
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Total Wages',
+                                                    style: TextStyle(
+                                                      color: Colors.white.withValues(alpha: 0.7),
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    '₹${_totalWages!.toStringAsFixed(2)}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 24,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                            Text(
-                                              '₹${_totalWages!.toStringAsFixed(2)}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold,
+                                            Container(
+                                              width: 1,
+                                              height: 50,
+                                              color: Colors.white.withValues(alpha: 0.2),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    'Per Employee',
+                                                    style: TextStyle(
+                                                      color: Colors.white.withValues(alpha: 0.7),
+                                                      fontSize: 13,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Text(
+                                                    '₹${_wagePerEmployee!.toStringAsFixed(2)}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 22,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    '(${_selectedEmployeeIds.length} employees)',
+                                                    style: TextStyle(
+                                                      color: Colors.white.withValues(alpha: 0.6),
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ],
                                         ),
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                      ),
+                                    ] else ...[
+                                      const SizedBox(height: 16),
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.orange.withValues(alpha: 0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: Colors.orange.withValues(alpha: 0.3),
+                                          ),
+                                        ),
+                                        child: Row(
                                           children: [
-                                            Text(
-                                              'Per Employee',
-                                              style: TextStyle(
-                                                color: Colors.white.withValues(alpha: 0.7),
-                                                fontSize: 12,
-                                              ),
+                                            Icon(
+                                              Icons.info_outline,
+                                              size: 18,
+                                              color: Colors.orange.withValues(alpha: 0.9),
                                             ),
-                                            Text(
-                                              '₹${_wagePerEmployee!.toStringAsFixed(2)}',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w600,
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Enter production quantities and select employees to see calculated wages',
+                                                style: TextStyle(
+                                                  color: Colors.orange.withValues(alpha: 0.9),
+                                                  fontSize: 12,
+                                                ),
                                               ),
                                             ),
                                           ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -969,86 +1106,101 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    // Actions
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                          child: const Text('Cancel'),
+                    // Footer with Actions
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.03),
+                        border: Border(
+                          top: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            width: 1,
+                          ),
                         ),
-                        const SizedBox(width: 12),
-                        if (widget.batch == null) ...[
-                          ElevatedButton(
-                            onPressed: _isLoading ? null : () => _submit(calculateWages: false),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6F4BFF),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (_totalWages != null && _wagePerEmployee != null)
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 16,
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Wages calculated: ₹${_totalWages!.toStringAsFixed(2)} total',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          Row(
+                            children: [
+                              OutlinedButton(
+                                onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white70,
+                                  side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text('Cancel'),
                               ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Text('Save'),
-                          ),
-                          const SizedBox(width: 12),
-                          ElevatedButton(
-                            onPressed: _isLoading ? null : () => _submit(calculateWages: true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF4CAF50),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
+                              const SizedBox(width: 12),
+                              ElevatedButton.icon(
+                                onPressed: _isLoading || _totalWages == null ? null : _submit,
+                                icon: _isLoading
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      )
+                                    : Icon(
+                                        widget.batch != null
+                                            ? Icons.update_outlined
+                                            : Icons.check_circle_outline,
+                                        size: 18,
+                                      ),
+                                label: Text(
+                                  widget.batch != null ? 'Update Batch' : 'Create Batch',
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _totalWages == null
+                                      ? Colors.grey
+                                      : const Color(0xFF4CAF50),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 28,
+                                    vertical: 14,
+                                  ),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
                               ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Text('Save & Calculate'),
+                            ],
                           ),
-                        ] else
-                          ElevatedButton(
-                            onPressed: _isLoading ? null : () => _submit(calculateWages: false),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6F4BFF),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor:
-                                          AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : const Text('Update'),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),

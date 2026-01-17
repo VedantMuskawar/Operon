@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -57,7 +58,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1B1B2C),
+      backgroundColor: AuthColors.surface,
       title: const Text(
         'Upload Delivery Photo',
         style: TextStyle(color: Colors.white),
@@ -89,9 +90,9 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
         ElevatedButton(
           onPressed: (_selectedImage == null || _isUploading) ? null : _handleUpload,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6F4BFF),
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: Colors.grey[700],
+            backgroundColor: AuthColors.legacyAccent,
+            foregroundColor: AuthColors.textMain,
+            disabledBackgroundColor: AuthColors.textDisabled,
           ),
           child: _isUploading
               ? const SizedBox(
@@ -99,7 +100,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                   ),
                 )
               : const Text('Upload & Mark Delivered'),
@@ -229,7 +230,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(32.0),
-                  child: CircularProgressIndicator(color: Colors.white70),
+                  child: CircularProgressIndicator(color: AuthColors.textSub),
                 ),
               );
             }
@@ -248,7 +249,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
       child: const Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, color: Colors.white70, size: 48),
+          Icon(Icons.error_outline, color: AuthColors.textSub, size: 48),
           SizedBox(height: 8),
           Text(
             'Failed to load image',

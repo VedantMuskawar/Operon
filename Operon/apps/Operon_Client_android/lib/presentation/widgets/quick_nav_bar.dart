@@ -19,6 +19,7 @@ class QuickNavBar extends StatelessWidget {
     Icons.schedule_rounded,
     Icons.map_rounded,
     Icons.dashboard_rounded,
+    Icons.event_available_rounded,
   ];
 
   @override

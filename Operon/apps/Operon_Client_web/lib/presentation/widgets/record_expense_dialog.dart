@@ -1,5 +1,6 @@
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
@@ -139,10 +140,10 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
+              primary: AuthColors.legacyAccent,
+              onPrimary: AuthColors.textMain,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
             ),
           ),
           child: child!,
@@ -382,7 +383,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
     final dialogWidth = (screenWidth * 0.5).clamp(500.0, 700.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: const Text(
         'Record Expense',
         style: TextStyle(color: Colors.white),
@@ -402,7 +403,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       const Text(
                         'Expense Type',
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: AuthColors.textSub,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -424,7 +425,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       // Amount
                       TextFormField(
                         controller: _amountController,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Amount *'),
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         inputFormatters: [
@@ -451,17 +452,17 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1B1B2C),
+                            color: AuthColors.surface,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             children: [
                               const Icon(Icons.calendar_today,
-                                  color: Colors.white54, size: 20),
+                                  color: AuthColors.textSub, size: 20),
                               const SizedBox(width: 12),
                               Text(
                                 _formatDate(_selectedDate),
-                                style: const TextStyle(color: Colors.white),
+                                style: const TextStyle(color: AuthColors.textMain),
                               ),
                             ],
                           ),
@@ -471,7 +472,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       // Description
                       TextFormField(
                         controller: _descriptionController,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration(
                           _selectedType == ExpenseFormType.generalExpense
                               ? 'Description *'
@@ -490,7 +491,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       // Reference Number
                       TextFormField(
                         controller: _referenceNumberController,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Reference Number'),
                       ),
                     ],
@@ -501,13 +502,13 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         ElevatedButton(
           onPressed: _isSubmitting ? null : _save,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6F4BFF),
-            foregroundColor: Colors.white,
+            backgroundColor: AuthColors.legacyAccent,
+            foregroundColor: AuthColors.textMain,
           ),
           child: _isSubmitting
               ? const SizedBox(
@@ -515,7 +516,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                   width: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                   ),
                 )
               : const Text('Save'),
@@ -582,7 +583,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
+                ? AuthColors.legacyAccent
                 : Colors.transparent,
             width: 1.5,
           ),
@@ -1118,7 +1119,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
+                ? AuthColors.legacyAccent
                 : Colors.white.withOpacity(0.1),
             width: isSelected ? 1.5 : 1,
           ),

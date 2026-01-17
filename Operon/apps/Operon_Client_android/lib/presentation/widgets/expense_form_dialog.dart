@@ -1,5 +1,6 @@
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
@@ -152,10 +153,10 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
+              primary: AuthColors.legacyAccent,
+              onPrimary: AuthColors.textMain,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
             ),
           ),
           child: child!,
@@ -330,7 +331,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Dialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: AuthColors.surface,
         child: Container(
           padding: const EdgeInsets.all(40),
           child: const Column(
@@ -340,7 +341,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
               SizedBox(height: 16),
               Text(
                 'Loading...',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
               ),
             ],
           ),
@@ -349,7 +350,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     }
 
     return Dialog(
-          backgroundColor: const Color(0xFF11111B),
+          backgroundColor: AuthColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -363,7 +364,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                   padding: const EdgeInsets.all(20),
                   decoration: const BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: Colors.white12, width: 1),
+                      bottom: BorderSide(color: AuthColors.textMainWithOpacity(0.12), width: 1),
                     ),
                   ),
                   child: Row(
@@ -371,7 +372,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                       const Text(
                         'Add Expense',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                         ),
@@ -397,7 +398,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                           const Text(
                             'Expense Type',
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: AuthColors.textSub,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -444,13 +445,13 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1B1B2C),
+                                color: AuthColors.surface,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Row(
                                 children: [
                                   const Icon(Icons.calendar_today,
-                                      color: Colors.white54, size: 20),
+                                      color: AuthColors.textSub, size: 20),
                                   const SizedBox(width: 12),
                                   Text(
                                     _formatDate(_selectedDate),
@@ -496,7 +497,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                   padding: const EdgeInsets.all(20),
                   decoration: const BoxDecoration(
                     border: Border(
-                      top: BorderSide(color: Colors.white12, width: 1),
+                      top: BorderSide(color: AuthColors.textMainWithOpacity(0.12), width: 1),
                     ),
                   ),
                   child: Row(
@@ -510,7 +511,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                       ElevatedButton(
                         onPressed: _isLoading ? null : _save,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6F4BFF),
+                          backgroundColor: AuthColors.legacyAccent,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,

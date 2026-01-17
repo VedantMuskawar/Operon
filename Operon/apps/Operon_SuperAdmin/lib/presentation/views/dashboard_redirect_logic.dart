@@ -176,7 +176,7 @@ class _HighlightCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(data.icon, color: Colors.white),
+              Icon(data.icon, color: AuthColors.textMain),
               const Spacer(),
               Container(
                 padding:
@@ -188,7 +188,7 @@ class _HighlightCard extends StatelessWidget {
                 child: const Text(
                   'Live',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 12,
                     letterSpacing: 0.6,
                   ),
@@ -208,7 +208,7 @@ class _HighlightCard extends StatelessWidget {
           Text(
             data.value,
             style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -240,8 +240,8 @@ class _Header extends StatelessWidget {
         borderRadius: BorderRadius.circular(32),
         gradient: const LinearGradient(
           colors: [
-            Color(0xFF1C1A2F),
-            Color(0xFF101020),
+            AuthColors.surface,
+            AuthColors.background,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -262,14 +262,14 @@ class _Header extends StatelessWidget {
                     height: 14,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF6C63FF),
+                      color: AuthColors.legacyAccent,
                     ),
                   ),
                   const SizedBox(width: 10),
                   Text(
                     'Dash SuperAdmin',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: Colors.white70,
+                      color: AuthColors.textSub,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -322,7 +322,7 @@ class _AddOrgTile extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(28),
           gradient: const LinearGradient(
-            colors: [Color(0xFF272447), Color(0xFF17162A)],
+            colors: [AuthColors.surface, AuthColors.background],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -346,7 +346,7 @@ class _AddOrgTile extends StatelessWidget {
                   colors: [Color(0xFF6C63FF), Color(0xFF3DD598)],
                 ),
               ),
-              child: const Icon(Icons.add_business, color: Colors.white, size: 30),
+              child: const Icon(Icons.add_business, color: AuthColors.textMain, size: 30),
             ),
             const SizedBox(width: 28),
             Expanded(
@@ -364,7 +364,7 @@ class _AddOrgTile extends StatelessWidget {
                   Text(
                     'Spin up a workspace, assign a primary admin and preview access policies in one streamlined dialog.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white70,
+                          color: AuthColors.textSub,
                         ),
                   ),
                 ],
@@ -378,7 +378,7 @@ class _AddOrgTile extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: Color.fromRGBO(255, 255, 255, 0.1),
               ),
-              child: const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+              child: const Icon(Icons.arrow_forward_rounded, color: AuthColors.textMain),
             ),
           ],
         ),
@@ -434,7 +434,7 @@ class _OrganizationListState extends State<_OrganizationList> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: AuthColors.error,
             ),
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Delete'),
@@ -474,7 +474,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: Colors.white70),
+                    ?.copyWith(color: AuthColors.textSub),
               ),
               const SizedBox(height: 16),
               DashFormField(
@@ -487,7 +487,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: Colors.white54),
+                    ?.copyWith(color: AuthColors.textSub),
               ),
               const SizedBox(height: 12),
               DashFormField(
@@ -500,7 +500,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
-                    ?.copyWith(color: Colors.white54),
+                    ?.copyWith(color: AuthColors.textSub),
               ),
             ],
           ),
@@ -565,8 +565,8 @@ class _OrganizationListState extends State<_OrganizationList> {
                   onPressed: (index) =>
                       _onSortChanged(_OrgSortMode.values[index]),
                   borderRadius: BorderRadius.circular(16),
-                  selectedColor: Colors.white,
-                  color: Colors.white60,
+                  selectedColor: AuthColors.textMain,
+                  color: AuthColors.textSub,
                   fillColor: const Color.fromRGBO(255, 255, 255, 0.1),
                   children: const [
                     Padding(
@@ -595,7 +595,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                         style: Theme.of(context)
                             .textTheme
                             .bodyLarge
-                            ?.copyWith(color: Colors.redAccent),
+                            ?.copyWith(color: AuthColors.error),
                       ),
                     );
                   }
@@ -620,7 +620,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                         'No organizations match your filters.',
                         style:
                             Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: Colors.white54,
+                                  color: AuthColors.textSub,
                                 ),
                       ),
                     );
@@ -657,7 +657,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(16),
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF6C63FF), Color(0xFF3DD598)],
+                                  colors: [AuthColors.legacyAccent, AuthColors.successVariant],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
@@ -712,7 +712,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodyMedium
-                                        ?.copyWith(color: Colors.white70),
+                                        ?.copyWith(color: AuthColors.textSub),
                                   ),
                                   if (createdLabel != null) ...[
                                     const SizedBox(height: 6),
@@ -721,7 +721,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
-                                          ?.copyWith(color: Colors.white38),
+                                          ?.copyWith(color: AuthColors.textDisabled),
                                     ),
                                   ],
                                 ],

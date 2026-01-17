@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/services/storage_service.dart';
@@ -45,10 +46,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final result = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.surface,
         title: const Text(
           'Enter Initial Reading',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Form(
           key: formKey,
@@ -57,7 +58,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             children: [
               const Text(
                 'Please enter the odometer reading',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: AuthColors.textSub),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -66,9 +67,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Odometer Reading',
-                  labelStyle: const TextStyle(color: Colors.white70),
+                  labelStyle: const TextStyle(color: AuthColors.textSub),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.white30),
+                    borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -136,7 +137,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('DM must be generated before dispatching trip'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -303,8 +304,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
-        title: const Text('Undo Delivery', style: TextStyle(color: Colors.white)),
+        backgroundColor: AuthColors.surface,
+        title: const Text('Undo Delivery', style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to undo delivery? This will revert the trip status back to dispatched.',
           style: TextStyle(color: Colors.white70),
@@ -379,10 +380,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final result = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.surface,
         title: const Text(
           'Return Trip',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Form(
           key: formKey,
@@ -391,7 +392,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             children: [
               const Text(
                 'Please enter the last odometer reading',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: AuthColors.textSub),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -400,9 +401,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   labelText: 'Last Odometer Reading',
-                  labelStyle: const TextStyle(color: Colors.white70),
+                  labelStyle: const TextStyle(color: AuthColors.textSub),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.white30),
+                    borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -542,8 +543,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
-        title: const Text('Undo Return', style: TextStyle(color: Colors.white)),
+        backgroundColor: AuthColors.surface,
+        title: const Text('Undo Return', style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to undo return? This will revert the trip status back to delivered.',
           style: TextStyle(color: Colors.white70),
@@ -624,10 +625,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.surface,
         title: const Text(
           'Undo Dispatch',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: const Text(
           'Are you sure you want to undo dispatch? This will revert all dispatch changes including initial reading, dispatch timestamp, and dispatcher information.',
@@ -1363,7 +1364,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.surface,
         title: const Text('Revert Dispatch', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to revert dispatch? This will change the trip status back to scheduled.',
@@ -1432,7 +1433,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.surface,
         title: const Text('Revert Delivery', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to revert delivery? This will change the trip status back to dispatched.',
@@ -1504,10 +1505,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final result = await showDialog<double>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.surface,
         title: const Text(
           'Final Meter Reading',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Form(
           key: formKey,
@@ -1825,7 +1826,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.surface,
         title: const Text('Revert Return', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Are you sure you want to revert return? This will change the trip status back to delivered.',
@@ -2212,10 +2213,10 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF0A0A0A),
+          backgroundColor: AuthColors.surface,
           title: const Text(
             'Add Payment',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: AuthColors.textMain),
           ),
           content: Form(
             key: formKey,
@@ -2227,9 +2228,9 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                     initialValue: selectedAccount,
                     decoration: InputDecoration(
                       labelText: 'Payment Account',
-                      labelStyle: const TextStyle(color: Colors.white70),
+                      labelStyle: const TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.white30),
+                        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -2262,9 +2263,9 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       labelText: 'Amount (₹)',
-                      labelStyle: const TextStyle(color: Colors.white70),
+                      labelStyle: const TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.white30),
+                        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       focusedBorder: OutlineInputBorder(

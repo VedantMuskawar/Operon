@@ -1,4 +1,5 @@
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/views/clients_page/contact_page.dart';
@@ -10,7 +11,6 @@ import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/standard_page_indicator.dart';
 import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
 import 'package:dash_mobile/presentation/widgets/standard_chip.dart';
-import 'package:dash_mobile/presentation/widgets/modern_tile.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
@@ -35,10 +35,13 @@ class _ClientsPageState extends State<ClientsPage> {
   late final TextEditingController _searchController;
   late final PageController _pageController;
   late final Debouncer _searchDebouncer;
+  late final ScrollController _scrollController;
   double _currentPage = 0;
   _ClientFilterType _filterType = _ClientFilterType.all;
   List<ClientRecord>? _cachedFilteredClients;
   _ClientFilterType? _lastFilterType;
+  int _currentLimit = 20;
+  bool _isLoadingMore = false;
 
   @override
   void initState() {
@@ -54,6 +57,27 @@ class _ClientsPageState extends State<ClientsPage> {
           });
         }
       });
+    _scrollController = ScrollController()
+      ..addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= 
+        _scrollController.position.maxScrollExtent * 0.8) {
+      _loadMore();
+    }
+  }
+
+  void _loadMore() {
+    if (_isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+    _currentLimit += 20;
+    context.read<ClientsCubit>().subscribeToRecent(limit: _currentLimit);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+      }
+    });
   }
 
   @override
@@ -61,6 +85,8 @@ class _ClientsPageState extends State<ClientsPage> {
     _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
     _pageController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchDebouncer.dispose();
     super.dispose();
   }
@@ -115,7 +141,7 @@ class _ClientsPageState extends State<ClientsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AuthColors.background,
       appBar: const ModernPageHeader(
         title: 'Clients',
       ),
@@ -134,6 +160,8 @@ class _ClientsPageState extends State<ClientsPage> {
                         children: [
                             _ClientsListView(
                               filterType: _filterType,
+                              scrollController: _scrollController,
+                              isLoadingMore: _isLoadingMore,
                               onFilterChanged: (filter) {
                                 setState(() {
                                   _filterType = filter;
@@ -179,18 +207,18 @@ class _ClientsPageState extends State<ClientsPage> {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Color(0xFF6F4BFF),
-                            Color(0xFF8B6FFF),
+                            AuthColors.primary,
+                            AuthColors.primaryVariant,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: AppShadows.fab,
                       ),
-                      child: const Icon(Icons.add, color: Colors.white, size: 24),
+                      child: Icon(Icons.add, color: AuthColors.textMain, size: 24),
                     ),
                   ),
                 ),
@@ -205,6 +233,8 @@ class _ClientsPageState extends State<ClientsPage> {
 class _ClientsListView extends StatelessWidget {
   const _ClientsListView({
     required this.filterType,
+    required this.scrollController,
+    required this.isLoadingMore,
     required this.onFilterChanged,
     required this.onApplyFilter,
     required this.searchController,
@@ -213,6 +243,8 @@ class _ClientsListView extends StatelessWidget {
   });
 
   final _ClientFilterType filterType;
+  final ScrollController scrollController;
+  final bool isLoadingMore;
   final ValueChanged<_ClientFilterType> onFilterChanged;
   final List<ClientRecord> Function(List<ClientRecord>) onApplyFilter;
   final TextEditingController searchController;
@@ -256,59 +288,71 @@ class _ClientsListView extends StatelessWidget {
         final allClients = state.recentClients;
         final filteredClients = onApplyFilter(allClients);
 
-        return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            16,
-            16,
-            MediaQuery.of(context).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSearchBar(context, state),
-              const SizedBox(height: 16),
-              _ClientFilterChips(
-                selectedFilter: filterType,
-                onFilterChanged: onFilterChanged,
+        return CustomScrollView(
+          controller: scrollController,
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(context).viewInsets.bottom + 16,
               ),
-              const SizedBox(height: AppSpacing.itemSpacing),
-              if (state.searchQuery.isEmpty && !state.isRecentLoading)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    '${filteredClients.length} ${filteredClients.length == 1 ? 'client' : 'clients'}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSearchBar(context, state),
+                    const SizedBox(height: 16),
+                    _ClientFilterChips(
+                      selectedFilter: filterType,
+                      onFilterChanged: onFilterChanged,
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.itemSpacing),
+                    if (state.searchQuery.isEmpty && !state.isRecentLoading)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Text(
+                          '${filteredClients.length} ${filteredClients.length == 1 ? 'client' : 'clients'}',
+                          style: TextStyle(
+                            color: AuthColors.textSub,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              if (state.isRecentLoading && allClients.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (state.searchQuery.isNotEmpty)
-                _SearchResultsCard(
+              ),
+            ),
+            if (state.isRecentLoading && allClients.isEmpty)
+              const SliverFillRemaining(
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (state.searchQuery.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _SearchResultsCard(
                   state: state,
                   onClear: onClearSearch,
-                )
-              else if (filteredClients.isEmpty && !state.isRecentLoading)
-                _EmptyClientsState(
+                ),
+              )
+            else if (filteredClients.isEmpty && !state.isRecentLoading)
+              SliverFillRemaining(
+                child: _EmptyClientsState(
                   onAddClient: onOpenContactPage,
-                )
-              else ...[
-                Row(
+                ),
+              )
+            else ...[
+              SliverToBoxAdapter(
+                child: Row(
                   children: [
                     const Expanded(
                       child: Text(
                         'Recently added clients',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -322,17 +366,32 @@ class _ClientsListView extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.itemSpacing),
-                ...filteredClients.map((client) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.itemSpacing),
-                      child: _ClientTile(
-                        key: ValueKey(client.id),
-                        client: client,
-                      ),
-                    )),
-              ],
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.itemSpacing)),
+                                    SliverList(
+                                      delegate: SliverChildBuilderDelegate(
+                                        (context, index) {
+                                          if (index >= filteredClients.length) {
+                                            return isLoadingMore
+                                                ? const Padding(
+                                                    padding: EdgeInsets.all(16),
+                                                    child: Center(child: CircularProgressIndicator()),
+                                                  )
+                                                : const SizedBox.shrink();
+                                          }
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: AppSpacing.itemSpacing),
+                                            child: _ClientTile(
+                                              key: ValueKey(filteredClients[index].id),
+                                              client: filteredClients[index],
+                                            ),
+                                          );
+                                        },
+                                        childCount: filteredClients.length + (isLoadingMore ? 1 : 0),
+                                      ),
+                                    ),
             ],
-          ),
+          ],
         );
       },
     );
@@ -420,7 +479,7 @@ class _ClientTile extends StatelessWidget {
 
   Color _getClientColor() {
     if (client.isCorporate) {
-      return const Color(0xFF6F4BFF);
+      return AuthColors.primary;
     }
     
     final cacheKey = client.id;
@@ -429,11 +488,11 @@ class _ClientTile extends StatelessWidget {
     }
     
     final hash = client.name.hashCode;
-    const colors = [
-      Color(0xFF5AD8A4),
-      Color(0xFFFF9800),
-      Color(0xFF2196F3),
-      Color(0xFFE91E63),
+    final colors = [
+      AuthColors.success,
+      AuthColors.secondary,
+      AuthColors.primary,
+      AuthColors.error,
     ];
     final color = colors[hash.abs() % colors.length];
     _colorCache[cacheKey] = color;
@@ -454,214 +513,81 @@ class _ClientTile extends StatelessWidget {
     final phoneLabel = client.primaryPhone ??
         (client.phones.isNotEmpty ? (client.phones.first['e164'] as String?) ?? '-' : '-');
     final orderCount = (client.stats['orders'] as num?)?.toInt() ?? 0;
+    final subtitleParts = <String>[];
+    if (phoneLabel != '-') subtitleParts.add(phoneLabel);
+    if (client.isCorporate) subtitleParts.add('Corporate');
+    final subtitle = subtitleParts.join(' • ');
 
-    return InkWell(
-      onTap: () => context.pushNamed('client-detail', extra: client),
-      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.paddingLG),
-        decoration: BoxDecoration(
-          color: AppColors.cardBackground,
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-          border: Border.all(
-            color: clientColor.withOpacity(0.2),
-            width: 1,
-          ),
-          boxShadow: AppShadows.card,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AuthColors.background,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: DataList(
+        title: client.name,
+        subtitle: subtitle.isNotEmpty ? subtitle : null,
+        leading: DataListAvatar(
+          initial: _getInitials(client.name),
+          radius: 28,
+          statusRingColor: clientColor,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                // Avatar
-                Container(
-                  width: AppSpacing.avatarMD,
-                  height: AppSpacing.avatarMD,
+            if (orderCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        clientColor,
-                        clientColor.withOpacity(0.7),
-                      ],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: clientColor.withOpacity(0.4),
-                        blurRadius: 8,
-                        spreadRadius: -1,
-                      ),
-                    ],
+                    color: AuthColors.success.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Center(
-                    child: Text(
-                      _getInitials(client.name),
-                      style: AppTypography.h4,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              client.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (client.isCorporate)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: clientColor.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: clientColor.withOpacity(0.3),
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.business,
-                                    size: 12,
-                                    color: Color(0xFF6F4BFF),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Corporate',
-                                    style: TextStyle(
-                                      color: clientColor,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      // Phone
-                      if (phoneLabel != '-')
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.phone_outlined,
-                              size: 14,
-                              color: Colors.white.withOpacity(0.7),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                phoneLabel,
-                                style: AppTypography.bodySmall,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                      Icon(Icons.shopping_bag_outlined, size: 12, color: AuthColors.success),
+                      const SizedBox(width: 4),
+                      Text(
+                        orderCount.toString(),
+                        style: TextStyle(
+                          color: AuthColors.success,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
                         ),
+                      ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            // Tags and Stats
-            if (client.tags.isNotEmpty || orderCount > 0) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  // Tags
-                  if (client.tags.isNotEmpty)
-                    Expanded(
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: client.tags.take(2).map((tag) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.1),
-                              ),
-                            ),
-                            child: Text(
-                              tag,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  // Order Count
-                  if (orderCount > 0) ...[
-                    if (client.tags.isNotEmpty) const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
+              ),
+            if (client.tags.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Wrap(
+                  spacing: 4,
+                  children: client.tags.take(2).map((tag) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF5AD8A4).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFF5AD8A4).withOpacity(0.3),
+                        color: AuthColors.surface,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        tag,
+                        style: TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.shopping_bag_outlined,
-                            size: 14,
-                            color: Color(0xFF5AD8A4),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$orderCount ${orderCount == 1 ? 'order' : 'orders'}',
-                            style: const TextStyle(
-                              color: Color(0xFF5AD8A4),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
+                    );
+                  }).toList(),
+                ),
               ),
-            ],
           ],
         ),
+        onTap: () => context.pushNamed('client-detail', extra: client),
       ),
     );
   }
@@ -722,7 +648,7 @@ class _EmptyClientsState extends StatelessWidget {
       message: 'Start by adding your first client to the system',
       actionLabel: 'Add Client',
       onAction: onAddClient,
-      iconColor: const Color(0xFF6F4BFF),
+      iconColor: AuthColors.primary,
     );
   }
 }
@@ -742,13 +668,13 @@ class _EmptySearchState extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 48,
-            color: Colors.white.withOpacity(0.3),
+            color: AuthColors.textSub.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No results found',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -757,7 +683,7 @@ class _EmptySearchState extends StatelessWidget {
           Text(
             'No clients match "$query"',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: AuthColors.textSub,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,

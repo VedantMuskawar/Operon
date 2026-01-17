@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 
 /// Generic skeleton loader widget with shimmer effect
 class LoadingSkeleton extends StatelessWidget {
@@ -19,7 +20,7 @@ class LoadingSkeleton extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: AuthColors.textMainWithOpacity(0.05),
         borderRadius: borderRadius ?? BorderRadius.circular(8),
       ),
     );
@@ -36,9 +37,9 @@ class ClientTileSkeleton extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2A),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
         children: [
@@ -76,9 +77,9 @@ class TripCardSkeleton extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2A),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
