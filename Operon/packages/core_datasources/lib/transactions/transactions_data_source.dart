@@ -280,6 +280,117 @@ class TransactionsDataSource {
     }
   }
 
+  /// Get all client payment transactions (income)
+  Future<List<Transaction>> getClientPayments({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _transactionsRef()
+          .where('organizationId', isEqualTo: organizationId)
+          .where('category', isEqualTo: TransactionCategory.clientPayment.name);
+
+      if (financialYear != null) {
+        query = query.where('financialYear', isEqualTo: financialYear);
+      }
+
+      query = query.orderBy('createdAt', descending: true);
+
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+
+      final snapshot = await query.get();
+      return snapshot.docs
+          .map((doc) {
+            try {
+              return Transaction.fromJson(doc.data(), doc.id);
+            } catch (e) {
+              return null;
+            }
+          })
+          .whereType<Transaction>()
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get all vendor purchases
+  Future<List<Transaction>> getVendorPurchases({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _transactionsRef()
+          .where('organizationId', isEqualTo: organizationId)
+          .where('ledgerType', isEqualTo: LedgerType.vendorLedger.name)
+          .where('category', isEqualTo: TransactionCategory.vendorPurchase.name);
+
+      if (financialYear != null) {
+        query = query.where('financialYear', isEqualTo: financialYear);
+      }
+
+      query = query.orderBy('createdAt', descending: true);
+
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+
+      final snapshot = await query.get();
+      return snapshot.docs
+          .map((doc) {
+            try {
+              return Transaction.fromJson(doc.data(), doc.id);
+            } catch (e) {
+              return null;
+            }
+          })
+          .whereType<Transaction>()
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Get unified financial data (all transactions, purchases, and expenses)
+  /// Returns a map with keys: 'transactions', 'purchases', 'expenses'
+  Future<Map<String, List<Transaction>>> getUnifiedFinancialData({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) async {
+    try {
+      final transactions = await getClientPayments(
+        organizationId: organizationId,
+        financialYear: financialYear,
+        limit: limit,
+      );
+
+      final purchases = await getVendorPurchases(
+        organizationId: organizationId,
+        financialYear: financialYear,
+        limit: limit,
+      );
+
+      final expenses = await getAllExpenses(
+        organizationId: organizationId,
+        financialYear: financialYear,
+        limit: limit,
+      );
+
+      return {
+        'transactions': transactions,
+        'purchases': purchases,
+        'expenses': expenses,
+      };
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Get unpaid vendor purchase invoices (credit transactions on vendorLedger)
   /// Filters by vendorId, category vendorPurchase, and paidStatus != 'paid'
   Future<List<Transaction>> fetchUnpaidVendorInvoices({

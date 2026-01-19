@@ -293,7 +293,7 @@ class _TripWageEmployeeSelectionDialogState extends State<TripWageEmployeeSelect
                                 Text(
                                   _sameEmployees 
                                       ? 'Per Employee (${_loadingEmployeeIds.length})'
-                                      : 'Per Employee (${Set.from([..._loadingEmployeeIds, ..._unloadingEmployeeIds]).length})',
+                                      : 'Per Employee (${<dynamic>{..._loadingEmployeeIds, ..._unloadingEmployeeIds}.length})',
                                   style: TextStyle(
                                     color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                                     fontSize: 13,
@@ -304,7 +304,7 @@ class _TripWageEmployeeSelectionDialogState extends State<TripWageEmployeeSelect
                                   _sameEmployees
                                       ? '₹${_totalWagePerEmployee.toStringAsFixed(2)}'
                                       : _loadingEmployeeIds.isNotEmpty && _unloadingEmployeeIds.isNotEmpty
-                                          ? '₹${((_loadingWage + _unloadingWage) / Set.from([..._loadingEmployeeIds, ..._unloadingEmployeeIds]).length).toStringAsFixed(2)}'
+                                          ? '₹${((_loadingWage + _unloadingWage) / <dynamic>{..._loadingEmployeeIds, ..._unloadingEmployeeIds}.length).toStringAsFixed(2)}'
                                           : _loadingEmployeeIds.isNotEmpty
                                               ? '₹${_loadingWagePerEmployee.toStringAsFixed(2)}'
                                               : '₹${_unloadingWagePerEmployee.toStringAsFixed(2)}',

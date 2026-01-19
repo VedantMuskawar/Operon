@@ -28,7 +28,6 @@ import 'package:dash_web/data/repositories/pending_orders_repository.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/app_initialization/app_initialization_cubit.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';

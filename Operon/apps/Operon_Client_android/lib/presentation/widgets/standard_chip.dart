@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
+import 'package:core_ui/core_ui.dart';
 
 /// Standardized chip component for filters and selections
 class StandardChip extends StatelessWidget {
@@ -29,13 +30,13 @@ class StandardChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary.withOpacity(0.2)
-              : AppColors.cardBackground.withOpacity(0.6),
+              ? AuthColors.primary.withOpacity(0.2)
+              : AuthColors.surface.withOpacity(0.6),
           borderRadius: BorderRadius.circular(AppSpacing.chipRadius * 2),
           border: Border.all(
             color: isSelected
-                ? AppColors.primary
-                : AppColors.borderDefault,
+                ? AuthColors.primary
+                : AuthColors.textMainWithOpacity(0.1),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -47,8 +48,8 @@ class StandardChip extends StatelessWidget {
                 icon,
                 size: AppSpacing.iconSM,
                 color: isSelected
-                    ? AppColors.primary
-                    : AppColors.textSecondary,
+                    ? AuthColors.primary
+                    : AuthColors.textSub,
               ),
               const SizedBox(width: AppSpacing.gapSM),
             ],
@@ -56,8 +57,8 @@ class StandardChip extends StatelessWidget {
               label,
               style: AppTypography.bodySmall.copyWith(
                 color: isSelected
-                    ? AppColors.textPrimary
-                    : AppColors.textSecondary,
+                    ? AuthColors.textMain
+                    : AuthColors.textSub,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
             ),

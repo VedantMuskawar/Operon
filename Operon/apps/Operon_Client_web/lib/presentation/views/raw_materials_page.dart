@@ -6,6 +6,7 @@ import 'package:dash_web/presentation/widgets/page_workspace_layout.dart';
 import 'package:dash_web/presentation/widgets/stock_history_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class RawMaterialsPage extends StatelessWidget {
@@ -90,14 +91,14 @@ class RawMaterialsPageContent extends StatelessWidget {
                           color: AuthColors.textMain.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.add,
                           color: AuthColors.textMain,
                           size: 20,
                         ),
                       ),
                       const SizedBox(width: 12),
-                          Text(
+                          const Text(
                             'Add Raw Material',
                             style: TextStyle(
                               color: AuthColors.textMain,
@@ -137,7 +138,7 @@ class RawMaterialsPageContent extends StatelessWidget {
                   canCreate
                       ? 'No raw materials yet. Tap "Add Raw Material".'
                       : 'No raw materials to display.',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 16,
                   ),
@@ -145,23 +146,35 @@ class RawMaterialsPageContent extends StatelessWidget {
                 ),
               );
             }
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: state.materials.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final material = state.materials[index];
-                return _RawMaterialDataListItem(
-                  material: material,
-                  canEdit: cubit.canEdit,
-                  canDelete: cubit.canDelete,
-                  onEdit: () =>
-                      _openRawMaterialDialog(context, material: material),
-                  onDelete: () => cubit.deleteRawMaterial(material.id),
-                  onViewHistory: () => _openStockHistoryDialog(context, material),
-                );
-              },
+            return AnimationLimiter(
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: state.materials.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final material = state.materials[index];
+                  return AnimationConfiguration.staggeredList(
+                    position: index,
+                    duration: const Duration(milliseconds: 200),
+                    child: SlideAnimation(
+                      verticalOffset: 50.0,
+                      child: FadeInAnimation(
+                        curve: Curves.easeOut,
+                        child: _RawMaterialDataListItem(
+                          material: material,
+                          canEdit: cubit.canEdit,
+                          canDelete: cubit.canDelete,
+                          onEdit: () =>
+                              _openRawMaterialDialog(context, material: material),
+                          onDelete: () => cubit.deleteRawMaterial(material.id),
+                          onViewHistory: () => _openStockHistoryDialog(context, material),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
             );
           },
         ),
@@ -281,7 +294,7 @@ class _RawMaterialDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.history,
                 color: AuthColors.textSub,
                 size: 20,
@@ -294,7 +307,7 @@ class _RawMaterialDataListItem extends StatelessWidget {
             if (canEdit) ...[
               const SizedBox(width: 8),
               IconButton(
-                icon: Icon(
+                icon: const Icon(
                   Icons.edit_outlined,
                   color: AuthColors.textSub,
                   size: 20,
@@ -307,7 +320,7 @@ class _RawMaterialDataListItem extends StatelessWidget {
             if (canDelete) ...[
               const SizedBox(width: 8),
               IconButton(
-                icon: Icon(
+                icon: const Icon(
                   Icons.delete_outline,
                   color: AuthColors.error,
                   size: 20,
@@ -393,7 +406,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Raw Material' : 'Add Raw Material',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -405,7 +418,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Material name'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -417,7 +430,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   controller: _purchasePriceController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Purchase Price (per unit)'),
                   validator: (value) {
                     final parsed = double.tryParse(value ?? '');
@@ -432,7 +445,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   controller: _gstController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('GST (%) - Optional'),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -448,7 +461,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _unitController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Unit of Measurement (e.g., kg, liters, pieces)'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -459,7 +472,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 TextFormField(
                   controller: _stockController,
                   keyboardType: TextInputType.number,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Current Stock'),
                   validator: (value) {
                     final parsed = int.tryParse(value ?? '');
@@ -473,7 +486,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 TextFormField(
                   controller: _minimumStockController,
                   keyboardType: TextInputType.number,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Minimum Stock Level'),
                   validator: (value) {
                     final parsed = int.tryParse(value ?? '');
@@ -487,7 +500,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 DropdownButtonFormField<RawMaterialStatus>(
                   initialValue: _status,
                   dropdownColor: AuthColors.surface,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Status'),
                   onChanged: (value) {
                     if (value != null) setState(() => _status = value);
@@ -515,7 +528,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',
@@ -562,7 +575,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

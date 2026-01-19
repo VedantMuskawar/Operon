@@ -36,7 +36,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
 
   // Pagination state
   int _currentPage = 0;
-  int _itemsPerPage = 10;
+  final int _itemsPerPage = 10;
 
   String? _currentOrgId;
   List<Transaction> _previousTransactions = [];

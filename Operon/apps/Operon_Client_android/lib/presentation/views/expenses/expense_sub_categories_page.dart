@@ -90,7 +90,7 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
         ),
         content: Text(
           'Are you sure you want to delete "${subCategory.name}"?',
-          style: TextStyle(color: AuthColors.textSub),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -176,7 +176,7 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
                             const SizedBox(height: 12),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 );
               },
@@ -230,17 +230,17 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
       builder: (context, state) {
         return TextField(
           controller: _searchController,
-          style: TextStyle(color: AuthColors.textMain),
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: InputDecoration(
-            prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
+            prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: _clearSearch,
                   )
                 : null,
             hintText: 'Search sub-categories',
-            hintStyle: TextStyle(color: AuthColors.textDisabled),
+            hintStyle: const TextStyle(color: AuthColors.textDisabled),
             filled: true,
             fillColor: AuthColors.surface,
             border: OutlineInputBorder(
@@ -339,7 +339,7 @@ class _SubCategoryDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.edit_outlined,
                 color: AuthColors.textSub,
                 size: 20,
@@ -350,7 +350,7 @@ class _SubCategoryDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.delete_outline,
                 color: AuthColors.error,
                 size: 20,

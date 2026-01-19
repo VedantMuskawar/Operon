@@ -11,6 +11,7 @@ import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 void _zonesLog(String message) {
@@ -560,13 +561,21 @@ class _CityColumn extends StatelessWidget {
                       onAction: canCreate ? onAddCity : null,
                       iconColor: AuthColors.textDisabled,
                     )
-                  : ListView.separated(
-                      itemCount: cities.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final city = cities[index];
-                        final isSelected = city.name == selectedCity;
-                        return GestureDetector(
+                  : AnimationLimiter(
+                      child: ListView.separated(
+                        itemCount: cities.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final city = cities[index];
+                          final isSelected = city.name == selectedCity;
+                          return AnimationConfiguration.staggeredList(
+                            position: index,
+                            duration: const Duration(milliseconds: 200),
+                            child: SlideAnimation(
+                              verticalOffset: 50.0,
+                              child: FadeInAnimation(
+                                curve: Curves.easeOut,
+                                child: GestureDetector(
                           key: ValueKey(city.name),
                           onTap: () => onSelectCity(city.name),
                           onLongPress: canLongPress && onLongPressCity != null
@@ -602,9 +611,13 @@ class _CityColumn extends StatelessWidget {
                               ],
                             ),
                           ),
+                                ),
+                              ),
+                            ),
                         );
                       },
                     ),
+                  ),
         ),
       ],
     );
@@ -687,13 +700,21 @@ class _RegionColumn extends StatelessWidget {
                           onAction: canCreateRegion ? onAddRegion : null,
                           iconColor: AuthColors.textDisabled,
                         )
-                      : ListView.separated(
-                          itemCount: regions.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            final zone = regions[index];
-                            final isSelected = selectedZoneId == zone.id;
-                            return GestureDetector(
+                      : AnimationLimiter(
+                          child: ListView.separated(
+                            itemCount: regions.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final zone = regions[index];
+                              final isSelected = selectedZoneId == zone.id;
+                              return AnimationConfiguration.staggeredList(
+                                position: index,
+                                duration: const Duration(milliseconds: 200),
+                                child: SlideAnimation(
+                                  verticalOffset: 50.0,
+                                  child: FadeInAnimation(
+                                    curve: Curves.easeOut,
+                                    child: GestureDetector(
                               key: ValueKey(zone.id),
                               onTap: () => onSelectZone(zone.id),
                               onLongPress: () {
@@ -758,9 +779,13 @@ class _RegionColumn extends StatelessWidget {
                 ],
               ),
             ),
-                    );
-                  },
-                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
         ),
       ],
     );

@@ -271,7 +271,7 @@ class _ClientTile extends StatelessWidget {
                 color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.person,
                 color: AppColors.primary,
                 size: AppSpacing.iconLG,
@@ -294,7 +294,7 @@ class _ClientTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right,
               color: AppColors.textTertiary,
             ),

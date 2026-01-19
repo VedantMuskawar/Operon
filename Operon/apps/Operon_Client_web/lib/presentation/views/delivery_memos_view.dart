@@ -9,9 +9,9 @@ import 'package:dash_web/presentation/blocs/delivery_memos/delivery_memos_cubit.
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class DeliveryMemosView extends StatefulWidget {
@@ -210,24 +210,34 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
           );
         }
 
-        final orgContext = context.watch<OrganizationContextCubit>().state;
-        final canCancelDM = orgContext.appAccessRole?.canDelete('deliveryMemos') ?? false;
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 5,
-            childAspectRatio: 0.85,
-            crossAxisSpacing: 20,
-            mainAxisSpacing: 20,
+        return AnimationLimiter(
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 5,
+              childAspectRatio: 0.85,
+              crossAxisSpacing: 20,
+              mainAxisSpacing: 20,
+            ),
+            padding: const EdgeInsets.only(bottom: 20),
+            itemCount: filteredMemos.length,
+            itemBuilder: (context, index) {
+              final dm = filteredMemos[index];
+              return AnimationConfiguration.staggeredGrid(
+                position: index,
+                duration: const Duration(milliseconds: 200),
+                columnCount: 5,
+                child: SlideAnimation(
+                  verticalOffset: 50.0,
+                  child: FadeInAnimation(
+                    curve: Curves.easeOut,
+                    child: _DeliveryMemoTile(dm: dm),
+                  ),
+                ),
+              );
+            },
           ),
-          padding: const EdgeInsets.only(bottom: 20),
-          itemCount: filteredMemos.length,
-          itemBuilder: (context, index) {
-            final dm = filteredMemos[index];
-            return _DeliveryMemoTile(dm: dm, canCancel: canCancelDM);
-          },
         );
       },
     );
@@ -249,17 +259,19 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withValues(alpha: 0.2)
-              : const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+              ? AuthColors.primary.withOpacity(0.2)
+              : AuthColors.surface.withOpacity(0.6),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withValues(alpha: 0.1),
+                ? AuthColors.primary
+                : AuthColors.textMainWithOpacity(0.1),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -267,8 +279,8 @@ class _FilterChip extends StatelessWidget {
           label,
           style: TextStyle(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withValues(alpha: 0.7),
+                ? AuthColors.textMain
+                : AuthColors.textSub,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             fontSize: 14,
           ),
@@ -281,11 +293,9 @@ class _FilterChip extends StatelessWidget {
 class _DeliveryMemoTile extends StatefulWidget {
   const _DeliveryMemoTile({
     required this.dm,
-    required this.canCancel,
   });
 
   final Map<String, dynamic> dm;
-  final bool canCancel;
 
   @override
   State<_DeliveryMemoTile> createState() => _DeliveryMemoTileState();
@@ -619,28 +629,6 @@ class _DeliveryMemoTileState extends State<_DeliveryMemoTile>
                       ],
                     ),
                   ),
-                  if (!isCancelled && widget.canCancel && _isHovered)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1B1B2C).withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.1),
-                          ),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.cancel_outlined, size: 18),
-                          color: Colors.redAccent,
-                          onPressed: _showCancelDialog,
-                          tooltip: 'Cancel DM',
-                          padding: const EdgeInsets.all(8),
-                          constraints: const BoxConstraints(),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -697,81 +685,5 @@ class _DeliveryMemoTileState extends State<_DeliveryMemoTile>
     }
   }
 
-  void _showCancelDialog() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1B1B2C),
-        title: const Text(
-          'Cancel Delivery Memo',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Are you sure you want to cancel this delivery memo? This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              await _cancelDM();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Yes, Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _cancelDM() async {
-    final cubit = context.read<DeliveryMemosCubit>();
-    final currentUser = FirebaseAuth.instance.currentUser;
-
-    if (currentUser == null) {
-      DashSnackbar.show(
-        context,
-        message: 'User not found. Please login again.',
-        isError: true,
-      );
-      return;
-    }
-
-    try {
-      final tripId = widget.dm['tripId'] as String?;
-      final dmId = widget.dm['dmId'] as String?;
-
-      if (tripId == null) {
-        throw Exception('Trip ID not found');
-      }
-
-      await cubit.cancelDM(
-        tripId: tripId,
-        dmId: dmId,
-        cancelledBy: currentUser.uid,
-        cancellationReason: 'Cancelled by user',
-      );
-
-      if (context.mounted) {
-        DashSnackbar.show(
-          context,
-          message: 'Delivery Memo cancelled successfully',
-          isError: false,
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        DashSnackbar.show(
-          context,
-          message: 'Failed to cancel DM: ${e.toString()}',
-          isError: true,
-        );
-      }
-    }
-  }
 }
 

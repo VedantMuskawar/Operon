@@ -824,11 +824,11 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             child: Center(child: CircularProgressIndicator()),
           )
         else if (_invoiceSelectionMode == 'dateRange' && (_invoiceDateRangeStart == null || _invoiceDateRangeEnd == null))
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          const Padding(
+            padding: EdgeInsets.all(16.0),
             child: Text(
               'Select date range to view invoices',
-              style: const TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(color: Colors.white54, fontSize: 14),
             ),
           )
         else if (_availableInvoices.isEmpty)
@@ -886,7 +886,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
                 if (_availableInvoices.length > 5)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -945,7 +945,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<Vendor>(
-          value: _selectedVendor,
+          initialValue: _selectedVendor,
           dropdownColor: const Color(0xFF1B1B2C),
           style: const TextStyle(color: Colors.white),
           decoration: _inputDecoration('Select vendor'),
@@ -985,7 +985,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<OrganizationEmployee>(
-          value: _selectedEmployee,
+          initialValue: _selectedEmployee,
           dropdownColor: const Color(0xFF1B1B2C),
           style: const TextStyle(color: Colors.white),
           decoration: _inputDecoration('Select employee'),
@@ -1020,7 +1020,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<ExpenseSubCategory>(
-          value: _selectedSubCategory,
+          initialValue: _selectedSubCategory,
           dropdownColor: const Color(0xFF1B1B2C),
           style: const TextStyle(color: Colors.white),
           decoration: _inputDecoration('Select sub-category'),

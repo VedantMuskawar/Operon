@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
+import 'package:core_ui/core_ui.dart';
 import 'standard_text_field.dart';
 
 /// Standardized search bar component used across the app
@@ -55,14 +56,14 @@ class _StandardSearchBarState extends State<StandardSearchBar> {
       hint: widget.hintText,
       prefixIcon: const Icon(
         Icons.search,
-        color: AppColors.textTertiary,
+        color: AuthColors.textSub,
         size: AppSpacing.iconMD,
       ),
       suffixIcon: widget.controller.text.isNotEmpty
           ? IconButton(
               icon: const Icon(
                 Icons.close,
-                color: AppColors.textTertiary,
+                color: AuthColors.textSub,
                 size: AppSpacing.iconMD,
               ),
               onPressed: _clearSearch,

@@ -31,10 +31,13 @@ class EmployeesDataSource {
   Future<void> updateEmployee(OrganizationEmployee employee) async {
     await _employeesRef.doc(employee.id).update({
       'employeeName': employee.name,
-      'roleId': employee.roleId,
-      'roleTitle': employee.roleTitle,
-      'salaryType': employee.salaryType.name,
-      'salaryAmount': employee.salaryAmount,
+      'jobRoleIds': employee.jobRoleIds,
+      'jobRoles': employee.jobRoles.map(
+        (key, value) => MapEntry(key, value.toJson()),
+      ),
+      'wage': employee.wage.toJson(),
+      'openingBalance': employee.openingBalance,
+      'currentBalance': employee.currentBalance,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

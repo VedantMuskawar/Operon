@@ -57,7 +57,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              const Text(
                 'No organization selected.',
                 style: TextStyle(
                   color: AuthColors.textMain,
@@ -82,7 +82,7 @@ class _HomePageState extends State<HomePage> {
 
     // If we have org selection but app access role is still loading/restoring, show a lightweight loader.
     if (orgState.appAccessRole == null) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: AuthColors.background,
         body: Center(
           child: CircularProgressIndicator(
@@ -243,24 +243,10 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
     // Financial
     financialTiles.add(_TileData(
       icon: Icons.receipt_long_outlined,
-      label: 'Transactions',
+      label: '*Transactions',
       description: 'View transactions',
       color: AuthColors.success, // Green
-      onTap: () => context.go('/transactions'),
-    ));
-    financialTiles.add(_TileData(
-      icon: Icons.account_balance_wallet_outlined,
-      label: 'Expenses',
-      description: 'Manage expenses',
-      color: AuthColors.success, // Green
-      onTap: () => context.go('/expenses'),
-    ));
-    financialTiles.add(_TileData(
-      icon: Icons.shopping_cart,
-      label: 'Purchases',
-      description: 'View purchases',
-      color: AuthColors.success, // Green
-      onTap: () => context.go('/purchases'),
+      onTap: () => context.go('/financial-transactions'),
     ));
     if (isAdmin || appAccessRole?.canAccessPage('employees') == true) {
       financialTiles.add(_TileData(
@@ -450,7 +436,7 @@ class _NotificationSection extends StatelessWidget {
     final notificationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: animationController,
-        curve: Interval(
+        curve: const Interval(
           0.3,
           0.5,
           curve: Curves.easeOut,
@@ -480,14 +466,14 @@ class _NotificationSection extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  const Row(
                     children: [
                       Icon(
                         Icons.notifications_outlined,
                         color: AuthColors.textMain,
                         size: 24,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Text(
                         'Notifications',
                         style: TextStyle(

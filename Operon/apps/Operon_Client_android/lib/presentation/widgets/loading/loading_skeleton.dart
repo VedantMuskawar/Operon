@@ -41,23 +41,23 @@ class ClientTileSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
-      child: Row(
+      child: const Row(
         children: [
           // Avatar skeleton
-          const LoadingSkeleton(
+          LoadingSkeleton(
             width: 48,
             height: 48,
             borderRadius: BorderRadius.all(Radius.circular(24)),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           // Text skeleton
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const LoadingSkeleton(width: 150, height: 16),
-                const SizedBox(height: 8),
-                const LoadingSkeleton(width: 100, height: 14),
+                LoadingSkeleton(width: 150, height: 16),
+                SizedBox(height: 8),
+                LoadingSkeleton(width: 100, height: 14),
               ],
             ),
           ),
@@ -81,20 +81,20 @@ class TripCardSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const LoadingSkeleton(width: 200, height: 16),
-          const SizedBox(height: 12),
+          LoadingSkeleton(width: 200, height: 16),
+          SizedBox(height: 12),
           Row(
             children: [
-              const Expanded(child: LoadingSkeleton(width: double.infinity, height: 14)),
-              const SizedBox(width: 16),
-              const Expanded(child: LoadingSkeleton(width: double.infinity, height: 14)),
+              Expanded(child: LoadingSkeleton(width: double.infinity, height: 14)),
+              SizedBox(width: 16),
+              Expanded(child: LoadingSkeleton(width: double.infinity, height: 14)),
             ],
           ),
-          const SizedBox(height: 12),
-          const LoadingSkeleton(width: 100, height: 14),
+          SizedBox(height: 12),
+          LoadingSkeleton(width: 100, height: 14),
         ],
       ),
     );

@@ -28,3 +28,12 @@ export 'components/home/home_section_transition.dart';
 // Profile components
 export 'components/profile/profile_view.dart';
 export 'layout/responsive_scaffold.dart';
+// Animation widgets
+export 'widgets/animated_list_view.dart';
+export 'widgets/animated_sliver_list.dart';
+export 'widgets/animated_grid_view.dart';
+// Transaction components
+export 'components/transactions/transaction_type_segmented_control.dart';
+export 'components/transactions/transaction_summary_cards.dart';
+export 'components/transactions/transaction_list_tile.dart';
+export 'components/transactions/transaction_date_group_header.dart';

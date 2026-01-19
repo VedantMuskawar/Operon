@@ -9,6 +9,7 @@ import 'package:dash_web/presentation/widgets/vendor_detail_modal.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class VendorsPageContent extends StatefulWidget {
   const VendorsPageContent({super.key});
@@ -31,7 +32,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
   VendorType? _selectedTypeFilter;
   VendorStatus? _selectedStatusFilter;
   final ScrollController _scrollController = ScrollController();
-  bool _isLoadingMore = false;
+  final bool _isLoadingMore = false;
 
   @override
   void initState() {
@@ -157,18 +158,18 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                 ),
                           child: TextField(
                       onChanged: (v) => setState(() => _query = v),
-                            style: TextStyle(color: AuthColors.textMain),
+                            style: const TextStyle(color: AuthColors.textMain),
                             decoration: InputDecoration(
                         hintText: 'Search vendors by name, phone, or GST...',
-                              hintStyle: TextStyle(
+                              hintStyle: const TextStyle(
                                 color: AuthColors.textDisabled,
                               ),
                               filled: true,
                         fillColor: Colors.transparent,
-                        prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
+                        prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
-                                icon: Icon(Icons.clear, color: AuthColors.textSub),
+                                icon: const Icon(Icons.clear, color: AuthColors.textSub),
                                 onPressed: () => setState(() => _query = ''),
                               )
                             : null,
@@ -195,11 +196,11 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<VendorType?>(
                       value: _selectedTypeFilter,
-                      hint: Row(
+                      hint: const Row(
                         mainAxisSize: MainAxisSize.min,
                       children: [
                           Icon(Icons.category, size: 16, color: AuthColors.textSub),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           Text(
                             'All Types',
                             style: TextStyle(color: AuthColors.textSub, fontSize: 14),
@@ -207,7 +208,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                 ],
               ),
                       dropdownColor: AuthColors.surface,
-                      style: TextStyle(color: AuthColors.textMain, fontSize: 14),
+                      style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
                       items: [
                         const DropdownMenuItem<VendorType?>(
                           value: null,
@@ -219,7 +220,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                             )),
                       ],
                       onChanged: (value) => setState(() => _selectedTypeFilter = value),
-                      icon: Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
+                      icon: const Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
                       isDense: true,
                     ),
                   ),
@@ -238,11 +239,11 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<VendorStatus?>(
                       value: _selectedStatusFilter,
-                      hint: Row(
+                      hint: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.filter_list, size: 16, color: AuthColors.textSub),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           Text(
                             'All Status',
                             style: TextStyle(color: AuthColors.textSub, fontSize: 14),
@@ -250,7 +251,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                         ],
                       ),
                       dropdownColor: AuthColors.surface,
-                      style: TextStyle(color: AuthColors.textMain, fontSize: 14),
+                      style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
                       items: [
                         const DropdownMenuItem<VendorStatus?>(
                           value: null,
@@ -262,7 +263,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                     )),
             ],
                       onChanged: (value) => setState(() => _selectedStatusFilter = value),
-                      icon: Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
+                      icon: const Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
                       isDense: true,
                     ),
                   ),
@@ -281,13 +282,13 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
             children: [
-                      Icon(Icons.sort, size: 16, color: AuthColors.textSub),
+                      const Icon(Icons.sort, size: 16, color: AuthColors.textSub),
                       const SizedBox(width: 6),
                       DropdownButtonHideUnderline(
                         child: DropdownButton<_VendorSortOption>(
                           value: _sortOption,
                           dropdownColor: AuthColors.surface,
-                          style: TextStyle(color: AuthColors.textMain, fontSize: 14),
+                          style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
                           items: const [
                             DropdownMenuItem(
                               value: _VendorSortOption.nameAsc,
@@ -295,7 +296,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                                 mainAxisSize: MainAxisSize.min,
                   children: [
                                   Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Text('Name (A-Z)'),
                                 ],
                               ),
@@ -306,7 +307,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                                 mainAxisSize: MainAxisSize.min,
                       children: [
                                   Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Text('Name (Z-A)'),
                                 ],
                               ),
@@ -317,7 +318,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                                 mainAxisSize: MainAxisSize.min,
                       children: [
                                   Icon(Icons.trending_down, size: 16, color: AuthColors.textSub),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Text('Balance (High to Low)'),
                                 ],
                               ),
@@ -328,7 +329,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.trending_up, size: 16, color: AuthColors.textSub),
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
                                   Text('Balance (Low to High)'),
                                 ],
                               ),
@@ -350,7 +351,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                               setState(() => _sortOption = value);
                             }
                           },
-                          icon: Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
+                          icon: const Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
                           isDense: true,
                         ),
                       ),
@@ -370,7 +371,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                   ),
             child: Text(
                     '${filtered.length} ${filtered.length == 1 ? 'vendor' : 'vendors'}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.textSub,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
@@ -519,7 +520,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
@@ -557,7 +558,7 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -566,7 +567,7 @@ class _StatCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textMain,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -872,22 +873,30 @@ class _VendorListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: vendors.length,
-      itemBuilder: (context, index) {
-        final vendor = vendors[index];
-        final typeColor = _getVendorTypeColor(vendor.vendorType);
-        final balanceDifference = vendor.currentBalance - vendor.openingBalance;
-        final isPositive = balanceDifference >= 0;
-        final subtitleParts = <String>[];
-        subtitleParts.add(_formatVendorType(vendor.vendorType));
-        subtitleParts.add(vendor.phoneNumber);
-        if (vendor.vendorCode.isNotEmpty) subtitleParts.add('Code: ${vendor.vendorCode}');
-        final subtitle = subtitleParts.join(' • ');
+    return AnimationLimiter(
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: vendors.length,
+        itemBuilder: (context, index) {
+          final vendor = vendors[index];
+          final typeColor = _getVendorTypeColor(vendor.vendorType);
+          final balanceDifference = vendor.currentBalance - vendor.openingBalance;
+          final isPositive = balanceDifference >= 0;
+          final subtitleParts = <String>[];
+          subtitleParts.add(_formatVendorType(vendor.vendorType));
+          subtitleParts.add(vendor.phoneNumber);
+          if (vendor.vendorCode.isNotEmpty) subtitleParts.add('Code: ${vendor.vendorCode}');
+          final subtitle = subtitleParts.join(' • ');
 
-        return Container(
+          return AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 200),
+            child: SlideAnimation(
+              verticalOffset: 50.0,
+              child: FadeInAnimation(
+                curve: Curves.easeOut,
+                child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: AuthColors.background,
@@ -946,7 +955,7 @@ class _VendorListView extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(Icons.edit_outlined, size: 20, color: AuthColors.textSub),
+                  icon: const Icon(Icons.edit_outlined, size: 20, color: AuthColors.textSub),
                   onPressed: () => onEdit(vendor),
                   tooltip: 'Edit',
                   padding: EdgeInsets.zero,
@@ -954,7 +963,7 @@ class _VendorListView extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 IconButton(
-                  icon: Icon(Icons.delete_outline, size: 20, color: AuthColors.error),
+                  icon: const Icon(Icons.delete_outline, size: 20, color: AuthColors.error),
                   onPressed: () => onDelete(vendor),
                   tooltip: 'Delete',
                   padding: EdgeInsets.zero,
@@ -964,8 +973,12 @@ class _VendorListView extends StatelessWidget {
             ),
             onTap: () => onTap?.call(vendor),
           ),
-        );
-      },
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -1002,7 +1015,7 @@ Future<void> _handleDeleteVendor(BuildContext context, Vendor vendor, VendorsCub
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: Text(
+        title: const Text(
           'Cannot Delete Vendor',
           style: TextStyle(color: AuthColors.textMain),
         ),
@@ -1010,7 +1023,7 @@ Future<void> _handleDeleteVendor(BuildContext context, Vendor vendor, VendorsCub
           'Cannot delete vendor with pending balance.\n'
           'Current balance: ₹${vendor.currentBalance.toStringAsFixed(2)}\n\n'
           'Please settle the balance first.',
-          style: TextStyle(color: AuthColors.textSub),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -1028,13 +1041,13 @@ Future<void> _handleDeleteVendor(BuildContext context, Vendor vendor, VendorsCub
     context: context,
     builder: (context) => AlertDialog(
       backgroundColor: AuthColors.surface,
-      title: Text(
+      title: const Text(
         'Delete Vendor',
         style: TextStyle(color: AuthColors.textMain),
       ),
       content: Text(
         'Are you sure you want to delete "${vendor.name}"?',
-        style: TextStyle(color: AuthColors.textSub),
+        style: const TextStyle(color: AuthColors.textSub),
       ),
       actions: [
         TextButton(
@@ -1270,7 +1283,7 @@ class _VendorDialogState extends State<_VendorDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<VendorType>(
-                        value: _selectedType,
+                        initialValue: _selectedType,
                   dropdownColor: const Color(0xFF1B1B2C),
                   style: const TextStyle(color: Colors.white),
                         decoration: _inputDecoration('Vendor Type', Icons.category_outlined),
@@ -1307,15 +1320,15 @@ class _VendorDialogState extends State<_VendorDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        const Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.inventory_2_outlined,
                               color: Colors.white70,
                               size: 20,
                             ),
-                            const SizedBox(width: 8),
-                            const Text(
+                            SizedBox(width: 8),
+                            Text(
                               'Assigned Raw Materials',
                               style: TextStyle(
                                 color: Colors.white,
@@ -1406,7 +1419,7 @@ class _VendorDialogState extends State<_VendorDialog> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<VendorStatus>(
-                  value: _selectedStatus,
+                  initialValue: _selectedStatus,
                   dropdownColor: const Color(0xFF1B1B2C),
                   style: const TextStyle(color: Colors.white),
                         decoration: _inputDecoration('Status', Icons.flag_outlined),

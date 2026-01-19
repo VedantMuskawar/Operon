@@ -169,9 +169,9 @@ class _DmPreviewModalState extends State<DmPreviewModal> {
             // Header with title and buttons
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF11111B),
-                borderRadius: const BorderRadius.only(
+              decoration: const BoxDecoration(
+                color: Color(0xFF11111B),
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
                 ),

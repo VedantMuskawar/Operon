@@ -73,7 +73,7 @@ class ProfileView extends StatelessWidget {
             Container(
               width: 56,
               height: 56,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 shape: BoxShape.circle,
                 color: AuthColors.primary,
               ),
@@ -87,7 +87,7 @@ class ProfileView extends StatelessWidget {
             Expanded(
               child: Text(
                 displayName,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AuthColors.textMain,
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
@@ -170,7 +170,7 @@ class _ProfileAction extends StatelessWidget {
               ),
             ),
             if (onTap != null)
-              Icon(
+              const Icon(
                 Icons.chevron_right,
                 color: AuthColors.textSub,
                 size: 20,

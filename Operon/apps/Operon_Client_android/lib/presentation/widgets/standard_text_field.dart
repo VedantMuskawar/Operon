@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
+import 'package:core_ui/core_ui.dart';
 
 /// Standardized text field component with consistent styling
 class StandardTextField extends StatelessWidget {
@@ -43,16 +44,16 @@ class StandardTextField extends StatelessWidget {
       onFieldSubmitted: onSubmitted,
       validator: validator,
       maxLines: maxLines,
-      style: AppTypography.body.copyWith(color: AppColors.textPrimary),
+      style: AppTypography.body.copyWith(color: AuthColors.textMain),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
-        labelStyle: AppTypography.label.copyWith(color: AppColors.textSecondary),
-        hintStyle: AppTypography.body.copyWith(color: AppColors.textDisabled),
+        labelStyle: AppTypography.label.copyWith(color: AuthColors.textSub),
+        hintStyle: AppTypography.body.copyWith(color: AuthColors.textDisabled),
         filled: true,
-        fillColor: AppColors.inputBackground,
+        fillColor: AuthColors.backgroundAlt,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
           borderSide: BorderSide.none,
@@ -63,22 +64,22 @@ class StandardTextField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
-          borderSide: BorderSide(
-            color: AppColors.inputFocused,
+          borderSide: const BorderSide(
+            color: AuthColors.legacyAccent,
             width: 1.5,
           ),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
           borderSide: const BorderSide(
-            color: AppColors.error,
+            color: AuthColors.error,
             width: 1.5,
           ),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.inputRadius),
           borderSide: const BorderSide(
-            color: AppColors.error,
+            color: AuthColors.error,
             width: 1.5,
           ),
         ),

@@ -472,16 +472,16 @@ class _ClientHeader extends StatelessWidget {
                         color: const Color(0xFF6F4BFF).withOpacity(0.5),
                       ),
                     ),
-                    child: Row(
+                    child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.business,
                           size: 14,
                           color: Color(0xFF6F4BFF),
                         ),
-                        const SizedBox(width: 4),
-                        const Text(
+                        SizedBox(width: 4),
+                        Text(
                           'Corporate',
                           style: TextStyle(
                             color: Color(0xFF6F4BFF),

@@ -974,7 +974,7 @@ class _LedgerTable extends StatelessWidget {
                   formatCurrency: formatCurrency,
                   formatDate: formatDate,
                 );
-              }).toList(),
+              }),
             ],
           ),
         ),

@@ -162,8 +162,8 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
   void _onEmployeeChanged(OrganizationEmployee? employee) {
     setState(() {
       _selectedEmployee = employee;
-      if (employee != null && employee.salaryAmount != null) {
-        _amountController.text = employee.salaryAmount!.toStringAsFixed(2);
+      if (employee != null && employee.wage.baseAmount != null) {
+        _amountController.text = employee.wage.baseAmount!.toStringAsFixed(2);
       }
     });
     _checkSalaryCredit();
@@ -334,7 +334,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                 const SizedBox(height: 24),
 
                 DropdownButtonFormField<OrganizationEmployee>(
-                  value: _selectedEmployee,
+                  initialValue: _selectedEmployee,
                   decoration: _inputDecoration('Employee'),
                   dropdownColor: const Color(0xFF2B2B3C),
                   style: const TextStyle(color: Colors.white),
@@ -418,7 +418,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                 const SizedBox(height: 16),
 
                 DropdownButtonFormField<PaymentAccount>(
-                  value: _selectedPaymentAccount,
+                  initialValue: _selectedPaymentAccount,
                   decoration: _inputDecoration('Payment Account'),
                   dropdownColor: const Color(0xFF2B2B3C),
                   style: const TextStyle(color: Colors.white),

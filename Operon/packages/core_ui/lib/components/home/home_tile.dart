@@ -219,7 +219,7 @@ class _HomeTileState extends State<HomeTile>
               ),
               child: Text(
                 widget.badgeCount > 99 ? '99+' : '${widget.badgeCount}',
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 10,
                   fontWeight: FontWeight.bold,

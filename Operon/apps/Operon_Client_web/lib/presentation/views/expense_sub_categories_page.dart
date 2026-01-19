@@ -83,18 +83,18 @@ class _ExpenseSubCategoriesPageContentState
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: Text(
+        title: const Text(
           'Delete Sub-Category',
           style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete "${subCategory.name}"?',
-          style: TextStyle(color: AuthColors.textSub),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+            child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -128,7 +128,7 @@ class _ExpenseSubCategoriesPageContentState
               color: AuthColors.surface,
               border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
             ),
-            child: Text(
+            child: const Text(
               'Manage expense sub-categories for better expense tracking and organization.',
               style: TextStyle(color: AuthColors.textSub),
             ),
@@ -195,14 +195,14 @@ class _ExpenseSubCategoriesPageContentState
       builder: (context, state) {
         return TextField(
           controller: _searchController,
-          style: TextStyle(color: AuthColors.textMain),
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: InputDecoration(
             hintText: 'Search sub-categories',
-            hintStyle: TextStyle(color: AuthColors.textSub),
-            prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
+            hintStyle: const TextStyle(color: AuthColors.textSub),
+            prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: _clearSearch,
                   )
                 : null,
@@ -224,7 +224,7 @@ class _ExpenseSubCategoriesPageContentState
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
+              borderSide: const BorderSide(
                 color: AuthColors.primary,
                 width: 2,
               ),
@@ -309,7 +309,7 @@ class _SubCategoryDataListItem extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           IconButton(
-            icon: Icon(
+            icon: const Icon(
               Icons.edit_outlined,
               color: AuthColors.textSub,
               size: 20,
@@ -320,7 +320,7 @@ class _SubCategoryDataListItem extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: Icon(
+            icon: const Icon(
               Icons.delete_outline,
               color: AuthColors.textSub,
               size: 20,
@@ -418,7 +418,7 @@ class _ExpenseSubCategoryFormDialogState
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Sub-Category' : 'Add Sub-Category',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -429,7 +429,7 @@ class _ExpenseSubCategoryFormDialogState
             children: [
               TextFormField(
                 controller: _nameController,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Name *'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -439,7 +439,7 @@ class _ExpenseSubCategoryFormDialogState
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descriptionController,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Description (Optional)'),
                 maxLines: 2,
               ),
@@ -447,7 +447,7 @@ class _ExpenseSubCategoryFormDialogState
               TextFormField(
                 controller: _orderController,
                 keyboardType: TextInputType.number,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Order'),
                 validator: (value) {
                   final parsed = int.tryParse(value ?? '');
@@ -458,7 +458,7 @@ class _ExpenseSubCategoryFormDialogState
                 },
               ),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Color',
                 style: TextStyle(
                   color: AuthColors.textMain,
@@ -490,7 +490,7 @@ class _ExpenseSubCategoryFormDialogState
                 }).toList(),
               ),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Icon',
                 style: TextStyle(
                   color: AuthColors.textMain,
@@ -533,13 +533,13 @@ class _ExpenseSubCategoryFormDialogState
               ),
               const SizedBox(height: 16),
               SwitchListTile(
-                title: Text(
+                title: const Text(
                   'Active',
                   style: TextStyle(color: AuthColors.textMain),
                 ),
                 value: _isActive,
                 onChanged: (value) => setState(() => _isActive = value),
-                activeColor: AuthColors.primary,
+                activeThumbColor: AuthColors.primary,
               ),
             ],
           ),
@@ -548,7 +548,7 @@ class _ExpenseSubCategoryFormDialogState
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         TextButton(
           onPressed: () {
@@ -580,7 +580,7 @@ class _ExpenseSubCategoryFormDialogState
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(
@@ -599,7 +599,7 @@ class _ExpenseSubCategoryFormDialogState
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,
         ),

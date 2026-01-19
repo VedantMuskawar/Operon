@@ -102,7 +102,7 @@ Future<Uint8List> generateDmPdf({
               // Header Section with decorative border
               pw.Container(
                 padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(
+                decoration: const pw.BoxDecoration(
                   border: pw.Border(
                     bottom: pw.BorderSide(color: PdfColors.grey300, width: 1),
                   ),
@@ -210,7 +210,7 @@ Future<Uint8List> generateDmPdf({
                   dmSettings.footer.customText!.isNotEmpty) ...[
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
+                  decoration: const pw.BoxDecoration(
                     border: pw.Border(
                       top: pw.BorderSide(color: PdfColors.grey300, width: 1),
                     ),
@@ -317,7 +317,7 @@ pw.Widget _buildCompanyInfo(DmHeaderSettings header) {
         pw.SizedBox(height: 3),
         pw.Text(
           header.address,
-          style: pw.TextStyle(
+          style: const pw.TextStyle(
             fontSize: 10,
             color: PdfColors.grey700,
           ),
@@ -328,7 +328,7 @@ pw.Widget _buildCompanyInfo(DmHeaderSettings header) {
         children: [
           pw.Text(
             'Phone: ${header.phone}',
-            style: pw.TextStyle(
+            style: const pw.TextStyle(
               fontSize: 9,
               color: PdfColors.grey700,
             ),
@@ -337,7 +337,7 @@ pw.Widget _buildCompanyInfo(DmHeaderSettings header) {
             pw.SizedBox(width: 12),
             pw.Text(
               'GST: ${header.gstNo}',
-              style: pw.TextStyle(
+              style: const pw.TextStyle(
                 fontSize: 9,
                 color: PdfColors.grey700,
               ),
@@ -401,7 +401,7 @@ pw.Widget _buildDmInfo({
             if (zoneText.isNotEmpty)
               pw.Text(
                 'Zone: $zoneText',
-                style: pw.TextStyle(
+                style: const pw.TextStyle(
                   fontSize: 10,
                   color: PdfColors.grey700,
                 ),
@@ -503,7 +503,7 @@ pw.Widget _buildItemsTable(List<dynamic> items) {
       ),
       child: pw.Text(
         'No items',
-        style: pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
+        style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700),
         textAlign: pw.TextAlign.center,
       ),
     );
@@ -649,7 +649,7 @@ pw.Widget _buildItemsTable(List<dynamic> items) {
       borderRadius: pw.BorderRadius.circular(6),
     ),
     child: pw.Table(
-      border: pw.TableBorder(
+      border: const pw.TableBorder(
         horizontalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
         verticalInside: pw.BorderSide(color: PdfColors.grey300, width: 0.5),
       ),
@@ -781,7 +781,7 @@ pw.Widget _buildPaymentSection({
             pw.SizedBox(height: 3),
             pw.Text(
               upiId,
-              style: pw.TextStyle(
+              style: const pw.TextStyle(
                 fontSize: 8,
                 color: PdfColors.grey600,
               ),
@@ -849,7 +849,7 @@ pw.Widget _buildPaymentSection({
               pw.SizedBox(height: 6),
               pw.Text(
                 accountName,
-                style: pw.TextStyle(
+                style: const pw.TextStyle(
                   fontSize: 9,
                   color: PdfColors.grey700,
                 ),

@@ -271,7 +271,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 const SizedBox(height: 24),
 
                 DropdownButtonFormField<OrganizationEmployee>(
-                  value: _selectedEmployee,
+                  initialValue: _selectedEmployee,
                   decoration: _inputDecoration('Employee'),
                   dropdownColor: const Color(0xFF2B2B3C),
                   style: const TextStyle(color: Colors.white),
@@ -296,7 +296,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 const SizedBox(height: 16),
 
                 DropdownButtonFormField<String>(
-                  value: _selectedBonusType,
+                  initialValue: _selectedBonusType,
                   decoration: _inputDecoration('Bonus Type'),
                   dropdownColor: const Color(0xFF2B2B3C),
                   style: const TextStyle(color: Colors.white),
@@ -357,7 +357,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 const SizedBox(height: 16),
 
                 DropdownButtonFormField<PaymentAccount>(
-                  value: _selectedPaymentAccount,
+                  initialValue: _selectedPaymentAccount,
                   decoration: _inputDecoration('Payment Account'),
                   dropdownColor: const Color(0xFF2B2B3C),
                   style: const TextStyle(color: Colors.white),

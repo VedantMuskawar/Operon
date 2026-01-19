@@ -139,7 +139,7 @@ Future<Uint8List> generateLakshmeeTemplate({
           width: PdfPageFormat.a4.landscape.width,
           height: PdfPageFormat.a4.landscape.height,
           padding: const pw.EdgeInsets.all(5 * PdfPageFormat.mm),
-          decoration: pw.BoxDecoration(
+          decoration: const pw.BoxDecoration(
             color: PdfColors.white,
           ),
           child: pw.Container(
@@ -281,7 +281,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                                       : pw.Center(
                                           child: pw.Text(
                                             'QR Code',
-                                            style: pw.TextStyle(
+                                            style: const pw.TextStyle(
                                               fontSize: 22,
                                               color: PdfColors.grey600,
                                             ),
@@ -368,7 +368,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                                                   ),
                                                   pw.TextSpan(
                                                     text: fullAddress,
-                                                    style: pw.TextStyle(fontSize: 14),
+                                                    style: const pw.TextStyle(fontSize: 14),
                                                   ),
                                                 ],
                                               ),
@@ -414,7 +414,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                                                   ),
                                                   pw.TextSpan(
                                                     text: _formatDate(deliveryDate),
-                                                    style: pw.TextStyle(fontSize: 14),
+                                                    style: const pw.TextStyle(fontSize: 14),
                                                   ),
                                                 ],
                                               ),
@@ -432,7 +432,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                                                   ),
                                                   pw.TextSpan(
                                                     text: vehicleNumber,
-                                                    style: pw.TextStyle(fontSize: 14),
+                                                    style: const pw.TextStyle(fontSize: 14),
                                                   ),
                                                 ],
                                               ),
@@ -450,7 +450,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                                                   ),
                                                   pw.TextSpan(
                                                     text: driverName,
-                                                    style: pw.TextStyle(fontSize: 14),
+                                                    style: const pw.TextStyle(fontSize: 14),
                                                   ),
                                                 ],
                                               ),
@@ -533,7 +533,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                               children: [
                                 pw.Text(
                                   'Received By',
-                                  style: pw.TextStyle(
+                                  style: const pw.TextStyle(
                                     fontSize: 13,
                                   ),
                                 ),
@@ -552,7 +552,7 @@ Future<Uint8List> generateLakshmeeTemplate({
                               children: [
                                 pw.Text(
                                   'Authorized Signature',
-                                  style: pw.TextStyle(
+                                  style: const pw.TextStyle(
                                     fontSize: 13,
                                   ),
                                 ),
@@ -585,7 +585,7 @@ pw.Widget _buildTableRow(String label, String value, {required bool isTotal}) {
     padding: const pw.EdgeInsets.symmetric(vertical: 2, horizontal: 4),
     decoration: isTotal
         ? null
-        : pw.BoxDecoration(
+        : const pw.BoxDecoration(
             border: pw.Border(
               bottom: pw.BorderSide(
                 color: PdfColors.grey400,
@@ -599,7 +599,7 @@ pw.Widget _buildTableRow(String label, String value, {required bool isTotal}) {
       children: [
         pw.Text(
           label,
-          style: pw.TextStyle(
+          style: const pw.TextStyle(
             fontSize: 14,
           ),
         ),

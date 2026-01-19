@@ -24,7 +24,7 @@ class LinkTripsDialog extends StatefulWidget {
 
 class _LinkTripsDialogState extends State<LinkTripsDialog> {
   List<Map<String, dynamic>> _availableTrips = [];
-  Set<String> _selectedDmIds = {};
+  final Set<String> _selectedDmIds = {};
   bool _isLoading = true;
   bool _isLinking = false;
   String? _error;
@@ -460,9 +460,9 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
             // Summary and Actions
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
-                borderRadius: const BorderRadius.only(
+              decoration: const BoxDecoration(
+                color: Color(0xFF1B1B2C),
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),
                 ),

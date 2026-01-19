@@ -164,13 +164,13 @@ class _ProductionWagesContent extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               // Statistics Cards
-              _StatisticsCards(),
+              const _StatisticsCards(),
               const SizedBox(height: 24),
               // Workflow Tabs
-              _WorkflowTabs(),
+              const _WorkflowTabs(),
               const SizedBox(height: 24),
               // Filters Bar
-              _FiltersBar(),
+              const _FiltersBar(),
               const SizedBox(height: 24),
               // Batches List
               Expanded(

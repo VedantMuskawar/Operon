@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/clients_repository.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
@@ -130,7 +131,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
         }
       },
       child: _isLoading
-          ? _SkeletonLoader()
+          ? const _SkeletonLoader()
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -144,7 +145,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                         icon: Icons.shopping_cart_outlined,
                       ),
                     ),
-                    SizedBox(width: AppSpacing.paddingLG),
+                    const SizedBox(width: AppSpacing.paddingLG),
                     Expanded(
                       child: _StatTile(
                         title: 'Trips',
@@ -178,8 +179,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                     onDeleted: () => _subscribeToOrders(),
                   ),
                 ] else if (!_isLoading && _orders.isEmpty) ...[
-                  SizedBox(height: AppSpacing.paddingXXL),
-                  _EmptyState(),
+                  const SizedBox(height: AppSpacing.paddingXXL),
+                  const _EmptyState(),
                 ],
               ],
             ),
@@ -229,10 +230,10 @@ class _FixedQuantityFilter extends StatelessWidget {
             isSelected: selectedValue == null,
             onTap: () => onFilterChanged(null),
           ),
-          SizedBox(width: AppSpacing.paddingSM),
+          const SizedBox(width: AppSpacing.paddingSM),
           // Quantity filter chips
           ...sortedQuantities.map((quantity) => Padding(
-                padding: EdgeInsets.only(right: AppSpacing.paddingSM),
+                padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                 child: _FilterChip(
                   label: quantity.toString(),
                   isSelected: selectedValue == quantity,
@@ -268,7 +269,7 @@ class _FilterChip extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          padding: EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.paddingLG,
             vertical: AppSpacing.paddingSM,
           ),
@@ -334,7 +335,7 @@ class _StatTile extends StatelessWidget {
     final effectiveIconColor = iconColor ?? (isSuccess ? AppColors.success : AppColors.primary);
 
     return ModernTile(
-      padding: EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.paddingLG,
         vertical: AppSpacing.paddingMD,
       ),
@@ -349,7 +350,7 @@ class _StatTile extends StatelessWidget {
             color: effectiveIconColor,
             size: AppSpacing.iconMD,
           ),
-          SizedBox(width: AppSpacing.paddingMD),
+          const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,7 +362,7 @@ class _StatTile extends StatelessWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                SizedBox(height: AppSpacing.paddingXS / 2),
+                const SizedBox(height: AppSpacing.paddingXS / 2),
                 Text(
                   value,
                   style: AppTypography.h1.copyWith(
@@ -390,14 +391,14 @@ class _SkeletonLoader extends StatelessWidget {
         Row(
           children: [
             Expanded(child: _SkeletonTile()),
-            SizedBox(width: AppSpacing.paddingLG),
+            const SizedBox(width: AppSpacing.paddingLG),
             Expanded(child: _SkeletonTile()),
           ],
         ),
-        SizedBox(height: AppSpacing.paddingXXL),
+        const SizedBox(height: AppSpacing.paddingXXL),
         // Order tiles skeleton
         ...List.generate(3, (index) => Padding(
-              padding: EdgeInsets.only(bottom: AppSpacing.paddingMD),
+              padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
               child: _SkeletonOrderTile(),
             )),
       ],
@@ -409,7 +410,7 @@ class _SkeletonTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ModernTile(
-      padding: EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.paddingLG,
         vertical: AppSpacing.paddingMD,
       ),
@@ -429,7 +430,7 @@ class _SkeletonTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
             ),
-            SizedBox(width: AppSpacing.paddingMD),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,7 +443,7 @@ class _SkeletonTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                  SizedBox(height: AppSpacing.paddingXS),
+                  const SizedBox(height: AppSpacing.paddingXS),
                   Container(
                     width: 40,
                     height: 24,
@@ -465,7 +466,7 @@ class _SkeletonOrderTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(AppSpacing.paddingMD),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -487,7 +488,7 @@ class _SkeletonOrderTile extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    SizedBox(height: AppSpacing.paddingXS),
+                    const SizedBox(height: AppSpacing.paddingXS),
                     Container(
                       width: 150,
                       height: 12,
@@ -509,7 +510,7 @@ class _SkeletonOrderTile extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: AppSpacing.paddingMD),
+          const SizedBox(height: AppSpacing.paddingMD),
           Row(
             children: List.generate(3, (index) => Expanded(
                   child: Container(
@@ -545,37 +546,64 @@ class _OrderList extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use ListView.builder for better performance with large lists
     if (orders.length > 5) {
-      return ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: orders.length,
-        separatorBuilder: (context, index) => SizedBox(height: AppSpacing.paddingMD),
-        itemBuilder: (context, index) => RepaintBoundary(
-          child: OrderTile(
-            key: ValueKey(orders[index]['id']),
-            order: orders[index],
-            onTripsUpdated: onTripsUpdated,
-            onDeleted: onDeleted,
+      return AnimationLimiter(
+        child: ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: orders.length,
+          separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.paddingMD),
+          itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 200),
+            child: SlideAnimation(
+              verticalOffset: 50.0,
+              child: FadeInAnimation(
+                curve: Curves.easeOut,
+                child: RepaintBoundary(
+                  child: OrderTile(
+                    key: ValueKey(orders[index]['id']),
+                    order: orders[index],
+                    onTripsUpdated: onTripsUpdated,
+                    onDeleted: onDeleted,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       );
     }
 
     // For small lists, use Column for simplicity
-    return Column(
-      children: [
-        for (int i = 0; i < orders.length; i++) ...[
-          if (i > 0) SizedBox(height: AppSpacing.paddingMD),
-          RepaintBoundary(
-            key: ValueKey(orders[i]['id']),
-            child: OrderTile(
-              order: orders[i],
-              onTripsUpdated: onTripsUpdated,
-              onDeleted: onDeleted,
+    return AnimationLimiter(
+      child: Column(
+        children: [
+          for (int i = 0; i < orders.length; i++)
+            AnimationConfiguration.staggeredList(
+              position: i,
+              duration: const Duration(milliseconds: 200),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  curve: Curves.easeOut,
+                  child: Column(
+                    children: [
+                      if (i > 0) const SizedBox(height: AppSpacing.paddingMD),
+                      RepaintBoundary(
+                        key: ValueKey(orders[i]['id']),
+                        child: OrderTile(
+                          order: orders[i],
+                          onTripsUpdated: onTripsUpdated,
+                          onDeleted: onDeleted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -602,25 +630,25 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: EdgeInsets.all(AppSpacing.paddingXXL),
-            decoration: BoxDecoration(
+            padding: const EdgeInsets.all(AppSpacing.paddingXXL),
+            decoration: const BoxDecoration(
               color: AppColors.cardBackgroundElevated,
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.inbox_outlined,
               size: 64,
               color: AppColors.textTertiary,
             ),
           ),
-          SizedBox(height: AppSpacing.paddingXL),
+          const SizedBox(height: AppSpacing.paddingXL),
           Text(
             'No Pending Orders',
             style: AppTypography.h3.copyWith(
               color: AppColors.textPrimary,
             ),
           ),
-          SizedBox(height: AppSpacing.paddingSM),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             'All orders have been processed',
             style: AppTypography.bodySmall.copyWith(

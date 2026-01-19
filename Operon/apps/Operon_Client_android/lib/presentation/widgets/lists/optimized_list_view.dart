@@ -132,22 +132,22 @@ class OptimizedListView<T> extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white10),
             ),
-            child: Row(
+            child: const Row(
               children: [
-                const LoadingSkeleton(
+                LoadingSkeleton(
                   width: 48,
                   height: 48,
                   borderRadius: BorderRadius.all(Radius.circular(24)),
                 ),
-                const SizedBox(width: 16),
+                SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const LoadingSkeleton(width: 150, height: 16),
-                      const SizedBox(height: 8),
-                      const LoadingSkeleton(width: 100, height: 14),
+                      LoadingSkeleton(width: 150, height: 16),
+                      SizedBox(height: 8),
+                      LoadingSkeleton(width: 100, height: 14),
                     ],
                   ),
                 ),

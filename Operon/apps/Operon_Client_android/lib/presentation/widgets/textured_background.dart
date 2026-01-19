@@ -164,7 +164,7 @@ class _TexturedPainter extends CustomPainter {
     // Create a random grain pattern using noise
     // More visible grain texture
     final random = _SeededRandom(42);
-    final density = 0.12; // Increased density for better visibility
+    const density = 0.12; // Increased density for better visibility
     final totalPixels = (size.width * size.height * density / 100).round();
     
     if (kDebugMode && debugMode) {

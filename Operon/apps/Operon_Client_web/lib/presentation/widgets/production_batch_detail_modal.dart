@@ -369,7 +369,7 @@ class _ProductionBatchDetailModalState
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${widget.batch.batchDate.day}/${widget.batch.batchDate.month}/${widget.batch.batchDate.year} • ${employeeCount} employee${employeeCount != 1 ? 's' : ''}',
+                                '${widget.batch.batchDate.day}/${widget.batch.batchDate.month}/${widget.batch.batchDate.year} • $employeeCount employee${employeeCount != 1 ? 's' : ''}',
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.6),
                                   fontSize: 13,

@@ -220,7 +220,7 @@ class _ExpenseSubCategoryFormDialogState
                         _isActive = value;
                       });
                     },
-                    activeColor: const Color(0xFF6F4BFF),
+                    activeThumbColor: const Color(0xFF6F4BFF),
                   ),
                 ],
               ),

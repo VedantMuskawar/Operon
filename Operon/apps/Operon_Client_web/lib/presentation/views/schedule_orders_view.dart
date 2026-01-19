@@ -5,9 +5,9 @@ import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/data/repositories/vehicles_repository.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/scheduled_trip_tile.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class ScheduleOrdersView extends StatefulWidget {
   const ScheduleOrdersView({super.key});
@@ -557,27 +557,40 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               color: const Color(0xFF6F4BFF),
             )
           else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 5,
-                crossAxisSpacing: 20,
-                mainAxisSpacing: 20,
+            AnimationLimiter(
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                ),
+                itemCount: _scheduledTrips.length,
+                itemBuilder: (context, index) {
+                  return AnimationConfiguration.staggeredGrid(
+                    position: index,
+                    duration: const Duration(milliseconds: 200),
+                    columnCount: 5,
+                    child: SlideAnimation(
+                      verticalOffset: 50.0,
+                      child: FadeInAnimation(
+                        curve: Curves.easeOut,
+                        child: ScheduledTripTile(
+                          trip: _scheduledTrips[index],
+                          onTripsUpdated: () {
+                            _currentOrgId = null;
+                            _subscribeToTrips();
+                          },
+                          onTap: () {
+                            // TODO: Navigate to trip detail page
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-              itemCount: _scheduledTrips.length,
-              itemBuilder: (context, index) {
-                return ScheduledTripTile(
-                  trip: _scheduledTrips[index],
-                  onTripsUpdated: () {
-                    _currentOrgId = null;
-                    _subscribeToTrips();
-                  },
-                  onTap: () {
-                    // TODO: Navigate to trip detail page
-                  },
-                );
-              },
             ),
         ],
       ),

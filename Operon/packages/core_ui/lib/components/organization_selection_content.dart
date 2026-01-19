@@ -7,7 +7,7 @@ class OrganizationSelectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -20,7 +20,7 @@ class OrganizationSelectionHeader extends StatelessWidget {
             letterSpacing: 0.3,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(
           "Pick an organization and we'll tailor everything to it.",
           style: TextStyle(
@@ -55,7 +55,7 @@ class FinancialYearSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Financial Year',
           style: TextStyle(
             color: AuthColors.textSub,
@@ -66,11 +66,11 @@ class FinancialYearSelector extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
-          value: financialYear,
+          initialValue: financialYear,
           dropdownColor: AuthColors.surface,
           iconEnabledColor:
               isLocked ? AuthColors.textSubWithOpacity(0.3) : AuthColors.textMain,
-          style: TextStyle(
+          style: const TextStyle(
             color: AuthColors.textMain,
             fontSize: 17,
             fontFamily: 'SF Pro Display',
@@ -112,7 +112,7 @@ class FinancialYearSelector extends StatelessWidget {
             helperText: isLocked
                 ? 'Locked to current year for your role.'
                 : null,
-            helperStyle: TextStyle(
+            helperStyle: const TextStyle(
               color: AuthColors.textSub,
               fontSize: 12,
               fontFamily: 'SF Pro Display',
@@ -460,7 +460,7 @@ class EmptyOrganizationsState extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 32),
-        Text(
+        const Text(
           'No organizations found',
           style: TextStyle(
             color: AuthColors.textMain,
@@ -470,7 +470,7 @@ class EmptyOrganizationsState extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Text(
+        const Text(
           'You don\'t have access to any organizations yet.\nContact your administrator to get started.',
           textAlign: TextAlign.center,
           style: TextStyle(
@@ -518,7 +518,7 @@ class EmptyOrganizationsState extends StatelessWidget {
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
@@ -526,7 +526,7 @@ class EmptyOrganizationsState extends StatelessWidget {
                   size: 16,
                   color: AuthColors.textSub,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   'Back to login',
                   style: TextStyle(

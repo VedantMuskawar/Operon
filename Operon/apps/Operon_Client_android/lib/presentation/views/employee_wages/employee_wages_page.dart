@@ -847,7 +847,7 @@ class _WagesTransactionsTable extends StatelessWidget {
                 topRight: Radius.circular(12),
               ),
             ),
-            children: [
+            children: const [
               _TableHeaderCell('Date'),
               _TableHeaderCell('Employee'),
               _TableHeaderCell('Category'),

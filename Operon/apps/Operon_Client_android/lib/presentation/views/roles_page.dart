@@ -5,6 +5,7 @@ import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class RolesPage extends StatelessWidget {
@@ -37,7 +38,7 @@ class RolesPage extends StatelessWidget {
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   colors: [AuthColors.primary, AuthColors.primaryVariant],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -67,14 +68,14 @@ class RolesPage extends StatelessWidget {
                             color: AuthColors.textMain.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.add,
                             color: AuthColors.textMain,
                             size: 20,
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
+                        const Text(
                           'Add New Role',
                           style: TextStyle(
                             color: AuthColors.textMain,
@@ -96,8 +97,8 @@ class RolesPage extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (state.roles.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 40),
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 40),
                     child: Text(
                       'No roles yet. Tap “Add Role” to create one.',
                       style: TextStyle(
@@ -108,20 +109,32 @@ class RolesPage extends StatelessWidget {
                     ),
                   );
                 }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: state.roles.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final role = state.roles[index];
-                    return _RoleDataListItem(
-                      role: role,
-                      onEdit: () => _openRoleDialog(context, role: role),
-                      onDelete: () =>
-                          context.read<RolesCubit>().deleteRole(role.id),
-                    );
-                  },
+                return AnimationLimiter(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: state.roles.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final role = state.roles[index];
+                      return AnimationConfiguration.staggeredList(
+                        position: index,
+                        duration: const Duration(milliseconds: 200),
+                        child: SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(
+                            curve: Curves.easeOut,
+                            child: _RoleDataListItem(
+                              role: role,
+                              onEdit: () => _openRoleDialog(context, role: role),
+                              onDelete: () =>
+                                  context.read<RolesCubit>().deleteRole(role.id),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -262,7 +275,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerP
                 ),
                 const SizedBox(width: 12),
                 IconButton(
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.edit_outlined,
                     color: AuthColors.textSub,
                     size: 20,
@@ -273,7 +286,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerP
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.delete_outline,
                     color: AuthColors.textSub,
                     size: 20,
@@ -322,9 +335,9 @@ class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerP
             firstChild: const SizedBox.shrink(),
             secondChild: Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AuthColors.background,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(18),
                   bottomRight: Radius.circular(18),
                 ),
@@ -383,7 +396,7 @@ class _RoleInfoPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            Expanded(
+            const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -395,7 +408,7 @@ class _RoleInfoPanel extends StatelessWidget {
                       fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     'Admins have unrestricted access to all sections and pages.',
                     style: TextStyle(
@@ -544,7 +557,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Role' : 'Add Role',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -556,7 +569,7 @@ class _RoleDialogState extends State<_RoleDialog> {
             children: [
               TextFormField(
                 controller: _titleController,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Role title'),
                 enabled: !isEditing,
                 validator: (value) =>
@@ -568,7 +581,7 @@ class _RoleDialogState extends State<_RoleDialog> {
               DropdownButtonFormField<SalaryType>(
                 initialValue: _salaryType,
                 dropdownColor: AuthColors.surface,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Salary type'),
                 onChanged: (value) {
                   if (value != null) setState(() => _salaryType = value);
@@ -598,7 +611,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',
@@ -654,7 +667,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -702,7 +715,7 @@ class _ColorSelector extends StatelessWidget {
                   ),
                 ),
                 child: isActive
-                    ? Icon(Icons.check, color: AuthColors.textMain, size: 18)
+                    ? const Icon(Icons.check, color: AuthColors.textMain, size: 18)
                     : null,
               ),
             );

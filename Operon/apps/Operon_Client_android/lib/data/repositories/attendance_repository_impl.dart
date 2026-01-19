@@ -143,10 +143,13 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
         final totalDaysInMonth = _getTotalDaysInMonth(monthStart);
         final monthSummary = _getMonthSummary(daysPresent, totalDaysInMonth);
 
+        // Use primaryJobRoleTitle from shared OrganizationEmployee entity
+        final effectiveRoleTitle = employee.primaryJobRoleTitle.isEmpty ? 'No Role' : employee.primaryJobRoleTitle;
+        
         return EmployeeAttendanceData(
           employeeId: employee.id,
           employeeName: employee.name,
-          roleTitle: employee.roleTitle.isEmpty ? 'No Role' : employee.roleTitle,
+          roleTitle: effectiveRoleTitle,
           dailyRecords: allDailyRecords,
           daysPresent: daysPresent,
           daysAbsent: daysAbsent,
@@ -154,10 +157,12 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
         );
       } catch (e) {
         // If attendance fetch fails, return empty data for this employee
+        final effectiveRoleTitle = employee.primaryJobRoleTitle.isEmpty ? 'No Role' : employee.primaryJobRoleTitle;
+        
         return EmployeeAttendanceData(
           employeeId: employee.id,
           employeeName: employee.name,
-          roleTitle: employee.roleTitle.isEmpty ? 'No Role' : employee.roleTitle,
+          roleTitle: effectiveRoleTitle,
           dailyRecords: [],
           daysPresent: 0,
           daysAbsent: 0,

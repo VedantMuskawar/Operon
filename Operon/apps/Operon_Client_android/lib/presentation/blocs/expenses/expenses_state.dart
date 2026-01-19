@@ -1,6 +1,5 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
-import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 
 enum ExpenseType {

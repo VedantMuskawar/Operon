@@ -73,7 +73,7 @@ class WageSettingsPageContent extends StatelessWidget {
               color: AuthColors.surface,
               border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.12)),
             ),
-            child: Text(
+            child: const Text(
               'Configure wage calculation methods for your organization.',
               style: TextStyle(color: AuthColors.textSub),
             ),
@@ -97,7 +97,7 @@ class WageSettingsPageContent extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Enable Wage Calculations',
                             style: TextStyle(
                               color: AuthColors.textMain,
@@ -110,7 +110,7 @@ class WageSettingsPageContent extends StatelessWidget {
                             isEnabled
                                 ? 'Wage calculations are active'
                                 : 'Wage calculations are disabled',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AuthColors.textSub,
                               fontSize: 13,
                             ),
@@ -123,7 +123,7 @@ class WageSettingsPageContent extends StatelessWidget {
                       onChanged: (value) {
                         context.read<WageSettingsCubit>().toggleEnabled(value);
                       },
-                      activeColor: AuthColors.primary,
+                      activeThumbColor: AuthColors.primary,
                     ),
                   ],
                 ),
@@ -134,7 +134,7 @@ class WageSettingsPageContent extends StatelessWidget {
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 colors: [AuthColors.primary, AuthColors.primaryVariant],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -164,14 +164,14 @@ class WageSettingsPageContent extends StatelessWidget {
                           color: AuthColors.textMain.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.add,
                           color: AuthColors.textMain,
                           size: 20,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Text(
+                      const Text(
                         'Add Wage Method',
                         style: TextStyle(
                           color: AuthColors.textMain,
@@ -200,8 +200,8 @@ class WageSettingsPageContent extends StatelessWidget {
 
               final methods = state.settings?.calculationMethods.values.toList() ?? [];
               if (methods.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 40),
+                return const Padding(
+                  padding: EdgeInsets.only(top: 40),
                   child: Text(
                     'No wage methods yet. Tap "Add Wage Method" to create one.',
                     style: TextStyle(
@@ -285,13 +285,13 @@ class WageSettingsPageContent extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: Text(
+        title: const Text(
           'Delete Wage Method',
           style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete "${method.name}"? This action cannot be undone.',
-          style: TextStyle(color: AuthColors.textSub),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -397,11 +397,11 @@ class _WageMethodDataListItem extends StatelessWidget {
             Switch(
               value: method.enabled,
               onChanged: onToggle,
-              activeColor: _typeColor,
+              activeThumbColor: _typeColor,
             ),
             const SizedBox(width: 12),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.edit_outlined,
                 color: AuthColors.textSub,
                 size: 20,
@@ -412,7 +412,7 @@ class _WageMethodDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.delete_outline,
                 color: AuthColors.error,
                 size: 20,
@@ -507,7 +507,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Wage Method' : 'Add Wage Method',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -519,9 +519,9 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<WageMethodType>(
-                  value: _methodType,
+                  initialValue: _methodType,
                   dropdownColor: AuthColors.surface,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Method Type'),
                   onChanged: isEditing
                       ? null
@@ -555,7 +555,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                   TextFormField(
                     controller: _productionPriceController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Production Price Per Unit'),
                     validator: (value) {
                       final parsed = double.tryParse(value ?? '');
@@ -569,7 +569,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                   TextFormField(
                     controller: _stackingPriceController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Stacking Price Per Unit'),
                     validator: (value) {
                       final parsed = double.tryParse(value ?? '');
@@ -591,7 +591,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                     ),
                     value: _requiresBatchApproval,
                     onChanged: (value) => setState(() => _requiresBatchApproval = value),
-                    activeColor: AuthColors.primary,
+                    activeThumbColor: AuthColors.primary,
                   ),
                   SwitchListTile(
                     title: const Text(
@@ -604,7 +604,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                     ),
                     value: _autoCalculateOnRecord,
                     onChanged: (value) => setState(() => _autoCalculateOnRecord = value),
-                    activeColor: AuthColors.primary,
+                    activeThumbColor: AuthColors.primary,
                   ),
                 ],
                 if (_methodType == WageMethodType.loadingUnloading) ...[
@@ -649,7 +649,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
                   ),
                   value: _enabled,
                   onChanged: (value) => setState(() => _enabled = value),
-                  activeColor: const Color(0xFF6F4BFF),
+                  activeThumbColor: const Color(0xFF6F4BFF),
                 ),
               ],
             ),
@@ -819,7 +819,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -866,7 +866,7 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
         case WageMethodType.dailyRate:
         case WageMethodType.custom:
           // Placeholder - use production config as fallback
-          config = ProductionWageConfig(
+          config = const ProductionWageConfig(
             productionPricePerUnit: 0.0,
             stackingPricePerUnit: 0.0,
             requiresBatchApproval: false,

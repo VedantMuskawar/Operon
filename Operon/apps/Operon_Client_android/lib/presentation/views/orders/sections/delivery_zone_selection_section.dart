@@ -78,7 +78,7 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                 ),
               )
             else if (state.cities.isEmpty && state.zones.isEmpty)
-              Expanded(
+              const Expanded(
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -88,12 +88,12 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                         size: 48,
                         color: Colors.white38,
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       Text(
                         'No delivery zones available',
                         style: TextStyle(color: Colors.white70),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text(
                         'Add cities and regions in Delivery Zones page',
                         style: TextStyle(color: Colors.white54, fontSize: 12),

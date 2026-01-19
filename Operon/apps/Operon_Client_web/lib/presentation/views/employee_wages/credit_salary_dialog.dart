@@ -343,7 +343,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
 
               // Employee Dropdown
               DropdownButtonFormField<OrganizationEmployee>(
-                value: _selectedEmployee,
+                initialValue: _selectedEmployee,
                 decoration: _inputDecoration('Employee'),
                 dropdownColor: const Color(0xFF2B2B3C),
                 style: const TextStyle(color: Colors.white),
@@ -431,7 +431,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
 
               // Payment Account
               DropdownButtonFormField<PaymentAccount>(
-                value: _selectedPaymentAccount,
+                initialValue: _selectedPaymentAccount,
                 decoration: _inputDecoration('Payment Account'),
                 dropdownColor: const Color(0xFF2B2B3C),
                 style: const TextStyle(color: Colors.white),

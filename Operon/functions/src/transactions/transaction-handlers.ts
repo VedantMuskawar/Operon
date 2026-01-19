@@ -12,8 +12,10 @@ import {
   EXPENSE_SUB_CATEGORIES_COLLECTION,
   ANALYTICS_COLLECTION,
   TRANSACTIONS_SOURCE_KEY,
+  EMPLOYEES_SOURCE_KEY,
 } from '../shared/constants';
-import { getFirestore } from '../shared/firestore-helpers';
+import { getFirestore, seedEmployeeAnalyticsDoc } from '../shared/firestore-helpers';
+import { getFinancialContext } from '../shared/financial-year';
 import { getISOWeek, formatDate, formatMonth, cleanDailyData, getYearMonthCompact } from '../shared/date-helpers';
 import { getTransactionDate, removeUndefinedFields } from '../shared/transaction-helpers';
 // Note: transaction-handlers.ts still uses console.log for detailed ledger debugging
@@ -1336,6 +1338,43 @@ async function updateExpenseSubCategoryAnalytics(
 }
 
 /**
+ * Update employee analytics when wages credit transaction is created or cancelled
+ */
+async function updateEmployeeAnalytics(
+  organizationId: string,
+  financialYear: string,
+  transactionDate: Date,
+  amount: number,
+  isCancellation: boolean = false
+): Promise<void> {
+  const multiplier = isCancellation ? -1 : 1;
+  const { monthKey } = getFinancialContext(transactionDate);
+  const analyticsRef = db
+    .collection(ANALYTICS_COLLECTION)
+    .doc(`${EMPLOYEES_SOURCE_KEY}_${organizationId}_${financialYear}`);
+
+  try {
+    await seedEmployeeAnalyticsDoc(analyticsRef, financialYear, organizationId);
+    
+    await analyticsRef.set(
+      {
+        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        [`metrics.wagesCreditMonthly.values.${monthKey}`]:
+          admin.firestore.FieldValue.increment(amount * multiplier),
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    console.warn('[Employee Analytics] Error updating wages credit analytics', {
+      organizationId,
+      financialYear,
+      monthKey,
+      error,
+    });
+  }
+}
+
+/**
  * Update analytics when transaction is created or cancelled
  */
 async function updateTransactionAnalytics(
@@ -1836,6 +1875,18 @@ export const onTransactionCreated = functions.firestore
         );
         balanceBefore = result.balanceBefore;
         balanceAfter = result.balanceAfter;
+        
+        // Update employee analytics for wage credits
+        const category = transaction.category as string;
+        if (type === 'credit' && category === 'wageCredit') {
+          await updateEmployeeAnalytics(
+            organizationId,
+            financialYear,
+            transactionDate,
+            amount,
+            false
+          );
+        }
       } else if (ledgerType === 'organizationLedger') {
         // Update organization ledger and get balances
         const result = await updateOrganizationLedger(
@@ -2025,6 +2076,18 @@ export const onTransactionDeleted = functions.firestore
         );
         balanceBefore = result.balanceBefore;
         balanceAfter = result.balanceAfter;
+        
+        // Update employee analytics for wage credits (revert)
+        const category = transaction.category as string;
+        if (type === 'credit' && category === 'wageCredit') {
+          await updateEmployeeAnalytics(
+            organizationId,
+            financialYear,
+            transactionDate,
+            amount,
+            true
+          );
+        }
       } else if (ledgerType === 'organizationLedger') {
         // Reverse in organization ledger
         const result = await updateOrganizationLedger(

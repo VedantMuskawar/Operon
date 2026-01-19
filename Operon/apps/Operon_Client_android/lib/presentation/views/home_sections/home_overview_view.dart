@@ -85,8 +85,8 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
     final financialTiles = <_TileData>[
       const _TileData(
         icon: Icons.payment_outlined,
-        title: 'Transactions',
-        route: '/transactions',
+        title: '*Transactions',
+        route: '/financial-transactions',
         color: _financialColor,
       ),
       const _TileData(
@@ -99,18 +99,6 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
         icon: Icons.payments_outlined,
         title: 'Employee Wages',
         route: '/employee-wages',
-        color: _financialColor,
-      ),
-      const _TileData(
-        icon: Icons.shopping_cart_outlined,
-        title: 'Purchases',
-        route: '/purchases',
-        color: _financialColor,
-      ),
-      const _TileData(
-        icon: Icons.receipt_long_outlined,
-        title: 'Expenses',
-        route: '/expenses',
         color: _financialColor,
       ),
     ];

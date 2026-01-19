@@ -120,7 +120,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.dialogRadius),
         ),
-        title: Text(
+        title: const Text(
           'Delete Order',
           style: AppTypography.h3,
         ),
@@ -382,7 +382,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
           children: [
             // Header
             Padding(
-              padding: EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.paddingLG,
                 vertical: AppSpacing.paddingMD,
               ),
@@ -390,22 +390,22 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.close,
                       color: AppColors.textSecondary,
                       size: AppSpacing.iconMD,
                     ),
                   ),
-                  SizedBox(width: AppSpacing.paddingSM),
+                  const SizedBox(width: AppSpacing.paddingSM),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Order Details',
                           style: AppTypography.h3,
                         ),
-                        SizedBox(height: AppSpacing.paddingXS / 2),
+                        const SizedBox(height: AppSpacing.paddingXS / 2),
                         Text(
                           'ID: ${widget.order['id'] ?? 'N/A'}',
                           style: AppTypography.caption.copyWith(
@@ -416,7 +416,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                     ),
                   ),
                   Container(
-                    padding: EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.paddingSM,
                       vertical: AppSpacing.paddingXS,
                     ),
@@ -457,11 +457,11 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                 onRefresh: _loadScheduledTrips,
                 color: AppColors.primary,
                   child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                    SizedBox(height: AppSpacing.paddingSM),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     // Client Info Card
                     _InfoCard(
                       title: 'Client Information',
@@ -476,7 +476,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                         _InfoRow(label: 'Zone', value: zoneText),
                       ],
                     ),
-                    SizedBox(height: AppSpacing.paddingMD),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     // Order Summary Card
                     _InfoCard(
                       title: 'Order Summary',
@@ -495,12 +495,12 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                           ),
                       ],
                     ),
-                    SizedBox(height: AppSpacing.paddingMD),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     // Trip Progress Card
                     _InfoCard(
                       title: 'Trip Progress',
                       children: [
-                        SizedBox(height: AppSpacing.paddingSM),
+                        const SizedBox(height: AppSpacing.paddingSM),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                           child: Container(
@@ -534,12 +534,12 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                             ),
                           ),
                         ),
-                        SizedBox(height: AppSpacing.paddingMD),
+                        const SizedBox(height: AppSpacing.paddingMD),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '${totalScheduledTrips} of ${totalTrips} scheduled',
+                              '$totalScheduledTrips of $totalTrips scheduled',
                               style: AppTypography.bodySmall.copyWith(
                                 color: AppColors.textSecondary,
                               ),
@@ -557,10 +557,10 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                         ),
                       ],
                     ),
-                    SizedBox(height: AppSpacing.paddingMD),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     // Scheduled Trips Card
                     if (_isLoadingTrips)
-                      Center(
+                      const Center(
                         child: Padding(
                           padding: EdgeInsets.all(AppSpacing.paddingXXL),
                           child: CircularProgressIndicator(
@@ -574,16 +574,16 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                         children: [
                           Center(
                             child: Padding(
-                              padding: EdgeInsets.all(AppSpacing.paddingXXL),
+                              padding: const EdgeInsets.all(AppSpacing.paddingXXL),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.route_outlined,
                                     size: 48,
                                     color: AppColors.textTertiary,
                                   ),
-                                  SizedBox(height: AppSpacing.paddingMD),
+                                  const SizedBox(height: AppSpacing.paddingMD),
                                   Text(
                                     'No scheduled trips yet',
                                     style: AppTypography.body.copyWith(
@@ -604,7 +604,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: _scheduledTrips.length,
-                            separatorBuilder: (_, __) => SizedBox(height: AppSpacing.paddingMD),
+                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                             itemBuilder: (context, index) {
                               final trip = _scheduledTrips[index];
                               return RepaintBoundary(
@@ -618,7 +618,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                           ),
                         ],
                       ),
-                      SizedBox(height: AppSpacing.paddingMD),
+                      const SizedBox(height: AppSpacing.paddingMD),
                     ],
                     // Order Details Card
                     _InfoCard(
@@ -629,7 +629,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                           _InfoRow(label: 'Updated', value: _formatDateTime(updatedAt)),
                       ],
                     ),
-                    SizedBox(height: 80), // Space for bottom buttons
+                    const SizedBox(height: 80), // Space for bottom buttons
                     ],
                   ),
                 ),
@@ -637,7 +637,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
             ),
             // Bottom Action Buttons
             Container(
-              padding: EdgeInsets.all(AppSpacing.paddingLG),
+              padding: const EdgeInsets.all(AppSpacing.paddingLG),
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
                 border: Border(
@@ -656,7 +656,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                       isLoading: _isDeleting,
                     ),
                   ),
-                  SizedBox(width: AppSpacing.paddingSM),
+                  const SizedBox(width: AppSpacing.paddingSM),
                   Expanded(
                     child: _ActionButton(
                       icon: Icons.phone_outlined,
@@ -665,7 +665,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                       onTap: _callClient,
                     ),
                   ),
-                  SizedBox(width: AppSpacing.paddingSM),
+                  const SizedBox(width: AppSpacing.paddingSM),
                   Expanded(
                     child: _ActionButton(
                       icon: Icons.schedule_outlined,
@@ -703,7 +703,7 @@ class _ScheduledTripItem extends StatelessWidget {
     final isInProgress = status == 'in_progress';
 
     return ModernTile(
-      padding: EdgeInsets.all(AppSpacing.paddingMD),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       elevation: 0,
       child: Row(
         children: [
@@ -723,13 +723,13 @@ class _ScheduledTripItem extends StatelessWidget {
                 width: 1,
               ),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.schedule,
               color: AppColors.primary,
               size: AppSpacing.iconSM,
             ),
           ),
-          SizedBox(width: AppSpacing.paddingMD),
+          const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -740,15 +740,15 @@ class _ScheduledTripItem extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                SizedBox(height: AppSpacing.paddingXS / 2),
+                const SizedBox(height: AppSpacing.paddingXS / 2),
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.directions_car,
                       size: AppSpacing.iconXS,
                       color: AppColors.textSecondary,
                     ),
-                    SizedBox(width: AppSpacing.paddingXS / 2),
+                    const SizedBox(width: AppSpacing.paddingXS / 2),
                     Text(
                       vehicleNumber,
                       style: AppTypography.bodySmall.copyWith(
@@ -756,9 +756,9 @@ class _ScheduledTripItem extends StatelessWidget {
                       ),
                     ),
                     if (slot != null) ...[
-                      SizedBox(width: AppSpacing.paddingSM),
+                      const SizedBox(width: AppSpacing.paddingSM),
                       Container(
-                        padding: EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: AppSpacing.paddingXS,
                           vertical: 2,
                         ),
@@ -789,7 +789,7 @@ class _ScheduledTripItem extends StatelessWidget {
             ),
           ),
           Container(
-            padding: EdgeInsets.symmetric(
+            padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.paddingSM,
               vertical: AppSpacing.paddingXS,
             ),
@@ -832,7 +832,7 @@ class _InfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: ModernTile(
-        padding: EdgeInsets.all(AppSpacing.paddingMD),
+        padding: const EdgeInsets.all(AppSpacing.paddingMD),
         elevation: 0,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,7 +843,7 @@ class _InfoCard extends StatelessWidget {
                 fontSize: 15,
               ),
             ),
-            SizedBox(height: AppSpacing.paddingMD),
+            const SizedBox(height: AppSpacing.paddingMD),
             ...children,
           ],
         ),
@@ -893,7 +893,7 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
         if (isTappable)
-          Icon(
+          const Icon(
             Icons.phone,
             color: AppColors.primary,
             size: AppSpacing.iconSM,
@@ -911,7 +911,7 @@ class _InfoRow extends StatelessWidget {
           },
           borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
             child: content,
           ),
         ),
@@ -919,7 +919,7 @@ class _InfoRow extends StatelessWidget {
     }
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
       child: content,
     );
   }
@@ -960,7 +960,7 @@ class _ActionButton extends StatelessWidget {
         splashColor: effectiveColor.withOpacity(0.2),
         highlightColor: effectiveColor.withOpacity(0.1),
         child: Container(
-          padding: EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             vertical: AppSpacing.paddingMD,
             horizontal: AppSpacing.paddingSM,
           ),
@@ -1010,7 +1010,7 @@ class _ActionButton extends StatelessWidget {
                       color: textColor,
                       size: AppSpacing.iconMD,
                     ),
-                    SizedBox(width: AppSpacing.paddingSM),
+                    const SizedBox(width: AppSpacing.paddingSM),
                     Flexible(
                       child: Text(
                         label,

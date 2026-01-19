@@ -21,7 +21,7 @@ class OrdersMapView extends StatelessWidget {
           height: 220,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               colors: [AuthColors.surface, AuthColors.background],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,

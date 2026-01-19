@@ -40,12 +40,12 @@ class ModernPageHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: AuthColors.background,
+      backgroundColor: AuthColors.primary,
       elevation: 0,
       leading: showBackButton
           ? Builder(
               builder: (context) => IconButton(
-                icon: Icon(
+                icon: const Icon(
                   Icons.arrow_back_ios_new_rounded,
                   color: AppColors.textPrimary,
                   size: AppSpacing.iconMD,
@@ -58,37 +58,14 @@ class ModernPageHeader extends StatelessWidget implements PreferredSizeWidget {
           : null,
       leadingWidth: showBackButton ? 56 : 0,
       title: centerTitle
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Minimal decoration - subtle gradient line
-                Container(
-                  width: 3,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        AppColors.primary,
-                        AppColors.primary.withOpacity(0.3),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.paddingSM),
-                Flexible(
-                  child: Text(
-                    title,
-                    style: AppTypography.h2,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+          ? Flexible(
+              child: Text(
+                title,
+                style: AppTypography.h2,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             )
           : Text(
               title,

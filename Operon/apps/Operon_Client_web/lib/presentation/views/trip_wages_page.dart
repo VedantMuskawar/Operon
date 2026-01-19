@@ -271,7 +271,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text('Trip wage created successfully'),
               backgroundColor: AuthColors.success,
             ),
@@ -1135,7 +1135,7 @@ class _WageSummaryTable extends StatelessWidget {
       final unloadingWagePerEmployee = tripWage.unloadingWagePerEmployee ?? 0.0;
 
       // Get unique set of all employees for this trip wage (for counting)
-      final allEmployeeIdsForTrip = Set<String>.from([...loadingEmployeeIds, ...unloadingEmployeeIds]);
+      final allEmployeeIdsForTrip = <String>{...loadingEmployeeIds, ...unloadingEmployeeIds};
 
       // Process each unique employee once per trip wage
       for (final employeeId in allEmployeeIdsForTrip) {

@@ -36,21 +36,17 @@ import 'package:dash_web/presentation/views/client_detail_page.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/views/delivery_memos_view.dart';
-import 'package:dash_web/presentation/views/transactions_page.dart';
-import 'package:dash_web/presentation/views/purchases_page.dart';
 import 'package:dash_web/presentation/views/record_payment_page.dart';
-import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_web/presentation/views/fuel_ledger_page.dart';
 import 'package:dash_web/presentation/views/employee_wages_page.dart';
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_web/presentation/views/attendance_page.dart';
-import 'package:dash_web/presentation/views/expenses_page.dart';
-import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
+import 'package:dash_web/presentation/views/unified_financial_transactions_view.dart';
+import 'package:dash_web/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart';
 import 'package:dash_web/presentation/views/wage_settings_page.dart';
 import 'package:dash_web/presentation/views/production_batches_page.dart';
 import 'package:dash_web/presentation/views/production_wages_page.dart';
 import 'package:dash_web/presentation/views/trip_wages_page.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -559,65 +555,11 @@ GoRouter buildRouter() {
       ),
       GoRoute(
         path: '/transactions',
-        name: 'transactions',
-        redirect: (context, state) {
-          final authState = context.read<AuthBloc>().state;
-          final orgState = context.read<OrganizationContextCubit>().state;
-          if (authState.userProfile == null) {
-            return '/login';
-          }
-          if (!orgState.hasSelection) {
-            return '/org-selection';
-          }
-          return null;
-        },
-        pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          return _buildTransitionPage(
-            key: state.pageKey,
-            routePath: state.uri.path,
-            child: const TransactionsPage(),
-          );
-        },
+        redirect: (context, state) => '/financial-transactions',
       ),
       GoRoute(
         path: '/purchases',
-        name: 'purchases',
-        redirect: (context, state) {
-          final authState = context.read<AuthBloc>().state;
-          final orgState = context.read<OrganizationContextCubit>().state;
-          if (authState.userProfile == null) {
-            return '/login';
-          }
-          if (!orgState.hasSelection) {
-            return '/org-selection';
-          }
-          return null;
-        },
-        pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          return _buildTransitionPage(
-            key: state.pageKey,
-            routePath: state.uri.path,
-            child: const PurchasesPage(),
-          );
-        },
+        redirect: (context, state) => '/financial-transactions',
       ),
       GoRoute(
         path: '/fuel-ledger',
@@ -767,8 +709,8 @@ GoRouter buildRouter() {
         },
       ),
       GoRoute(
-        path: '/expenses',
-        name: 'expenses',
+        path: '/financial-transactions',
+        name: 'financial-transactions',
         redirect: (context, state) {
           final authState = context.read<AuthBloc>().state;
           final orgState = context.read<OrganizationContextCubit>().state;
@@ -791,29 +733,22 @@ GoRouter buildRouter() {
             );
           }
           final transactionsRepository = context.read<TransactionsRepository>();
-          final vendorsRepository = context.read<VendorsRepository>();
-          final employeesRepository = context.read<EmployeesRepository>();
-          final subCategoriesRepository = context.read<ExpenseSubCategoriesRepository>();
-          final paymentAccountsDataSource = PaymentAccountsDataSource();
-          final userId = context.read<AuthBloc>().state.userProfile?.id ?? '';
-          
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
             child: BlocProvider(
-              create: (_) => ExpensesCubit(
+              create: (_) => UnifiedFinancialTransactionsCubit(
                 transactionsRepository: transactionsRepository,
-                vendorsRepository: vendorsRepository,
-                employeesRepository: employeesRepository,
-                subCategoriesRepository: subCategoriesRepository,
-                paymentAccountsDataSource: paymentAccountsDataSource,
                 organizationId: organization.id,
-                userId: userId,
-              )..load(),
-              child: const ExpensesPage(),
+              ),
+              child: const UnifiedFinancialTransactionsView(),
             ),
           );
         },
+      ),
+      GoRoute(
+        path: '/expenses',
+        redirect: (context, state) => '/financial-transactions',
       ),
       GoRoute(
         path: '/wage-settings',

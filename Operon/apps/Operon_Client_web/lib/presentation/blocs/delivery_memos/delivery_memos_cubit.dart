@@ -30,10 +30,12 @@ class DeliveryMemosState extends BaseState {
     if (searchQuery.isNotEmpty) {
       final query = searchQuery.toLowerCase();
       filtered = filtered.where((dm) {
-        final dmNumber = (dm['dmId'] as String? ?? '').toLowerCase();
+        final dmId = (dm['dmId'] as String? ?? '').toLowerCase();
+        final dmNumberStr = (dm['dmNumber'] as int? ?? 0).toString();
         final clientName = (dm['clientName'] as String? ?? '').toLowerCase();
         final vehicleNumber = (dm['vehicleNumber'] as String? ?? '').toLowerCase();
-        return dmNumber.contains(query) ||
+        return dmId.contains(query) ||
+            dmNumberStr.contains(query) ||
             clientName.contains(query) ||
             vehicleNumber.contains(query);
       }).toList();
@@ -80,6 +82,8 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
 
   void search(String query) {
     emit(state.copyWith(searchQuery: query));
+    // Reload with appropriate limit when search changes
+    _subscribeToDeliveryMemos();
   }
 
   void setStatusFilter(String? status) {
@@ -110,7 +114,10 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
     developer.log('Status filter: ${state.statusFilter}', name: 'DeliveryMemosCubit');
     developer.log('Start date: ${state.startDate}', name: 'DeliveryMemosCubit');
     developer.log('End date: ${state.endDate}', name: 'DeliveryMemosCubit');
-    developer.log('Limit: 20', name: 'DeliveryMemosCubit');
+    
+    // When searching, load all DMs (no limit). Otherwise, show top 10 by DM number
+    final limit = state.searchQuery.isNotEmpty ? null : 10;
+    developer.log('Limit: $limit', name: 'DeliveryMemosCubit');
 
     _deliveryMemosSubscription = _repository
         .watchDeliveryMemos(
@@ -118,7 +125,7 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
           status: state.statusFilter,
           startDate: state.startDate,
           endDate: state.endDate,
-          limit: 20, // Show 20 recent delivery memos
+          limit: limit, // Show top 10 when no search, all DMs when searching
         )
         .listen(
       (deliveryMemos) {

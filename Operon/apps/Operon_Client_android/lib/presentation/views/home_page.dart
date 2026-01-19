@@ -134,9 +134,9 @@ class _HomePageState extends State<HomePage> {
             body: Stack(
               children: [
                 // DotGridPattern background (matching login page)
-                Positioned.fill(
+                const Positioned.fill(
                   child: RepaintBoundary(
-                    child: const DotGridPattern(),
+                    child: DotGridPattern(),
                   ),
                 ),
                 // Main content
@@ -239,7 +239,7 @@ class _AnalyticsPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Text(
         'Analytics coming soon',
         style: TextStyle(
@@ -287,7 +287,7 @@ class _SettingsDrawer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Settings',
               style: TextStyle(
                 color: AuthColors.textMain,
@@ -297,7 +297,7 @@ class _SettingsDrawer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Pages',
               style: TextStyle(
                 color: AuthColors.textSub,
@@ -316,7 +316,7 @@ class _SettingsDrawer extends StatelessWidget {
               },
             )
             else
-              Text(
+              const Text(
                 'Role management available for admins only.',
                 style: TextStyle(
                   color: AuthColors.textDisabled,
@@ -355,7 +355,7 @@ class _SettingsDrawer extends StatelessWidget {
                 },
               )
             else
-              Text(
+              const Text(
                 'Payment accounts available for admins only.',
                 style: TextStyle(
                   color: AuthColors.textDisabled,
@@ -417,7 +417,7 @@ class _SettingsTile extends StatelessWidget {
         ),
         title: Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: AuthColors.textMain,
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -427,14 +427,14 @@ class _SettingsTile extends StatelessWidget {
         subtitle: subtitle != null
             ? Text(
                 subtitle!,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AuthColors.textDisabled,
                   fontSize: 13,
                   fontFamily: 'SF Pro Display',
                 ),
               )
             : null,
-        trailing: Icon(
+        trailing: const Icon(
           Icons.chevron_right,
           color: AuthColors.textSub,
         ),
@@ -470,7 +470,7 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: title.isNotEmpty
           ? Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,

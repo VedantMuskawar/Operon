@@ -501,7 +501,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                             const SizedBox(height: 24),
                             // Wage Method
                             DropdownButtonFormField<String>(
-                              value: _selectedMethodId,
+                              initialValue: _selectedMethodId,
                               decoration: InputDecoration(
                                 labelText: 'Wage Method *',
                                 labelStyle: const TextStyle(color: Colors.white70),
@@ -660,7 +660,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                             const SizedBox(height: 24),
                             // Product (optional)
                             DropdownButtonFormField<String>(
-                              value: _selectedProductId,
+                              initialValue: _selectedProductId,
                               decoration: InputDecoration(
                                 labelText: 'Product (Optional)',
                                 labelStyle: const TextStyle(color: Colors.white70),

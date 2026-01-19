@@ -22,3 +22,6 @@ export 'entities/employee_attendance.dart';
 export 'attendance/role_attendance_group.dart';
 export 'entities/dm_settings.dart';
 export 'access_control/organization_role.dart';
+export 'entities/employee_job_role.dart';
+export 'entities/employee_wage.dart';
+export 'entities/organization_employee.dart';

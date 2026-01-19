@@ -182,7 +182,7 @@ class _ProductionBatchTemplateFormState
                     widget.template != null
                         ? 'Edit Batch Template'
                         : 'Create Batch Template',
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AuthColors.textMain,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -191,7 +191,7 @@ class _ProductionBatchTemplateFormState
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                   ),
                 ],
               ),
@@ -200,7 +200,7 @@ class _ProductionBatchTemplateFormState
                 controller: _nameController,
                 decoration: InputDecoration(
                   labelText: 'Batch Name',
-                  labelStyle: TextStyle(color: AuthColors.textSub),
+                  labelStyle: const TextStyle(color: AuthColors.textSub),
                   filled: true,
                   fillColor: AuthColors.surface,
                   border: OutlineInputBorder(
@@ -217,13 +217,13 @@ class _ProductionBatchTemplateFormState
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
+                    borderSide: const BorderSide(
                       color: AuthColors.primary,
                       width: 2,
                     ),
                   ),
                 ),
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please enter a batch name';
@@ -232,7 +232,7 @@ class _ProductionBatchTemplateFormState
                 },
               ),
               const SizedBox(height: 24),
-              Text(
+              const Text(
                 'Select Employees',
                 style: TextStyle(
                   color: AuthColors.textMain,
@@ -242,9 +242,9 @@ class _ProductionBatchTemplateFormState
               ),
               const SizedBox(height: 12),
               if (_isLoadingEmployees)
-                Center(
+                const Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: EdgeInsets.all(24.0),
                     child: CircularProgressIndicator(color: AuthColors.primary),
                   ),
                 )
@@ -258,7 +258,7 @@ class _ProductionBatchTemplateFormState
                       color: AuthColors.textMain.withOpacity(0.1),
                     ),
                   ),
-                  child: Text(
+                  child: const Text(
                     'No employees available',
                     style: TextStyle(color: AuthColors.textSub),
                   ),
@@ -283,12 +283,12 @@ class _ProductionBatchTemplateFormState
                       return CheckboxListTile(
                         title: Text(
                           employee.name,
-                          style: TextStyle(color: AuthColors.textMain),
+                          style: const TextStyle(color: AuthColors.textMain),
                         ),
                         subtitle: employee.primaryJobRoleTitle.isNotEmpty
                             ? Text(
                                 employee.primaryJobRoleTitle,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: AuthColors.textSub,
                                 ),
                               )
@@ -312,7 +312,7 @@ class _ProductionBatchTemplateFormState
               const SizedBox(height: 8),
               Text(
                 '${_selectedEmployeeIds.length} employee${_selectedEmployeeIds.length != 1 ? 's' : ''} selected',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AuthColors.textSub,
                   fontSize: 12,
                 ),
@@ -325,7 +325,7 @@ class _ProductionBatchTemplateFormState
                     onPressed: _isLoading
                         ? null
                         : () => Navigator.of(context).pop(),
-                    child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+                    child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
                   ),
                   const SizedBox(width: 12),
                   FilledButton(
@@ -339,7 +339,7 @@ class _ProductionBatchTemplateFormState
                       ),
                     ),
                     child: _isLoading
-                        ? SizedBox(
+                        ? const SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(

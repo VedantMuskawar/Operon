@@ -8,6 +8,7 @@ import 'package:dash_web/presentation/blocs/payment_accounts/payment_accounts_cu
 import 'package:dash_web/presentation/widgets/page_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class PaymentAccountsPage extends StatelessWidget {
@@ -161,27 +162,39 @@ class PaymentAccountsPageContent extends StatelessWidget {
                   ),
                 );
               }
-              return ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: state.accounts.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final account = state.accounts[index];
-                  return _AccountDataListItem(
-                    account: account,
-                    onEdit: () =>
-                        _openAccountDialog(context, account: account),
-                    onDelete: () =>
-                        context.read<PaymentAccountsCubit>().deleteAccount(account.id),
-                    onSetPrimary: () => context
-                        .read<PaymentAccountsCubit>()
-                        .setPrimaryAccount(account.id),
-                    onUnsetPrimary: () => context
-                        .read<PaymentAccountsCubit>()
-                        .unsetPrimaryAccount(account.id),
-                  );
-                },
+              return AnimationLimiter(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: state.accounts.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final account = state.accounts[index];
+                    return AnimationConfiguration.staggeredList(
+                      position: index,
+                      duration: const Duration(milliseconds: 200),
+                      child: SlideAnimation(
+                        verticalOffset: 50.0,
+                        child: FadeInAnimation(
+                          curve: Curves.easeOut,
+                          child: _AccountDataListItem(
+                            account: account,
+                            onEdit: () =>
+                                _openAccountDialog(context, account: account),
+                            onDelete: () =>
+                                context.read<PaymentAccountsCubit>().deleteAccount(account.id),
+                            onSetPrimary: () => context
+                                .read<PaymentAccountsCubit>()
+                                .setPrimaryAccount(account.id),
+                            onUnsetPrimary: () => context
+                                .read<PaymentAccountsCubit>()
+                                .unsetPrimaryAccount(account.id),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               );
             },
           ),
@@ -370,7 +383,7 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.edit_outlined,
                     color: AuthColors.textSub,
                     size: 20,
@@ -381,7 +394,7 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.delete_outline,
                     color: AuthColors.error,
                     size: 20,
@@ -395,7 +408,7 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
                   RotationTransition(
                     turns: _rotationAnimation,
                     child: IconButton(
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.keyboard_arrow_down,
                         color: AuthColors.textSub,
                         size: 24,
@@ -431,16 +444,16 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
         widget.account.qrCodeImageUrl != null) {
       return Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AuthColors.background,
-          borderRadius: const BorderRadius.only(
+          borderRadius: BorderRadius.only(
             bottomLeft: Radius.circular(18),
             bottomRight: Radius.circular(18),
           ),
         ),
         child: Column(
           children: [
-            Text(
+            const Text(
               'QR Code',
               style: TextStyle(
                 color: AuthColors.textMain,
@@ -495,9 +508,9 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
     } else if (widget.account.displayPreference == PaymentDisplayPreference.bankDetails) {
       return Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AuthColors.background,
-          borderRadius: const BorderRadius.only(
+          borderRadius: BorderRadius.only(
             bottomLeft: Radius.circular(18),
             bottomRight: Radius.circular(18),
           ),
@@ -505,7 +518,7 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Bank Details',
               style: TextStyle(
                 color: AuthColors.textMain,
@@ -522,7 +535,7 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
               _buildDetailRow('IFSC Code', widget.account.ifscCode!),
             ],
             if (widget.account.accountNumber == null && widget.account.ifscCode == null)
-              Text(
+              const Text(
                 'No bank details available',
                 style: TextStyle(color: AuthColors.textSub, fontSize: 14),
               ),
@@ -541,7 +554,7 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
           width: 120,
           child: Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textSub,
               fontSize: 14,
             ),
@@ -550,7 +563,7 @@ class _AccountDataListItemState extends State<_AccountDataListItem> with SingleT
         Expanded(
           child: Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -616,7 +629,7 @@ class _AccountDialogState extends State<_AccountDialog> {
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Payment Account' : 'Add Payment Account',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -628,7 +641,7 @@ class _AccountDialogState extends State<_AccountDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Account Name'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -639,7 +652,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                 DropdownButtonFormField<PaymentAccountType>(
                   initialValue: _type,
                   dropdownColor: AuthColors.surface,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Account Type'),
                   onChanged: (value) {
                     if (value != null) setState(() => _type = value);
@@ -655,21 +668,21 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _accountNumberController,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Account Number'),
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _ifscCodeController,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('IFSC Code'),
                     textCapitalization: TextCapitalization.characters,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _upiIdController,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('UPI ID (Optional)'),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -684,14 +697,14 @@ class _AccountDialogState extends State<_AccountDialog> {
                           color: AuthColors.textMain.withValues(alpha: 0.1),
                         ),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
                           Icon(
                             Icons.info_outline,
                             color: AuthColors.primary,
                             size: 16,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'QR code will be auto-generated from UPI ID',
@@ -710,7 +723,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _upiIdController,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('UPI ID'),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty)
@@ -752,9 +765,9 @@ class _AccountDialogState extends State<_AccountDialog> {
                 if (_type == PaymentAccountType.bank || _type == PaymentAccountType.upi) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<PaymentDisplayPreference?>(
-                    value: _displayPreference,
+                    initialValue: _displayPreference,
                     dropdownColor: AuthColors.surface,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Display Preference'),
                     hint: const Text(
                       'Select display preference',
@@ -763,12 +776,12 @@ class _AccountDialogState extends State<_AccountDialog> {
                     onChanged: (value) {
                       setState(() => _displayPreference = value);
                     },
-                    items: [
-                      const DropdownMenuItem(
+                    items: const [
+                      DropdownMenuItem(
                         value: PaymentDisplayPreference.qrCode,
                         child: Text('QR Code'),
                       ),
-                      const DropdownMenuItem(
+                      DropdownMenuItem(
                         value: PaymentDisplayPreference.bankDetails,
                         child: Text('Bank Details'),
                       ),
@@ -793,7 +806,7 @@ class _AccountDialogState extends State<_AccountDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',
@@ -869,7 +882,7 @@ class _AccountDialogState extends State<_AccountDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

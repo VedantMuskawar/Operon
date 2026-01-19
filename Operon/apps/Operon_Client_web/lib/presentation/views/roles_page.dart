@@ -9,6 +9,7 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/page_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class RolesPage extends StatelessWidget {
@@ -89,7 +90,7 @@ class RolesPageContent extends StatelessWidget {
               Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     colors: [AuthColors.primary, AuthColors.primaryVariant],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -119,14 +120,14 @@ class RolesPageContent extends StatelessWidget {
                               color: AuthColors.textMain.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.add,
                               color: AuthColors.textMain,
                               size: 20,
                             ),
                           ),
                           const SizedBox(width: 12),
-                          Text(
+                          const Text(
                             'Add Job Role',
                             style: TextStyle(
                               color: AuthColors.textMain,
@@ -148,8 +149,8 @@ class RolesPageContent extends StatelessWidget {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (state.jobRoles.isEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 40),
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 40),
                       child: Text(
                         'No job roles yet. Tap "Add Job Role" to create one.',
                         style: TextStyle(
@@ -160,20 +161,32 @@ class RolesPageContent extends StatelessWidget {
                       ),
                     );
                   }
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: state.jobRoles.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final jobRole = state.jobRoles[index];
-                      return _RoleDataListItem(
-                        jobRole: jobRole,
-                        onEdit: () => _openRoleDialog(context, jobRole: jobRole),
-                        onDelete: () =>
-                            context.read<JobRolesCubit>().deleteJobRole(jobRole.id),
-                      );
-                    },
+                  return AnimationLimiter(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: state.jobRoles.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final jobRole = state.jobRoles[index];
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 200),
+                          child: SlideAnimation(
+                            verticalOffset: 50.0,
+                            child: FadeInAnimation(
+                              curve: Curves.easeOut,
+                              child: _RoleDataListItem(
+                                jobRole: jobRole,
+                                onEdit: () => _openRoleDialog(context, jobRole: jobRole),
+                                onDelete: () =>
+                                    context.read<JobRolesCubit>().deleteJobRole(jobRole.id),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
@@ -299,7 +312,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem>
                 ),
                 const SizedBox(width: 12),
                 IconButton(
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.edit_outlined,
                     color: AuthColors.textSub,
                     size: 20,
@@ -310,7 +323,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem>
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.delete_outline,
                     color: AuthColors.error,
                     size: 20,
@@ -323,7 +336,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem>
                 RotationTransition(
                   turns: _rotationAnimation,
                   child: IconButton(
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.keyboard_arrow_down,
                       color: AuthColors.textSub,
                       size: 24,
@@ -359,9 +372,9 @@ class _RoleDataListItemState extends State<_RoleDataListItem>
             firstChild: const SizedBox.shrink(),
             secondChild: Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AuthColors.background,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(18),
                   bottomRight: Radius.circular(18),
                 ),
@@ -459,7 +472,7 @@ class _RoleInfoPanel extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AuthColors.textSub,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -538,7 +551,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Job Role' : 'Add Job Role',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -550,7 +563,7 @@ class _RoleDialogState extends State<_RoleDialog> {
               children: [
                 TextFormField(
                   controller: _titleController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Job Role Title *'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -560,13 +573,13 @@ class _RoleDialogState extends State<_RoleDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _departmentController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Department (optional)'),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _descriptionController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Description (optional)'),
                   maxLines: 3,
                 ),
@@ -574,9 +587,9 @@ class _RoleDialogState extends State<_RoleDialog> {
                 DropdownButtonFormField<WageType?>(
                   initialValue: _defaultWageType,
                   dropdownColor: AuthColors.surface,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Default Wage Type (optional)'),
-                  hint: Text('Select default wage type', style: TextStyle(color: AuthColors.textSub)),
+                  hint: const Text('Select default wage type', style: TextStyle(color: AuthColors.textSub)),
                   onChanged: (value) {
                     setState(() => _defaultWageType = value);
                   },
@@ -607,7 +620,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',
@@ -667,7 +680,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

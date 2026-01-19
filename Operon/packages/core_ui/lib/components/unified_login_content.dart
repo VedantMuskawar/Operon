@@ -225,7 +225,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Sign In header
-                Text(
+                const Text(
                   'Sign In',
                   style: TextStyle(
                     fontSize: 24,
@@ -274,7 +274,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
               ),
             ),
             const SizedBox(height: 24),
-            Text(
+            const Text(
               'Loading...',
               style: TextStyle(
                 color: AuthColors.textSub,
@@ -334,12 +334,12 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
     return Column(
       children: [
         // Circular gradient dots
-        RepaintBoundary(
-          child: const ICloudDottedCircle(size: 200),
+        const RepaintBoundary(
+          child: ICloudDottedCircle(size: 200),
         ),
         const SizedBox(height: 32),
         if (showOtp)
-          Text(
+          const Text(
             'Verify Your Number',
             style: TextStyle(
               fontSize: 24,
@@ -354,7 +354,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
               ? 'We sent a 6-digit code to\n$phoneNumber'
               : 'Enter your phone number to continue',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 15,
             color: AuthColors.textMain,
             fontFamily: 'SF Pro Display',
@@ -388,13 +388,13 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                 FilteringTextInputFormatter.digitsOnly,
                 LengthLimitingTextInputFormatter(10),
               ],
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textMain,
                 fontSize: 17,
                 fontWeight: FontWeight.w400,
                 fontFamily: 'SF Pro Display',
               ),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Phone Number',
                 hintStyle: TextStyle(
                   color: AuthColors.textSub,
@@ -402,7 +402,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                   fontFamily: 'SF Pro Display',
                 ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               ),
             ),
           ),
@@ -513,7 +513,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                 letterSpacing: 12,
                 fontFamily: 'SF Pro Display',
               ),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: '000000',
                 hintStyle: TextStyle(
                   color: AuthColors.textSub,
@@ -524,7 +524,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                 ),
                 counterText: '',
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                contentPadding: EdgeInsets.symmetric(vertical: 16),
               ),
               onChanged: (value) {
                 setState(() {
@@ -650,13 +650,13 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.sms_outlined,
                 size: 18,
                 color: AuthColors.textSub,
               ),
               const SizedBox(width: 8),
-              Text(
+              const Text(
                 "Didn't receive code?",
                 style: TextStyle(
                   fontSize: 14,
@@ -682,7 +682,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.timer_outlined,
                             size: 16,
                             color: AuthColors.textSub,
@@ -690,7 +690,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                           const SizedBox(width: 6),
                           Text(
                             '$countdown',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: AuthColors.textMain,
@@ -721,7 +721,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -729,7 +729,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                             size: 16,
                             color: AuthColors.secondary,
                           ),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           Text(
                             'Resend',
                             style: TextStyle(
@@ -755,7 +755,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
@@ -763,7 +763,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                   size: 16,
                   color: AuthColors.textSub,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   'Change number',
                   style: TextStyle(

@@ -91,9 +91,33 @@
       right: 0px !important;
       bottom: 0px !important;
     }
+    #operon-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #010104;
+      z-index: 999999;
+    }
+    #operon-splash img {
+      width: 160px;
+      height: 160px;
+      object-fit: contain;
+    }
   </style>
 </head>
 <body>
+  <div id="operon-splash">
+    <img src="splash_logo.png" alt="Operon" />
+  </div>
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Remove splash after Flutter first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('operon-splash');
+      if (el) el.remove();
+    });
+  </script>
 </body>
 </html>

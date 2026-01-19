@@ -9,6 +9,7 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 // Navigation Sections
@@ -308,22 +309,34 @@ class _RoleManagementPanel extends StatelessWidget {
                   ),
                 )
               else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: rolesState.roles.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final role = rolesState.roles[index];
-                    final isSelected = role.id == selectedRoleId;
-                    return _RoleCard(
-                      role: role,
-                      isSelected: isSelected,
-                      onTap: () => onRoleSelected(role.id),
-                      onEdit: () => _openRoleDialog(context, role: role),
-                      onDelete: () => _confirmDeleteRole(context, role),
-                    );
-                  },
+                AnimationLimiter(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: rolesState.roles.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final role = rolesState.roles[index];
+                      final isSelected = role.id == selectedRoleId;
+                      return AnimationConfiguration.staggeredList(
+                        position: index,
+                        duration: const Duration(milliseconds: 200),
+                        child: SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(
+                            curve: Curves.easeOut,
+                            child: _RoleCard(
+                              role: role,
+                              isSelected: isSelected,
+                              onTap: () => onRoleSelected(role.id),
+                              onEdit: () => _openRoleDialog(context, role: role),
+                              onDelete: () => _confirmDeleteRole(context, role),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
             ],
           ),

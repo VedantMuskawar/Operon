@@ -152,7 +152,7 @@ class _ProductionBatchesContent extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(height: 24),
-                _FiltersBar(),
+                const _FiltersBar(),
               const SizedBox(height: 24),
               if (filteredBatches.isEmpty)
                 SizedBox(
@@ -214,7 +214,7 @@ class _ProductionBatchesContent extends StatelessWidget {
                         },
                       ),
                     );
-                  }).toList(),
+                  }),
               ],
             ),
           );
@@ -245,7 +245,7 @@ class _FiltersBar extends StatelessWidget {
               // Status Filter
               Expanded(
                 child: DropdownButtonFormField<ProductionBatchStatus?>(
-                  value: state.selectedStatus,
+                  initialValue: state.selectedStatus,
                   decoration: InputDecoration(
                     labelText: 'Status',
                     labelStyle: const TextStyle(color: Colors.white70),

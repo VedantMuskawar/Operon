@@ -140,19 +140,19 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: Text('Remove Logo', style: TextStyle(color: AuthColors.textMain)),
-        content: Text(
+        title: const Text('Remove Logo', style: TextStyle(color: AuthColors.textMain)),
+        content: const Text(
           'Are you sure you want to remove the logo?',
           style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+            child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Remove', style: TextStyle(color: AuthColors.error)),
+            child: const Text('Remove', style: TextStyle(color: AuthColors.error)),
           ),
         ],
       ),
@@ -269,7 +269,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                     color: AuthColors.textMain.withOpacity(0.1),
                                   ),
                                 ),
-                                child: Text(
+                                child: const Text(
                                   'Configure header, footer, and print preferences for Delivery Memos (DM).',
                                   style: TextStyle(color: AuthColors.textSub),
                                 ),
@@ -285,7 +285,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                     const SizedBox(height: 24),
                                     TextFormField(
                                       controller: _headerNameController,
-                                      style: TextStyle(color: AuthColors.textMain),
+                                      style: const TextStyle(color: AuthColors.textMain),
                                       decoration: _inputDecoration('Name *'),
                                       validator: (value) =>
                                           (value == null || value.trim().isEmpty)
@@ -295,7 +295,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                     const SizedBox(height: 16),
                                     TextFormField(
                                       controller: _headerAddressController,
-                                      style: TextStyle(color: AuthColors.textMain),
+                                      style: const TextStyle(color: AuthColors.textMain),
                                       decoration: _inputDecoration('Address *'),
                                       maxLines: 3,
                                       validator: (value) =>
@@ -306,7 +306,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                     const SizedBox(height: 16),
                                     TextFormField(
                                       controller: _headerPhoneController,
-                                      style: TextStyle(color: AuthColors.textMain),
+                                      style: const TextStyle(color: AuthColors.textMain),
                                       decoration: _inputDecoration('Phone *'),
                                       keyboardType: TextInputType.phone,
                                       validator: (value) =>
@@ -317,7 +317,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                     const SizedBox(height: 16),
                                     TextFormField(
                                       controller: _headerGstNoController,
-                                      style: TextStyle(color: AuthColors.textMain),
+                                      style: const TextStyle(color: AuthColors.textMain),
                                       decoration: _inputDecoration('GST No (Optional)'),
                                     ),
                                   ],
@@ -329,7 +329,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                 title: 'Footer Settings',
                                 child: TextFormField(
                                   controller: _footerCustomTextController,
-                                  style: TextStyle(color: AuthColors.textMain),
+                                  style: const TextStyle(color: AuthColors.textMain),
                                   decoration: _inputDecoration('Custom Text (Optional)'),
                                   maxLines: 3,
                                 ),
@@ -341,7 +341,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    const Text(
                                       'Orientation',
                                       style: TextStyle(
                                         color: AuthColors.textMain,
@@ -376,7 +376,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                       ],
                                     ),
                                     const SizedBox(height: 20),
-                                    Text(
+                                    const Text(
                                       'Payment Display',
                                       style: TextStyle(
                                         color: AuthColors.textMain,
@@ -485,7 +485,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -502,7 +502,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Logo',
           style: TextStyle(
             color: AuthColors.textMain,
@@ -530,7 +530,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                       ? Image.network(
                           _logoImageUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Icon(
+                          errorBuilder: (_, __, ___) => const Icon(
                             Icons.image,
                             color: AuthColors.textSub,
                           ),
@@ -554,7 +554,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                     color: AuthColors.textMain.withOpacity(0.1),
                   ),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.image,
                   color: AuthColors.textSub,
                 ),
@@ -579,7 +579,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: _removeLogo,
-                      child: Text(
+                      child: const Text(
                         'Remove',
                         style: TextStyle(color: AuthColors.error),
                       ),
@@ -597,7 +597,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(
@@ -616,7 +616,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,
         ),

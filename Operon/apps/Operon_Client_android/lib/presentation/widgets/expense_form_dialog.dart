@@ -624,7 +624,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<Vendor>(
-          value: _selectedVendor,
+          initialValue: _selectedVendor,
           dropdownColor: const Color(0xFF1B1B2C),
           style: const TextStyle(color: Colors.white),
           decoration: _inputDecoration('Select vendor'),
@@ -659,7 +659,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<OrganizationEmployee>(
-          value: _selectedEmployee,
+          initialValue: _selectedEmployee,
           dropdownColor: const Color(0xFF1B1B2C),
           style: const TextStyle(color: Colors.white),
           decoration: _inputDecoration('Select employee'),
@@ -710,7 +710,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<ExpenseSubCategory>(
-          value: _selectedSubCategory,
+          initialValue: _selectedSubCategory,
           dropdownColor: const Color(0xFF1B1B2C),
           style: const TextStyle(color: Colors.white),
           decoration: _inputDecoration('Select sub-category'),
@@ -758,7 +758,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<PaymentAccount>(
-          value: _selectedPaymentAccount,
+          initialValue: _selectedPaymentAccount,
           dropdownColor: const Color(0xFF1B1B2C),
           style: const TextStyle(color: Colors.white),
           decoration: _inputDecoration('Select payment account'),

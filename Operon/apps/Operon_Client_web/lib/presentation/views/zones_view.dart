@@ -4,6 +4,7 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_web/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class ZoneCrudPermission {
   const ZoneCrudPermission({
@@ -538,24 +539,36 @@ class _CitySelectionColumn extends StatelessWidget {
         Expanded(
           child: cities.isEmpty
               ? _EmptyCitiesState(canCreate: canCreate, onAddCity: onAddCity)
-              : ListView.separated(
-                  itemCount: cities.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final city = cities[index];
-                    final isSelected = city.name == selectedCity;
-                    final regionCount = _getRegionCountForCity(city.name);
-                    
-                    return _CityCard(
-                      city: city,
-                      isSelected: isSelected,
-                      regionCount: regionCount,
-                      onTap: () => onSelectCity(city.name),
-                      onLongPress: canLongPress && onLongPressCity != null
-                          ? () => onLongPressCity!(city)
-                          : null,
-                    );
-                  },
+              : AnimationLimiter(
+                  child: ListView.separated(
+                    itemCount: cities.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final city = cities[index];
+                      final isSelected = city.name == selectedCity;
+                      final regionCount = _getRegionCountForCity(city.name);
+                      
+                      return AnimationConfiguration.staggeredList(
+                        position: index,
+                        duration: const Duration(milliseconds: 200),
+                        child: SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(
+                            curve: Curves.easeOut,
+                            child: _CityCard(
+                              city: city,
+                              isSelected: isSelected,
+                              regionCount: regionCount,
+                              onTap: () => onSelectCity(city.name),
+                              onLongPress: canLongPress && onLongPressCity != null
+                                  ? () => onLongPressCity!(city)
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],
@@ -661,22 +674,34 @@ class _RegionSelectionColumn extends StatelessWidget {
         Expanded(
           child: regions.isEmpty
               ? _EmptyRegionsState(onAddRegion: canCreateRegion ? onAddRegion : null)
-              : ListView.separated(
-                  itemCount: regions.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final zone = regions[index];
-                    final isSelected = zone.id == selectedZoneId;
-                    final priceCount = _getPriceCount(zone);
-                    
-                    return _RegionCard(
-                      zone: zone,
-                      isSelected: isSelected,
-                      priceCount: priceCount,
-                      onTap: () => onSelectZone(zone.id),
-                      onEdit: canEditZone ? () => onEditZone(zone) : null,
-                    );
-                  },
+              : AnimationLimiter(
+                  child: ListView.separated(
+                    itemCount: regions.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final zone = regions[index];
+                      final isSelected = zone.id == selectedZoneId;
+                      final priceCount = _getPriceCount(zone);
+                      
+                      return AnimationConfiguration.staggeredList(
+                        position: index,
+                        duration: const Duration(milliseconds: 200),
+                        child: SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(
+                            curve: Curves.easeOut,
+                            child: _RegionCard(
+                              zone: zone,
+                              isSelected: isSelected,
+                              priceCount: priceCount,
+                              onTap: () => onSelectZone(zone.id),
+                              onEdit: canEditZone ? () => onEditZone(zone) : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
         ),
       ],

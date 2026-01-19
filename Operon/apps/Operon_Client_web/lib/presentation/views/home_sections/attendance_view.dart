@@ -77,7 +77,7 @@ class _AttendanceViewContentState extends State<_AttendanceViewContent> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
+            colorScheme: const ColorScheme.dark(
               primary: AuthColors.primary,
               onPrimary: AuthColors.textMain,
               surface: AuthColors.surface,
@@ -118,7 +118,7 @@ class _AttendanceViewContentState extends State<_AttendanceViewContent> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
+                const Icon(
                   Icons.error_outline,
                   color: AuthColors.error,
                   size: 48,
@@ -186,7 +186,7 @@ class _AttendanceViewContentState extends State<_AttendanceViewContent> {
                       ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AuthColors.textMain,
-                        side: BorderSide(color: AuthColors.primary),
+                        side: const BorderSide(color: AuthColors.primary),
                       ),
                     ),
                   ],
@@ -299,7 +299,7 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -469,9 +469,9 @@ class _AttendanceGrid extends StatelessWidget {
             color: AuthColors.background,
             child: Row(
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 150,
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(16),
                     child: Text(
                       'Employee',
@@ -499,9 +499,9 @@ class _AttendanceGrid extends StatelessWidget {
                     ),
                   );
                 }),
-                SizedBox(
+                const SizedBox(
                   width: 100,
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(16),
                     child: Text(
                       'Summary',

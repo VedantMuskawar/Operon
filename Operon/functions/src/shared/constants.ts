@@ -14,4 +14,6 @@ export const WHATSAPP_SETTINGS_COLLECTION = 'WHATSAPP_SETTINGS';
 export const PRODUCTION_BATCHES_COLLECTION = 'PRODUCTION_BATCHES';
 export const SOURCE_KEY = 'clients';
 export const TRANSACTIONS_SOURCE_KEY = 'transactions';
+export const EMPLOYEES_SOURCE_KEY = 'employees';
+export const VENDORS_SOURCE_KEY = 'vendors';
 

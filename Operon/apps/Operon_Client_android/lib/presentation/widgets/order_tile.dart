@@ -129,7 +129,7 @@ class _OrderTileState extends State<OrderTile> {
       final icon = _getETAIcon(daysDiff);
 
       return Container(
-        padding: EdgeInsets.symmetric(
+        padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.paddingSM,
           vertical: AppSpacing.paddingXS,
         ),
@@ -161,7 +161,7 @@ class _OrderTileState extends State<OrderTile> {
               size: AppSpacing.iconXS,
               color: color,
             ),
-            SizedBox(width: AppSpacing.paddingXS / 2),
+            const SizedBox(width: AppSpacing.paddingXS / 2),
             Text(
               _formatETAText(etaDate, daysDiff),
               style: AppTypography.captionSmall.copyWith(
@@ -328,7 +328,7 @@ class _OrderTileState extends State<OrderTile> {
         },
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: Container(
-          padding: EdgeInsets.all(AppSpacing.paddingMD),
+          padding: const EdgeInsets.all(AppSpacing.paddingMD),
           decoration: BoxDecoration(
             color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
@@ -357,14 +357,14 @@ class _OrderTileState extends State<OrderTile> {
                       buildETALabel: _buildETALabel,
                     ),
                   ),
-                  SizedBox(width: AppSpacing.paddingMD),
+                  const SizedBox(width: AppSpacing.paddingMD),
                   _TripCounterBadge(
                     scheduled: totalScheduledTrips,
                     total: totalTrips,
                   ),
                 ],
               ),
-              SizedBox(height: AppSpacing.paddingMD),
+              const SizedBox(height: AppSpacing.paddingMD),
               // Product and quantity info
               _ProductInfo(
                 productName: productName,
@@ -372,7 +372,7 @@ class _OrderTileState extends State<OrderTile> {
                 createdAt: createdAt,
                 formatDate: _formatDate,
               ),
-              SizedBox(height: AppSpacing.paddingMD),
+              const SizedBox(height: AppSpacing.paddingMD),
               // Action buttons
               _ActionButtons(
                 isDeleting: _isDeleting,
@@ -416,15 +416,15 @@ class _OrderHeader extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        SizedBox(height: AppSpacing.paddingXS / 2),
+        const SizedBox(height: AppSpacing.paddingXS / 2),
         Row(
           children: [
-            Icon(
+            const Icon(
               Icons.location_on_outlined,
               size: AppSpacing.iconXS,
               color: AppColors.textSecondary,
             ),
-            SizedBox(width: AppSpacing.paddingXS / 2),
+            const SizedBox(width: AppSpacing.paddingXS / 2),
             Expanded(
               child: Text(
                 zoneText,
@@ -439,7 +439,7 @@ class _OrderHeader extends StatelessWidget {
           ],
         ),
         if (estimatedDeliveryDate != null) ...[
-          SizedBox(height: AppSpacing.paddingXS),
+          const SizedBox(height: AppSpacing.paddingXS),
           buildETALabel(estimatedDeliveryDate),
         ],
       ],
@@ -462,7 +462,7 @@ class _TripCounterBadge extends StatelessWidget {
     final isComplete = scheduled >= total;
 
     return Container(
-      padding: EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.paddingMD,
         vertical: AppSpacing.paddingSM,
       ),
@@ -509,7 +509,7 @@ class _TripCounterBadge extends StatelessWidget {
                     ? AppColors.textPrimary
                     : AppColors.primary,
               ),
-              SizedBox(width: AppSpacing.paddingXS / 2),
+              const SizedBox(width: AppSpacing.paddingXS / 2),
               Text(
                 '$scheduled/$total',
                 style: AppTypography.labelSmall.copyWith(
@@ -523,7 +523,7 @@ class _TripCounterBadge extends StatelessWidget {
             ],
           ),
           if (!isComplete && total > 0) ...[
-            SizedBox(height: AppSpacing.paddingXS / 2),
+            const SizedBox(height: AppSpacing.paddingXS / 2),
             SizedBox(
               width: 50,
               child: ClipRRect(
@@ -532,7 +532,7 @@ class _TripCounterBadge extends StatelessWidget {
                   value: progress,
                   minHeight: 3,
                   backgroundColor: AppColors.inputBackground,
-                  valueColor: AlwaysStoppedAnimation<Color>(
+                  valueColor: const AlwaysStoppedAnimation<Color>(
                     AppColors.primary,
                   ),
                 ),
@@ -563,7 +563,7 @@ class _ProductInfo extends StatelessWidget {
     return Row(
       children: [
         Container(
-          padding: EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.paddingSM,
             vertical: AppSpacing.paddingXS,
           ),
@@ -578,12 +578,12 @@ class _ProductInfo extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.inventory_2_outlined,
                 size: AppSpacing.iconXS,
                 color: AppColors.textSecondary,
               ),
-              SizedBox(width: AppSpacing.paddingXS / 2),
+              const SizedBox(width: AppSpacing.paddingXS / 2),
               Text(
                 productName,
                 style: AppTypography.labelSmall.copyWith(
@@ -595,9 +595,9 @@ class _ProductInfo extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(width: AppSpacing.paddingSM),
+        const SizedBox(width: AppSpacing.paddingSM),
         Container(
-          padding: EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.paddingSM,
             vertical: AppSpacing.paddingXS,
           ),
@@ -660,7 +660,7 @@ class _ActionButtons extends StatelessWidget {
             isLoading: isDeleting,
           ),
         ),
-        SizedBox(width: AppSpacing.paddingSM),
+        const SizedBox(width: AppSpacing.paddingSM),
         Expanded(
           child: _CompactActionButton(
             icon: Icons.phone_outlined,
@@ -669,7 +669,7 @@ class _ActionButtons extends StatelessWidget {
             onTap: onCall,
           ),
         ),
-        SizedBox(width: AppSpacing.paddingSM),
+        const SizedBox(width: AppSpacing.paddingSM),
         Expanded(
           child: _CompactActionButton(
             icon: Icons.schedule_outlined,
@@ -718,7 +718,7 @@ class _CompactActionButton extends StatelessWidget {
         splashColor: effectiveColor.withOpacity(0.2),
         highlightColor: effectiveColor.withOpacity(0.1),
         child: Container(
-          padding: EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.paddingSM,
             vertical: AppSpacing.paddingSM + 2,
           ),
@@ -770,7 +770,7 @@ class _CompactActionButton extends StatelessWidget {
                       color: textColor,
                       size: AppSpacing.iconSM,
                     ),
-                    SizedBox(width: AppSpacing.paddingXS / 2),
+                    const SizedBox(width: AppSpacing.paddingXS / 2),
                     Flexible(
                       child: Text(
                         label,

@@ -1,6 +1,9 @@
+import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
+import 'package:dash_mobile/data/services/recently_viewed_employees_service.dart';
 import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/presentation/blocs/employees/employees_cubit.dart';
+import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -15,7 +18,23 @@ class EmployeeDetailPage extends StatefulWidget {
 }
 
 class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
-  int _selectedTabIndex = 0;
+  @override
+  void initState() {
+    super.initState();
+    // Track employee view when page is opened
+    _trackEmployeeView();
+  }
+
+  Future<void> _trackEmployeeView() async {
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final organizationId = orgState.organization?.id;
+    if (organizationId != null) {
+      await RecentlyViewedEmployeesService.trackEmployeeView(
+        organizationId: organizationId,
+        employeeId: widget.employee.id,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,48 +80,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
               ),
             ),
             const SizedBox(height: 16),
-            // Tab Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF131324),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _TabButton(
-                        label: 'Overview',
-                        isSelected: _selectedTabIndex == 0,
-                        onTap: () => setState(() => _selectedTabIndex = 0),
-                      ),
-                    ),
-                    Expanded(
-                      child: _TabButton(
-                        label: 'Details',
-                        isSelected: _selectedTabIndex == 1,
-                        onTap: () => setState(() => _selectedTabIndex = 1),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Content based on selected tab
+            // Transactions Section
             Expanded(
-              child: IndexedStack(
-                index: _selectedTabIndex,
-                children: [
-                  _OverviewSection(employee: widget.employee),
-                  _DetailsSection(employee: widget.employee),
-                ],
-              ),
+              child: _TransactionsSection(employee: widget.employee),
             ),
           ],
         ),
@@ -163,7 +143,7 @@ class _EmployeeHeader extends StatelessWidget {
   final VoidCallback onDelete;
 
   Color _getEmployeeColor() {
-    final hash = employee.roleTitle.hashCode;
+    final hash = employee.primaryJobRoleTitle.hashCode;
     final colors = [
       const Color(0xFF6F4BFF),
       const Color(0xFF5AD8A4),
@@ -187,8 +167,6 @@ class _EmployeeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final employeeColor = _getEmployeeColor();
-    final balanceDifference = employee.currentBalance - employee.openingBalance;
-    final isPositive = balanceDifference >= 0;
 
     return Container(
       width: double.infinity,
@@ -211,437 +189,460 @@ class _EmployeeHeader extends StatelessWidget {
           ),
         ],
       ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Avatar
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [
+                  employeeColor.withOpacity(0.4),
+                  employeeColor.withOpacity(0.2),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: employeeColor.withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                _getInitials(),
+                style: TextStyle(
+                  color: employeeColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Name and Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  employee.name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Role Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: employeeColor.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: employeeColor.withOpacity(0.5),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.badge_outlined,
+                        size: 14,
+                        color: employeeColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        employee.primaryJobRoleTitle.isEmpty ? 'No Role' : employee.primaryJobRoleTitle,
+                        style: TextStyle(
+                          color: employeeColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Action Buttons
+          IconButton(
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline, color: Colors.white70),
+            tooltip: 'Delete',
+          ),
+          IconButton(
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit, color: Colors.white70),
+            tooltip: 'Edit',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionsSection extends StatefulWidget {
+  const _TransactionsSection({required this.employee});
+
+  final OrganizationEmployee employee;
+
+  @override
+  State<_TransactionsSection> createState() => _TransactionsSectionState();
+}
+
+class _TransactionsSectionState extends State<_TransactionsSection> {
+  @override
+  Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    final organization = orgState.organization;
+
+    if (organization == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            'No organization selected',
+            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          ),
+        ),
+      );
+    }
+
+    final repository = context.read<EmployeeWagesRepository>();
+
+    return StreamBuilder<Map<String, dynamic>?>(
+      stream: repository.watchEmployeeLedger(employeeId: widget.employee.id),
+      builder: (context, ledgerSnapshot) {
+        return StreamBuilder<List<Map<String, dynamic>>>(
+          stream: repository.watchEmployeeLedgerTransactions(
+            employeeId: widget.employee.id,
+            limit: 100,
+          ),
+          builder: (context, transactionsSnapshot) {
+            if (ledgerSnapshot.connectionState == ConnectionState.waiting ||
+                transactionsSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF6F4BFF),
+                ),
+              );
+            }
+
+            if (ledgerSnapshot.hasError || transactionsSnapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red.withOpacity(0.7),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to load ledger: ${ledgerSnapshot.error ?? transactionsSnapshot.error}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final ledger = ledgerSnapshot.data;
+            final transactions = transactionsSnapshot.data ?? [];
+
+            if (transactions.isEmpty && ledger == null) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.receipt_long_outlined,
+                          size: 64,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No Transactions',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No ledger entries found for this employee',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _LedgerBalanceCard(
+                    employee: widget.employee,
+                    ledger: ledger,
+                    formatCurrency: _formatCurrency,
+                  ),
+                  const SizedBox(height: 20),
+                  _LedgerTable(
+                    transactions: transactions,
+                    formatCurrency: _formatCurrency,
+                    formatDate: _formatDate,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _formatCurrency(double amount) {
+    return '₹${amount.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        )}';
+  }
+
+  String _formatDate(dynamic timestamp) {
+    if (timestamp == null) return 'N/A';
+    try {
+      DateTime date;
+      if (timestamp is DateTime) {
+        date = timestamp;
+      } else {
+        // Try to call toDate() if it's a Firestore Timestamp
+        try {
+          date = (timestamp as dynamic).toDate() as DateTime;
+        } catch (_) {
+          return 'N/A';
+        }
+      }
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year.toString().substring(2)}';
+    } catch (e) {
+      return 'N/A';
+    }
+  }
+}
+
+class _LedgerBalanceCard extends StatelessWidget {
+  const _LedgerBalanceCard({
+    required this.employee,
+    required this.ledger,
+    required this.formatCurrency,
+  });
+
+  final OrganizationEmployee employee;
+  final Map<String, dynamic>? ledger;
+  final String Function(double) formatCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    // Use ledger data if available, otherwise fall back to employee data
+    final currentBalance = (ledger?['currentBalance'] as num?)?.toDouble() ?? employee.currentBalance;
+    final openingBalance = employee.openingBalance;
+    final totalCredited = (ledger?['totalCredited'] as num?)?.toDouble() ?? (currentBalance - openingBalance);
+    final isReceivable = currentBalance > 0;
+    final isPayable = currentBalance < 0;
+
+    Color badgeColor() {
+      if (isReceivable) return Colors.orangeAccent;
+      if (isPayable) return Colors.greenAccent;
+      return Colors.white70;
+    }
+
+    String badgeText() {
+      if (isReceivable) return 'Employee owes us';
+      if (isPayable) return 'We owe employee';
+      return 'Settled';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF131324),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Avatar
+              const Text(
+                'Ledger',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               Container(
-                width: 56,
-                height: 56,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      employeeColor.withOpacity(0.4),
-                      employeeColor.withOpacity(0.2),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: employeeColor.withOpacity(0.3),
-                      blurRadius: 8,
-                      spreadRadius: 2,
-                    ),
-                  ],
+                  color: badgeColor().withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: badgeColor().withOpacity(0.6)),
                 ),
-                child: Center(
-                  child: Text(
-                    _getInitials(),
-                    style: TextStyle(
-                      color: employeeColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
+                child: Text(
+                  badgeText(),
+                  style: TextStyle(
+                    color: badgeColor(),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              // Name and Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            employee.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Role Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: employeeColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: employeeColor.withOpacity(0.5),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.badge_outlined,
-                            size: 14,
-                            color: employeeColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            employee.roleTitle,
-                            style: TextStyle(
-                              color: employeeColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Action Buttons
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: Colors.white70),
-                tooltip: 'Delete',
-              ),
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit, color: Colors.white70),
-                tooltip: 'Edit',
               ),
             ],
           ),
-          // Balance Info
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.1),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Current Balance',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    if (balanceDifference != 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isPositive
-                              ? const Color(0xFF5AD8A4).withOpacity(0.2)
-                              : Colors.redAccent.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                              size: 12,
-                              color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${isPositive ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)}',
-                              style: TextStyle(
-                                color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '₹${employee.currentBalance.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Opening: ₹${employee.openingBalance.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 10),
+          _LedgerRow(label: 'Current Balance', value: formatCurrency(currentBalance.abs())),
+          _LedgerRow(label: 'Opening Balance', value: formatCurrency(openingBalance)),
+          _LedgerRow(label: 'Total Credited', value: formatCurrency(totalCredited)),
         ],
       ),
     );
   }
 }
 
-class _OverviewSection extends StatelessWidget {
-  const _OverviewSection({required this.employee});
-
-  final OrganizationEmployee employee;
-
-  @override
-  Widget build(BuildContext context) {
-    final balanceDifference = employee.currentBalance - employee.openingBalance;
-    final isPositive = balanceDifference >= 0;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Balance Summary Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF131324),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Balance Summary',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _SummaryRow(
-                  label: 'Opening Balance',
-                  value: '₹${employee.openingBalance.toStringAsFixed(2)}',
-                ),
-                const SizedBox(height: 12),
-                _SummaryRow(
-                  label: 'Current Balance',
-                  value: '₹${employee.currentBalance.toStringAsFixed(2)}',
-                ),
-                const SizedBox(height: 12),
-                _SummaryRow(
-                  label: 'Balance Change',
-                  value: '${isPositive ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)}',
-                  valueColor: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Salary Information
-          if (employee.salaryAmount != null)
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF131324),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Salary Information',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _SummaryRow(
-                    label: 'Salary Type',
-                    value: _getSalaryTypeLabel(employee.salaryType),
-                  ),
-                  const SizedBox(height: 12),
-                  _SummaryRow(
-                    label: 'Salary Amount',
-                    value: '₹${employee.salaryAmount!.toStringAsFixed(2)}',
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  String _getSalaryTypeLabel(SalaryType type) {
-    switch (type) {
-      case SalaryType.salaryMonthly:
-        return 'Monthly';
-      case SalaryType.wages:
-        return 'Wages';
-    }
-  }
-}
-
-class _DetailsSection extends StatelessWidget {
-  const _DetailsSection({required this.employee});
-
-  final OrganizationEmployee employee;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF131324),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Employee Information',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _DetailRow(label: 'Employee ID', value: employee.id),
-                const SizedBox(height: 12),
-                _DetailRow(label: 'Name', value: employee.name),
-                const SizedBox(height: 12),
-                _DetailRow(label: 'Role', value: employee.roleTitle),
-                const SizedBox(height: 12),
-                _DetailRow(
-                  label: 'Salary Type',
-                  value: _getSalaryTypeLabel(employee.salaryType),
-                ),
-                if (employee.salaryAmount != null) ...[
-                  const SizedBox(height: 12),
-                  _DetailRow(
-                    label: 'Salary Amount',
-                    value: '₹${employee.salaryAmount!.toStringAsFixed(2)}',
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getSalaryTypeLabel(SalaryType type) {
-    switch (type) {
-      case SalaryType.salaryMonthly:
-        return 'Monthly';
-      case SalaryType.wages:
-        return 'Wages';
-    }
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
+class _LedgerRow extends StatelessWidget {
+  const _LedgerRow({required this.label, required this.value});
 
   final String label;
   final String value;
-  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
           ),
-        ),
-        Text(
-          value,
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LedgerTable extends StatelessWidget {
+  const _LedgerTable({
+    required this.transactions,
+    required this.formatCurrency,
+    required this.formatDate,
+  });
+
+  final List<Map<String, dynamic>> transactions;
+  final String Function(double) formatCurrency;
+  final String Function(dynamic) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    if (transactions.isEmpty) {
+      return const Text(
+        'No transactions found.',
+        style: TextStyle(color: Colors.white54),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Ledger',
           style: TextStyle(
-            color: valueColor ?? Colors.white,
+            color: Colors.white,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-            ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF131324),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
           ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.right,
+          child: Column(
+            children: [
+              _LedgerTableHeader(),
+              const Divider(height: 1, color: Colors.white12),
+              ...transactions.map((tx) {
+                final type = tx['type'] as String? ?? 'credit';
+                final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+                final balanceAfter = (tx['balanceAfter'] as num?)?.toDouble() ?? 0.0;
+                final date = tx['transactionDate'] ?? tx['createdAt'];
+                final referenceNumber = tx['referenceNumber'] as String? ?? tx['metadata']?['invoiceNumber'] as String? ?? '-';
+                
+                final isCredit = type == 'credit';
+                final credit = isCredit ? amount : 0.0;
+                final debit = !isCredit ? amount : 0.0;
+
+                return _LedgerTableRow(
+                  date: date,
+                  reference: referenceNumber,
+                  credit: credit,
+                  debit: debit,
+                  balance: balanceAfter,
+                  formatCurrency: formatCurrency,
+                  formatDate: formatDate,
+                );
+              }),
+            ],
           ),
         ),
       ],
@@ -649,37 +650,91 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-class _TabButton extends StatelessWidget {
-  const _TabButton({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
+class _LedgerTableHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          SizedBox(width: 90, child: Text('Date', style: TextStyle(color: Colors.white70, fontSize: 11))),
+          SizedBox(width: 70, child: Text('Reference', style: TextStyle(color: Colors.white70, fontSize: 11))),
+          Expanded(child: Text('Credit', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
+          Expanded(child: Text('Debit', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
+          Expanded(child: Text('Balance', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
+        ],
+      ),
+    );
+  }
+}
+
+class _LedgerTableRow extends StatelessWidget {
+  const _LedgerTableRow({
+    required this.date,
+    required this.reference,
+    required this.credit,
+    required this.debit,
+    required this.balance,
+    required this.formatCurrency,
+    required this.formatDate,
   });
 
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
+  final dynamic date;
+  final String reference;
+  final double credit;
+  final double debit;
+  final double balance;
+  final String Function(double) formatCurrency;
+  final String Function(dynamic) formatDate;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6F4BFF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              formatDate(date),
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+            ),
           ),
-        ),
+          SizedBox(
+            width: 70,
+            child: Text(
+              reference,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              credit > 0 ? formatCurrency(credit) : '-',
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              debit > 0 ? formatCurrency(debit) : '-',
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatCurrency(balance),
+              style: TextStyle(
+                color: balance >= 0 ? Colors.orangeAccent : Colors.greenAccent,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -786,7 +841,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
       text: employee != null ? employee.openingBalance.toStringAsFixed(2) : '',
     );
     _salaryController = TextEditingController(
-      text: employee?.salaryAmount?.toStringAsFixed(2) ?? '',
+      text: employee?.wage.baseAmount?.toStringAsFixed(2) ?? '',
     );
   }
 
@@ -795,7 +850,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     
     if (widget.employee != null) {
       final match = roles.where(
-        (role) => role.id == widget.employee?.roleId,
+        (role) => role.id == widget.employee?.primaryJobRoleId,
       );
       if (match.isNotEmpty) {
         _selectedRoleId = match.first.id;
@@ -898,7 +953,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                 },
               ),
               const SizedBox(height: 12),
-              if (selectedRole?.salaryType == SalaryType.salaryMonthly)
+              if (selectedRole?.salaryType == SalaryType.salaryMonthly || selectedRole?.salaryType == null)
                 TextFormField(
                   controller: _salaryController,
                   keyboardType:
@@ -942,21 +997,40 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
 
                   final organizationId =
                       context.read<EmployeesCubit>().organizationId;
+                  
+                  // Convert to new structure with jobRoles
+                  final jobRole = EmployeeJobRole(
+                    jobRoleId: selectedRole.id,
+                    jobRoleTitle: selectedRole.title,
+                    assignedAt: DateTime.now(),
+                    isPrimary: true,
+                  );
+                  
+                  // Convert SalaryType to WageType
+                  WageType wageType = WageType.perMonth;
+                  if (selectedRole.salaryType == SalaryType.wages) {
+                    wageType = WageType.perMonth; // Default wages to perMonth
+                  }
+                  
+                  final wage = EmployeeWage(
+                    type: wageType,
+                    baseAmount: salaryAmount,
+                  );
+                  
                   final employee = OrganizationEmployee(
                     id: widget.employee?.id ??
                         DateTime.now().millisecondsSinceEpoch.toString(),
                     organizationId: widget.employee?.organizationId ??
                         organizationId,
                     name: _nameController.text.trim(),
-                    roleId: selectedRole.id,
-                    roleTitle: selectedRole.title,
+                    jobRoleIds: [selectedRole.id],
+                    jobRoles: {selectedRole.id: jobRole},
+                    wage: wage,
                     openingBalance: widget.employee?.openingBalance ??
                         double.parse(_openingBalanceController.text.trim()),
                     currentBalance:
                         widget.employee?.currentBalance ??
                             double.parse(_openingBalanceController.text.trim()),
-                    salaryType: selectedRole.salaryType,
-                    salaryAmount: salaryAmount,
                   );
 
                   if (widget.employee == null) {

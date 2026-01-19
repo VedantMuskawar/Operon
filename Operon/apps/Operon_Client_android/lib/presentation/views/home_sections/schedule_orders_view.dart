@@ -11,6 +11,7 @@ import 'package:dash_mobile/presentation/widgets/schedule_trip_modal.dart';
 import 'package:dash_mobile/presentation/widgets/scheduled_trip_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class ScheduleOrdersView extends StatefulWidget {
   const ScheduleOrdersView({super.key});
@@ -716,32 +717,44 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
             ),
           )
         else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            itemCount: _scheduledTrips.length,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: ScheduledTripTile(
-                  trip: _scheduledTrips[index],
-                  onReschedule: () => _onReschedule(_scheduledTrips[index]),
-                  onOpenDetails: () async {
-                    final trip = _scheduledTrips[index];
-                    final result = await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ScheduleTripDetailPage(trip: trip),
+          AnimationLimiter(
+            child: ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemCount: _scheduledTrips.length,
+              itemBuilder: (context, index) {
+                return AnimationConfiguration.staggeredList(
+                  position: index,
+                  duration: const Duration(milliseconds: 200),
+                  child: SlideAnimation(
+                    verticalOffset: 50.0,
+                    child: FadeInAnimation(
+                      curve: Curves.easeOut,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: ScheduledTripTile(
+                          trip: _scheduledTrips[index],
+                          onReschedule: () => _onReschedule(_scheduledTrips[index]),
+                          onOpenDetails: () async {
+                            final trip = _scheduledTrips[index];
+                            final result = await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => ScheduleTripDetailPage(trip: trip),
+                              ),
+                            );
+                            if (result == true) {
+                              // Refresh trips after detail actions
+                              _subscribeToTrips();
+                            }
+                          },
+                        ),
                       ),
-                    );
-                    if (result == true) {
-                      // Refresh trips after detail actions
-                      _subscribeToTrips();
-                    }
-                  },
-                ),
-              );
-            },
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
       ],
       ),

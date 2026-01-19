@@ -170,7 +170,7 @@ class ModernTileWithAvatar extends StatelessWidget {
                     ),
             ),
           ),
-          SizedBox(width: AppSpacing.itemSpacing),
+          const SizedBox(width: AppSpacing.itemSpacing),
           // Content
           Expanded(
             child: Column(
@@ -193,7 +193,7 @@ class ModernTileWithAvatar extends StatelessWidget {
                     ],
                   ],
                 ),
-                SizedBox(height: AppSpacing.paddingXS),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   subtitle,
                   style: AppTypography.bodySmall.copyWith(
@@ -203,18 +203,18 @@ class ModernTileWithAvatar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (metadata != null) ...[
-                  SizedBox(height: AppSpacing.paddingXS),
+                  const SizedBox(height: AppSpacing.paddingXS),
                   metadata!,
                 ],
               ],
             ),
           ),
           if (trailing != null) ...[
-            SizedBox(width: AppSpacing.itemSpacing),
+            const SizedBox(width: AppSpacing.itemSpacing),
             trailing!,
           ] else if (onTap != null) ...[
-            SizedBox(width: AppSpacing.itemSpacing),
-            Icon(
+            const SizedBox(width: AppSpacing.itemSpacing),
+            const Icon(
               Icons.chevron_right,
               color: AppColors.textTertiary,
               size: AppSpacing.iconSM,
@@ -280,13 +280,13 @@ class ModernProductTile extends StatelessWidget {
                 color: AppColors.primary.withOpacity(0.2),
               ),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.inventory_2_outlined,
               color: AppColors.primary,
               size: AppSpacing.iconMD,
             ),
           ),
-          SizedBox(width: AppSpacing.itemSpacing),
+          const SizedBox(width: AppSpacing.itemSpacing),
           // Content
           Expanded(
             child: Column(
@@ -299,7 +299,7 @@ class ModernProductTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: AppSpacing.paddingXS),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   gstPercent != null
                       ? '₹${price.toStringAsFixed(2)} • GST ${gstPercent!.toStringAsFixed(1)}%'
@@ -310,7 +310,7 @@ class ModernProductTile extends StatelessWidget {
                 ),
                 if (fixedQuantityOptions != null &&
                     fixedQuantityOptions!.isNotEmpty) ...[
-                  SizedBox(height: AppSpacing.paddingXS / 2),
+                  const SizedBox(height: AppSpacing.paddingXS / 2),
                   Text(
                     'Fixed Qty/Trip: ${fixedQuantityOptions!.join(", ")}',
                     style: AppTypography.caption.copyWith(
@@ -318,7 +318,7 @@ class ModernProductTile extends StatelessWidget {
                     ),
                   ),
                 ],
-                SizedBox(height: AppSpacing.paddingXS / 2),
+                const SizedBox(height: AppSpacing.paddingXS / 2),
                 Text(
                   'Status: $status',
                   style: AppTypography.caption.copyWith(
@@ -336,7 +336,7 @@ class ModernProductTile extends StatelessWidget {
               children: [
                 if (canEdit)
                   IconButton(
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.edit_outlined,
                       color: AppColors.textSecondary,
                       size: AppSpacing.iconSM,
@@ -346,10 +346,10 @@ class ModernProductTile extends StatelessWidget {
                     constraints: const BoxConstraints(),
                   ),
                 if (canEdit && canDelete)
-                  SizedBox(height: AppSpacing.paddingXS),
+                  const SizedBox(height: AppSpacing.paddingXS),
                 if (canDelete)
                   IconButton(
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.delete_outline,
                       color: AppColors.error,
                       size: AppSpacing.iconSM,

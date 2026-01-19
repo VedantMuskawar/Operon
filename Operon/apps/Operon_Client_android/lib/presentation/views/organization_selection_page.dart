@@ -29,8 +29,8 @@ class _OrganizationSelectionPageState
   ];
 
   // Cache for pre-fetched app access roles
-  Map<String, List<AppAccessRole>> _cachedRoles = {};
-  Map<String, Map<String, AppAccessRole>> _roleLookupMaps = {};
+  final Map<String, List<AppAccessRole>> _cachedRoles = {};
+  final Map<String, Map<String, AppAccessRole>> _roleLookupMaps = {};
   bool _isLoadingRole = false;
   String? _loadingOrgId;
 
@@ -148,9 +148,9 @@ class _OrganizationSelectionPageState
       body: Stack(
         children: [
           // Dot grid pattern background - fills entire viewport
-          Positioned.fill(
+          const Positioned.fill(
             child: RepaintBoundary(
-              child: const DotGridPattern(),
+              child: DotGridPattern(),
             ),
           ),
           // Main content
@@ -286,12 +286,12 @@ class _OrganizationSelectionPageState
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  icon: Icon(
+                  icon: const Icon(
                     Icons.logout_rounded,
                     color: AuthColors.textMain,
                     size: 18,
                   ),
-                  label: Text(
+                  label: const Text(
                     'Logout',
                     style: TextStyle(
                       color: AuthColors.textMain,

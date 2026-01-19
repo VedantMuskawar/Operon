@@ -6,6 +6,7 @@ import 'package:dash_mobile/presentation/blocs/payment_accounts/payment_accounts
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class PaymentAccountsPage extends StatelessWidget {
@@ -49,8 +50,8 @@ class PaymentAccountsPage extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (state.accounts.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 40),
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 40),
                     child: Text(
                       'No payment accounts yet. Tap "Add Payment Account" to create one.',
                       style: TextStyle(
@@ -61,21 +62,33 @@ class PaymentAccountsPage extends StatelessWidget {
                     ),
                   );
                 }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: state.accounts.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final account = state.accounts[index];
-                    return _AccountDataListItem(
-                      account: account,
-                      onEdit: () => _openAccountDialog(context, account: account),
-                      onDelete: () => context.read<PaymentAccountsCubit>().deleteAccount(account.id),
-                      onSetPrimary: () => context.read<PaymentAccountsCubit>().setPrimaryAccount(account.id),
-                      onUnsetPrimary: () => context.read<PaymentAccountsCubit>().unsetPrimaryAccount(account.id),
-                    );
-                  },
+                return AnimationLimiter(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: state.accounts.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final account = state.accounts[index];
+                      return AnimationConfiguration.staggeredList(
+                        position: index,
+                        duration: const Duration(milliseconds: 200),
+                        child: SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(
+                            curve: Curves.easeOut,
+                            child: _AccountDataListItem(
+                              account: account,
+                              onEdit: () => _openAccountDialog(context, account: account),
+                              onDelete: () => context.read<PaymentAccountsCubit>().deleteAccount(account.id),
+                              onSetPrimary: () => context.read<PaymentAccountsCubit>().setPrimaryAccount(account.id),
+                              onUnsetPrimary: () => context.read<PaymentAccountsCubit>().unsetPrimaryAccount(account.id),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -230,7 +243,7 @@ class _AccountDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.edit_outlined,
                 color: AuthColors.textSub,
                 size: 20,
@@ -241,7 +254,7 @@ class _AccountDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.delete_outline,
                 color: AuthColors.error,
                 size: 20,
@@ -309,7 +322,7 @@ class _AccountDialogState extends State<_AccountDialog> {
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Payment Account' : 'Add Payment Account',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -321,7 +334,7 @@ class _AccountDialogState extends State<_AccountDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Account Name'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -332,7 +345,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                 DropdownButtonFormField<PaymentAccountType>(
                   initialValue: _type,
                   dropdownColor: AuthColors.surface,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Account Type'),
                   onChanged: (value) {
                     if (value != null) setState(() => _type = value);
@@ -348,21 +361,21 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _accountNumberController,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Account Number'),
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _ifscCodeController,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('IFSC Code'),
                     textCapitalization: TextCapitalization.characters,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _upiIdController,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('UPI ID (Optional)'),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -375,14 +388,14 @@ class _AccountDialogState extends State<_AccountDialog> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
                           Icon(
                             Icons.info_outline,
                             color: AuthColors.primary,
                             size: 16,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'QR code will be auto-generated from UPI ID',
@@ -401,7 +414,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _upiIdController,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('UPI ID'),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty)
@@ -416,14 +429,14 @@ class _AccountDialogState extends State<_AccountDialog> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
                         Icon(
                           Icons.info_outline,
                           color: AuthColors.primary,
                           size: 16,
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'QR code will be auto-generated from UPI ID',
@@ -439,7 +452,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                 ],
                 const SizedBox(height: 12),
                 SwitchListTile(
-                  title: Text(
+                  title: const Text(
                     'Active',
                     style: TextStyle(color: AuthColors.textSub),
                   ),
@@ -455,7 +468,7 @@ class _AccountDialogState extends State<_AccountDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',
@@ -529,7 +542,7 @@ class _AccountDialogState extends State<_AccountDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

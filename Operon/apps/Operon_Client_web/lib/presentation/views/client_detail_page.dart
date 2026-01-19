@@ -1167,9 +1167,9 @@ class _AnalyticsSectionState extends State<AnalyticsSection> {
                 ),
               )
             : _ledger == null
-                ? SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: const Center(
+                ? const SingleChildScrollView(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
                       child: Text(
                         'No ledger data available for this client.',
                         style: TextStyle(color: Colors.white54),

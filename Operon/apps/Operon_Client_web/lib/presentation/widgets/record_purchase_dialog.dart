@@ -614,7 +614,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                 
                 // Vendor Dropdown
                 DropdownButtonFormField<Vendor>(
-                  value: _selectedVendor,
+                  initialValue: _selectedVendor,
                   decoration: _inputDecoration('Vendor'),
                   dropdownColor: const Color(0xFF2B2B3C),
                   style: const TextStyle(color: Colors.white),
@@ -701,7 +701,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           child: CircularProgressIndicator(),
                         ))
                       : DropdownButtonFormField<Vehicle>(
-                          value: _selectedVehicle,
+                          initialValue: _selectedVehicle,
                           decoration: _inputDecoration('Vehicle'),
                           dropdownColor: const Color(0xFF2B2B3C),
                           style: const TextStyle(color: Colors.white),
@@ -742,15 +742,15 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        const Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.inventory_2_outlined,
                               color: Colors.white70,
                               size: 20,
                             ),
-                            const SizedBox(width: 8),
-                            const Text(
+                            SizedBox(width: 8),
+                            Text(
                               'Raw Materials Purchased',
                               style: TextStyle(
                                 color: Colors.white,
@@ -863,7 +863,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                 ),
                               ),
                             );
-                          }).toList(),
+                          }),
                         if (_assignedMaterials.isNotEmpty) ...[
                           const SizedBox(height: 8),
                           // Material Totals Breakdown
@@ -902,15 +902,15 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.local_shipping_outlined,
                             color: Colors.white70,
                             size: 20,
                           ),
-                          const SizedBox(width: 8),
-                          const Text(
+                          SizedBox(width: 8),
+                          Text(
                             'Additional Charges',
                             style: TextStyle(
                               color: Colors.white,

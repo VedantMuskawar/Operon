@@ -71,7 +71,7 @@ class AnalyticsRepository {
 
 class ClientsAnalytics {
   ClientsAnalytics({
-    required this.activeClientsMonthly,
+    required this.totalActiveClients,
     required this.onboardingMonthly,
     this.generatedAt,
     this.totalOrders,
@@ -115,13 +115,17 @@ class ClientsAnalytics {
       return {};
     }
 
+    // Extract totalActiveClients (single number, not monthly)
+    final totalActiveClients = map['metrics']?['totalActiveClients'] as num?;
+    final totalActiveClientsValue = totalActiveClients?.toInt() ?? 0;
+
     // Extract total orders if available
     final totalOrders = map['metrics']?['totalOrders'] as num?;
     final corporateCount = map['metrics']?['corporateCount'] as num?;
     final individualCount = map['metrics']?['individualCount'] as num?;
 
     return ClientsAnalytics(
-      activeClientsMonthly: extractSeries('activeClients'),
+      totalActiveClients: totalActiveClientsValue,
       onboardingMonthly: extractSeries('userOnboarding'),
       generatedAt: generatedAt,
       totalOrders: totalOrders?.toInt(),
@@ -130,20 +134,12 @@ class ClientsAnalytics {
     );
   }
 
-  final Map<String, double> activeClientsMonthly;
+  final int totalActiveClients;
   final Map<String, double> onboardingMonthly;
   final DateTime? generatedAt;
   final int? totalOrders;
   final int? corporateCount;
   final int? individualCount;
-
-  /// Get the latest active clients count (most recent month)
-  int get latestActiveClients {
-    if (activeClientsMonthly.isEmpty) return 0;
-    final sortedKeys = activeClientsMonthly.keys.toList()..sort();
-    final latestKey = sortedKeys.last;
-    return activeClientsMonthly[latestKey]?.toInt() ?? 0;
-  }
 }
 
 

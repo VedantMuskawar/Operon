@@ -4,6 +4,7 @@ import 'package:dash_mobile/data/repositories/attendance_repository_impl.dart';
 import 'package:dash_mobile/presentation/blocs/attendance/attendance_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/home_sections/attendance_view.dart';
+import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:flutter/material.dart';
@@ -19,9 +20,9 @@ class AttendancePage extends StatelessWidget {
     final organization = orgState.organization;
 
     if (organization == null) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: AuthColors.background,
-        body: const Center(
+        body: Center(
           child: Text(
             'No organization selected',
             style: TextStyle(color: AuthColors.textMain),
@@ -49,19 +50,24 @@ class AttendancePage extends StatelessWidget {
       ],
       child: Scaffold(
         backgroundColor: AuthColors.background,
-        body: Stack(
-          children: [
-            const AttendanceView(),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: QuickNavBar(
-                currentIndex: -1,
-                onTap: (value) => context.go('/home', extra: value),
+        appBar: const ModernPageHeader(
+          title: 'Attendance',
+        ),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              const AttendanceView(),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: QuickNavBar(
+                  currentIndex: -1,
+                  onTap: (value) => context.go('/home', extra: value),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

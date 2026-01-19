@@ -17,11 +17,35 @@ class ClientAnalyticsPage extends StatefulWidget {
 class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
   ClientsAnalytics? _analytics;
   bool _isLoading = true;
+  String? _cachedActiveClientsValue;
+  String? _cachedOnboardingValue;
+  Map<String, double>? _cachedChartData;
+  Map<String, double>? _lastAnalyticsData;
 
   @override
   void initState() {
     super.initState();
     _loadAnalytics();
+  }
+
+  @override
+  void didUpdateWidget(ClientAnalyticsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_analytics != null && _lastAnalyticsData != _analytics!.onboardingMonthly) {
+      _updateCachedValues();
+    }
+  }
+
+  void _updateCachedValues() {
+    if (_analytics == null) return;
+    _cachedActiveClientsValue = _analytics!.totalActiveClients.toString();
+    _cachedOnboardingValue = _calculateCurrentValue(_analytics!.onboardingMonthly);
+    // Prepare chart data
+    final sortedKeys = _analytics!.onboardingMonthly.keys.toList()..sort();
+    _cachedChartData = Map.fromEntries(
+      sortedKeys.map((key) => MapEntry(key, _analytics!.onboardingMonthly[key] ?? 0.0)),
+    );
+    _lastAnalyticsData = _analytics!.onboardingMonthly;
   }
 
   String _canonicalFy(String? prettyFy) {
@@ -56,6 +80,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
           _analytics = analytics;
           _isLoading = false;
         });
+        _updateCachedValues();
       }
     } catch (e) {
       if (mounted) {
@@ -88,7 +113,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
                 color: AuthColors.textSub.withOpacity(0.5),
               ),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'No analytics data available',
                 style: TextStyle(
                   color: AuthColors.textMain,
@@ -101,7 +126,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
                 'Analytics will appear once clients are added.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
+                  color: AuthColors.textSub.withOpacity(0.5),
                   fontSize: 14,
                 ),
               ),
@@ -119,6 +144,10 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
       children: [
         // Statistics Header
         BlocBuilder<ClientsCubit, ClientsState>(
+          buildWhen: (previous, current) {
+            // Only rebuild when recentClients list changes
+            return previous.recentClients != current.recentClients;
+          },
           builder: (context, state) {
             return _ClientsStatsHeader(clients: state.recentClients);
           },
@@ -130,23 +159,24 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
             Expanded(
               child: _InfoTile(
                 title: 'Active Clients',
-                value: _calculateCurrentValue(_analytics!.activeClientsMonthly),
+                value: _cachedActiveClientsValue ?? _analytics!.totalActiveClients.toString(),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _InfoTile(
                 title: 'Onboarding',
-                value: _calculateCurrentValue(_analytics!.onboardingMonthly),
+                value: _cachedOnboardingValue ?? _calculateCurrentValue(_analytics!.onboardingMonthly),
               ),
             ),
           ],
         ),
         const SizedBox(height: 24),
         // Graph
-        _OnboardingChart(
-          data: _analytics!.onboardingMonthly,
-        ),
+        if (_analytics != null)
+          _OnboardingChart(
+            data: _cachedChartData ?? _analytics!.onboardingMonthly,
+          ),
         const SizedBox(height: 24),
         // Summary Stats
         _SummaryStats(data: _analytics!.onboardingMonthly),
@@ -193,7 +223,7 @@ class _InfoTile extends StatelessWidget {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textSub,
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -202,7 +232,7 @@ class _InfoTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 28,
               fontWeight: FontWeight.w700,
@@ -220,6 +250,14 @@ class _OnboardingChart extends StatelessWidget {
   });
 
   final Map<String, double> data;
+
+  Map<String, double> _prepareChartData() {
+    if (data.isEmpty) return {};
+    final sortedKeys = data.keys.toList()..sort();
+    return Map.fromEntries(
+      sortedKeys.map((key) => MapEntry(key, data[key] ?? 0.0)),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +285,7 @@ class _OnboardingChart extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Onboarding Trend',
             style: TextStyle(
               color: AuthColors.textMain,
@@ -271,13 +309,6 @@ class _OnboardingChart extends StatelessWidget {
     );
   }
 
-  Map<String, double> _prepareChartData() {
-    if (data.isEmpty) return {};
-    final sortedKeys = data.keys.toList()..sort();
-    return Map.fromEntries(
-      sortedKeys.map((key) => MapEntry(key, data[key] ?? 0.0)),
-    );
-  }
 }
 
 class _LineChartPainter extends CustomPainter {
@@ -290,6 +321,14 @@ class _LineChartPainter extends CustomPainter {
   final Map<String, double> data;
   final double maxValue;
   final double minValue;
+
+  @override
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    // Only repaint if data actually changed
+    return oldDelegate.data != data ||
+        oldDelegate.maxValue != maxValue ||
+        oldDelegate.minValue != minValue;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -326,7 +365,7 @@ class _LineChartPainter extends CustomPainter {
     }
 
     // Draw Y-axis labels
-    final textStyle = TextStyle(
+    const textStyle = TextStyle(
               color: AuthColors.textSub,
       fontSize: 11,
     );
@@ -418,7 +457,7 @@ class _LineChartPainter extends CustomPainter {
           final valueText = TextPainter(
             text: TextSpan(
               text: dataPoints[i].toInt().toString(),
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textMain,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -471,7 +510,7 @@ class _LineChartPainter extends CustomPainter {
         final labelText = TextPainter(
           text: TextSpan(
             text: label,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textSub,
               fontSize: 10,
             ),
@@ -497,7 +536,7 @@ class _LineChartPainter extends CustomPainter {
       final labelText = TextPainter(
         text: TextSpan(
           text: label,
-          style: TextStyle(
+          style: const TextStyle(
               color: AuthColors.textSub,
             fontSize: 10,
           ),
@@ -533,8 +572,6 @@ class _LineChartPainter extends CustomPainter {
     }
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class _SummaryStats extends StatelessWidget {
@@ -629,7 +666,7 @@ class _StatChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -653,7 +690,7 @@ class _StatChip extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Text(
                     subtitle!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AuthColors.textSub,
                       fontSize: 10,
                     ),
@@ -751,7 +788,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
@@ -792,7 +829,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -801,7 +838,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textSub,
               fontSize: 11,
               fontWeight: FontWeight.w500,

@@ -2,8 +2,6 @@
 // Keeping this file for backward compatibility during migration
 // TODO: Remove this file after all usages are migrated to core_datasources
 
-import 'package:core_datasources/core_datasources.dart';
-import 'package:core_models/core_models.dart';
 
 // Re-export the shared TransactionsRepository for backward compatibility
 export 'package:core_datasources/core_datasources.dart' show TransactionsRepository;

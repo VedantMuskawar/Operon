@@ -140,7 +140,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                     color: AuthColors.primary.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.history,
                     color: AuthColors.primary,
                     size: 20,
@@ -151,7 +151,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Stock History',
                         style: TextStyle(
                           color: AuthColors.textMain,
@@ -161,7 +161,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                       ),
                       Text(
                         widget.material.name,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textSub,
                           fontSize: 14,
                         ),
@@ -171,7 +171,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(Icons.close, color: AuthColors.textSub),
+                  icon: const Icon(Icons.close, color: AuthColors.textSub),
                 ),
               ],
             ),
@@ -193,7 +193,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Current Stock',
                         style: TextStyle(
                           color: AuthColors.textSub,
@@ -203,7 +203,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                       const SizedBox(height: 4),
                       Text(
                         '${widget.material.stock} ${widget.material.unitOfMeasurement}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textMain,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -214,7 +214,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
+                      const Text(
                         'Minimum Level',
                         style: TextStyle(
                           color: AuthColors.textSub,
@@ -248,7 +248,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                   ),
                 ),
                 child: _isLoading
-                    ? Center(child: CircularProgressIndicator(color: AuthColors.primary))
+                    ? const Center(child: CircularProgressIndicator(color: AuthColors.primary))
                     : _error != null
                         ? Center(
                             child: Padding(
@@ -256,7 +256,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.error_outline,
                                     color: AuthColors.error,
                                     size: 48,
@@ -264,7 +264,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                   const SizedBox(height: 16),
                                   Text(
                                     _error!,
-                                    style: TextStyle(color: AuthColors.error),
+                                    style: const TextStyle(color: AuthColors.error),
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 16),
@@ -277,7 +277,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                             ),
                           )
                         : _historyEntries.isEmpty
-                            ? Center(
+                            ? const Center(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -286,7 +286,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                       color: AuthColors.textSub,
                                       size: 48,
                                     ),
-                                    const SizedBox(height: 16),
+                                    SizedBox(height: 16),
                                     Text(
                                       'No stock history yet',
                                       style: TextStyle(
@@ -358,7 +358,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                   ),
                                                   Text(
                                                     ' ${widget.material.unitOfMeasurement}',
-                                                    style: TextStyle(
+                                                    style: const TextStyle(
                                                       color: AuthColors.textSub,
                                                       fontSize: 12,
                                                     ),
@@ -368,7 +368,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                               const SizedBox(height: 4),
                                               Text(
                                                 entry.reason,
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                   color: AuthColors.textSub,
                                                   fontSize: 12,
                                                 ),
@@ -377,7 +377,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                 const SizedBox(height: 2),
                                                 Text(
                                                   'Invoice: ${entry.invoiceNumber}',
-                                                  style: TextStyle(
+                                                  style: const TextStyle(
                                                     color: AuthColors.textSub,
                                                     fontSize: 11,
                                                   ),
@@ -391,7 +391,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                           children: [
                                             Text(
                                               '${entry.balanceBefore.toStringAsFixed(2)} → ${entry.balanceAfter.toStringAsFixed(2)}',
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 color: AuthColors.textMain,
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.w600,
@@ -400,7 +400,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                             const SizedBox(height: 4),
                                             Text(
                                               _formatDate(entry.createdAt),
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 color: AuthColors.textSub,
                                                 fontSize: 10,
                                               ),

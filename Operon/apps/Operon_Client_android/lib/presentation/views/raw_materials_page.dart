@@ -7,6 +7,7 @@ import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/stock_history_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class RawMaterialsPage extends StatelessWidget {
@@ -91,23 +92,35 @@ class RawMaterialsPage extends StatelessWidget {
                     ),
                   );
                 }
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: state.materials.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final material = state.materials[index];
-                    return _RawMaterialTile(
-                      material: material,
-                      canEdit: cubit.canEdit,
-                      canDelete: cubit.canDelete,
-                      onEdit: () =>
-                          _openRawMaterialDialog(context, material: material),
-                      onDelete: () => cubit.deleteRawMaterial(material.id),
-                      onViewHistory: () => _openStockHistoryDialog(context, material),
-                    );
-                  },
+                return AnimationLimiter(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: state.materials.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final material = state.materials[index];
+                      return AnimationConfiguration.staggeredList(
+                        position: index,
+                        duration: const Duration(milliseconds: 200),
+                        child: SlideAnimation(
+                          verticalOffset: 50.0,
+                          child: FadeInAnimation(
+                            curve: Curves.easeOut,
+                            child: _RawMaterialTile(
+                              material: material,
+                              canEdit: cubit.canEdit,
+                              canDelete: cubit.canDelete,
+                              onEdit: () =>
+                                  _openRawMaterialDialog(context, material: material),
+                              onDelete: () => cubit.deleteRawMaterial(material.id),
+                              onViewHistory: () => _openStockHistoryDialog(context, material),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),

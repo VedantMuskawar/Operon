@@ -15,3 +15,4 @@ export * from './maintenance';
 export * from './production-batches';
 export * from './trip-wages';
 export * from './ledger-maintenance';
+export * from './employees/employee-analytics';

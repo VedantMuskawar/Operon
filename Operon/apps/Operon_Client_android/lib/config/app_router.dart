@@ -28,7 +28,6 @@ import 'package:dash_mobile/presentation/views/raw_materials_page.dart';
 import 'package:dash_mobile/presentation/views/roles_page.dart';
 import 'package:dash_mobile/presentation/views/employees_page.dart';
 import 'package:dash_mobile/presentation/views/employees_page/employee_detail_page.dart';
-import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/presentation/views/vendors_page.dart';
 import 'package:dash_mobile/presentation/views/vendors_page/vendor_detail_page.dart';
 import 'package:dash_mobile/presentation/blocs/vendors/vendors_cubit.dart';
@@ -42,18 +41,16 @@ import 'package:dash_mobile/presentation/views/vehicles_page.dart';
 import 'package:dash_mobile/presentation/views/access_control_page.dart';
 import 'package:dash_mobile/presentation/views/delivery_memos_page.dart';
 import 'package:dash_mobile/presentation/views/payments/record_payment_page.dart';
-import 'package:dash_mobile/presentation/views/payments/transactions_page.dart';
-import 'package:dash_mobile/presentation/views/purchases/purchases_page.dart';
 import 'package:dash_mobile/presentation/views/purchases/record_purchase_page.dart';
 import 'package:dash_mobile/presentation/views/fuel_ledger/fuel_ledger_page.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/employee_wages_page.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/payments/payments_cubit.dart';
-import 'package:dash_mobile/presentation/views/expenses/expenses_page.dart';
 import 'package:dash_mobile/presentation/views/expenses/expense_sub_categories_page.dart';
 import 'package:dash_mobile/presentation/views/expenses/record_expense_page.dart' show ExpenseFormType, RecordExpensePage;
-import 'package:dash_mobile/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
+import 'package:dash_mobile/presentation/views/financial_transactions/unified_financial_transactions_page.dart';
+import 'package:dash_mobile/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart';
 import 'package:dash_mobile/presentation/views/dm_settings_page.dart';
 import 'package:dash_mobile/presentation/blocs/dm_settings/dm_settings_cubit.dart';
 import 'package:dash_mobile/data/repositories/dm_settings_repository.dart';
@@ -658,30 +655,7 @@ GoRouter buildRouter() {
       ),
       GoRoute(
         path: '/transactions',
-        name: 'transactions',
-        pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          final transactionsRepository = context.read<TransactionsRepository>();
-          final clientLedgerRepository = context.read<ClientLedgerRepository>();
-          return _buildTransitionPage(
-            key: state.pageKey,
-            child: BlocProvider(
-              create: (context) => PaymentsCubit(
-                transactionsRepository: transactionsRepository,
-                clientLedgerRepository: clientLedgerRepository,
-                organizationId: organization.id,
-              )..loadRecentPayments(),
-              child: const TransactionsPage(),
-            ),
-          );
-        },
+        redirect: (context, state) => '/financial-transactions',
       ),
       GoRoute(
         path: '/record-purchase',
@@ -703,21 +677,7 @@ GoRouter buildRouter() {
       ),
       GoRoute(
         path: '/purchases',
-        name: 'purchases',
-        pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          return _buildTransitionPage(
-            key: state.pageKey,
-            child: const PurchasesPage(),
-          );
-        },
+        redirect: (context, state) => '/financial-transactions',
       ),
       GoRoute(
         path: '/fuel-ledger',
@@ -789,8 +749,8 @@ GoRouter buildRouter() {
         },
       ),
       GoRoute(
-        path: '/expenses',
-        name: 'expenses',
+        path: '/financial-transactions',
+        name: 'financial-transactions',
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
@@ -800,29 +760,22 @@ GoRouter buildRouter() {
               child: const OrganizationSelectionPage(),
             );
           }
-          final transactionsDataSource = context.read<TransactionsDataSource>();
-          final vendorsRepository = context.read<VendorsRepository>();
-          final employeesRepository = context.read<EmployeesRepository>();
-          final subCategoriesRepository = context.read<ExpenseSubCategoriesRepository>();
-          final paymentAccountsDataSource = context.read<PaymentAccountsDataSource>();
-          final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
-          
+          final transactionsRepository = context.read<TransactionsRepository>();
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
-              create: (_) => ExpensesCubit(
-                transactionsDataSource: transactionsDataSource,
-                vendorsRepository: vendorsRepository,
-                employeesRepository: employeesRepository,
-                subCategoriesRepository: subCategoriesRepository,
-                paymentAccountsDataSource: paymentAccountsDataSource,
+              create: (_) => UnifiedFinancialTransactionsCubit(
+                transactionsRepository: transactionsRepository,
                 organizationId: organization.id,
-                userId: userId,
-              )..load(),
-              child: const ExpensesPage(),
+              ),
+              child: const UnifiedFinancialTransactionsPage(),
             ),
           );
         },
+      ),
+      GoRoute(
+        path: '/expenses',
+        redirect: (context, state) => '/financial-transactions',
       ),
       GoRoute(
         path: '/expense-sub-categories',

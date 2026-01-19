@@ -7,9 +7,10 @@ import 'package:dash_mobile/presentation/blocs/delivery_memos/delivery_memos_cub
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dash_mobile/presentation/widgets/standard_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class DeliveryMemosPage extends StatefulWidget {
@@ -65,11 +66,11 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
         body: SafeArea(
           child: Column(
             children: [
-              Expanded(
+              const Expanded(
                 child: Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: const Text(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
                       'Please select an organization',
                       style: TextStyle(color: Colors.white70),
                     ),
@@ -180,19 +181,19 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _FilterChip(
+                  StandardChip(
                     label: 'All',
                     isSelected: state.statusFilter == null,
                     onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter(null),
                   ),
                   const SizedBox(width: 8),
-                  _FilterChip(
+                  StandardChip(
                     label: 'Active',
                     isSelected: state.statusFilter == 'active',
                     onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter('active'),
                   ),
                   const SizedBox(width: 8),
-                  _FilterChip(
+                  StandardChip(
                     label: 'Cancelled',
                     isSelected: state.statusFilter == 'cancelled',
                     onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter('cancelled'),
@@ -226,55 +227,30 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
           );
         }
 
-        return ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 20),
-          itemCount: filteredMemos.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) {
-            final dm = filteredMemos[index];
-            return _DeliveryMemoTile(dm: dm);
-          },
+        return AnimationLimiter(
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 20),
+            itemCount: filteredMemos.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final dm = filteredMemos[index];
+              return AnimationConfiguration.staggeredList(
+                position: index,
+                duration: const Duration(milliseconds: 200),
+                child: SlideAnimation(
+                  verticalOffset: 50.0,
+                  child: FadeInAnimation(
+                    curve: Curves.easeOut,
+                    child: _DeliveryMemoTile(dm: dm),
+                  ),
+                ),
+              );
+            },
+          ),
         );
       },
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6F4BFF) : const Color(0xFF1B1B2C),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF6F4BFF) : Colors.white24,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -403,14 +379,6 @@ class _DeliveryMemoTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!isCancelled)
-                TextButton(
-                  onPressed: () => _showCancelDialog(context),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
-                  ),
-                  child: const Text('Cancel'),
-                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -453,83 +421,6 @@ class _DeliveryMemoTile extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  void _showCancelDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF1B1B2C),
-        title: const Text(
-          'Cancel Delivery Memo',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Are you sure you want to cancel this delivery memo? This action cannot be undone.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              await _cancelDM(context);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Yes, Cancel'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _cancelDM(BuildContext context) async {
-    final cubit = context.read<DeliveryMemosCubit>();
-    final currentUser = FirebaseAuth.instance.currentUser;
-
-    if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not found. Please login again.')),
-      );
-      return;
-    }
-
-    try {
-      final tripId = dm['tripId'] as String?;
-      final dmId = dm['dmId'] as String?;
-
-      if (tripId == null) {
-        throw Exception('Trip ID not found');
-      }
-
-      await cubit.cancelDM(
-        tripId: tripId,
-        dmId: dmId,
-        cancelledBy: currentUser.uid,
-        cancellationReason: 'Cancelled by user',
-      );
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Delivery Memo cancelled successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to cancel DM: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 }
 

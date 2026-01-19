@@ -302,15 +302,15 @@ class _UserDialogState extends State<_UserDialog> {
     if (roles.isEmpty) {
       return AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: Text('Add User', style: TextStyle(color: AuthColors.textMain)),
-        content: Text(
+        title: const Text('Add User', style: TextStyle(color: AuthColors.textMain)),
+        content: const Text(
           'Create at least one role before adding users.',
           style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Close', style: TextStyle(color: AuthColors.textSub)),
+            child: const Text('Close', style: TextStyle(color: AuthColors.textSub)),
           ),
         ],
       );
@@ -320,7 +320,7 @@ class _UserDialogState extends State<_UserDialog> {
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit User' : 'Add User',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -330,7 +330,7 @@ class _UserDialogState extends State<_UserDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Name'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -340,7 +340,7 @@ class _UserDialogState extends State<_UserDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _phoneController,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 keyboardType: TextInputType.phone,
                 decoration: _inputDecoration('Phone number'),
                 validator: (value) =>
@@ -352,7 +352,7 @@ class _UserDialogState extends State<_UserDialog> {
               DropdownButtonFormField<OrganizationRole>(
                 initialValue: _currentRole(roles),
                 dropdownColor: AuthColors.surface,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 items: roles
                     .map(
                       (role) => DropdownMenuItem(
@@ -383,7 +383,7 @@ class _UserDialogState extends State<_UserDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',
@@ -396,7 +396,7 @@ class _UserDialogState extends State<_UserDialog> {
                   if (role.title.toUpperCase() != 'ADMIN' &&
                       _selectedEmployeeId == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                      const SnackBar(
                         content: Text(
                           'Select an employee for non-admin users.',
                         ),
@@ -458,7 +458,7 @@ class _UserDialogState extends State<_UserDialog> {
             color: AuthColors.textMain.withOpacity(0.1),
           ),
         ),
-        child: Text(
+        child: const Text(
           'No employees found. Add employees first.',
           style: TextStyle(color: AuthColors.textSub),
         ),
@@ -467,7 +467,7 @@ class _UserDialogState extends State<_UserDialog> {
     return DropdownButtonFormField<String>(
       initialValue: _selectedEmployeeId,
       dropdownColor: AuthColors.surface,
-      style: TextStyle(color: AuthColors.textMain),
+      style: const TextStyle(color: AuthColors.textMain),
       items: _employees
           .map(
             (employee) => DropdownMenuItem(
@@ -490,7 +490,7 @@ class _UserDialogState extends State<_UserDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

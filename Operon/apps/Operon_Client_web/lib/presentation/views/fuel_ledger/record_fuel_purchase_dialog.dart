@@ -316,7 +316,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
               
               // Vendor Dropdown
               DropdownButtonFormField<Vendor>(
-                value: _selectedVendor,
+                initialValue: _selectedVendor,
                 decoration: _inputDecoration('Fuel Vendor'),
                 dropdownColor: const Color(0xFF2B2B3C),
                 style: const TextStyle(color: Colors.white),
@@ -399,7 +399,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                       child: CircularProgressIndicator(),
                     ))
                   : DropdownButtonFormField<Vehicle>(
-                      value: _selectedVehicle,
+                      initialValue: _selectedVehicle,
                       decoration: _inputDecoration('Vehicle'),
                       dropdownColor: const Color(0xFF2B2B3C),
                       style: const TextStyle(color: Colors.white),

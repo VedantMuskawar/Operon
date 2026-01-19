@@ -5,6 +5,7 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/pending_order_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class PendingOrdersView extends StatefulWidget {
   const PendingOrdersView({super.key});
@@ -160,27 +161,40 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                 ],
                 // Order Tiles - Grid Layout
                 if (_getFilteredOrders().isNotEmpty) ...[
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      childAspectRatio: 0.85, // Taller tiles to accommodate more content
-                      crossAxisSpacing: 20,
-                      mainAxisSpacing: 20,
-                    ),
-                    itemCount: _getFilteredOrders().length,
-                    itemBuilder: (context, index) {
-                      return PendingOrderTile(
-                        order: _getFilteredOrders()[index],
-                        onTripsUpdated: () => _subscribeToOrders(),
-                        onDeleted: () => _subscribeToOrders(),
-                        onTap: () {
-                          // TODO: Navigate to order detail page
+                  AnimationLimiter(
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        childAspectRatio: 0.85, // Taller tiles to accommodate more content
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
+                      ),
+                      itemCount: _getFilteredOrders().length,
+                      itemBuilder: (context, index) {
+                        return AnimationConfiguration.staggeredGrid(
+                          position: index,
+                          duration: const Duration(milliseconds: 200),
+                          columnCount: 5,
+                          child: SlideAnimation(
+                            verticalOffset: 50.0,
+                            child: FadeInAnimation(
+                              curve: Curves.easeOut,
+                              child: PendingOrderTile(
+                                order: _getFilteredOrders()[index],
+                                onTripsUpdated: () => _subscribeToOrders(),
+                                onDeleted: () => _subscribeToOrders(),
+                                onTap: () {
+                                  // TODO: Navigate to order detail page
                           // context.push('/pending-orders/${order['id']}');
-                        },
-                      );
-                    },
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ] else if (!_isLoading && _orders.isEmpty) ...[
                   const SizedBox(height: 48),

@@ -20,9 +20,9 @@ class AttendancePage extends StatelessWidget {
     final organization = orgState.organization;
 
     if (organization == null) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: AuthColors.background,
-        body: const Center(
+        body: Center(
           child: Text(
             'No organization selected',
             style: TextStyle(color: AuthColors.textMain),

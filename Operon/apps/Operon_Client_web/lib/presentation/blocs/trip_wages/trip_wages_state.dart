@@ -1,6 +1,5 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
 
 class TripWagesState extends BaseState {
   const TripWagesState({

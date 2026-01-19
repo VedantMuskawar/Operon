@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { SOURCE_KEY } from './constants';
+import { SOURCE_KEY, EMPLOYEES_SOURCE_KEY, VENDORS_SOURCE_KEY } from './constants';
 
 const db = admin.firestore();
 
@@ -38,6 +38,52 @@ export async function seedAnalyticsDoc(
       'metrics.activeClients.unit': 'count',
       'metrics.userOnboarding.type': 'monthly',
       'metrics.userOnboarding.unit': 'count',
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Seed/initialize an employee analytics document with default structure
+ */
+export async function seedEmployeeAnalyticsDoc(
+  docRef: FirebaseFirestore.DocumentReference,
+  fyLabel: string,
+  organizationId?: string,
+): Promise<void> {
+  await docRef.set(
+    {
+      source: EMPLOYEES_SOURCE_KEY,
+      financialYear: fyLabel,
+      ...(organizationId && { organizationId }),
+      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      'metadata.sourceCollections':
+          admin.firestore.FieldValue.arrayUnion('EMPLOYEES', 'TRANSACTIONS'),
+      'metrics.wagesCreditMonthly.type': 'monthly',
+      'metrics.wagesCreditMonthly.unit': 'currency',
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Seed/initialize a vendor analytics document with default structure
+ */
+export async function seedVendorAnalyticsDoc(
+  docRef: FirebaseFirestore.DocumentReference,
+  fyLabel: string,
+  organizationId?: string,
+): Promise<void> {
+  await docRef.set(
+    {
+      source: VENDORS_SOURCE_KEY,
+      financialYear: fyLabel,
+      ...(organizationId && { organizationId }),
+      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      'metadata.sourceCollections':
+          admin.firestore.FieldValue.arrayUnion('VENDORS', 'TRANSACTIONS'),
+      'metrics.purchasesByVendorType.type': 'monthly',
+      'metrics.purchasesByVendorType.unit': 'currency',
     },
     { merge: true },
   );

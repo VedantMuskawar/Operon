@@ -178,10 +178,11 @@ class DeliveryMemoDataSource {
         developer.log('End date filter applied: $endDate', name: 'DeliveryMemoDataSource');
       }
 
-      // Order by scheduled date descending (newest first)
+      // Order by scheduled date descending (newest first) for Firestore query
+      // We'll sort by dmNumber in memory to ensure correct ordering
       query = query.orderBy('scheduledDate', descending: true);
 
-      // Limit results if specified (default to 20 for recent items)
+      // Limit results if specified (default to 10 for recent items)
       if (limit != null && limit > 0) {
         query = query.limit(limit);
         developer.log('Limit applied: $limit', name: 'DeliveryMemoDataSource');
@@ -198,6 +199,14 @@ class DeliveryMemoDataSource {
             ...data,
           };
         }).toList();
+        
+        // Sort by dmNumber descending (highest DM numbers first)
+        memos.sort((a, b) {
+          final dmNumberA = a['dmNumber'] as int? ?? 0;
+          final dmNumberB = b['dmNumber'] as int? ?? 0;
+          return dmNumberB.compareTo(dmNumberA); // Descending order
+        });
+        
         developer.log('Mapped ${memos.length} delivery memos', name: 'DeliveryMemoDataSource');
         return memos;
       }).handleError((error) {

@@ -130,5 +130,45 @@ class TransactionsRepository {
       limit: limit,
     );
   }
+
+  /// Get all client payment transactions (income)
+  Future<List<Transaction>> getClientPayments({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) {
+    return _dataSource.getClientPayments(
+      organizationId: organizationId,
+      financialYear: financialYear,
+      limit: limit,
+    );
+  }
+
+  /// Get all vendor purchases
+  Future<List<Transaction>> getVendorPurchases({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) {
+    return _dataSource.getVendorPurchases(
+      organizationId: organizationId,
+      financialYear: financialYear,
+      limit: limit,
+    );
+  }
+
+  /// Get unified financial data (all transactions, purchases, and expenses)
+  /// Returns a map with keys: 'transactions', 'purchases', 'expenses'
+  Future<Map<String, List<Transaction>>> getUnifiedFinancialData({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) {
+    return _dataSource.getUnifiedFinancialData(
+      organizationId: organizationId,
+      financialYear: financialYear,
+      limit: limit,
+    );
+  }
 }
 

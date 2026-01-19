@@ -10,6 +10,7 @@ import 'package:dash_web/presentation/blocs/vehicles/vehicles_cubit.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class VehiclesPageContent extends StatelessWidget {
   const VehiclesPageContent({super.key});
@@ -58,9 +59,9 @@ class VehiclesPageContent extends StatelessWidget {
                 return const Center(child: CircularProgressIndicator());
               }
               if (state.vehicles.isEmpty) {
-                return Center(
+                return const Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(40),
+                    padding: EdgeInsets.all(40),
                     child: Text(
                       'No vehicles yet. Tap "Add Vehicle" to get started.',
                       style: TextStyle(
@@ -72,34 +73,45 @@ class VehiclesPageContent extends StatelessWidget {
                   ),
                 );
               }
-              return ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: state.vehicles.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final vehicle = state.vehicles[index];
-                  return _VehicleDataListItem(
-                    vehicle: vehicle,
-                    onEdit: () => _openVehicleDialog(
-                      context,
-                      vehicle: vehicle,
-                      employeesRepository: employeesRepository,
-                      productsRepository: productsRepository,
-                      orgId: organization.id,
-                    ),
-                    onAssignDriver: () => _openDriverDialog(
-                      context,
-                      vehicle: vehicle,
-                      employeesRepository: employeesRepository,
-                      usersRepository: context.read<UsersRepository>(),
-                      orgId: organization.id,
-                    ),
-                    onDelete: () =>
-                        context.read<VehiclesCubit>().deleteVehicle(vehicle.id),
-                  );
-                },
-              );
+              return AnimationLimiter(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: state.vehicles.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final vehicle = state.vehicles[index];
+                    return AnimationConfiguration.staggeredList(
+                      position: index,
+                      duration: const Duration(milliseconds: 200),
+                      child: SlideAnimation(
+                        verticalOffset: 50.0,
+                        child: FadeInAnimation(
+                          curve: Curves.easeOut,
+                          child: _VehicleDataListItem(
+                            vehicle: vehicle,
+                            onEdit: () => _openVehicleDialog(
+                              context,
+                              vehicle: vehicle,
+                              employeesRepository: employeesRepository,
+                              productsRepository: productsRepository,
+                              orgId: organization.id,
+                            ),
+                            onAssignDriver: () => _openDriverDialog(
+                              context,
+                              vehicle: vehicle,
+                              employeesRepository: employeesRepository,
+                              usersRepository: context.read<UsersRepository>(),
+                              orgId: organization.id,
+                            ),
+                            onDelete: () =>
+                                context.read<VehiclesCubit>().deleteVehicle(vehicle.id),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
             },
           ),
         ],
@@ -219,7 +231,7 @@ class _VehicleDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.edit_outlined,
                 color: AuthColors.textSub,
                 size: 20,
@@ -230,7 +242,7 @@ class _VehicleDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.delete_outline,
                 color: AuthColors.error,
                 size: 20,
@@ -398,7 +410,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
               color: AuthColors.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.local_shipping_outlined,
               color: AuthColors.primary,
               size: 20,
@@ -408,7 +420,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
           Expanded(
             child: Text(
               isEditing ? 'Edit Vehicle' : 'Add Vehicle',
-              style: TextStyle(color: AuthColors.textMain, fontSize: 20),
+              style: const TextStyle(color: AuthColors.textMain, fontSize: 20),
             ),
           ),
         ],
@@ -433,7 +445,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                           flex: 2,
                           child: TextFormField(
                             controller: _vehicleNumberController,
-                            style: TextStyle(color: AuthColors.textMain),
+                            style: const TextStyle(color: AuthColors.textMain),
                             decoration: _inputDecoration('Vehicle Number *'),
                             validator: (value) => (value == null || value.trim().isEmpty)
                                 ? 'Required'
@@ -444,7 +456,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                         Expanded(
                           child: TextFormField(
                             controller: _capacityController,
-                            style: TextStyle(color: AuthColors.textMain),
+                            style: const TextStyle(color: AuthColors.textMain),
                             decoration: _inputDecoration('Capacity'),
                             keyboardType:
                                 const TextInputType.numberWithOptions(decimal: true),
@@ -528,7 +540,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                               });
                             },
                             selectedColor: const Color(0xFF2A2A3D),
-                            labelStyle: TextStyle(color: AuthColors.textSub),
+                            labelStyle: const TextStyle(color: AuthColors.textSub),
                             backgroundColor: AuthColors.surface,
                           ),
                       ],
@@ -682,7 +694,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: widget.vehicle != null ? 'Save Changes' : 'Create Vehicle',
@@ -761,7 +773,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: AuthColors.textSub, fontSize: 14),
+      labelStyle: const TextStyle(color: AuthColors.textSub, fontSize: 14),
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(
@@ -775,7 +787,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   InputDecoration _compactInputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: AuthColors.textSub, fontSize: 12),
+      labelStyle: const TextStyle(color: AuthColors.textSub, fontSize: 12),
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(

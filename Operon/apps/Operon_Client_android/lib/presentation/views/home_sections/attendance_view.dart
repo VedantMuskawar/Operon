@@ -6,7 +6,7 @@ import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dar
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// Attendance view for Android - Read-only view grouped by role
+/// Attendance view for Android - Table-based view grouped by role
 class AttendanceView extends StatelessWidget {
   const AttendanceView({super.key});
 
@@ -31,33 +31,41 @@ class AttendanceView extends StatelessWidget {
 class _AttendanceViewContent extends StatelessWidget {
   const _AttendanceViewContent();
 
-  String _formatMonthYear(String? yearMonth) {
-    if (yearMonth == null) return '';
+  /// Parse yearMonth string (YYYY-MM) to DateTime
+  DateTime? _parseYearMonth(String? yearMonth) {
+    if (yearMonth == null) return null;
     try {
       final parts = yearMonth.split('-');
       if (parts.length == 2) {
         final year = int.parse(parts[0]);
         final month = int.parse(parts[1]);
-        final monthNames = [
-          'January',
-          'February',
-          'March',
-          'April',
-          'May',
-          'June',
-          'July',
-          'August',
-          'September',
-          'October',
-          'November',
-          'December'
-        ];
-        if (month >= 1 && month <= 12) {
-          return '${monthNames[month - 1]} $year';
-        }
+        return DateTime(year, month, 1);
       }
     } catch (_) {}
-    return yearMonth;
+    return null;
+  }
+
+  /// Format month/year for display
+  String _formatMonthYear(String? yearMonth) {
+    if (yearMonth == null) return '';
+    final date = _parseYearMonth(yearMonth);
+    if (date == null) return yearMonth;
+    
+    final monthNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ];
+    return '${monthNames[date.month - 1]} ${date.year}';
   }
 
   @override
@@ -77,7 +85,7 @@ class _AttendanceViewContent extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
+                const Icon(
                   Icons.error_outline,
                   color: AuthColors.error,
                   size: 48,
@@ -105,96 +113,50 @@ class _AttendanceViewContent extends StatelessWidget {
         final roleGroups = state.roleGroups ?? {};
         final now = DateTime.now();
         final currentMonth = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-        final monthYear = _formatMonthYear(state.selectedYearMonth ?? currentMonth);
+        final selectedYearMonth = state.selectedYearMonth ?? currentMonth;
+        final monthDate = _parseYearMonth(selectedYearMonth) ?? DateTime.now();
+        final monthYearDisplay = _formatMonthYear(selectedYearMonth);
 
-        // Calculate summary stats
-        int totalPresent = 0;
-        int totalEmployees = 0;
-        for (final group in roleGroups.values) {
-          totalPresent += group.totalPresent;
-          totalEmployees += group.employees.length;
-        }
-
-        return CustomScrollView(
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            // Header
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Attendance - $monthYear',
-                      style: const TextStyle(
-                        color: AuthColors.textMain,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Summary cards
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SummaryCard(
-                            icon: Icons.check_circle_outline,
-                            label: 'Present Today',
-                            value: totalPresent.toString(),
-                            color: AuthColors.success,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _SummaryCard(
-                            icon: Icons.people_outline,
-                            label: 'Employees',
-                            value: totalEmployees.toString(),
-                            color: AuthColors.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _SummaryCard(
-                            icon: Icons.calendar_today_outlined,
-                            label: 'Rate',
-                            value: totalEmployees > 0
-                                ? '${((totalPresent / totalEmployees) * 100).toStringAsFixed(0)}%'
-                                : '0%',
-                            color: AuthColors.secondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+        return Column(
+          children: [
+            // Month Picker
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: _MonthPicker(
+                selectedYearMonth: selectedYearMonth,
+                onMonthSelected: (yearMonth) {
+                  context.read<AttendanceCubit>().loadAttendanceForMonth(yearMonth);
+                },
               ),
             ),
-            // Role groups
+            // Tables by Role
             if (roleGroups.isEmpty)
-              const SliverFillRemaining(
+              Expanded(
                 child: Center(
                   child: Text(
-                    'No attendance data available',
-                    style: TextStyle(color: AuthColors.textSub),
+                    'No attendance data available for $monthYearDisplay',
+                    style: const TextStyle(color: AuthColors.textSub),
                   ),
                 ),
               )
             else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 80),
+                  itemCount: roleGroups.length,
+                  itemBuilder: (context, index) {
                     final group = roleGroups.values.elementAt(index);
                     return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _RoleSection(group: group),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: _RoleAttendanceTable(
+                        roleTitle: group.roleTitle,
+                        employees: group.employees,
+                        monthDate: monthDate,
+                      ),
                     );
                   },
-                  childCount: roleGroups.length,
                 ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         );
       },
@@ -202,255 +164,250 @@ class _AttendanceViewContent extends StatelessWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
+/// Month picker widget
+class _MonthPicker extends StatelessWidget {
+  const _MonthPicker({
+    required this.selectedYearMonth,
+    required this.onMonthSelected,
   });
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
+  final String selectedYearMonth;
+  final Function(String yearMonth) onMonthSelected;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: AuthColors.textMain,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+  String _formatMonthYear(String yearMonth) {
+    try {
+      final parts = yearMonth.split('-');
+      if (parts.length == 2) {
+        final year = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        final monthNames = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        if (month >= 1 && month <= 12) {
+          return '${monthNames[month - 1]} $year';
+        }
+      }
+    } catch (_) {}
+    return yearMonth;
+  }
+
+  Future<void> _selectMonth(BuildContext context) async {
+    final currentDate = DateTime.now();
+    final selectedDate = DateTime(currentDate.year, currentDate.month, 1);
+    
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(currentDate.year + 1, 12, 31),
+      initialDatePickerMode: DatePickerMode.year,
+      helpText: 'Select Month',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AuthColors.primary,
+              onPrimary: Colors.white,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
+            ), dialogTheme: DialogThemeData(backgroundColor: AuthColors.surface),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: AuthColors.textSub,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoleSection extends StatefulWidget {
-  const _RoleSection({required this.group});
-
-  final RoleAttendanceGroup group;
-
-  @override
-  State<_RoleSection> createState() => _RoleSectionState();
-}
-
-class _RoleSectionState extends State<_RoleSection> {
-  bool _isExpanded = true;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        children: [
-          // Role header
-          InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.group.roleTitle,
-                      style: const TextStyle(
-                        color: AuthColors.textMain,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    '${widget.group.employees.length} employees',
-                    style: const TextStyle(
-                      color: AuthColors.textSub,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    _isExpanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: AuthColors.textSub,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Employee list
-          if (_isExpanded)
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.group.employees.length,
-              itemBuilder: (context, index) {
-                return _EmployeeAttendanceTile(
-                  employeeData: widget.group.employees[index],
-                );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmployeeAttendanceTile extends StatelessWidget {
-  const _EmployeeAttendanceTile({required this.employeeData});
-
-  final EmployeeAttendanceData employeeData;
-
-  String _getInitials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    }
-    return name.length >= 2
-        ? name.substring(0, 2).toUpperCase()
-        : name.toUpperCase();
-  }
-
-  Color _getEmployeeColor() {
-    final hash = employeeData.employeeName.hashCode;
-    final colors = [
-      AuthColors.primary,
-      AuthColors.success,
-      AuthColors.secondary,
-    ];
-    return colors[hash.abs() % colors.length];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final employeeColor = _getEmployeeColor();
-    final today = DateTime.now();
-      final todayRecord = employeeData.dailyRecords.firstWhere(
-      (record) {
-        final recordDate = DateTime(
-          record.date.year,
-          record.date.month,
-          record.date.day,
+          child: child!,
         );
-        final todayDate = DateTime(today.year, today.month, today.day);
-        return recordDate == todayDate;
       },
-      orElse: () => DailyAttendanceRecord(
-        date: DateTime.now(),
-        isPresent: false,
-        numberOfBatches: 0,
-        batchIds: [],
-      ),
     );
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AuthColors.background,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          DataListAvatar(
-            initial: _getInitials(employeeData.employeeName),
-            radius: 24,
-            statusRingColor: employeeColor,
+    if (picked != null) {
+      final yearMonth = '${picked.year}-${picked.month.toString().padLeft(2, '0')}';
+      onMonthSelected(yearMonth);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _selectMonth(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AuthColors.primary.withOpacity(0.3),
+            width: 1,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
               children: [
+                const Icon(
+                  Icons.calendar_today,
+                  color: AuthColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
                 Text(
-                  employeeData.employeeName,
+                  _formatMonthYear(selectedYearMonth),
                   style: const TextStyle(
                     color: AuthColors.textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  employeeData.monthSummary,
-                  style: const TextStyle(
-                    color: AuthColors.textSub,
-                    fontSize: 12,
-                  ),
-                ),
               ],
             ),
-          ),
-          // Today's status
+            const Icon(
+              Icons.arrow_drop_down,
+              color: AuthColors.textSub,
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Table widget for employees grouped by role
+class _RoleAttendanceTable extends StatelessWidget {
+  const _RoleAttendanceTable({
+    required this.roleTitle,
+    required this.employees,
+    required this.monthDate,
+  });
+
+  final String roleTitle;
+  final List<EmployeeAttendanceData> employees;
+  final DateTime monthDate;
+
+  /// Get total days in a month
+  int _getTotalDaysInMonth(DateTime date) {
+    return DateTime(date.year, date.month + 1, 0).day;
+  }
+
+  /// Get attendance ratio (X/Y)
+  String _getAttendanceRatio(EmployeeAttendanceData employeeData) {
+    final totalDays = _getTotalDaysInMonth(monthDate);
+    return '${employeeData.daysPresent}/$totalDays';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (employees.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AuthColors.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Role Title Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: todayRecord.isPresent
-                  ? AuthColors.success.withOpacity(0.15)
-                  : AuthColors.error.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
+              color: AuthColors.primary.withOpacity(0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  todayRecord.isPresent
-                      ? Icons.check_circle
-                      : Icons.cancel,
-                  size: 14,
-                  color: todayRecord.isPresent
-                      ? AuthColors.success
-                      : AuthColors.error,
-                ),
-                const SizedBox(width: 4),
                 Text(
-                  todayRecord.isPresent ? 'Present' : 'Absent',
-                  style: TextStyle(
-                    color: todayRecord.isPresent
-                        ? AuthColors.success
-                        : AuthColors.error,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                  roleTitle,
+                  style: const TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AuthColors.primary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${employees.length}',
+                    style: const TextStyle(
+                      color: AuthColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+          // Table
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: Table(
+                    border: TableBorder.all(
+                      color: AuthColors.primary.withOpacity(0.3),
+                      width: 1,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    columnWidths: {
+                      0: FixedColumnWidth((constraints.maxWidth * 0.6).clamp(150.0, double.infinity)),
+                      1: FixedColumnWidth((constraints.maxWidth * 0.4).clamp(100.0, double.infinity)),
+                    },
+              children: [
+                // Header Row
+                TableRow(
+                  decoration: BoxDecoration(
+                    color: AuthColors.primary.withOpacity(0.1),
+                  ),
+                  children: [
+                    _buildTableCell('Employee Name', isHeader: true),
+                    _buildTableCell('Attendance', isHeader: true),
+                  ],
+                ),
+                // Data Rows
+                ...employees.map((employee) {
+                  return TableRow(
+                    children: [
+                      _buildTableCell(employee.employeeName, isHeader: false),
+                      _buildTableCell(_getAttendanceRatio(employee), isHeader: false),
+                    ],
+                  );
+                }),
+              ],
+                  ),
+                ),
+              );
+            },
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTableCell(String text, {bool isHeader = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: isHeader ? AuthColors.primary : AuthColors.textMain,
+          fontSize: isHeader ? 14 : 15,
+          fontWeight: isHeader ? FontWeight.w700 : FontWeight.w500,
+        ),
       ),
     );
   }

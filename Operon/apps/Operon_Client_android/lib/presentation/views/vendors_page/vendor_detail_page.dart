@@ -1406,7 +1406,7 @@ class _LedgerTable extends StatelessWidget {
                   formatCurrency: formatCurrency,
                   formatDate: formatDate,
                 );
-              }).toList(),
+              }),
             ],
           ),
         ),
@@ -1589,7 +1589,7 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<VendorType>(
-                value: _selectedVendorType,
+                initialValue: _selectedVendorType,
                 dropdownColor: const Color(0xFF1B1B2C),
                 style: const TextStyle(color: Colors.white),
                 items: VendorType.values
@@ -1616,7 +1616,7 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<VendorStatus>(
-                value: _selectedStatus,
+                initialValue: _selectedStatus,
                 dropdownColor: const Color(0xFF1B1B2C),
                 style: const TextStyle(color: Colors.white),
                 items: VendorStatus.values

@@ -178,7 +178,7 @@ class _NavBarItemState extends State<_NavBarItem>
                   ),
                 ),
                 if (widget.isActive && _fadeAnimation.value > 0) ...[
-                  SizedBox(height: AppSpacing.paddingXS),
+                  const SizedBox(height: AppSpacing.paddingXS),
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: Container(

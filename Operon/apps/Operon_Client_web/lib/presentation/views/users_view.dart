@@ -11,6 +11,7 @@ import 'package:dash_web/presentation/blocs/users/users_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class WebUsersView extends StatelessWidget {
@@ -116,24 +117,36 @@ class UsersPageContent extends StatelessWidget {
                   ),
                 );
               }
-              return ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: state.users.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  final user = state.users[index];
-                  return _UserTile(
-                    user: user,
-                    canManage: canManageUsers,
-                    onEdit: canManageUsers
-                        ? () => _openUserDialog(context, user: user)
-                        : null,
-                    onDelete: canManageUsers
-                        ? () => context.read<UsersCubit>().deleteUser(user.id)
-                        : null,
-                  );
-                },
+              return AnimationLimiter(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: state.users.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final user = state.users[index];
+                    return AnimationConfiguration.staggeredList(
+                      position: index,
+                      duration: const Duration(milliseconds: 200),
+                      child: SlideAnimation(
+                        verticalOffset: 50.0,
+                        child: FadeInAnimation(
+                          curve: Curves.easeOut,
+                          child: _UserTile(
+                            user: user,
+                            canManage: canManageUsers,
+                            onEdit: canManageUsers
+                                ? () => _openUserDialog(context, user: user)
+                                : null,
+                            onDelete: canManageUsers
+                                ? () => context.read<UsersCubit>().deleteUser(user.id)
+                                : null,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               );
             },
           ),

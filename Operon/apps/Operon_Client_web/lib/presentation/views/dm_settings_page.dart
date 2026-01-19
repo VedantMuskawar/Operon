@@ -87,7 +87,7 @@ class _DmSettingsDialog extends StatelessWidget {
                       color: AuthColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.settings_outlined,
                       color: AuthColors.primary,
                       size: 20,
@@ -106,7 +106,7 @@ class _DmSettingsDialog extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     tooltip: 'Close',
                   ),
                 ],
@@ -314,8 +314,8 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: Text('Remove Logo', style: TextStyle(color: AuthColors.textMain)),
-        content: Text(
+        title: const Text('Remove Logo', style: TextStyle(color: AuthColors.textMain)),
+        content: const Text(
           'Are you sure you want to remove the logo?',
           style: TextStyle(color: AuthColors.textSub),
         ),
@@ -326,7 +326,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Remove', style: TextStyle(color: AuthColors.error)),
+            child: const Text('Remove', style: TextStyle(color: AuthColors.error)),
           ),
         ],
       ),
@@ -424,7 +424,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
             color: AuthColors.surface,
             border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.12)),
           ),
-          child: Text(
+          child: const Text(
             'Configure header, footer, and print preferences for Delivery Memos (DM).',
             style: TextStyle(color: AuthColors.textSub),
           ),
@@ -448,7 +448,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     // Name
                     TextFormField(
                       controller: _headerNameController,
-                      style: TextStyle(color: AuthColors.textMain),
+                      style: const TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('Name *'),
                       validator: (value) =>
                           (value == null || value.trim().isEmpty)
@@ -459,7 +459,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     // Address
                     TextFormField(
                       controller: _headerAddressController,
-                      style: TextStyle(color: AuthColors.textMain),
+                      style: const TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('Address *'),
                       maxLines: 3,
                       validator: (value) =>
@@ -471,7 +471,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     // Phone
                     TextFormField(
                       controller: _headerPhoneController,
-                      style: TextStyle(color: AuthColors.textMain),
+                      style: const TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('Phone *'),
                       keyboardType: TextInputType.phone,
                       validator: (value) =>
@@ -483,7 +483,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                     // GST No
                     TextFormField(
                       controller: _headerGstNoController,
-                      style: TextStyle(color: AuthColors.textMain),
+                      style: const TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('GST No (Optional)'),
                     ),
                   ],
@@ -549,7 +549,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
                       const SizedBox(height: 24),
                       TextFormField(
                         controller: _customTemplateIdController,
-                        style: TextStyle(color: AuthColors.textMain),
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Custom Template ID *'),
                         validator: (value) {
                           if (_templateType == DmTemplateType.custom &&
@@ -691,7 +691,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -869,7 +869,7 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
@@ -886,15 +886,15 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AuthColors.primary, width: 2),
+        borderSide: const BorderSide(color: AuthColors.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AuthColors.error, width: 1),
+        borderSide: const BorderSide(color: AuthColors.error, width: 1),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AuthColors.error, width: 2),
+        borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
     );
   }

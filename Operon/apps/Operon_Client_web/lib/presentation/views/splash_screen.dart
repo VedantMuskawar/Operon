@@ -80,9 +80,9 @@ class SplashScreen extends StatelessWidget {
         body: Stack(
           children: [
             // Dot grid pattern background - fills entire viewport
-            Positioned.fill(
+            const Positioned.fill(
               child: RepaintBoundary(
-                child: const DotGridPattern(),
+                child: DotGridPattern(),
               ),
             ),
             // Main content

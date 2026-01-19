@@ -21,8 +21,8 @@ class SplashContent extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // Circular gradient dots
-        RepaintBoundary(
-          child: const ICloudDottedCircle(size: 120),
+        const RepaintBoundary(
+          child: ICloudDottedCircle(size: 120),
         ),
         const SizedBox(height: 40),
         Container(

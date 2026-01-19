@@ -11,6 +11,7 @@ import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:core_ui/core_ui.dart';
 
@@ -43,6 +44,7 @@ class _ContactPageState extends State<ContactPage> {
   final ClientService _clientService = ClientService();
   bool _isLoadingMoreContacts = false;
   int _visibleContactLimit = _contactBatchSize;
+  final Map<String, List<_ContactEntry>> _searchCache = {};
 
   static const List<String> _clientTags = [
     'Individual',
@@ -60,17 +62,14 @@ class _ContactPageState extends State<ContactPage> {
     _loadContacts();
     _searchController.addListener(_onSearchChanged);
     _pageController = PageController()
-      ..addListener(() {
-        setState(() {
-          _currentPage = _pageController.page ?? 0;
-        });
-      });
+      ..addListener(_onPageChanged);
     _contactListController.addListener(_handleContactListScroll);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _pageController.removeListener(_onPageChanged);
     _pageController.dispose();
     _contactListController.removeListener(_handleContactListScroll);
     _contactListController.dispose();
@@ -183,19 +182,21 @@ class _ContactPageState extends State<ContactPage> {
       
       if (!mounted) return;
       
-      setState(() {
-        _hasContactsPermission = hasPermission;
-      });
-      
       if (!hasPermission) {
         debugPrint('Permission denied, showing error message');
         if (!mounted) return;
         setState(() {
+          _hasContactsPermission = hasPermission;
           _contactsMessage = 'Contacts permission denied. Enable it in settings.';
           _isContactsLoading = false;
         });
         return;
       }
+      
+      // Batch permission state update
+      setState(() {
+        _hasContactsPermission = hasPermission;
+      });
 
       // Load contacts with timeout and error handling
       debugPrint('Loading contacts from device...');
@@ -255,7 +256,7 @@ class _ContactPageState extends State<ContactPage> {
       });
       
       // Load more contacts after first frame for smoother experience
-      if (entries.length > initialLimit) {
+      if (entries.length > initialLimit && !_isSearchActive) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_isSearchActive) {
             setState(() {
@@ -392,6 +393,19 @@ class _ContactPageState extends State<ContactPage> {
       final normalized = query.toLowerCase().trim();
       final digitsQuery = normalized.replaceAll(RegExp(r'[^0-9+]'), '');
       
+      // Check cache first
+      final cacheKey = normalized;
+      if (_searchCache.containsKey(cacheKey)) {
+        if (!mounted) return;
+        setState(() {
+          _filteredContacts = _searchCache[cacheKey]!;
+          _contactsMessage = _filteredContacts.isEmpty
+              ? 'No contacts matched "$query".'
+              : null;
+        });
+        return;
+      }
+      
       // Optimize: Use isolate for very large lists, direct search for smaller ones
       List<_ContactEntry> results;
       
@@ -416,7 +430,7 @@ class _ContactPageState extends State<ContactPage> {
       } else {
         // Small list - direct search is faster (no isolate overhead)
         results = <_ContactEntry>[];
-        final maxResults = 100; // Increased for better UX
+        const maxResults = 100; // Increased for better UX
         
         for (final contact in _allContacts) {
           if (results.length >= maxResults) break;
@@ -437,6 +451,14 @@ class _ContactPageState extends State<ContactPage> {
 
       if (!mounted) return;
 
+      // Cache results
+      _searchCache[cacheKey] = results;
+      // Limit cache size to prevent memory issues
+      if (_searchCache.length > 50) {
+        final firstKey = _searchCache.keys.first;
+        _searchCache.remove(firstKey);
+      }
+
       setState(() {
         _filteredContacts = results;
         _contactsMessage = results.isEmpty
@@ -455,6 +477,17 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   bool get _isSearchActive => _searchController.text.trim().isNotEmpty;
+
+  void _onPageChanged() {
+    if (!_pageController.hasClients) return;
+    final newPage = _pageController.page ?? 0;
+    final roundedPage = newPage.round();
+    if (roundedPage != _currentPage.round()) {
+      setState(() {
+        _currentPage = newPage;
+      });
+    }
+  }
 
   void _handleContactListScroll() {
     if (_isSearchActive) return;
@@ -665,14 +698,15 @@ class _ContactPageState extends State<ContactPage> {
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
+            Container(
+              color: AuthColors.primary,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: AuthColors.textSub),
+                    icon: const Icon(Icons.close, color: AuthColors.textMain),
                   ),
                   const SizedBox(width: 8),
                   const Expanded(
@@ -696,9 +730,12 @@ class _ContactPageState extends State<ContactPage> {
                   Expanded(
                     child: PageView(
                       controller: _pageController,
+                      physics: const ClampingScrollPhysics(),
+                      allowImplicitScrolling: false,
                       children: [
                         SingleChildScrollView(
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                          physics: const ClampingScrollPhysics(),
                           child: _CallLogsCard(
                             isLoading: _isCallLogLoading,
                             message: _callLogMessage,
@@ -712,6 +749,7 @@ class _ContactPageState extends State<ContactPage> {
                           child: SingleChildScrollView(
                             controller: _contactListController,
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                            physics: const ClampingScrollPhysics(),
                             child: _ContactSearchCard(
                               controller: _searchController,
                               isLoading:
@@ -850,90 +888,68 @@ class _CallLogTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconData = entry.isOutgoing ? Icons.call_made : Icons.call_received;
-    final iconColor =
-        entry.isOutgoing ? AuthColors.success : AuthColors.info;
-    final timeLabel = _formatTime(entry.timestamp);
-    final durationLabel = _formatDuration(entry.duration);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.15)),
-          ),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: AuthColors.surface,
+                child: Text(
+                  entry.contactName.isNotEmpty 
+                      ? entry.contactName[0].toUpperCase() 
+                      : '?',
+                  style: const TextStyle(
+                    color: AuthColors.textMain,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: Icon(iconData, color: iconColor, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       entry.contactName,
                       style: const TextStyle(
                         color: AuthColors.textMain,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       entry.phoneNumber,
-                      style: TextStyle(color: AuthColors.textSub, fontSize: 12),
+                      style: const TextStyle(
+                        color: AuthColors.textSub,
+                        fontSize: 13,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    timeLabel,
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  Text(
-                    durationLabel,
-                    style: TextStyle(
-                      color: AuthColors.textMainWithOpacity(0.45),
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
+              Icon(
+                Icons.chevron_right,
+                color: AuthColors.textMainWithOpacity(0.3),
+                size: 20,
               ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  String _formatTime(DateTime timestamp) {
-    final hours = timestamp.hour % 12 == 0 ? 12 : timestamp.hour % 12;
-    final minutes = timestamp.minute.toString().padLeft(2, '0');
-    final suffix = timestamp.hour >= 12 ? 'PM' : 'AM';
-    return '$hours:$minutes $suffix';
-  }
-
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:${seconds}s';
   }
 }
 
@@ -948,14 +964,16 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 60,
-            height: 60,
+          DecoratedBox(
             decoration: BoxDecoration(
               color: AuthColors.textMainWithOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Icon(Icons.call_end, color: AuthColors.textDisabled),
+            child: const SizedBox(
+              width: 60,
+              height: 60,
+              child: Icon(Icons.call_end, color: AuthColors.textDisabled),
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -1040,88 +1058,6 @@ class _ContactEntry {
       displayPhones.isNotEmpty ? displayPhones.first : '-';
 }
 
-// Animated wrapper for contact tiles with staggered animation
-class _AnimatedContactTile extends StatefulWidget {
-  const _AnimatedContactTile({
-    super.key,
-    required this.index,
-    required this.contact,
-    required this.onTap,
-  });
-
-  final int index;
-  final _ContactEntry contact;
-  final VoidCallback onTap;
-
-  @override
-  State<_AnimatedContactTile> createState() => _AnimatedContactTileState();
-}
-
-class _AnimatedContactTileState extends State<_AnimatedContactTile>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 250), // Faster animation
-      vsync: this,
-    );
-
-    // Staggered delay based on index - reduced for faster feel
-    final delay = widget.index * 20; // 20ms delay per item (faster)
-    
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
-
-    // Start animation with delay
-    Future.delayed(Duration(milliseconds: delay), () {
-      if (mounted) {
-        _controller.forward();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SlideTransition(
-        position: _slideAnimation,
-        child: RepaintBoundary(
-          child: _ContactListTile(
-            key: ValueKey(widget.contact.id),
-            contact: widget.contact,
-            onTap: widget.onTap,
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _ContactListTile extends StatelessWidget {
   const _ContactListTile({
@@ -1179,7 +1115,7 @@ class _ContactListTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       contact.primaryDisplayPhone,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textSub,
                         fontSize: 13,
                       ),
@@ -1262,13 +1198,8 @@ class _ContactSearchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1276,7 +1207,7 @@ class _ContactSearchCard extends StatelessWidget {
           const Text(
             'Search Contacts',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -1322,7 +1253,7 @@ class _ContactSearchCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 message!,
-                style: TextStyle(color: AuthColors.textSub, fontSize: 12),
+                style: const TextStyle(color: AuthColors.textSub, fontSize: 12),
               ),
             ] else ...[
               if (recentContacts.isNotEmpty) ...[
@@ -1360,53 +1291,61 @@ class _ContactSearchCard extends StatelessWidget {
                   style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                 )
               else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  addAutomaticKeepAlives: false, // Don't keep off-screen widgets alive
-                  itemCount: filteredContacts.length + (isLoadingMore ? 1 : 0) + (hasMore && !isLoadingMore ? 1 : 0),
-                  itemExtent: 72, // Fixed height for better performance
-                  cacheExtent: 300, // Reduced cache for better performance
-                  itemBuilder: (context, index) {
-                    if (index < filteredContacts.length) {
-                      final contact = filteredContacts[index];
-                      return _AnimatedContactTile(
-                        key: ValueKey(contact.id),
-                        index: index,
-                        contact: contact,
-                        onTap: () => onContactTap(contact),
-                      );
-                    }
-                      
-                      if (index == filteredContacts.length && isLoadingMore) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                            child: SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                AnimationLimiter(
+                  child: ListView.builder(
+                    addAutomaticKeepAlives: false,
+                    itemCount: filteredContacts.length + (isLoadingMore ? 1 : 0) + (hasMore && !isLoadingMore ? 1 : 0),
+                    itemExtent: 72,
+                    itemBuilder: (context, index) {
+                      if (index < filteredContacts.length) {
+                        final contact = filteredContacts[index];
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 200),
+                          child: SlideAnimation(
+                            verticalOffset: 50.0,
+                            child: FadeInAnimation(
+                              curve: Curves.easeOut,
+                              child: _ContactListTile(
+                                key: ValueKey(contact.id),
+                                contact: contact,
+                                onTap: () => onContactTap(contact),
+                              ),
                             ),
                           ),
                         );
                       }
-                      
-                      if (index == filteredContacts.length + (isLoadingMore ? 1 : 0) && hasMore) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 12, bottom: 16),
-                          child: Text(
-                            'Scroll to load more contacts…',
-                            style: TextStyle(
-                              color: AuthColors.textMainWithOpacity(0.6),
-                              fontSize: 12,
+                        
+                        if (index == filteredContacts.length && isLoadingMore) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        );
-                      }
-                      
-                      return const SizedBox.shrink();
-                    },
+                          );
+                        }
+                        
+                        if (index == filteredContacts.length + (isLoadingMore ? 1 : 0) && hasMore) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 12, bottom: 16),
+                            child: Text(
+                              'Scroll to load more contacts…',
+                              style: TextStyle(
+                                color: AuthColors.textMainWithOpacity(0.6),
+                                fontSize: 12,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          );
+                        }
+                        
+                        return const SizedBox.shrink();
+                      },
+                    ),
                   ),
             ],
           ],
@@ -1431,13 +1370,8 @@ class _CallLogsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1516,7 +1450,7 @@ class _ContactActionSheet extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text(
+            const Text(
               'Create a new client or attach this contact to an existing one.',
               style: TextStyle(
                 color: AuthColors.textSub,
@@ -2012,7 +1946,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Phone Number',
                       style: TextStyle(
                         color: AuthColors.textSub,
@@ -2155,6 +2089,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
   late String _selectedTag;
   bool _isSaving = false;
   String? _errorMessage;
+  List<DropdownMenuItem<String>>? _cachedDropdownItems;
 
   @override
   void initState() {
@@ -2162,6 +2097,17 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
     _nameController = TextEditingController(text: widget.entry.name);
     _selectedPhone = widget.entry.primaryDisplayPhone;
     _selectedTag = widget.availableTags.first;
+    // Cache dropdown items to avoid rebuilding on every setState
+    if (widget.entry.displayPhones.length > 1) {
+      _cachedDropdownItems = widget.entry.displayPhones
+          .map(
+            (phone) => DropdownMenuItem<String>(
+              value: phone,
+              child: Text(phone),
+            ),
+          )
+          .toList();
+    }
   }
 
   @override
@@ -2232,7 +2178,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
               ),
             ),
             const SizedBox(height: 16),
-                Text(
+                const Text(
                   'Tag',
                   style: TextStyle(
                     color: AuthColors.textSub,
@@ -2240,24 +2186,12 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.availableTags.map((tag) {
-                    final isSelected = _selectedTag == tag;
-                    return ChoiceChip(
-                      label: Text(tag),
-                      selected: isSelected,
-                      onSelected: (_) {
-                        setState(() => _selectedTag = tag);
-                      },
-                      selectedColor: AuthColors.legacyAccent,
-                      labelStyle: TextStyle(
-                        color: isSelected ? AuthColors.textMain : AuthColors.textSub,
-                      ),
-                      backgroundColor: AuthColors.surface,
-                    );
-                  }).toList(),
+                _TagSelector(
+                  availableTags: widget.availableTags,
+                  selectedTag: _selectedTag,
+                  onTagSelected: (tag) {
+                    setState(() => _selectedTag = tag);
+                  },
                 ),
             const SizedBox(height: 16),
             if (widget.entry.displayPhones.length > 1)
@@ -2275,14 +2209,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                 ),
                 dropdownColor: AuthColors.surface,
                 style: const TextStyle(color: AuthColors.textMain),
-                items: widget.entry.displayPhones
-                    .map(
-                      (phone) => DropdownMenuItem<String>(
-                        value: phone,
-                        child: Text(phone),
-                      ),
-                    )
-                    .toList(),
+                items: _cachedDropdownItems,
                 onChanged: (value) {
                   if (value != null) {
                     setState(() => _selectedPhone = value);
@@ -2300,7 +2227,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Phone Number',
                           style: TextStyle(
                             color: AuthColors.textSub,
@@ -2328,7 +2255,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                   child: ElevatedButton(
                     onPressed: _isSaving ? null : _handleSave,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AuthColors.legacyAccent,
+                      backgroundColor: AuthColors.primary,
                       foregroundColor: AuthColors.textMain,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -2388,6 +2315,39 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
         _errorMessage = 'Failed to save client: $error';
       });
     }
+  }
+}
+
+class _TagSelector extends StatelessWidget {
+  const _TagSelector({
+    required this.availableTags,
+    required this.selectedTag,
+    required this.onTagSelected,
+  });
+
+  final List<String> availableTags;
+  final String selectedTag;
+  final ValueChanged<String> onTagSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: availableTags.map((tag) {
+        final isSelected = selectedTag == tag;
+        return ChoiceChip(
+          label: Text(tag),
+          selected: isSelected,
+          onSelected: (_) => onTagSelected(tag),
+          selectedColor: AuthColors.primary,
+          labelStyle: TextStyle(
+            color: isSelected ? AuthColors.textMain : AuthColors.textSub,
+          ),
+          backgroundColor: AuthColors.surface,
+        );
+      }).toList(),
+    );
   }
 }
 

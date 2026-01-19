@@ -2,6 +2,8 @@ library core_datasources;
 
 export 'delivery_memo/delivery_memo_data_source.dart';
 export 'delivery_memo/delivery_memo_repository.dart';
+export 'scheduled_trips/scheduled_trips_data_source.dart';
+export 'scheduled_trips/scheduled_trips_repository.dart';
 export 'scheduled_trips/scheduled_trips_utils.dart';
 export 'products/products_data_source.dart';
 export 'vehicles/vehicles_data_source.dart';

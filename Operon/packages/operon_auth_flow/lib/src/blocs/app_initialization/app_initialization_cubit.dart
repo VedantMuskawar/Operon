@@ -1,0 +1,182 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:operon_auth_flow/src/models/app_access_role.dart';
+import 'package:operon_auth_flow/src/repositories/app_access_roles_repository.dart';
+import 'package:operon_auth_flow/src/repositories/auth_repository.dart';
+import 'package:operon_auth_flow/src/services/org_context_persistence_service.dart';
+import 'package:operon_auth_flow/src/blocs/org_context/org_context_cubit.dart';
+import 'package:operon_auth_flow/src/blocs/org_selector/org_selector_cubit.dart';
+
+enum AppInitializationStatus {
+  initial,
+  checkingAuth,
+  authenticated,
+  notAuthenticated,
+  loadingOrganizations,
+  restoringContext,
+  contextRestored,
+  contextRestoreFailed,
+  ready,
+  error,
+}
+
+class AppInitializationState {
+  const AppInitializationState({
+    this.status = AppInitializationStatus.initial,
+    this.errorMessage,
+    this.userId,
+    this.hasSavedContext = false,
+  });
+
+  final AppInitializationStatus status;
+  final String? errorMessage;
+  final String? userId;
+  final bool hasSavedContext;
+
+  AppInitializationState copyWith({
+    AppInitializationStatus? status,
+    String? errorMessage,
+    String? userId,
+    bool? hasSavedContext,
+  }) {
+    return AppInitializationState(
+      status: status ?? this.status,
+      errorMessage: errorMessage ?? this.errorMessage,
+      userId: userId ?? this.userId,
+      hasSavedContext: hasSavedContext ?? this.hasSavedContext,
+    );
+  }
+}
+
+class AppInitializationCubit extends Cubit<AppInitializationState> {
+  AppInitializationCubit({
+    required AuthRepository authRepository,
+    required OrganizationContextCubit orgContextCubit,
+    required OrgSelectorCubit orgSelectorCubit,
+    required AppAccessRolesRepository appAccessRolesRepository,
+  })  : _authRepository = authRepository,
+        _orgContextCubit = orgContextCubit,
+        _orgSelectorCubit = orgSelectorCubit,
+        _appAccessRolesRepository = appAccessRolesRepository,
+        super(const AppInitializationState());
+
+  final AuthRepository _authRepository;
+  final OrganizationContextCubit _orgContextCubit;
+  final OrgSelectorCubit _orgSelectorCubit;
+  final AppAccessRolesRepository _appAccessRolesRepository;
+
+  Future<void> initialize() async {
+    try {
+      emit(state.copyWith(status: AppInitializationStatus.checkingAuth));
+
+      final user = await _authRepository.currentUser();
+
+      if (user == null) {
+        emit(state.copyWith(status: AppInitializationStatus.notAuthenticated));
+        return;
+      }
+
+      emit(
+        state.copyWith(
+          status: AppInitializationStatus.authenticated,
+          userId: user.id,
+        ),
+      );
+
+      // PARALLEL LOADING: Load saved context and organizations simultaneously
+      emit(state.copyWith(status: AppInitializationStatus.loadingOrganizations));
+
+      final results = await Future.wait([
+        OrgContextPersistenceService.loadContext(),
+        _orgSelectorCubit.loadOrganizations(
+          user.id,
+          phoneNumber: user.phoneNumber,
+        ),
+      ]);
+
+      final savedContext = results[0] as SavedOrgContext?;
+      final hasSavedContext = savedContext != null && savedContext.userId == user.id;
+
+      emit(state.copyWith(hasSavedContext: hasSavedContext));
+
+      final orgState = _orgSelectorCubit.state;
+      if (orgState.organizations.isEmpty) {
+        emit(state.copyWith(status: AppInitializationStatus.ready));
+        return;
+      }
+
+      if (hasSavedContext) {
+        emit(state.copyWith(status: AppInitializationStatus.restoringContext));
+
+        try {
+          await _orgContextCubit.restoreFromSaved(
+            userId: user.id,
+            availableOrganizations: orgState.organizations,
+            fetchAppAccessRole: (orgId, appAccessRoleId) async {
+              final appAccessRole =
+                  await _appAccessRolesRepository.fetchAppAccessRole(orgId, appAccessRoleId);
+
+              if (appAccessRole != null) {
+                return appAccessRole;
+              }
+
+              final roles = await _appAccessRolesRepository.fetchAppAccessRoles(orgId);
+
+              try {
+                return roles.firstWhere((role) => role.id == appAccessRoleId);
+              } catch (_) {
+                try {
+                  return roles.firstWhere(
+                    (role) => role.name.toUpperCase() == appAccessRoleId.toUpperCase(),
+                  );
+                } catch (_) {
+                  try {
+                    return roles.firstWhere((role) => role.isAdmin);
+                  } catch (_) {
+                    return roles.isNotEmpty
+                        ? roles.first
+                        : AppAccessRole(
+                            id: '$orgId-$appAccessRoleId',
+                            name: appAccessRoleId,
+                            description: 'Default role',
+                            colorHex: '#6F4BFF',
+                            isAdmin: appAccessRoleId.toUpperCase() == 'ADMIN',
+                          );
+                  }
+                }
+              }
+            },
+          );
+
+          await Future.delayed(const Duration(milliseconds: 10));
+          final restoredState = _orgContextCubit.state;
+
+          if (restoredState.hasSelection && !restoredState.isRestoring) {
+            emit(state.copyWith(status: AppInitializationStatus.contextRestored));
+          } else {
+            if (!restoredState.hasSelection) {
+              await OrgContextPersistenceService.clearContext();
+            }
+            emit(state.copyWith(status: AppInitializationStatus.contextRestoreFailed));
+          }
+        } catch (_) {
+          await OrgContextPersistenceService.clearContext();
+          emit(state.copyWith(status: AppInitializationStatus.contextRestoreFailed));
+        }
+      } else {
+        emit(state.copyWith(status: AppInitializationStatus.ready));
+      }
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: AppInitializationStatus.error,
+          errorMessage: e.toString(),
+        ),
+      );
+    }
+  }
+
+  Future<void> retry() async {
+    await initialize();
+  }
+}
+

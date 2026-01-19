@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 /// Base modal dialog component for detail views
 /// Provides consistent styling, animations, and behavior

@@ -5,6 +5,7 @@ import 'package:dash_mobile/presentation/blocs/products/products_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class ProductsPage extends StatelessWidget {
@@ -151,7 +152,7 @@ class _ProductList extends StatelessWidget {
               cubit.canCreate
                   ? 'No products yet. Tap "Add Product".'
                   : 'No products to display.',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 16,
               ),
@@ -159,23 +160,35 @@ class _ProductList extends StatelessWidget {
             ),
           );
         }
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: state.products.length,
-          itemBuilder: (context, index) {
-            final product = state.products[index];
-            return _ProductDataListItem(
-              product: product,
-              canEdit: cubit.canEdit,
-              canDelete: cubit.canDelete,
-              onEdit: () => ProductsPage._openProductDialog(
-                context,
-                product: product,
-              ),
-              onDelete: () => cubit.deleteProduct(product.id),
-            );
-          },
+        return AnimationLimiter(
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: state.products.length,
+            itemBuilder: (context, index) {
+              final product = state.products[index];
+              return AnimationConfiguration.staggeredList(
+                position: index,
+                duration: const Duration(milliseconds: 200),
+                child: SlideAnimation(
+                  verticalOffset: 50.0,
+                  child: FadeInAnimation(
+                    curve: Curves.easeOut,
+                    child: _ProductDataListItem(
+                      product: product,
+                      canEdit: cubit.canEdit,
+                      canDelete: cubit.canDelete,
+                      onEdit: () => ProductsPage._openProductDialog(
+                        context,
+                        product: product,
+                      ),
+                      onDelete: () => cubit.deleteProduct(product.id),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
         );
       },
     );
@@ -251,7 +264,7 @@ class _ProductDataListItem extends StatelessWidget {
           const SizedBox(width: 12),
           if (canEdit)
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.edit_outlined,
                 color: AuthColors.textSub,
                 size: 20,
@@ -263,7 +276,7 @@ class _ProductDataListItem extends StatelessWidget {
           if (canEdit && canDelete) const SizedBox(width: 8),
           if (canDelete)
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.delete_outline,
                 color: AuthColors.textSub,
                 size: 20,
@@ -350,7 +363,7 @@ class _ProductDialogState extends State<_ProductDialog> {
       ),
       title: Text(
         isEditing ? 'Edit Product' : 'Add Product',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -360,7 +373,7 @@ class _ProductDialogState extends State<_ProductDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Product name'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -372,7 +385,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                 controller: _priceController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Unit price'),
                 validator: (value) {
                   final parsed = double.tryParse(value ?? '');
@@ -387,7 +400,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                 controller: _gstController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('GST (%) - Optional'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -404,14 +417,14 @@ class _ProductDialogState extends State<_ProductDialog> {
               TextFormField(
                 controller: _stockController,
                 keyboardType: TextInputType.number,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Stock (optional)'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _fixedQuantityController,
                 keyboardType: TextInputType.number,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration(
                   'Fixed Quantity Per Trip (comma-separated, e.g., 1000, 1500, 2000) - Optional',
                 ),
@@ -435,7 +448,7 @@ class _ProductDialogState extends State<_ProductDialog> {
               DropdownButtonFormField<ProductStatus>(
                 initialValue: _status,
                 dropdownColor: AuthColors.surface,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Status'),
                 onChanged: (value) {
                   if (value != null) setState(() => _status = value);
@@ -522,7 +535,7 @@ class _ProductDialogState extends State<_ProductDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
@@ -539,7 +552,7 @@ class _ProductDialogState extends State<_ProductDialog> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,
         ),

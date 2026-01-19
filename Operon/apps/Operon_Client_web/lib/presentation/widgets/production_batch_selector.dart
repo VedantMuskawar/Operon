@@ -77,7 +77,7 @@ class ProductionBatchSelector extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: selectedTemplateId,
+              initialValue: selectedTemplateId,
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: 0.05),

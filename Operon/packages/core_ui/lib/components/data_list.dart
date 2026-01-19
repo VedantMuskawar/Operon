@@ -76,7 +76,7 @@ class DataList extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textMain,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -88,7 +88,7 @@ class DataList extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           subtitle!,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.textSub,
                             fontSize: 14,
                             height: 1.4,
@@ -166,7 +166,7 @@ class DataListAvatar extends StatelessWidget {
         child: Container(
           width: radius * 2,
           height: radius * 2,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             shape: BoxShape.circle,
             color: AuthColors.surface,
           ),

@@ -255,7 +255,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.error_outline,
                                     color: Colors.red,
                                     size: 48,

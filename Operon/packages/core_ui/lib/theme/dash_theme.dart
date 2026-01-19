@@ -46,9 +46,6 @@ class DashTheme {
       surfaceContainerLowest: scaffoldBackground,
       surfaceDim: scaffoldBackground,
       surfaceBright: surfaceColor,
-      // Background colors - using AuthColors
-      background: scaffoldBackground,
-      onBackground: AuthColors.textMain,
       // Inverse colors
       inverseSurface: scaffoldBackground,
       onInverseSurface: AuthColors.textMain,
@@ -71,17 +68,16 @@ class DashTheme {
       // Explicitly override all background-related properties
       canvasColor: scaffoldBackground,
       cardColor: surfaceColor,
-      dialogBackgroundColor: surfaceColor,
       textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
         bodyColor: AuthColors.textMain,
         displayColor: AuthColors.textMain,
       ),
       scaffoldBackgroundColor: scaffoldBackground, // Use AuthColors.background instead of transparent
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AuthColors.textMain),
-        titleTextStyle: const TextStyle(
+        iconTheme: IconThemeData(color: AuthColors.textMain),
+        titleTextStyle: TextStyle(
           color: AuthColors.textMain,
           fontSize: 20,
           fontWeight: FontWeight.w700,
@@ -110,11 +106,11 @@ class DashTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AuthColors.error, width: 1.5),
+          borderSide: const BorderSide(color: AuthColors.error, width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AuthColors.error, width: 1.5),
+          borderSide: const BorderSide(color: AuthColors.error, width: 1.5),
         ),
         labelStyle: const TextStyle(color: AuthColors.textSub),
         hintStyle: const TextStyle(color: AuthColors.textSub),
@@ -136,7 +132,7 @@ class DashTheme {
         ),
         elevation: 0,
       ),
-      drawerTheme: DrawerThemeData(
+      drawerTheme: const DrawerThemeData(
         backgroundColor: AuthColors.backgroundAlt,
         elevation: 0,
       ),

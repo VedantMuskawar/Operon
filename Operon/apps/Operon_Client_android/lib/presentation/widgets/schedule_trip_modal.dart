@@ -350,7 +350,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       // For now, default to first item (itemIndex 0) for backward compatibility
       // TODO: Add UI to select which item/product to schedule for multi-product orders
       final orderItems = widget.order['items'] as List<dynamic>? ?? [];
-      final itemIndex = 0; // Default to first item
+      const itemIndex = 0; // Default to first item
       String? productId;
       if (orderItems.isNotEmpty && itemIndex < orderItems.length) {
         final item = orderItems[itemIndex];

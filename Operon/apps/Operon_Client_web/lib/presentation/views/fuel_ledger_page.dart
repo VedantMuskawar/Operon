@@ -37,7 +37,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
   
   // Pagination state
   int _currentPage = 0;
-  int _itemsPerPage = 10;
+  final int _itemsPerPage = 10;
   
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _purchasesSubscription;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _vendorsSubscription;

@@ -115,9 +115,9 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
         child: Stack(
           children: [
             // DotGridPattern background (matching login page)
-            Positioned.fill(
+            const Positioned.fill(
               child: RepaintBoundary(
-                child: const DotGridPattern(),
+                child: DotGridPattern(),
               ),
             ),
             // Main Content Panel
@@ -818,7 +818,6 @@ class _AnimatedSectionSwitcherState extends State<_AnimatedSectionSwitcher>
 class _AnimatedNavBarContainer extends StatefulWidget {
   const _AnimatedNavBarContainer({
     required this.child,
-    super.key,
   });
 
   final Widget child;
@@ -953,7 +952,6 @@ class _AnimatedNavItem extends StatefulWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    super.key,
   });
 
   final int index;
@@ -1165,7 +1163,7 @@ class _AnimatedNavItemState extends State<_AnimatedNavItem>
 }
 
 class _AnimatedAccessControlItem extends StatefulWidget {
-  const _AnimatedAccessControlItem({super.key});
+  const _AnimatedAccessControlItem();
 
   @override
   State<_AnimatedAccessControlItem> createState() =>
@@ -1427,9 +1425,9 @@ class _SettingsSideSheet extends StatelessWidget {
         color: Colors.transparent,
         child: Container(
           padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: const BorderRadius.only(
+            borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               bottomLeft: Radius.circular(28),
             ),
@@ -1439,7 +1437,7 @@ class _SettingsSideSheet extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
+                  const Text(
                     'Settings',
                     style: TextStyle(
                       color: AuthColors.textMain,
@@ -1451,12 +1449,12 @@ class _SettingsSideSheet extends StatelessWidget {
                   const Spacer(),
                   IconButton(
                     onPressed: onClose,
-                    icon: Icon(Icons.close, color: AuthColors.textMain),
+                    icon: const Icon(Icons.close, color: AuthColors.textMain),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Pages',
                 style: TextStyle(
                   color: AuthColors.textSub,
@@ -1475,7 +1473,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 )
               else
-                Text(
+                const Text(
                   'Role management available for admins only.',
                   style: TextStyle(
                     color: AuthColors.textDisabled,
@@ -1524,7 +1522,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 )
               else
-                Text(
+                const Text(
                   'Payment accounts available for admins only.',
                   style: TextStyle(
                     color: AuthColors.textDisabled,
@@ -1613,7 +1611,7 @@ class _SettingsTile extends StatelessWidget {
             ),
             title: Text(
               label,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textMain,
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
@@ -1623,14 +1621,14 @@ class _SettingsTile extends StatelessWidget {
             subtitle: subtitle != null
                 ? Text(
                     subtitle!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AuthColors.textDisabled,
                       fontSize: 13,
                       fontFamily: 'SF Pro Display',
                     ),
                   )
                 : null,
-            trailing: Icon(
+            trailing: const Icon(
               Icons.chevron_right,
               color: AuthColors.textSub,
             ),
@@ -1908,9 +1906,9 @@ class _ContentSideSheet extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: const BorderRadius.only(
+            borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               bottomLeft: Radius.circular(28),
             ),
@@ -1920,7 +1918,7 @@ class _ContentSideSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
+                    gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
@@ -1944,7 +1942,7 @@ class _ContentSideSheet extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: IconButton(
                           onPressed: onClose,
-                          icon: Icon(Icons.arrow_back, color: AuthColors.textSub),
+                          icon: const Icon(Icons.arrow_back, color: AuthColors.textSub),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           tooltip: 'Close',
@@ -1954,7 +1952,7 @@ class _ContentSideSheet extends StatelessWidget {
                         child: Text(
                           title,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.textMain,
                             fontSize: 24,
                             fontWeight: FontWeight.w700,

@@ -1,16 +1,21 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/data/services/recently_viewed_employees_service.dart';
 import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/employees/employees_cubit.dart';
+import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/employees_page/employee_analytics_page.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
-import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
-import 'package:dash_mobile/presentation/widgets/modern_tile.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
+import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
+import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
+import 'package:dash_mobile/presentation/utils/debouncer.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class EmployeesPage extends StatefulWidget {
@@ -24,23 +29,32 @@ class _EmployeesPageState extends State<EmployeesPage> {
   late final TextEditingController _searchController;
   late final PageController _pageController;
   late final ScrollController _scrollController;
+  late final Debouncer _searchDebouncer;
   double _currentPage = 0;
+  final bool _isLoadingMore = false;
   String _searchQuery = '';
-  bool _isLoadingMore = false;
 
   @override
   void initState() {
     super.initState();
+    _searchDebouncer = Debouncer(duration: const Duration(milliseconds: 300));
     _searchController = TextEditingController()
       ..addListener(_handleSearchChanged);
     _pageController = PageController()
-      ..addListener(() {
-        setState(() {
-          _currentPage = _pageController.page ?? 0;
-        });
-      });
+      ..addListener(_onPageChanged);
     _scrollController = ScrollController()
       ..addListener(_onScroll);
+  }
+
+  void _onPageChanged() {
+    if (!_pageController.hasClients) return;
+    final newPage = _pageController.page ?? 0;
+    final roundedPage = newPage.round();
+    if (roundedPage != _currentPage.round()) {
+      setState(() {
+        _currentPage = newPage;
+      });
+    }
   }
 
   void _onScroll() {
@@ -56,15 +70,21 @@ class _EmployeesPageState extends State<EmployeesPage> {
   void dispose() {
     _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
+    _pageController.removeListener(_onPageChanged);
     _pageController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _searchDebouncer.dispose();
     super.dispose();
   }
 
   void _handleSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text;
+    _searchDebouncer.run(() {
+      if (mounted) {
+        setState(() {
+          _searchQuery = _searchController.text;
+        });
+      }
     });
   }
 
@@ -75,268 +95,308 @@ class _EmployeesPageState extends State<EmployeesPage> {
     });
   }
 
-  void _openEmployeeDialog() {
-    _openEmployeeDialogInternal(context);
-  }
-
-  Future<void> _openEmployeeDialogInternal(
-    BuildContext context, {
-    OrganizationEmployee? employee,
-  }) async {
-    await showDialog(
-      context: context,
-      builder: (dialogContext) => BlocProvider.value(
-        value: context.read<EmployeesCubit>(),
-        child: _EmployeeDialog(employee: employee),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AuthColors.background,
+      appBar: const ModernPageHeader(
+        title: 'Employees',
+      ),
+      body: SafeArea(
+        child: BlocListener<EmployeesCubit, EmployeesState>(
+          listener: (context, state) {
+            if (state.status == ViewStatus.failure && state.message != null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.message!)),
+              );
+            }
+          },
+          child: Column(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        physics: const PageScrollPhysics(),
+                        children: [
+                          _EmployeesListView(
+                            scrollController: _scrollController,
+                            isLoadingMore: _isLoadingMore,
+                            searchController: _searchController,
+                            searchQuery: _searchQuery,
+                            onClearSearch: _clearSearch,
+                          ),
+                          const EmployeeAnalyticsPage(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _CompactPageIndicator(
+                      pageCount: 2,
+                      currentIndex: _currentPage,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+              QuickNavBar(
+                currentIndex: -1, // -1 means no selection when on this page
+                onTap: (value) => context.go('/home', extra: value),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  List<OrganizationEmployee> _applySearch(List<OrganizationEmployee> employees) {
-    if (_searchQuery.isEmpty) return employees;
-    final query = _searchQuery.toLowerCase();
-    return employees
-        .where((e) => e.name.toLowerCase().contains(query))
-        .toList();
+}
+
+class _EmployeesListView extends StatefulWidget {
+  const _EmployeesListView({
+    required this.scrollController,
+    required this.isLoadingMore,
+    required this.searchController,
+    required this.searchQuery,
+    required this.onClearSearch,
+  });
+
+  final ScrollController scrollController;
+  final bool isLoadingMore;
+  final TextEditingController searchController;
+  final String searchQuery;
+  final VoidCallback onClearSearch;
+
+  @override
+  State<_EmployeesListView> createState() => _EmployeesListViewState();
+}
+
+class _EmployeesListViewState extends State<_EmployeesListView> {
+  List<String> _recentlyViewedIds = [];
+  bool _isLoadingRecent = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentlyViewed();
+  }
+
+  Future<void> _loadRecentlyViewed() async {
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final organizationId = orgState.organization?.id;
+    if (organizationId != null) {
+      final ids = await RecentlyViewedEmployeesService.getRecentlyViewedIds(organizationId);
+      if (mounted) {
+        setState(() {
+          _recentlyViewedIds = ids;
+          _isLoadingRecent = false;
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoadingRecent = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        BlocListener<EmployeesCubit, EmployeesState>(
-      listener: (context, state) {
-        if (state.status == ViewStatus.failure && state.message != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message!)),
-          );
-        }
+    return BlocBuilder<EmployeesCubit, EmployeesState>(
+      buildWhen: (previous, current) {
+        // Only rebuild when relevant state changes
+        return previous.employees != current.employees ||
+            previous.status != current.status;
       },
-      child: Scaffold(
-        backgroundColor: AuthColors.background,
-        appBar: const ModernPageHeader(
-          title: 'Employees',
-        ),
-        body: SafeArea(
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Builder(
-              builder: (context) {
-                final media = MediaQuery.of(context);
-                final screenHeight = media.size.height;
-                // Approximate available height: screen height minus status bar, header, nav, and padding
-                final availableHeight = screenHeight - media.padding.top - 72 - media.padding.bottom - 80 - 24 - 48;
-                // Reserve space for page indicator (24px) + spacing (16px) + scroll padding (48px)
-                final pageViewHeight = (availableHeight - 24 - 16 - 48).clamp(400.0, 600.0);
+      builder: (context, state) {
+        final allEmployees = state.employees;
+        
+        // When not searching, show recently viewed employees (up to 10)
+        final displayEmployees = widget.searchQuery.isEmpty
+            ? _getRecentlyViewedEmployees(allEmployees)
+            : allEmployees;
+        
+        final filteredEmployees = _getFilteredEmployees(displayEmployees, widget.searchQuery);
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Page Indicator (dots)
-                    _PageIndicator(
-                      pageCount: 2,
-                      currentIndex: _currentPage,
-                      onPageTap: (index) {
-                        _pageController.animateToPage(
-                          index,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: pageViewHeight,
-                      child: PageView(
-                        controller: _pageController,
-                        children: [
-                          BlocBuilder<EmployeesCubit, EmployeesState>(
-                            builder: (context, state) {
-                              final allEmployees = state.employees;
-                              final filteredEmployees = _applySearch(allEmployees);
-
-                              return CustomScrollView(
-                                controller: _scrollController,
-                                slivers: [
-                                  SliverToBoxAdapter(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        _buildSearchBar(),
-                                        const SizedBox(height: 16),
-                                        if (_searchQuery.isEmpty)
-                                          Padding(
-                                            padding: const EdgeInsets.only(bottom: 12),
-                                            child: Text(
-                                              '${filteredEmployees.length} ${filteredEmployees.length == 1 ? 'employee' : 'employees'}',
-                                              style: TextStyle(
-                                                color: AuthColors.textSub,
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (_searchQuery.isNotEmpty)
-                                    SliverToBoxAdapter(
-                                      child: _SearchResultsCard(
-                                        employees: filteredEmployees,
-                                        onClear: _clearSearch,
-                                        searchQuery: _searchQuery,
-                                      ),
-                                    )
-                                  else if (filteredEmployees.isEmpty && state.status != ViewStatus.loading)
-                                    SliverFillRemaining(
-                                      child: _EmptyEmployeesState(
-                                        onAddEmployee: _openEmployeeDialog,
-                                        canCreate: context.read<EmployeesCubit>().canCreate,
-                                      ),
-                                    )
-                                  else ...[
-                                    SliverToBoxAdapter(
-                                      child: Row(
-                                        children: [
-                                          const Expanded(
-                                            child: Text(
-                                              'All employees',
-                                              style: TextStyle(
-                                                color: AuthColors.textMain,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                          if (state.status == ViewStatus.loading)
-                                            const SizedBox(
-                                              width: 20,
-                                              height: 20,
-                                              child: CircularProgressIndicator(strokeWidth: 2),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SliverToBoxAdapter(child: SizedBox(height: 12)),
-                                    SliverList(
-                                      delegate: SliverChildBuilderDelegate(
-                                        (context, index) {
-                                          if (index >= filteredEmployees.length) {
-                                            return _isLoadingMore
-                                                ? const Padding(
-                                                    padding: EdgeInsets.all(16),
-                                                    child: Center(child: CircularProgressIndicator()),
-                                                  )
-                                                : const SizedBox.shrink();
-                                          }
-                                          final employee = filteredEmployees[index];
-                                          return Padding(
-                                            padding: const EdgeInsets.only(bottom: 12),
-                                            child: _EmployeeTile(
-                                              employee: employee,
-                                              onEdit: () => _openEmployeeDialogInternal(context, employee: employee),
-                                              onDelete: () => context.read<EmployeesCubit>().deleteEmployee(employee.id),
-                                            ),
-                                          );
-                                        },
-                                        childCount: filteredEmployees.length + (_isLoadingMore ? 1 : 0),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              );
-                            },
-                          ),
-                          const SingleChildScrollView(
-                            child: EmployeeAnalyticsPage(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
+        // Error state
+        if (state.status == ViewStatus.failure) {
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              MediaQuery.of(context).viewInsets.bottom + 16,
             ),
-                      ),
-                    ),
-                QuickNavBar(
-                  currentIndex: -1, // -1 means no selection when on this page
-                  onTap: (value) => context.go('/home', extra: value),
+            child: Column(
+              children: [
+                _buildSearchBar(context, state),
+                const SizedBox(height: 24),
+                ErrorStateWidget(
+                  message: state.message ?? 'Failed to load employees',
+                  errorType: ErrorType.network,
+                  onRetry: () {
+                    context.read<EmployeesCubit>().load();
+                  },
                 ),
               ],
             ),
-            // Quick Action Menu - only visible on Employees page
-            if (_currentPage.round() == 0)
-              Builder(
-                builder: (context) {
-                  final cubit = context.read<EmployeesCubit>();
-                  
-                  final actions = <QuickActionItem>[];
+          );
+        }
 
-                  if (cubit.canCreate) {
-                    actions.add(
-                      QuickActionItem(
-                        icon: Icons.add,
-                        label: 'Add Employee',
-                        onTap: _openEmployeeDialog,
-                      ),
-                    );
-                  }
-              
-                  if (actions.isEmpty) return const SizedBox.shrink();
-              
-                  return QuickActionMenu(
-                    actions: actions,
-                  );
-                },
+        return CustomScrollView(
+          controller: widget.scrollController,
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(context).viewInsets.bottom + 16,
               ),
+                  sliver: SliverToBoxAdapter(
+                child: _buildSearchBar(context, state),
+              ),
+            ),
+            if (state.status == ViewStatus.loading && allEmployees.isEmpty)
+              const SliverFillRemaining(
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (widget.searchQuery.isNotEmpty)
+              SliverToBoxAdapter(
+                child: _SearchResultsCard(
+                  state: state,
+                  employees: filteredEmployees,
+                  onClear: widget.onClearSearch,
+                  searchQuery: widget.searchQuery,
+                ),
+              )
+            else if (filteredEmployees.isEmpty && state.status != ViewStatus.loading)
+              const SliverFillRemaining(
+                child: _EmptyEmployeesState(),
+              )
+            else ...[
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: AnimationLimiter(
+                  child: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        if (index >= filteredEmployees.length) {
+                          return widget.isLoadingMore
+                              ? const Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Center(child: CircularProgressIndicator()),
+                                )
+                              : const SizedBox.shrink();
+                        }
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 200),
+                          child: SlideAnimation(
+                            verticalOffset: 50.0,
+                            child: FadeInAnimation(
+                              curve: Curves.easeOut,
+                              child: _EmployeeTile(
+                                employee: filteredEmployees[index],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      childCount: filteredEmployees.length + (widget.isLoadingMore ? 1 : 0),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ],
-        ),
-      ),
-      ),
-      ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildSearchBar() {
-    return TextField(
-      controller: _searchController,
-      style: TextStyle(color: AuthColors.textMain),
-      decoration: InputDecoration(
-        prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
-        suffixIcon: _searchQuery.isNotEmpty
-            ? IconButton(
-                icon: Icon(Icons.close, color: AuthColors.textSub),
-                onPressed: _clearSearch,
-              )
-            : null,
-        hintText: 'Search employees by name',
-        hintStyle: TextStyle(color: AuthColors.textDisabled),
-        filled: true,
-        fillColor: AuthColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-      ),
+  List<OrganizationEmployee> _getRecentlyViewedEmployees(List<OrganizationEmployee> allEmployees) {
+    return RecentlyViewedEmployeesService.getRecentlyViewedEmployees(
+      allEmployees: allEmployees,
+      recentlyViewedIds: _recentlyViewedIds,
+      getId: (employee) => employee.id,
     );
+  }
+
+  static final _filteredCache = <String, List<OrganizationEmployee>>{};
+  static String? _lastEmployeesHash;
+  static String? _lastSearchQuery;
+
+  List<OrganizationEmployee> _getFilteredEmployees(
+    List<OrganizationEmployee> employees,
+    String query,
+  ) {
+    // Cache key based on employees hash and search query
+    final employeesHash = '${employees.length}_${employees.hashCode}';
+    final cacheKey = '${employeesHash}_$query';
+
+    // Check if we can reuse cached result
+    if (_lastEmployeesHash == employeesHash &&
+        _lastSearchQuery == query &&
+        _filteredCache.containsKey(cacheKey)) {
+      return _filteredCache[cacheKey]!;
+    }
+
+    // Invalidate cache if employees list changed
+    if (_lastEmployeesHash != employeesHash) {
+      _filteredCache.clear();
+    }
+
+    // Calculate filtered list
+    final filtered = query.isEmpty
+        ? employees
+        : employees
+            .where((e) => e.name.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+
+    // Cache result
+    _filteredCache[cacheKey] = filtered;
+    _lastEmployeesHash = employeesHash;
+    _lastSearchQuery = query;
+
+    return filtered;
+  }
+
+  Widget _buildSearchBar(BuildContext context, EmployeesState state) {
+    return StandardSearchBar(
+      controller: widget.searchController,
+      hintText: 'Search employees by name',
+      onChanged: (value) {
+        // The parent handles search state
+      },
+      onClear: widget.onClearSearch,
+    );
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload recently viewed when dependencies change (e.g., when coming back from detail page)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRecentlyViewed();
+    });
   }
 }
 
 class _SearchResultsCard extends StatelessWidget {
   const _SearchResultsCard({
+    required this.state,
     required this.employees,
     required this.onClear,
     required this.searchQuery,
   });
 
+  final EmployeesState state;
   final List<OrganizationEmployee> employees;
   final VoidCallback onClear;
   final String searchQuery;
@@ -345,14 +405,15 @@ class _SearchResultsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -360,9 +421,9 @@ class _SearchResultsCard extends StatelessWidget {
                 child: Text(
                   'Search Results',
                   style: TextStyle(
-                    color: AuthColors.textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    color: AuthColors.textMain,
                   ),
                 ),
               ),
@@ -373,12 +434,21 @@ class _SearchResultsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          if (employees.isEmpty)
+          if (state.status == ViewStatus.loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (employees.isEmpty)
             _EmptySearchState(query: searchQuery)
           else
             ...employees.map((employee) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: _EmployeeTile(employee: employee),
+                  child: _EmployeeTile(
+                    employee: employee,
+                  ),
                 )),
         ],
       ),
@@ -386,80 +456,24 @@ class _SearchResultsCard extends StatelessWidget {
   }
 }
 
-class _RecentEmployeesList extends StatelessWidget {
-  const _RecentEmployeesList({
-    required this.state,
-    required this.employees,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final EmployeesState state;
-  final List<OrganizationEmployee> employees;
-  final ValueChanged<OrganizationEmployee> onEdit;
-  final ValueChanged<OrganizationEmployee> onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'All employees',
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            if (state.status == ViewStatus.loading)
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (employees.isEmpty && state.status != ViewStatus.loading)
-          const SizedBox.shrink()
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: employees.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final employee = employees[index];
-              return _EmployeeTile(
-                employee: employee,
-                onEdit: () => onEdit(employee),
-                onDelete: () => onDelete(employee),
-              );
-            },
-          ),
-      ],
-    );
-  }
-}
-
 class _EmployeeTile extends StatelessWidget {
   const _EmployeeTile({
     required this.employee,
-    this.onEdit,
-    this.onDelete,
   });
 
   final OrganizationEmployee employee;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
+
+  static final _colorCache = <String, Color>{};
+  static final _initialsCache = <String, String>{};
+  static final _subtitleCache = <String, String>{};
 
   Color _getEmployeeColor() {
-    final hash = employee.roleTitle.hashCode;
+    final cacheKey = employee.id;
+    if (_colorCache.containsKey(cacheKey)) {
+      return _colorCache[cacheKey]!;
+    }
+
+    final hash = employee.primaryJobRoleTitle.hashCode;
     final colors = [
       AuthColors.primary,
       AuthColors.success,
@@ -467,29 +481,55 @@ class _EmployeeTile extends StatelessWidget {
       AuthColors.primary,
       AuthColors.error,
     ];
-    return colors[hash.abs() % colors.length];
+    final color = colors[hash.abs() % colors.length];
+    _colorCache[cacheKey] = color;
+    return color;
   }
 
   String _getInitials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    if (_initialsCache.containsKey(name)) {
+      return _initialsCache[name]!;
     }
-    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
+
+    final parts = name.trim().split(' ');
+    final initials = parts.length >= 2
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase());
+    _initialsCache[name] = initials;
+    return initials;
+  }
+
+  String _getRoleInitials(String roleTitle) {
+    if (roleTitle.isEmpty) return '?';
+    // Take first 2 characters of role title, or first character if single letter
+    return roleTitle.length >= 2
+        ? roleTitle.substring(0, 2).toUpperCase()
+        : roleTitle[0].toUpperCase();
+  }
+
+  String _getSubtitle() {
+    final cacheKey = '${employee.id}_${employee.primaryJobRoleTitle}_${employee.currentBalance}_${employee.wage.baseAmount}_${employee.wage.type.name}';
+    if (_subtitleCache.containsKey(cacheKey)) {
+      return _subtitleCache[cacheKey]!;
+    }
+
+    final subtitleParts = <String>[];
+    subtitleParts.add(employee.primaryJobRoleTitle.isEmpty ? 'No Role' : employee.primaryJobRoleTitle);
+    subtitleParts.add('₹${employee.currentBalance.toStringAsFixed(2)}');
+    if (employee.wage.baseAmount != null) {
+      subtitleParts.add('Salary: ₹${employee.wage.baseAmount!.toStringAsFixed(2)}/${_getSalaryTypeLabelFromWage(employee.wage.type)}');
+    }
+    final subtitle = subtitleParts.join(' • ');
+    _subtitleCache[cacheKey] = subtitle;
+    return subtitle;
   }
 
   @override
   Widget build(BuildContext context) {
     final employeeColor = _getEmployeeColor();
+    final subtitle = _getSubtitle();
     final balanceDifference = employee.currentBalance - employee.openingBalance;
     final isPositive = balanceDifference >= 0;
-    final subtitleParts = <String>[];
-    subtitleParts.add(employee.roleTitle);
-    subtitleParts.add('₹${employee.currentBalance.toStringAsFixed(2)}');
-    if (employee.salaryAmount != null) {
-      subtitleParts.add('Salary: ₹${employee.salaryAmount!.toStringAsFixed(2)}/${_getSalaryTypeLabel(employee.salaryType)}');
-    }
-    final subtitle = subtitleParts.join(' • ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -499,9 +539,9 @@ class _EmployeeTile extends StatelessWidget {
       ),
       child: DataList(
         title: employee.name,
-        subtitle: subtitle,
+        subtitle: subtitle.isNotEmpty ? subtitle : null,
         leading: DataListAvatar(
-          initial: _getInitials(employee.name),
+          initial: _getRoleInitials(employee.primaryJobRoleTitle.isEmpty ? 'No Role' : employee.primaryJobRoleTitle),
           radius: 28,
           statusRingColor: employeeColor,
         ),
@@ -540,60 +580,6 @@ class _EmployeeTile extends StatelessWidget {
                   ),
                 ),
               ),
-            if (onEdit != null || onDelete != null)
-              PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_vert,
-                  color: AuthColors.textSub,
-                  size: 20,
-                ),
-                color: AuthColors.surface,
-                onSelected: (value) {
-                  if (value == 'edit' && onEdit != null) {
-                    onEdit!();
-                  } else if (value == 'delete' && onDelete != null) {
-                    onDelete!();
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (onEdit != null)
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.edit_outlined,
-                            color: AuthColors.textSub,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Edit',
-                            style: TextStyle(color: AuthColors.textSub),
-                          ),
-                        ],
-                      ),
-                    ),
-                  if (onDelete != null)
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            color: AuthColors.error,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Delete',
-                            style: TextStyle(color: AuthColors.error),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
           ],
         ),
         onTap: () => context.pushNamed('employee-detail', extra: employee),
@@ -601,100 +587,36 @@ class _EmployeeTile extends StatelessWidget {
     );
   }
 
-  String _getSalaryTypeLabel(SalaryType type) {
+  String _getSalaryTypeLabelFromWage(WageType type) {
     switch (type) {
-      case SalaryType.salaryMonthly:
+      case WageType.perMonth:
         return 'month';
-      case SalaryType.wages:
-        return 'wages';
+      case WageType.perTrip:
+        return 'trip';
+      case WageType.perBatch:
+        return 'batch';
+      case WageType.perHour:
+        return 'hour';
+      case WageType.perKm:
+        return 'km';
+      case WageType.commission:
+        return 'commission';
+      case WageType.hybrid:
+        return 'hybrid';
     }
   }
 }
 
 class _EmptyEmployeesState extends StatelessWidget {
-  const _EmptyEmployeesState({
-    required this.onAddEmployee,
-    required this.canCreate,
-  });
-
-  final VoidCallback onAddEmployee;
-  final bool canCreate;
+  const _EmptyEmployeesState();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(40),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AuthColors.surface.withOpacity(0.6),
-            AuthColors.backgroundAlt.withOpacity(0.8),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.2),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AuthColors.primary.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.badge_outlined,
-              size: 32,
-              color: AuthColors.primary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'No employees yet',
-            style: TextStyle(
-              color: AuthColors.textMain,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            canCreate
-                ? 'Start by adding your first employee to the system'
-                : 'No employees to display.',
-            style: TextStyle(
-              color: AuthColors.textSub,
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (canCreate) ...[
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Add Employee'),
-              onPressed: onAddEmployee,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AuthColors.primary,
-                foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
+    return const EmptyStateWidget(
+      icon: Icons.badge_outlined,
+      title: 'No employees yet',
+      message: 'No employees to display.',
+      iconColor: AuthColors.primary,
     );
   }
 }
@@ -717,7 +639,7 @@ class _EmptySearchState extends StatelessWidget {
             color: AuthColors.textSub.withOpacity(0.5),
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'No results found',
             style: TextStyle(
               color: AuthColors.textMain,
@@ -728,7 +650,7 @@ class _EmptySearchState extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'No employees match "$query"',
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textSub,
               fontSize: 14,
             ),
@@ -740,36 +662,33 @@ class _EmptySearchState extends StatelessWidget {
   }
 }
 
-class _PageIndicator extends StatelessWidget {
-  const _PageIndicator({
+class _CompactPageIndicator extends StatelessWidget {
+  const _CompactPageIndicator({
     required this.pageCount,
     required this.currentIndex,
-    required this.onPageTap,
   });
 
   final int pageCount;
   final double currentIndex;
-  final ValueChanged<int> onPageTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: List.generate(
         pageCount,
         (index) {
           final isActive = currentIndex.round() == index;
-          return GestureDetector(
-            onTap: () => onPageTap(index),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: isActive ? 24 : 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: isActive ? AuthColors.primary : AuthColors.textSub.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(999),
-              ),
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: isActive ? 24 : 6,
+            height: 3,
+            decoration: BoxDecoration(
+              color: isActive ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.3),
+              borderRadius: BorderRadius.circular(1.5),
             ),
           );
         },
@@ -778,232 +697,3 @@ class _PageIndicator extends StatelessWidget {
   }
 }
 
-class _EmployeeDialog extends StatefulWidget {
-  const _EmployeeDialog({this.employee});
-
-  final OrganizationEmployee? employee;
-
-  @override
-  State<_EmployeeDialog> createState() => _EmployeeDialogState();
-}
-
-class _EmployeeDialogState extends State<_EmployeeDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController;
-  late final TextEditingController _openingBalanceController;
-  late final TextEditingController _salaryController;
-  String? _selectedRoleId;
-  bool _hasInitializedRole = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final employee = widget.employee;
-    _nameController = TextEditingController(text: employee?.name ?? '');
-    _openingBalanceController = TextEditingController(
-      text: employee != null ? employee.openingBalance.toStringAsFixed(2) : '',
-    );
-    _salaryController = TextEditingController(
-      text: employee?.salaryAmount?.toStringAsFixed(2) ?? '',
-    );
-  }
-
-  void _initializeRole(List<OrganizationRole> roles) {
-    if (_hasInitializedRole || roles.isEmpty) return;
-    
-    if (widget.employee != null) {
-      // Editing: find matching role
-      final match = roles.where(
-        (role) => role.id == widget.employee?.roleId,
-      );
-      if (match.isNotEmpty) {
-        _selectedRoleId = match.first.id;
-        _hasInitializedRole = true;
-      }
-    } else {
-      // Creating: select first role by default
-      _selectedRoleId = roles.first.id;
-      _hasInitializedRole = true;
-    }
-  }
-
-  OrganizationRole? _findSelectedRole(List<OrganizationRole> roles) {
-    if (_selectedRoleId == null) return null;
-    try {
-      return roles.firstWhere((role) => role.id == _selectedRoleId);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cubit = context.read<EmployeesCubit>();
-    final roles = context.watch<EmployeesCubit>().state.roles;
-    final isEditing = widget.employee != null;
-    
-    // Initialize role selection when roles are loaded
-    if (roles.isNotEmpty && !_hasInitializedRole) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _initializeRole(roles);
-          });
-        }
-      });
-    }
-
-    final selectedRole = _findSelectedRole(roles);
-
-    return AlertDialog(
-      backgroundColor: AuthColors.surface,
-      title: Text(
-        isEditing ? 'Edit Employee' : 'Add Employee',
-        style: TextStyle(color: AuthColors.textMain),
-      ),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                style: TextStyle(color: AuthColors.textMain),
-                decoration: _inputDecoration('Employee name'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter employee name'
-                        : null,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedRoleId,
-                dropdownColor: AuthColors.surface,
-                style: TextStyle(color: AuthColors.textMain),
-                items: roles
-                    .map(
-                      (role) => DropdownMenuItem(
-                        value: role.id,
-                        child: Text(role.title),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (cubit.canEdit || cubit.canCreate)
-                    ? (value) {
-                        if (value == null) return;
-                        setState(() {
-                          _selectedRoleId = value;
-                        });
-                      }
-                    : null,
-                decoration: _inputDecoration('Role'),
-                validator: (value) =>
-                    value == null ? 'Select a role' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _openingBalanceController,
-                enabled: !isEditing && cubit.canCreate,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                style: TextStyle(color: AuthColors.textMain),
-                decoration: _inputDecoration('Opening balance'),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Enter opening balance';
-                  }
-                  final parsed = double.tryParse(value);
-                  if (parsed == null) return 'Enter valid number';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              if (selectedRole?.salaryType == SalaryType.salaryMonthly)
-                TextFormField(
-                  controller: _salaryController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(color: AuthColors.textMain),
-                  decoration: _inputDecoration('Salary amount'),
-                  validator: (value) {
-                    final parsed = double.tryParse(value ?? '');
-                    if (parsed == null || parsed < 0) {
-                      return 'Enter a valid salary';
-                    }
-                    return null;
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: (cubit.canCreate && !isEditing) ||
-                  (cubit.canEdit && isEditing)
-              ? () {
-                  if (!(_formKey.currentState?.validate() ?? false)) return;
-                  final selectedRole = _findSelectedRole(roles);
-                  if (selectedRole == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Select a role')),
-                    );
-                    return;
-                  }
-
-                  final salaryAmount = selectedRole.salaryType ==
-                          SalaryType.salaryMonthly
-                      ? double.tryParse(_salaryController.text.trim()) ?? 0
-                      : null;
-
-                  final organizationId =
-                      context.read<EmployeesCubit>().organizationId;
-                  final employee = OrganizationEmployee(
-                    id: widget.employee?.id ??
-                        DateTime.now().millisecondsSinceEpoch.toString(),
-                    organizationId: widget.employee?.organizationId ??
-                        organizationId,
-                    name: _nameController.text.trim(),
-                    roleId: selectedRole.id,
-                    roleTitle: selectedRole.title,
-                    openingBalance: widget.employee?.openingBalance ??
-                        double.parse(_openingBalanceController.text.trim()),
-                    currentBalance:
-                        widget.employee?.currentBalance ??
-                            double.parse(_openingBalanceController.text.trim()),
-                    salaryType: selectedRole.salaryType,
-                    salaryAmount: salaryAmount,
-                  );
-
-                  if (widget.employee == null) {
-                    context.read<EmployeesCubit>().createEmployee(employee);
-                  } else {
-                    context.read<EmployeesCubit>().updateEmployee(employee);
-                  }
-                  Navigator.of(context).pop();
-                }
-              : null,
-          child: Text(isEditing ? 'Save' : 'Create'),
-        ),
-      ],
-    );
-  }
-
-  InputDecoration _inputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      filled: true,
-      fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
-      ),
-    );
-  }
-}

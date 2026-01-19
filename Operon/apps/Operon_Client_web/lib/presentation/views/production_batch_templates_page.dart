@@ -162,7 +162,7 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                           color: AuthColors.textSub.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
-                        Text(
+                        const Text(
                           'No batch templates yet',
                           style: TextStyle(
                             color: AuthColors.textSub,
@@ -170,7 +170,7 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
+                        const Text(
                           'Create your first batch template to get started',
                           style: TextStyle(
                             color: AuthColors.textSub,
@@ -207,18 +207,18 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                         context: context,
                         builder: (context) => AlertDialog(
                           backgroundColor: AuthColors.surface,
-                          title: Text(
+                          title: const Text(
                             'Delete Batch Template',
                             style: TextStyle(color: AuthColors.textMain),
                           ),
                           content: Text(
                             'Are you sure you want to delete "${template.name}"?',
-                            style: TextStyle(color: AuthColors.textSub),
+                            style: const TextStyle(color: AuthColors.textSub),
                           ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(context, false),
-                              child: Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+                              child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
                             ),
                             TextButton(
                               onPressed: () => Navigator.pop(context, true),
@@ -238,7 +238,7 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                       }
                     },
                   );
-                }).toList(),
+                }),
             ],
           ),
         );
@@ -290,13 +290,13 @@ class _BatchTemplateDataListItem extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DataListStatusDot(
+            const DataListStatusDot(
               color: AuthColors.primary,
               size: 8,
             ),
             const SizedBox(width: 12),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.edit_outlined,
                 color: AuthColors.textSub,
                 size: 20,
@@ -307,7 +307,7 @@ class _BatchTemplateDataListItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(
+              icon: const Icon(
                 Icons.delete_outline,
                 color: AuthColors.error,
                 size: 20,
