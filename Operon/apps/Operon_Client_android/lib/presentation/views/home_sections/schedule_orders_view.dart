@@ -527,7 +527,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: AuthColors.background.withOpacity(0.2),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -541,14 +541,14 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     flex: 1,
                     child: _SummaryItem(
                       value: '${_getTotalTrips()}',
-                      color: AuthColors.legacyAccent,
+                      color: AuthColors.primary,
                     ),
                   ),
                   Container(
                     width: 1,
                     height: 40,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
-                    color: Colors.white.withOpacity(0.1),
+                    color: AuthColors.textMainWithOpacity(0.1),
                   ),
                   Expanded(
                     flex: 2,
@@ -561,7 +561,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     width: 1,
                     height: 40,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
-                    color: Colors.white.withOpacity(0.1),
+                    color: AuthColors.textMainWithOpacity(0.1),
                   ),
                   Expanded(
                     flex: 1,
@@ -605,12 +605,12 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AuthColors.legacyAccent
+                        ? AuthColors.primary
                         : AuthColors.surface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isSelected
-                          ? AuthColors.legacyAccent
+                          ? AuthColors.primary
                           : AuthColors.textMainWithOpacity(0.1),
                       width: 1,
                     ),
@@ -631,8 +631,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       const SizedBox(height: 3),
                       Text(
                         date.day.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AuthColors.textMain,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -721,7 +721,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
             child: ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: EdgeInsets.zero,
               itemCount: _scheduledTrips.length,
               itemBuilder: (context, index) {
                 return AnimationConfiguration.staggeredList(
@@ -732,7 +732,11 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     child: FadeInAnimation(
                       curve: Curves.easeOut,
                       child: Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(
+                          bottom: 12,
+                          left: 16.0,
+                          right: 16.0,
+                        ),
                         child: ScheduledTripTile(
                           trip: _scheduledTrips[index],
                           onReschedule: () => _onReschedule(_scheduledTrips[index]),
@@ -806,12 +810,12 @@ class _VehicleFilterButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? AuthColors.legacyAccent
+              ? AuthColors.primary
               : AuthColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? AuthColors.legacyAccent
+                ? AuthColors.primary
                 : AuthColors.textMainWithOpacity(0.1),
             width: 1,
           ),

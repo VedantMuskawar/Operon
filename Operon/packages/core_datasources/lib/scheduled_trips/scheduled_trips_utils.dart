@@ -47,16 +47,17 @@ class ScheduledTripsUtils {
         .where('vehicleId', isEqualTo: vehicleId)
         .where('slot', isEqualTo: slot)
         .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-        .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay));
+        .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
+        .where('isActive', isEqualTo: true); // Soft delete pattern: only active trips
 
     final snapshot = await query.get();
 
     // Filter by tripStatus in memory and exclude current trip if provided
     final conflictingTrips = snapshot.docs.where((doc) {
       final status = doc.data()['tripStatus'] as String?;
-      final isActive = status == 'scheduled' || status == 'in_progress';
+      final isActiveStatus = status == 'scheduled' || status == 'in_progress';
       final isNotExcluded = excludeTripId == null || doc.id != excludeTripId;
-      return isActive && isNotExcluded;
+      return isActiveStatus && isNotExcluded;
     }).toList();
 
     return conflictingTrips.isEmpty;

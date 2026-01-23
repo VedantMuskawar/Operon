@@ -1,7 +1,8 @@
 import 'package:core_services/core_services.dart';
 import 'package:dash_web/config/app_router.dart';
 import 'package:dash_web/config/app_theme.dart';
-import 'package:core_datasources/core_datasources.dart';
+import 'package:core_datasources/core_datasources.dart'
+    hide ScheduledTripsDataSource, ScheduledTripsRepository;
 import 'package:dash_web/data/datasources/employees_data_source.dart';
 import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_web/data/datasources/app_access_roles_data_source.dart';
@@ -27,6 +28,12 @@ import 'package:dash_web/data/datasources/analytics_data_source.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
+import 'package:dash_web/data/repositories/organization_locations_repository.dart';
+import 'package:dash_web/data/repositories/geofences_repository.dart';
+import 'package:dash_web/data/repositories/notifications_repository.dart';
+import 'package:dash_web/data/datasources/organization_location_data_source.dart';
+import 'package:dash_web/data/datasources/geofence_data_source.dart';
+import 'package:dash_web/data/datasources/notification_data_source.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/app_initialization/app_initialization_cubit.dart';
@@ -185,6 +192,21 @@ class DashWebApp extends StatelessWidget {
             dmSettingsRepository: context.read<DmSettingsRepository>(),
             paymentAccountsRepository: context.read<PaymentAccountsRepository>(),
             qrCodeService: context.read<QrCodeService>(),
+          ),
+        ),
+        RepositoryProvider<OrganizationLocationsRepository>(
+          create: (_) => OrganizationLocationsRepository(
+            dataSource: OrganizationLocationDataSource(),
+          ),
+        ),
+        RepositoryProvider<GeofencesRepository>(
+          create: (_) => GeofencesRepository(
+            dataSource: GeofenceDataSource(),
+          ),
+        ),
+        RepositoryProvider<NotificationsRepository>(
+          create: (_) => NotificationsRepository(
+            dataSource: NotificationDataSource(),
           ),
         ),
       ],

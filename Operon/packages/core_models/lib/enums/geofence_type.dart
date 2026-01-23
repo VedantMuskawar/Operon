@@ -1,0 +1,4 @@
+enum GeofenceType {
+  circle,
+  polygon,
+}

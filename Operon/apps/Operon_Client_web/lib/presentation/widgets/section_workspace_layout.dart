@@ -736,6 +736,36 @@ class _AnimatedSectionSwitcherState extends State<_AnimatedSectionSwitcher>
 
   @override
   Widget build(BuildContext context) {
+    final isMapSection = widget.currentIndex == 3;
+
+    // Special-case the map section: avoid scroll-wrapping so map gestures and
+    // scroll-wheel zoom work correctly on web, and allow the map to fill the panel.
+    if (isMapSection) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      child: widget.child,
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(32, 32, 32, 32),
       child: AnimatedBuilder(
@@ -748,64 +778,64 @@ class _AnimatedSectionSwitcherState extends State<_AnimatedSectionSwitcher>
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (widget.panelTitle != null &&
-                      widget.panelTitle!.isNotEmpty) ...[
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF1B1C2C),
-                            Color(0xFF161622),
-                          ],
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.panelTitle != null &&
+                        widget.panelTitle!.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFF1B1C2C),
+                              Color(0xFF161622),
+                            ],
+                          ),
+                          border: Border(
+                            bottom: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.08),
+                              width: 1,
+                            ),
+                          ),
                         ),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.08),
-                            width: 1,
+                        child: SizedBox(
+                          height: 32,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: IconButton(
+                                  onPressed: () => context.go('/home'),
+                                  icon: const Icon(Icons.arrow_back, color: Colors.white70),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  tooltip: 'Back to home',
+                                ),
+                              ),
+                              Center(
+                                child: Text(
+                                  widget.panelTitle!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      child: SizedBox(
-                        height: 32,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: IconButton(
-                                onPressed: () => context.go('/home'),
-                                icon: const Icon(Icons.arrow_back, color: Colors.white70),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                tooltip: 'Back to home',
-                              ),
-                            ),
-                            Center(
-                              child: Text(
-                                widget.panelTitle!,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                      const SizedBox(height: 16),
+                    ],
+                    widget.child,
                   ],
-                  widget.child,
-                ],
-              ),
+                ),
               ),
             ),
           );

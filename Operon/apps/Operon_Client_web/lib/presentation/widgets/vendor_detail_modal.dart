@@ -431,6 +431,8 @@ class _OverviewSection extends StatelessWidget {
     required this.vendorColor,
     required this.balanceDifference,
     required this.isPositive,
+    this.assignedMaterials,
+    this.isLoadingMaterials = false,
     required this.formatVendorType,
   });
 

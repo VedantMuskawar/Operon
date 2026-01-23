@@ -5,6 +5,7 @@ import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/users_repository.dart';
 import 'package:dash_web/domain/entities/organization_user.dart';
+import 'package:dash_web/presentation/widgets/notification_center.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -109,6 +110,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
         computeHomeSections(appAccessRole);
     final isAdminRole = appAccessRole?.isAdmin ?? fallbackAdmin;
     final canManageUsers = appAccessRole?.canCreate('users') ?? isAdminRole;
+    final canManageGeofences = appAccessRole?.canCreate('geofences') ?? isAdminRole;
 
     return Scaffold(
       backgroundColor: AuthColors.background,
@@ -192,12 +194,19 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                       ),
                     ),
                   ),
-                  _FloatingSquareIcon(
-                    icon: Icons.settings_outlined,
-                    onTap: () => setState(() {
-                      _isSettingsOpen = true;
-                      _isProfileOpen = false;
-                    }),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const NotificationCenter(),
+                      const SizedBox(width: 8),
+                      _FloatingSquareIcon(
+                        icon: Icons.settings_outlined,
+                        onTap: () => setState(() {
+                          _isSettingsOpen = true;
+                          _isProfileOpen = false;
+                        }),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -239,6 +248,9 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                 },
                 showUsers: canManageUsers,
                 onOpenUsers: canManageUsers ? () => context.go('/users') : null,
+                showGeofences: canManageGeofences,
+                onOpenGeofences: canManageGeofences ? () => context.go('/locations-geofences') : null,
+                onOpenNotifications: () => context.go('/notifications'),
                 onLogout: () {
                   context.read<AuthBloc>().add(const AuthReset());
                   context.go('/login');
@@ -571,6 +583,9 @@ class _ProfileSideSheet extends StatelessWidget {
     required this.onChangeOrg,
     this.showUsers = false,
     this.onOpenUsers,
+    this.showGeofences = false,
+    this.onOpenGeofences,
+    this.onOpenNotifications,
     required this.onLogout,
   });
 
@@ -581,6 +596,9 @@ class _ProfileSideSheet extends StatelessWidget {
   final VoidCallback onChangeOrg;
   final bool showUsers;
   final VoidCallback? onOpenUsers;
+  final bool showGeofences;
+  final VoidCallback? onOpenGeofences;
+  final VoidCallback? onOpenNotifications;
   final VoidCallback onLogout;
 
   @override
@@ -705,21 +723,26 @@ class _ProfileSideSheet extends StatelessWidget {
                     onOpenUsers?.call();
                   },
                 ),
-              const _ProfileAction(
+              if (showGeofences)
+                _ProfileAction(
+                  icon: Icons.location_on_outlined,
+                  label: 'Locations & Geofences',
+                  onTap: () {
+                    onClose();
+                    onOpenGeofences?.call();
+                  },
+                ),
+              _ProfileAction(
                 icon: Icons.notifications_outlined,
                 label: 'Notifications',
+                onTap: onOpenNotifications != null ? () {
+                  onClose();
+                  onOpenNotifications?.call();
+                } : null,
               ),
               const _ProfileAction(
                 icon: Icons.security,
                 label: 'Permissions',
-              ),
-              const _ProfileAction(
-                icon: Icons.lock_outline,
-                label: 'Security',
-              ),
-              const _ProfileAction(
-                icon: Icons.support_agent,
-                label: 'Support',
               ),
               const Spacer(),
               DashButton(

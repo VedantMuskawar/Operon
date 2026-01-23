@@ -31,6 +31,10 @@
 
   <title>dash_web</title>
   <link rel="manifest" href="manifest.json">
+  <!-- Google Maps JS SDK (required for google_maps_flutter on web) -->
+  <!-- Note: AdvancedMarkerElement deprecation warning is expected until google_maps_flutter migrates -->
+  <!-- See: https://github.com/flutter/flutter/issues/130472 -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA_uQM3BwYUtAWyRddkWX9Cfajixv7szYc&libraries=marker"></script>
   <!-- Apple SF Pro Font (matching iCloud.com) -->
   <link rel="stylesheet" href="https://www.apple.com/wss/fonts?families=SF+Pro,v3|SF+Pro+Icons,v3">
   <!-- html2pdf.js for HTML to PDF conversion -->

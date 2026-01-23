@@ -108,10 +108,11 @@ class VehiclesPageContent extends StatelessWidget {
                                 context.read<VehiclesCubit>().deleteVehicle(vehicle.id),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                );
+                      ),
+                    );
+                  },
+                ),
+              );
             },
           ),
         ],
@@ -934,10 +935,14 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
           orgId: widget.orgId,
           employeeId: _selectedEmployee!.id,
         );
+        // Normalize phone to match format used in scheduled trips queries
+        final normalizedPhone = phone != null && phone.isNotEmpty
+            ? phone.replaceAll(RegExp(r'[^0-9+]'), '')
+            : phone;
         driverInfo = VehicleDriverInfo(
           id: _selectedEmployee!.id,
           name: _selectedEmployee!.name,
-          phone: phone,
+          phone: normalizedPhone,
         );
       } else {
         // Unassign driver - pass null to remove driver

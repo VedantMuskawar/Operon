@@ -4,6 +4,7 @@ import 'package:dash_web/data/repositories/pending_orders_repository.dart';
 import 'package:dash_web/data/repositories/profile_stats_repository_adapter.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_web/presentation/views/fleet_map_screen.dart';
 import 'package:dash_web/presentation/views/pending_orders_view.dart';
 import 'package:dash_web/presentation/views/schedule_orders_view.dart';
 import 'package:dash_web/presentation/views/home_sections/attendance_view.dart';
@@ -27,7 +28,7 @@ class _HomePageState extends State<HomePage> {
     const _HomeOverviewView(),
     const PendingOrdersView(),
     const ScheduleOrdersView(),
-    const _OrdersMapView(),
+    const FleetMapScreen(),
     const _AnalyticsPlaceholder(),
     const AttendanceView(),
   ];
@@ -510,56 +511,6 @@ class _NotificationSection extends StatelessWidget {
 }
 
 
-
-class _OrdersMapView extends StatelessWidget {
-  const _OrdersMapView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              'Orders Map',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AuthColors.successVariant.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AuthColors.successVariant.withValues(alpha: 0.3),
-                ),
-              ),
-              child: const Text(
-                'Coming Soon',
-                style: TextStyle(
-                  color: AuthColors.successVariant,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 32),
-        const _EmptyStateCard(
-          icon: Icons.map_outlined,
-          title: 'Orders Map',
-          description: 'Visualize order locations and delivery routes',
-          color: Color(0xFF5AD8A4),
-        ),
-      ],
-    );
-  }
-}
 
 class _AnalyticsPlaceholder extends StatelessWidget {
   const _AnalyticsPlaceholder();

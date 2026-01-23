@@ -1,0 +1,4 @@
+enum GeofenceEventType {
+  entered,
+  exited,
+}

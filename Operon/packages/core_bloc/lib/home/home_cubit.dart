@@ -87,10 +87,13 @@ class HomeCubit extends Cubit<HomeState> {
 
     // Check section access using the role's canAccessSection method
     // Section indices: 0=Overview, 1=PendingOrders, 2=ScheduleOrders, 3=OrdersMap, 4=Analytics, 5=Attendance
-    if (_canAccessSection(appAccessRole, 'pendingOrders')) {
+    final canAccessPendingOrders = _canAccessSection(appAccessRole, 'pendingOrders');
+    if (canAccessPendingOrders) {
       visible.add(1);
     }
-    if (_canAccessSection(appAccessRole, 'scheduleOrders')) {
+    // Schedule Orders is accessible if user can access pending orders OR has explicit scheduleOrders permission
+    // This makes sense because scheduling trips is a natural extension of managing pending orders
+    if (canAccessPendingOrders || _canAccessSection(appAccessRole, 'scheduleOrders')) {
       visible.add(2);
     }
     if (_canAccessSection(appAccessRole, 'ordersMap')) {

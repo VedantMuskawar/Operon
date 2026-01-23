@@ -95,12 +95,14 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
     // Start countdown when OTP is sent (session becomes available)
     final hadSession = _hasSession(oldWidget.authState);
     final hasSession = _hasSession(widget.authState);
-    if (!hadSession && hasSession && _resendCountdownNotifier.value == 0) {
+    if (!hadSession && hasSession && _resendCountdownNotifier.value == 0 && mounted) {
       _startResendCountdown();
-      setState(() {
-        _hasError = false;
-        _errorMessage = null;
-      });
+      if (mounted) {
+        setState(() {
+          _hasError = false;
+          _errorMessage = null;
+        });
+      }
     }
   }
   
@@ -115,43 +117,53 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
+    _resendTimer = null;
     _phoneController.dispose();
     _otpController.dispose();
-    _resendTimer?.cancel();
     _resendCountdownNotifier.dispose();
     super.dispose();
   }
 
   void _startResendCountdown() {
     _resendTimer?.cancel();
+    if (!mounted) return;
     _resendCountdownNotifier.value = 60;
     _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted || _resendCountdownNotifier.value <= 0) {
         timer.cancel();
+        _resendTimer = null;
         return;
       }
-      _resendCountdownNotifier.value--;
+      if (mounted) {
+        _resendCountdownNotifier.value--;
+      }
     });
   }
 
   void _handleResendOtp(String phoneNumber) {
     widget.onPhoneSubmitted(phoneNumber);
     _startResendCountdown();
-    setState(() {
-      _otpController.clear();
-      _hasError = false;
-      _errorMessage = null;
-    });
+    if (mounted) {
+      setState(() {
+        _otpController.clear();
+        _hasError = false;
+        _errorMessage = null;
+      });
+    }
   }
 
   void _handleChangeNumber() {
-    widget.onAuthReset();
-    setState(() {
-      _otpController.clear();
-      _hasError = false;
-    });
-    _resendCountdownNotifier.value = 0;
     _resendTimer?.cancel();
+    _resendTimer = null;
+    _resendCountdownNotifier.value = 0;
+    widget.onAuthReset();
+    if (mounted) {
+      setState(() {
+        _otpController.clear();
+        _hasError = false;
+      });
+    }
   }
 
   // Helper to check if OTP should be shown
@@ -466,7 +478,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
   Widget _buildOtpSection(BuildContext context, String phoneNumber, double screenWidth) {
     // Update error state from auth state
     final stateError = _stateErrorMessage;
-    if (stateError != null && stateError != _errorMessage) {
+    if (stateError != null && stateError != _errorMessage && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           setState(() {
@@ -527,14 +539,16 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                 contentPadding: EdgeInsets.symmetric(vertical: 16),
               ),
               onChanged: (value) {
-                setState(() {
-                  if (_hasError && value.isNotEmpty) {
-                    _hasError = false;
-                    _errorMessage = null;
-                  }
-                });
+                if (mounted) {
+                  setState(() {
+                    if (_hasError && value.isNotEmpty) {
+                      _hasError = false;
+                      _errorMessage = null;
+                    }
+                  });
+                }
                 // Auto-submit when 6 digits are entered
-                if (value.length == 6 && !_hasError) {
+                if (value.length == 6 && !_hasError && mounted) {
                   try {
                     final verificationId = widget.authState.session?.verificationId;
                     if (verificationId != null) {

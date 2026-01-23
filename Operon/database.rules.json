@@ -1,0 +1,27 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "active_drivers": {
+      // Allow authenticated users to read all active drivers (for fleet map)
+      ".read": "auth != null",
+      
+      "$uid": {
+        // Individual driver location: read allowed for all authenticated users (for fleet map)
+        // Write only allowed by the driver themselves
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid",
+
+        ".validate": "!newData.exists() || newData.hasChildren(['lat','lng','bearing','speed','status','timestamp'])",
+
+        "lat": { ".validate": "newData.isNumber()" },
+        "lng": { ".validate": "newData.isNumber()" },
+        "bearing": { ".validate": "newData.isNumber()" },
+        "speed": { ".validate": "newData.isNumber()" },
+        "status": { ".validate": "newData.isString()" },
+        "timestamp": { ".validate": "newData.isNumber()" }
+      }
+    }
+  }
+}

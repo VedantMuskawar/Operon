@@ -20,6 +20,9 @@ import 'package:dash_web/presentation/views/raw_materials_page.dart';
 import 'package:dash_web/presentation/views/roles_page.dart';
 import 'package:dash_web/presentation/views/users_view.dart';
 import 'package:dash_web/presentation/views/employees_view.dart';
+import 'package:dash_web/presentation/views/organization_locations_page.dart';
+import 'package:dash_web/presentation/views/geofence_editor_page.dart';
+import 'package:dash_web/presentation/views/notifications_page.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/presentation/blocs/employees/employees_cubit.dart';
 import 'package:dash_web/presentation/views/vendors_view.dart';
@@ -202,6 +205,73 @@ GoRouter buildRouter() {
           key: state.pageKey,
           routePath: state.uri.path,
           child: const _EmployeesPageWrapper(),
+        ),
+      ),
+      GoRoute(
+        path: '/locations-geofences',
+        name: 'locations-geofences',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) => _buildTransitionPage(
+          key: state.pageKey,
+          routePath: state.uri.path,
+          child: const OrganizationLocationsPage(),
+        ),
+      ),
+      GoRoute(
+        path: '/geofence-editor',
+        name: 'geofence-editor',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final geofenceId = state.uri.queryParameters['geofenceId'];
+          final locationId = state.uri.queryParameters['locationId'];
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: GeofenceEditorPage(
+              geofenceId: geofenceId,
+              locationId: locationId,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) => _buildTransitionPage(
+          key: state.pageKey,
+          routePath: state.uri.path,
+          child: const NotificationsPage(),
         ),
       ),
       GoRoute(

@@ -11,6 +11,7 @@ dependencies:
   go_router: ^14.0.2
   firebase_core: ^3.15.2
   firebase_auth: ^5.6.1
+  # firebase_app_check: ^0.3.2+10  # Temporarily disabled for debugging
   cloud_firestore: ^5.6.12
   # Keep FlutterFire platform-interface versions compatible with cloud_firestore 5.x
   cloud_functions: ^5.0.0

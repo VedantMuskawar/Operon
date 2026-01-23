@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:core_datasources/core_datasources.dart';
+import 'package:core_datasources/core_datasources.dart' hide ScheduledTripsRepository, ScheduledTripsDataSource;
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
@@ -167,6 +167,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         tripId: tripId,
         tripStatus: 'dispatched',
         initialReading: initialReading,
+        source: 'client',
       );
 
       // Update local state
@@ -275,6 +276,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         deliveryPhotoUrl: photoUrl,
         deliveredBy: currentUser.uid,
         deliveredByRole: userRole,
+        source: 'client',
       );
 
       // Update local state
@@ -345,6 +347,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       await repository.updateTripStatus(
         tripId: tripId,
         tripStatus: 'dispatched',
+        source: 'client',
       );
 
       // Update local state
@@ -507,6 +510,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         tripId: tripId,
         tripStatus: 'returned',
         completedAt: DateTime.now(),
+        source: 'client',
       );
 
       // DEPRECATED: Credit transactions should NOT be created here.
@@ -584,6 +588,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       await repository.updateTripStatus(
         tripId: tripId,
         tripStatus: 'delivered',
+        source: 'client',
       );
 
       // Update local state
@@ -1404,6 +1409,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       await repository.updateTripStatus(
         tripId: tripId,
         tripStatus: 'scheduled',
+        source: 'client',
       );
 
       // Update local state
@@ -1473,6 +1479,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       await repository.updateTripStatus(
         tripId: tripId,
         tripStatus: 'dispatched',
+        source: 'client',
       );
 
       // Update local state - remove delivery fields but keep dispatch fields
@@ -1782,6 +1789,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         totalPaidOnReturn: totalPaidAfter,
         paymentStatus: paymentStatus,
         remainingAmount: paymentType == 'pay_on_delivery' ? remainingAmount : null,
+        source: 'client',
         returnTransactions: transactionIds,
       );
 
@@ -1893,6 +1901,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         remainingAmount: null,
         returnTransactions: const [],
         clearPaymentInfo: true,
+        source: 'client',
       );
 
       // Update local state - remove return fields but keep delivery and dispatch fields

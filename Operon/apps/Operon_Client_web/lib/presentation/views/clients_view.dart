@@ -923,7 +923,7 @@ class _ClientsStatsHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Use analytics data if available, otherwise fall back to client list
-    final totalClients = analytics?.latestActiveClients ?? clients.length;
+    final totalClients = analytics?.totalActiveClients ?? clients.length;
     final corporateCount = clients.where((c) => c.isCorporate).length;
     final individualCount = totalClients - corporateCount;
     final totalOrders = analytics?.totalOrders ??

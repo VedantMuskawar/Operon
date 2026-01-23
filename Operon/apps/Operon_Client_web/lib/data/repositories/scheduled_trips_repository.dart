@@ -109,6 +109,7 @@ class ScheduledTripsRepository {
     double? remainingAmount,
     List<String>? returnTransactions,
     bool clearPaymentInfo = false,
+    String? source,
   }) {
     return _dataSource.updateTripStatus(
       tripId: tripId,
@@ -129,6 +130,7 @@ class ScheduledTripsRepository {
       remainingAmount: remainingAmount,
       returnTransactions: returnTransactions,
       clearPaymentInfo: clearPaymentInfo,
+      source: source,
     );
   }
 

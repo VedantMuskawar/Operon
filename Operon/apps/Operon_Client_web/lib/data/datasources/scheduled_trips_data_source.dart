@@ -218,7 +218,7 @@ class ScheduledTripsDataSource {
       'vehicleNumber': vehicleNumber,
       'driverId': driverId,
       'driverName': driverName,
-      'driverPhone': driverPhone,
+      'driverPhone': driverPhone != null && driverPhone.isNotEmpty ? _normalizePhone(driverPhone) : driverPhone,
       'slot': slot,
       'slotName': slotName,
       'deliveryZone': deliveryZone,
@@ -230,6 +230,7 @@ class ScheduledTripsDataSource {
       if (finalProductId != null) 'productId': finalProductId, // ✅ Store product reference
       'priority': priority,
       'tripStatus': 'scheduled',
+      'isActive': true, // Soft delete pattern: mark as active
       'createdAt': FieldValue.serverTimestamp(),
       'createdBy': createdBy,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -369,12 +370,18 @@ class ScheduledTripsDataSource {
     double? remainingAmount,
     List<String>? returnTransactions,
     bool clearPaymentInfo = false,
+    String? source,
   }) async {
     final updateData = <String, dynamic>{
       'tripStatus': tripStatus,
       'orderStatus': tripStatus, // Keep both for compatibility
       'updatedAt': FieldValue.serverTimestamp(),
     };
+
+    // Write source field if provided ('driver' or 'client')
+    if (source != null) {
+      updateData['source'] = source;
+    }
 
     if (completedAt != null) {
       updateData['completedAt'] = Timestamp.fromDate(completedAt);
@@ -483,6 +490,8 @@ class ScheduledTripsDataSource {
     final startOfDay = DateTime(scheduledDate.year, scheduledDate.month, scheduledDate.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
+    // Query by org + date (don't filter by isActive in query to avoid index requirements)
+    // Filter by isActive in memory instead (treats missing as active, like driver app)
     return _firestore
         .collection(_collection)
         .where('organizationId', isEqualTo: organizationId)
@@ -490,7 +499,7 @@ class ScheduledTripsDataSource {
         .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
         .snapshots()
         .map((snapshot) {
-      final trips = snapshot.docs.map((doc) {
+      final allTrips = snapshot.docs.map((doc) {
         final data = doc.data();
         // Convert Firestore Timestamp to Map for proper serialization
         final convertedData = <String, dynamic>{
@@ -509,14 +518,22 @@ class ScheduledTripsDataSource {
         return convertedData;
       }).toList();
       
+      // Filter by isActive in memory (only exclude if explicitly false, treat missing as active)
+      // This matches the driver app approach and avoids Firestore index requirements
+      final activeTrips = allTrips.where((trip) {
+        final isActive = trip['isActive'] as bool?;
+        // Include trip if isActive is true or null/undefined (treat missing as active)
+        return isActive != false;
+      }).toList();
+      
       // Sort by slot
-      trips.sort((a, b) {
+      activeTrips.sort((a, b) {
         final slotA = a['slot'] as int? ?? 0;
         final slotB = b['slot'] as int? ?? 0;
         return slotA.compareTo(slotB);
       });
       
-      return trips;
+      return activeTrips;
     });
   }
 

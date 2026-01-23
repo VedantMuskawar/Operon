@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:operon_auth_flow/operon_auth_flow.dart';
-import 'package:operon_driver_android/presentation/views/driver_map_page.dart';
+import 'package:operon_driver_android/presentation/screens/home/driver_home_screen.dart';
 import 'package:operon_driver_android/presentation/views/driver_schedule_trips_page.dart';
 
 class DriverHomePage extends StatefulWidget {
@@ -37,14 +37,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-        title: const Text(
-          'Operon Driver',
-          style: TextStyle(
-            color: AuthColors.textMain,
-            fontFamily: 'SF Pro Display',
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        title: const SizedBox.shrink(),
       ),
       body: Stack(
         children: [
@@ -62,7 +55,7 @@ class _DriverHomePageState extends State<DriverHomePage> {
                 children: [
                   const _DriverHomeTab(),
                   const DriverScheduleTripsPage(),
-                  const DriverMapPage(),
+                  const DriverHomeScreen(),
                 ],
               ),
             ),

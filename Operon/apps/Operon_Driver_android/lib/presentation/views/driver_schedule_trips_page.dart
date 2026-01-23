@@ -3,7 +3,8 @@ import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:operon_auth_flow/operon_auth_flow.dart';
-import 'package:operon_driver_android/presentation/views/driver_trip_detail_page.dart';
+import 'package:operon_driver_android/presentation/screens/home/driver_home_screen.dart';
+import 'package:operon_driver_android/presentation/widgets/driver_mission_card.dart';
 
 class DriverScheduleTripsPage extends StatefulWidget {
   const DriverScheduleTripsPage({super.key});
@@ -65,6 +66,9 @@ class _DriverScheduleTripsPageState extends State<DriverScheduleTripsPage> {
 
     final scheduledTripsRepo = context.read<ScheduledTripsRepository>();
 
+    // Debug logging (remove in production if needed)
+    debugPrint('[DriverScheduleTripsPage] Query params: orgId=${organization.id}, driverPhone=${user.phoneNumber}, date=$_selectedDate');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -80,8 +84,8 @@ class _DriverScheduleTripsPageState extends State<DriverScheduleTripsPage> {
         Expanded(
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: scheduledTripsRepo.watchDriverScheduledTripsForDate(
-              organizationId: organization.id,
-              driverPhone: user.phoneNumber,
+              organizationId: organization.id.toString(),
+              driverPhone: user.phoneNumber.toString(),
               scheduledDate: _selectedDate,
             ),
             builder: (context, snapshot) {
@@ -108,7 +112,7 @@ class _DriverScheduleTripsPageState extends State<DriverScheduleTripsPage> {
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'No trips for the selected date.',
+                      'No trips scheduled for the selected date.',
                       style: TextStyle(
                         color: AuthColors.textSub,
                         fontSize: 14,
@@ -121,21 +125,21 @@ class _DriverScheduleTripsPageState extends State<DriverScheduleTripsPage> {
               }
 
               return ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 itemCount: trips.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final trip = trips[index];
-                  return _DriverTripTile(
+                  return DriverMissionCard(
                     trip: trip,
-                    onTap: () async {
-                      final result = await Navigator.of(context).push<bool>(
+                    onTap: () {
+                      // Navigate to map screen - it will auto-select the first trip
+                      // Since trips are sorted by slot, the tapped trip should be selected
+                      Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => DriverTripDetailPage(trip: trip),
+                          builder: (_) => const DriverHomeScreen(),
                         ),
                       );
-                      // Stream updates automatically; result is only for future extensions.
-                      if (result == true && context.mounted) {}
                     },
                   );
                 },
@@ -182,10 +186,10 @@ class _DateSelector extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? AuthColors.legacyAccent : AuthColors.surface,
+                  color: isSelected ? AuthColors.primary : AuthColors.surface,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isSelected ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.1),
+                    color: isSelected ? AuthColors.primary : AuthColors.textMainWithOpacity(0.1),
                     width: 1,
                   ),
                 ),
@@ -216,115 +220,5 @@ class _DateSelector extends StatelessWidget {
 
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
-}
-
-class _DriverTripTile extends StatelessWidget {
-  const _DriverTripTile({
-    required this.trip,
-    required this.onTap,
-  });
-
-  final Map<String, dynamic> trip;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final slot = trip['slot'] as int?;
-    final slotName = trip['slotName'] as String?;
-    final vehicleNumber = trip['vehicleNumber'] as String?;
-    final clientName = (trip['clientName'] as String?) ?? 'Client';
-    final customerNumber = trip['customerNumber'] as String? ?? trip['clientPhone'] as String?;
-    final status = ((trip['orderStatus'] ?? trip['tripStatus'] ?? 'scheduled') as String).toLowerCase();
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: AuthColors.textMainWithOpacity(0.08),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    clientName,
-                    style: const TextStyle(
-                      color: AuthColors.textMain,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'SF Pro Display',
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                _StatusPill(status: status),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              [
-                if (vehicleNumber != null && vehicleNumber.isNotEmpty) 'Vehicle: $vehicleNumber',
-                if (slotName != null && slotName.isNotEmpty)
-                  'Slot: $slotName${slot != null ? ' (#$slot)' : ''}',
-                if (customerNumber != null && customerNumber.isNotEmpty) 'Client: $customerNumber',
-              ].join(' • '),
-              style: const TextStyle(
-                color: AuthColors.textSub,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'SF Pro Display',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (status) {
-      'scheduled' || 'pending' => AuthColors.warning,
-      'dispatched' => AuthColors.info,
-      'delivered' => AuthColors.success,
-      'returned' => AuthColors.success,
-      'cancelled' => AuthColors.error,
-      _ => AuthColors.textSub,
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(0.35), width: 1),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.3,
-          fontFamily: 'SF Pro Display',
-        ),
-      ),
-    );
-  }
 }
 

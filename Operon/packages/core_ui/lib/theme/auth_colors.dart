@@ -42,3 +42,45 @@ class AuthColors {
   static Color textMainWithOpacity(double opacity) => textMain.withOpacity(opacity);
   static Color textSubWithOpacity(double opacity) => textSub.withOpacity(opacity);
 }
+
+/// Logistics-specific color palette for fleet management UI.
+/// 
+/// Provides colors optimized for HUD displays, status indicators,
+/// and premium glassmorphism effects.
+class LogisticsColors {
+  LogisticsColors._();
+
+  /// Navy blue - Brand color for logistics operations
+  static const Color navyBlue = Color(0xFF1A237E);
+
+  /// Neon green - Active/online status indicator
+  static const Color neonGreen = Color(0xFF00E676);
+
+  /// Burnt orange - Alert/warning status indicator
+  static const Color burntOrange = Color(0xFFFF5722);
+
+  /// HUD black - Background color for heads-up displays
+  static const Color hudBlack = Color(0xFF212121);
+
+  /// Warning yellow - Pending/warning status
+  static const Color warningYellow = Color(0xFFFFC107);
+
+  /// Vehicle status colors for pin markers
+  /// Available - Vehicle ready for assignment
+  static const Color vehicleAvailable = Color(0xFF2ECC71);
+  
+  /// On Trip - Vehicle currently on a trip
+  static const Color vehicleOnTrip = Color(0xFF2980B9);
+  
+  /// Offline - Vehicle not reporting location
+  static const Color vehicleOffline = Color(0xFF95A5A6);
+  
+  /// Alert - Vehicle needs attention/issue
+  static const Color vehicleAlert = Color(0xFFE74C3C);
+
+  // Opacity variants
+  static Color navyBlueWithOpacity(double opacity) => navyBlue.withOpacity(opacity);
+  static Color neonGreenWithOpacity(double opacity) => neonGreen.withOpacity(opacity);
+  static Color burntOrangeWithOpacity(double opacity) => burntOrange.withOpacity(opacity);
+  static Color hudBlackWithOpacity(double opacity) => hudBlack.withOpacity(opacity);
+}

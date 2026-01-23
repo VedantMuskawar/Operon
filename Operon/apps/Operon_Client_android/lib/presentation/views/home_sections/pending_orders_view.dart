@@ -131,58 +131,64 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
         }
       },
       child: _isLoading
-          ? const _SkeletonLoader()
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Stat Tiles
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatTile(
-                        title: 'Orders',
-                        value: _pendingOrdersCount.toString(),
-                        icon: Icons.shopping_cart_outlined,
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
+              child: const _SkeletonLoader(),
+            )
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Stat Tiles
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatTile(
+                          title: 'Orders',
+                          value: _pendingOrdersCount.toString(),
+                          icon: Icons.shopping_cart_outlined,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.paddingLG),
-                    Expanded(
-                      child: _StatTile(
-                        title: 'Trips',
-                        value: _totalPendingTrips.toString(),
-                        icon: Icons.route_outlined,
-                        backgroundColor: AppColors.success.withOpacity(0.15),
-                        iconColor: AppColors.success,
+                      const SizedBox(width: AppSpacing.paddingLG),
+                      Expanded(
+                        child: _StatTile(
+                          title: 'Trips',
+                          value: _totalPendingTrips.toString(),
+                          icon: Icons.route_outlined,
+                          backgroundColor: AppColors.success.withOpacity(0.15),
+                          iconColor: AppColors.success,
+                        ),
                       ),
+                    ],
+                  ),
+                  // Filters
+                  if (_orders.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _FixedQuantityFilter(
+                      orders: _orders,
+                      selectedValue: _selectedFixedQuantityFilter,
+                      onFilterChanged: (value) {
+                        setState(() {
+                          _selectedFixedQuantityFilter = value;
+                        });
+                      },
                     ),
+                    const SizedBox(height: 12),
                   ],
-                ),
-                // Filters
-                if (_orders.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  _FixedQuantityFilter(
-                    orders: _orders,
-                    selectedValue: _selectedFixedQuantityFilter,
-                    onFilterChanged: (value) {
-                      setState(() {
-                        _selectedFixedQuantityFilter = value;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 12),
+                  // Order Tiles
+                  if (_getFilteredOrders().isNotEmpty) ...[
+                    _OrderList(
+                      orders: _getFilteredOrders(),
+                      onTripsUpdated: () => _subscribeToOrders(),
+                      onDeleted: () => _subscribeToOrders(),
+                    ),
+                  ] else if (!_isLoading && _orders.isEmpty) ...[
+                    const SizedBox(height: AppSpacing.paddingXXL),
+                    const _EmptyState(),
+                  ],
                 ],
-                // Order Tiles
-                if (_getFilteredOrders().isNotEmpty) ...[
-                  _OrderList(
-                    orders: _getFilteredOrders(),
-                    onTripsUpdated: () => _subscribeToOrders(),
-                    onDeleted: () => _subscribeToOrders(),
-                  ),
-                ] else if (!_isLoading && _orders.isEmpty) ...[
-                  const SizedBox(height: AppSpacing.paddingXXL),
-                  const _EmptyState(),
-                ],
-              ],
+              ),
             ),
     );
   }

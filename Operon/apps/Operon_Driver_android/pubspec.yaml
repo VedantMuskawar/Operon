@@ -39,6 +39,7 @@ dependencies:
   # Keep consistent with shared packages (core_models etc.)
   firebase_core: ^2.32.0
   firebase_auth: ^4.19.5
+  # firebase_app_check: ^0.2.2+2  # Temporarily disabled for debugging
   cloud_firestore: ^4.17.5
   shared_preferences: ^2.3.2
 
@@ -46,12 +47,29 @@ dependencies:
     path: ../../packages/core_bloc
   core_models:
     path: ../../packages/core_models
+  core_utils:
+    path: ../../packages/core_utils
   core_ui:
     path: ../../packages/core_ui
   operon_auth_flow:
     path: ../../packages/operon_auth_flow
   core_datasources:
     path: ../../packages/core_datasources
+  flutter_background_service: ^5.1.0
+  geolocator: ^12.0.0
+  wakelock_plus: ^1.4.0
+  firebase_database: ^10.5.7
+  google_maps_flutter: ^2.14.0
+  google_fonts: ^6.1.0
+  permission_handler: ^12.0.1
+  sliding_up_panel: ^2.0.0+1
+  image_picker: ^1.1.2
+  firebase_storage: ^11.7.7
+  url_launcher: ^6.3.1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  connectivity_plus: ^6.0.0
+  google_polyline_algorithm: ^3.1.0
 
 dev_dependencies:
   flutter_test:
@@ -63,6 +81,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

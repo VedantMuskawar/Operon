@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/data/repositories/vehicles_repository.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
@@ -147,7 +148,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error loading scheduled trips: $error'),
-              backgroundColor: Colors.red,
+              backgroundColor: AuthColors.error,
             ),
           );
         }
@@ -319,6 +320,12 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final dateRange = _getDateRange();
+    final datePickerWidth = dateRange.length * 76; // 70 width + 6 margin
+    final availableWidth = screenWidth * 0.8;
+    final horizontalPadding = datePickerWidth < availableWidth 
+        ? (availableWidth - datePickerWidth) / 2 
+        : 12.0;
     
     return BlocListener<OrganizationContextCubit, OrganizationContextState>(
       listener: (context, state) {
@@ -338,16 +345,16 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
             padding: const EdgeInsets.symmetric(vertical: 20),
             child: Center(
               child: SizedBox(
-                height: 80,
+                height: 90,
                 width: screenWidth * 0.8,
                 child: ListView.builder(
                   controller: _scrollController,
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: _getDateRange().length,
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  itemCount: dateRange.length,
                   itemBuilder: (context, index) {
-                    final date = _getDateRange()[index];
+                    final date = dateRange[index];
                     final isSelected = date.year == _selectedDate.year &&
                         date.month == _selectedDate.month &&
                         date.day == _selectedDate.day;
@@ -361,18 +368,18 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                         _scrollToCenter();
                       },
                       child: Container(
-                        width: 64,
+                        width: 70,
                         margin: const EdgeInsets.only(right: 6),
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFF6F4BFF)
-                              : const Color(0xFF13131E),
-                          borderRadius: BorderRadius.circular(10),
+                              ? AuthColors.primary
+                              : AuthColors.surface,
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected
-                                ? const Color(0xFF6F4BFF)
-                                : Colors.white.withValues(alpha: 0.1),
+                                ? AuthColors.primary
+                                : AuthColors.textMainWithOpacity(0.1),
                             width: 1,
                           ),
                         ),
@@ -383,29 +390,29 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                               _getMonthAbbr(date),
                               style: TextStyle(
                                 color: isSelected
-                                    ? Colors.white
-                                    : Colors.white60,
-                                fontSize: 9,
+                                    ? AuthColors.textMain
+                                    : AuthColors.textSub,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 4),
                             Text(
                               date.day.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
+                              style: TextStyle(
+                                color: AuthColors.textMain,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(height: 3),
+                            const SizedBox(height: 4),
                             Text(
                               _getDayAbbr(date),
                               style: TextStyle(
                                 color: isSelected
-                                    ? Colors.white
-                                    : Colors.white60,
-                                fontSize: 9,
+                                    ? AuthColors.textMain
+                                    : AuthColors.textSub,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -427,15 +434,15 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF131324),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: AuthColors.textMainWithOpacity(0.1),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
+                    color: AuthColors.background.withOpacity(0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -449,46 +456,46 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       flex: 1,
                       child: _CompactSummaryItem(
                         value: _getTotalTrips().toString(),
-                        color: const Color(0xFF6F4BFF),
+                        color: AuthColors.primary,
                       ),
                     ),
                     Container(
                       width: 1,
                       height: 40,
                       margin: const EdgeInsets.symmetric(horizontal: 8),
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textMainWithOpacity(0.1),
                     ),
                     Expanded(
                       flex: 2,
                       child: _CompactSummaryItem(
                         value: _formatCurrency(_getTotalValue()),
-                        color: const Color(0xFF4CAF50),
+                        color: AuthColors.success,
                       ),
                     ),
                     Container(
                       width: 1,
                       height: 40,
                       margin: const EdgeInsets.symmetric(horizontal: 8),
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textMainWithOpacity(0.1),
                     ),
                     Expanded(
                       flex: 1,
                       child: _CompactSummaryItem(
                         value: _formatNumber(_getTotalQuantity()),
-                        color: Colors.orange,
+                        color: AuthColors.warning,
                       ),
                     ),
                     Container(
                       width: 1,
                       height: 40,
                       margin: const EdgeInsets.symmetric(horizontal: 8),
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textMainWithOpacity(0.1),
                     ),
                     Expanded(
                       flex: 1,
                       child: _CompactSummaryItem(
                         value: _getTotalVehicles().toString(),
-                        color: const Color(0xFF2196F3),
+                        color: AuthColors.info,
                       ),
                     ),
                   ],
@@ -545,7 +552,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               child: Padding(
                 padding: EdgeInsets.all(40),
                 child: CircularProgressIndicator(
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.primary,
                 ),
               ),
             )
@@ -554,7 +561,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               icon: Icons.schedule_outlined,
               title: 'No Scheduled Trips',
               description: 'No trips scheduled for ${_getDayAbbr(_selectedDate)}, ${_selectedDate.day} ${_getMonthAbbr(_selectedDate)}. Try selecting a different date.',
-              color: const Color(0xFF6F4BFF),
+              color: AuthColors.primary,
             )
           else
             AnimationLimiter(
@@ -642,20 +649,20 @@ class _VehicleFilterButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF)
-              : const Color(0xFF13131E),
+              ? AuthColors.primary
+              : AuthColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withValues(alpha: 0.1),
+                ? AuthColors.primary
+                : AuthColors.textMainWithOpacity(0.1),
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
+            color: isSelected ? AuthColors.textMain : AuthColors.textSub,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -702,8 +709,8 @@ class _EmptyStateCard extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
@@ -712,7 +719,7 @@ class _EmptyStateCard extends StatelessWidget {
             Text(
               description,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,

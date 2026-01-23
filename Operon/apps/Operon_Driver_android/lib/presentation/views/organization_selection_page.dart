@@ -190,11 +190,15 @@ class _OrganizationSelectionPageState extends State<OrganizationSelectionPage> {
                               }
                             },
                             onBackToLogin: () async {
-                              await context.read<OrganizationContextCubit>().clear();
-                              context.read<AuthBloc>().add(const AuthReset());
-                              if (context.mounted) {
-                                context.go('/login');
-                              }
+                              final orgContextCubit =
+                                  context.read<OrganizationContextCubit>();
+                              final authBloc = context.read<AuthBloc>();
+
+                              await orgContextCubit.clear();
+                              if (!context.mounted) return;
+
+                              authBloc.add(const AuthReset());
+                              context.go('/login');
                             },
                           ),
                         ),
@@ -282,6 +286,17 @@ class _OrganizationSelectionPageState extends State<OrganizationSelectionPage> {
                                     final org = state.selectedOrganization;
                                     if (org == null) return;
 
+                                    final rolesRepo = context
+                                        .read<AppAccessRolesRepository>();
+                                    final orgContextCubit = context
+                                        .read<OrganizationContextCubit>();
+                                    final userId = context
+                                            .read<AuthBloc>()
+                                            .state
+                                            .userProfile
+                                            ?.id ??
+                                        '';
+
                                     // Wait briefly if role prefetch is in-flight.
                                     if (_isLoadingRole && _loadingOrgId == org.id) {
                                       int attempts = 0;
@@ -294,8 +309,7 @@ class _OrganizationSelectionPageState extends State<OrganizationSelectionPage> {
                                       }
                                     }
 
-                                    final rolesRepo =
-                                        context.read<AppAccessRolesRepository>();
+                                    if (!context.mounted) return;
 
                                     final roleId =
                                         org.appAccessRoleId ?? org.role;
@@ -307,16 +321,7 @@ class _OrganizationSelectionPageState extends State<OrganizationSelectionPage> {
                                     final appAccessRole =
                                         _findAppAccessRole(org.id, roleId, roles);
 
-                                    final userId = context
-                                            .read<AuthBloc>()
-                                            .state
-                                            .userProfile
-                                            ?.id ??
-                                        '';
-
-                                    await context
-                                        .read<OrganizationContextCubit>()
-                                        .setContext(
+                                    await orgContextCubit.setContext(
                                           userId: userId,
                                           organization: org,
                                           financialYear: state.financialYear ??
@@ -324,9 +329,8 @@ class _OrganizationSelectionPageState extends State<OrganizationSelectionPage> {
                                           appAccessRole: appAccessRole,
                                         );
 
-                                    if (context.mounted) {
-                                      context.go('/home');
-                                    }
+                                    if (!context.mounted) return;
+                                    context.go('/home');
                                   },
                                 ),
                               ],
@@ -344,11 +348,15 @@ class _OrganizationSelectionPageState extends State<OrganizationSelectionPage> {
                     padding: const EdgeInsets.all(16.0),
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        await context.read<OrganizationContextCubit>().clear();
-                        context.read<AuthBloc>().add(const AuthReset());
-                        if (context.mounted) {
-                          context.go('/login');
-                        }
+                        final orgContextCubit =
+                            context.read<OrganizationContextCubit>();
+                        final authBloc = context.read<AuthBloc>();
+
+                        await orgContextCubit.clear();
+                        if (!context.mounted) return;
+
+                        authBloc.add(const AuthReset());
+                        context.go('/login');
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(

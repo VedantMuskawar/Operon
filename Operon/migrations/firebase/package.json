@@ -11,6 +11,8 @@
     "migrate-schedule-trips": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-schedule-trips.ts",
     "migrate-delivery-memos": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-delivery-memos.ts",
     "migrate-location-pricing": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-location-pricing.ts",
+    "migrate-location-history": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-location-history.ts",
+    "inspect-trip-history": "TS_NODE_PROJECT=tsconfig.json ts-node src/inspect-trip-history.ts",
     "migrate-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-app-access-roles.ts",
     "migrate-user-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/migrate-user-app-access-roles.ts",
     "verify-user-app-access-roles": "TS_NODE_PROJECT=tsconfig.json ts-node src/verify-user-app-access-roles.ts",

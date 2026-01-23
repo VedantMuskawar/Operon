@@ -36,17 +36,17 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                        'scheduled';
     switch (tripStatus.toLowerCase()) {
       case 'pending':
-        return Colors.red;
+        return AuthColors.error;
       case 'scheduled':
-        return const Color(0xFFD10202);
+        return AuthColors.error;
       case 'dispatched':
-        return const Color(0xFFD16D02);
+        return AuthColors.warning;
       case 'delivered':
-        return const Color(0xFF0502D1);
+        return AuthColors.info;
       case 'returned':
-        return Colors.green;
+        return AuthColors.success;
       default:
-        return const Color(0xFFD10202);
+        return AuthColors.error;
     }
   }
 
@@ -126,14 +126,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: AuthColors.surface,
         title: const Text(
           'Cancel DM',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: const Text(
           'Are you sure you want to cancel this DM?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -144,7 +144,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text(
               'Yes, Cancel',
-              style: TextStyle(color: Colors.red),
+              style: TextStyle(color: AuthColors.error),
             ),
           ),
         ],
@@ -231,19 +231,19 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
+        builder: (context) => Center(
           child: Card(
-            color: Color(0xFF1B1B2C),
-            child: Padding(
+            color: AuthColors.surface,
+            child: const Padding(
               padding: EdgeInsets.all(24.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircularProgressIndicator(color: Colors.blue),
+                  CircularProgressIndicator(color: AuthColors.info),
                   SizedBox(height: 16),
                   Text(
                     'Loading DM Preview...',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                   ),
                 ],
               ),
@@ -301,10 +301,10 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF11111B),
+            backgroundColor: AuthColors.surface,
             title: const Text(
               'Reschedule Trip',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: AuthColors.textMain),
             ),
             content: SizedBox(
               width: double.maxFinite,
@@ -314,27 +314,27 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                 children: [
                   const Text(
                     'This will delete the current scheduled trip and allow you to reschedule it.',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: AuthColors.textSub),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: reasonController,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: InputDecoration(
                       labelText: 'Reason for rescheduling *',
-                      labelStyle: const TextStyle(color: Colors.white60),
+                      labelStyle: const TextStyle(color: AuthColors.textSub),
                       hintText: 'Enter reason...',
-                      hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                      hintStyle: TextStyle(color: AuthColors.textMainWithOpacity(0.3)),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.orange),
+                        borderSide: const BorderSide(color: AuthColors.warning),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
-                      fillColor: const Color(0xFF1A1A2E),
+                      fillColor: AuthColors.surface,
                     ),
                     maxLines: 3,
                     onChanged: (_) => setDialogState(() {}),
@@ -356,7 +356,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                         }),
                 child: const Text(
                   'Reschedule',
-                  style: TextStyle(color: Colors.orange),
+                  style: TextStyle(color: AuthColors.warning),
                 ),
               ),
             ],
@@ -447,7 +447,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
 
       await showDialog(
         context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.7),
+        barrierColor: AuthColors.background.withOpacity(0.7),
         builder: (context) => ScheduleTripModal(
           order: orderData,
           clientId: clientId,
@@ -530,7 +530,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
+                  color: AuthColors.background.withOpacity(0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -550,7 +550,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                           Text(
                             clientName,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                             ),
@@ -562,14 +562,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                               const Icon(
                                 Icons.location_on_outlined,
                                 size: 14,
-                                color: Colors.white60,
+                                color: AuthColors.textSub,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   zoneText,
                                   style: const TextStyle(
-                                    color: Colors.white60,
+                                    color: AuthColors.textSub,
                                     fontSize: 12,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -584,10 +584,10 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C),
+                        color: AuthColors.surface,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: AuthColors.textMainWithOpacity(0.1),
                           width: 1,
                         ),
                       ),
@@ -599,13 +599,13 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                               const Icon(
                                 Icons.directions_car,
                                 size: 12,
-                                color: Colors.white70,
+                                color: AuthColors.textSub,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 vehicleNumber,
                                 style: const TextStyle(
-                                  color: Colors.white70,
+                                  color: AuthColors.textSub,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -619,13 +619,13 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                               const Icon(
                                 Icons.schedule,
                                 size: 12,
-                                color: Colors.white70,
+                                color: AuthColors.textSub,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 'Slot $slot',
                                 style: const TextStyle(
-                                  color: Colors.white70,
+                                  color: AuthColors.textSub,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -646,7 +646,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                        color: AuthColors.surface.withOpacity(0.6),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -655,13 +655,13 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                           const Icon(
                             Icons.inventory_2_outlined,
                             size: 14,
-                            color: Colors.white70,
+                            color: AuthColors.textSub,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             productName,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -673,16 +673,16 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                        color: AuthColors.success.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                          color: AuthColors.success.withOpacity(0.3),
                         ),
                       ),
                       child: Text(
                         'Qty: $fixedQuantityPerTrip',
-                        style: const TextStyle(
-                          color: Color(0xFF81C784),
+                        style: TextStyle(
+                          color: AuthColors.success,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -698,7 +698,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.4),
+                      color: AuthColors.surface.withOpacity(0.4),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Column(
@@ -710,14 +710,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                             const Text(
                               'Subtotal:',
                               style: TextStyle(
-                                color: Colors.white70,
+                                color: AuthColors.textSub,
                                 fontSize: 12,
                               ),
                             ),
                             Text(
                               '₹${tripSubtotal.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AuthColors.textMain,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -732,14 +732,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                               const Text(
                                 'GST:',
                                 style: TextStyle(
-                                  color: Colors.white70,
+                                  color: AuthColors.textSub,
                                   fontSize: 12,
                                 ),
                               ),
                               Text(
                                 '₹${tripGstAmount.toStringAsFixed(2)}',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AuthColors.textMain,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -749,7 +749,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                         ],
                         const SizedBox(height: 4),
                         Divider(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: AuthColors.textMainWithOpacity(0.1),
                           height: 1,
                         ),
                         const SizedBox(height: 4),
@@ -759,7 +759,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                             const Text(
                               'Total:',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AuthColors.textMain,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -767,7 +767,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                             Text(
                               '₹${tripTotal.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AuthColors.textMain,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -782,7 +782,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                                   ? Icons.money_outlined 
                                   : Icons.credit_card_outlined,
                               size: 12,
-                              color: Colors.white60,
+                              color: AuthColors.textSub,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -790,7 +790,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                                   ? 'Pay on Delivery' 
                                   : 'Pay Later',
                               style: const TextStyle(
-                                color: Colors.white60,
+                                color: AuthColors.textSub,
                                 fontSize: 11,
                               ),
                             ),
@@ -810,10 +810,10 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.2),
+                        color: AuthColors.info.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Colors.blue.withValues(alpha: 0.3),
+                          color: AuthColors.info.withOpacity(0.3),
                         ),
                       ),
                       child: Row(
@@ -822,13 +822,13 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                           const Icon(
                             Icons.receipt_long,
                             size: 14,
-                            color: Colors.blue,
+                            color: AuthColors.info,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'DM Generated: $dmNumber',
                             style: const TextStyle(
-                              color: Colors.blue,
+                              color: AuthColors.info,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -843,7 +843,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                 // Divider before action buttons
                 if (showActions) ...[
                   Divider(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: AuthColors.textMainWithOpacity(0.15),
                     height: 1,
                     thickness: 1,
                   ),
@@ -859,7 +859,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                           child: _ActionButton(
                             icon: Icons.visibility_outlined,
                             label: 'View DM',
-                            color: Colors.blue.withValues(alpha: 0.3),
+                            color: AuthColors.info.withOpacity(0.3),
                             onTap: () {
                               // TODO: Navigate to DM view
                             },
@@ -872,7 +872,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                             child: _ActionButton(
                               icon: Icons.cancel_outlined,
                               label: 'Cancel DM',
-                              color: Colors.orange.withValues(alpha: 0.3),
+                              color: AuthColors.warning.withOpacity(0.3),
                               onTap: _cancelDM,
                             ),
                           ),
@@ -885,7 +885,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                         _ActionButton(
                           icon: Icons.receipt_long,
                           label: 'Generate DM',
-                          color: Colors.blue.withValues(alpha: 0.3),
+                          color: AuthColors.info.withOpacity(0.3),
                           onTap: _generateDM,
                           isFullWidth: true,
                         ),
@@ -893,7 +893,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                         _ActionButton(
                           icon: Icons.schedule_outlined,
                           label: 'Reschedule',
-                          color: Colors.orange.withValues(alpha: 0.3),
+                          color: AuthColors.warning.withOpacity(0.3),
                           onTap: _isRescheduling ? null : _rescheduleTrip,
                           isLoading: _isRescheduling,
                           isFullWidth: true,
@@ -905,7 +905,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                     _ActionButton(
                       icon: Icons.schedule_outlined,
                       label: 'Reschedule',
-                      color: Colors.orange.withValues(alpha: 0.3),
+                      color: AuthColors.warning.withOpacity(0.3),
                       onTap: _isRescheduling ? null : _rescheduleTrip,
                       isLoading: _isRescheduling,
                       isFullWidth: true,
@@ -959,17 +959,17 @@ class _ActionButton extends StatelessWidget {
                 height: 14,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                 ),
               )
             else
-              Icon(icon, color: Colors.white, size: 16),
+              Icon(icon, color: AuthColors.textMain, size: 16),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),

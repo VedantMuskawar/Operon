@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
@@ -27,22 +28,46 @@ class AuthBloc extends BaseBloc<AuthEvent, AuthState> {
     PhoneNumberSubmitted event,
     Emitter<AuthState> emit,
   ) async {
+    // #region agent log
+    try { final f = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log'); f.writeAsStringSync('${f.existsSync() ? f.readAsStringSync() : ''}${f.existsSync() ? '\n' : ''}{"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"auth_bloc.dart:26","message":"_onPhoneSubmitted entry","data":{"phoneNumber":"${event.phoneNumber}"},"timestamp":${DateTime.now().millisecondsSinceEpoch}}\n', mode: FileMode.append); } catch (_) {}
+    // #endregion
     emit(state.copyWith(
       status: ViewStatus.loading,
       phoneNumber: event.phoneNumber,
       message: null,
     ));
     try {
+      debugPrint('[AuthBloc] Sending OTP to ${event.phoneNumber}...');
+      // #region agent log
+      try { final f = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log'); f.writeAsStringSync('${f.existsSync() ? f.readAsStringSync() : ''}${f.existsSync() ? '\n' : ''}{"sessionId":"debug-session","runId":"run1","hypothesisId":"A","location":"auth_bloc.dart:37","message":"Before sendOtp call","data":{"phoneNumber":"${event.phoneNumber}"},"timestamp":${DateTime.now().millisecondsSinceEpoch}}\n', mode: FileMode.append); } catch (_) {}
+      // #endregion
       final session = await _authRepository.sendOtp(
         phoneNumber: event.phoneNumber,
         forceResendingToken: state.session?.resendToken as dynamic,
+      ).timeout(
+        const Duration(seconds: 70),
+        onTimeout: () {
+          debugPrint('[AuthBloc] OTP request timed out after 70 seconds');
+          throw TimeoutException(
+            'Request timed out. Please check your network connection and try again.',
+            const Duration(seconds: 70),
+          );
+        },
       );
+      // #region agent log
+      try { final f = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log'); f.writeAsStringSync('${f.existsSync() ? f.readAsStringSync() : ''}${f.existsSync() ? '\n' : ''}{"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"auth_bloc.dart:50","message":"sendOtp success","data":{"verificationId":"${session.verificationId}"},"timestamp":${DateTime.now().millisecondsSinceEpoch}}\n', mode: FileMode.append); } catch (_) {}
+      // #endregion
+      debugPrint('[AuthBloc] OTP sent successfully. Verification ID: ${session.verificationId}');
       emit(state.copyWith(
         status: ViewStatus.success,
         session: session,
       ));
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // #region agent log
+      try { final f = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log'); f.writeAsStringSync('${f.existsSync() ? f.readAsStringSync() : ''}${f.existsSync() ? '\n' : ''}{"sessionId":"debug-session","runId":"run1","hypothesisId":"F","location":"auth_bloc.dart:55","message":"sendOtp exception","data":{"error":"$e","isTimeout":${e is TimeoutException}},"timestamp":${DateTime.now().millisecondsSinceEpoch}}\n', mode: FileMode.append); } catch (_) {}
+      // #endregion
       debugPrint('[AuthBloc] sendOtp failed for ${event.phoneNumber}: $e');
+      debugPrint('[AuthBloc] Stack trace: $stackTrace');
 
       String errorMessage = 'Failed to send OTP. Please try again.';
       if (e is FirebaseAuthException) {
@@ -66,7 +91,7 @@ class AuthBloc extends BaseBloc<AuthEvent, AuthState> {
         }
       } else if (e is TimeoutException) {
         errorMessage =
-            e.message ?? 'Request timed out. Please check your network.';
+            e.message ?? 'Request timed out. Please check your network connection.';
       }
 
       emit(

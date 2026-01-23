@@ -29,9 +29,11 @@ class ScheduledTripsRepository {
     String? deliveredByRole,
     double? finalReading,
     double? distanceTravelled,
+    double? computedTravelledDistance,
     String? returnedBy,
     String? returnedByRole,
     bool clearDeliveryInfo = false,
+    String? source,
   }) {
     return _dataSource.updateTripStatus(
       tripId: tripId,
@@ -44,9 +46,11 @@ class ScheduledTripsRepository {
       deliveredByRole: deliveredByRole,
       finalReading: finalReading,
       distanceTravelled: distanceTravelled,
+      computedTravelledDistance: computedTravelledDistance,
       returnedBy: returnedBy,
       returnedByRole: returnedByRole,
       clearDeliveryInfo: clearDeliveryInfo,
+      source: source,
     );
   }
 }

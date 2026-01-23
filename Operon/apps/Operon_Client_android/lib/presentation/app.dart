@@ -21,7 +21,7 @@ import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/datasources/scheduled_trips_data_source.dart';
 import 'package:dash_mobile/data/repositories/dm_settings_repository.dart';
-import 'package:core_datasources/core_datasources.dart';
+import 'package:core_datasources/core_datasources.dart' hide ScheduledTripsRepository, ScheduledTripsDataSource;
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/data/services/analytics_service.dart';

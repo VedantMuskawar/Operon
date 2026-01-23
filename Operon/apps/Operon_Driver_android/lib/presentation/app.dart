@@ -4,6 +4,9 @@ import 'package:core_datasources/core_datasources.dart';
 import 'package:operon_auth_flow/operon_auth_flow.dart';
 import 'package:operon_driver_android/config/app_router.dart';
 import 'package:operon_driver_android/config/app_theme.dart';
+import 'package:operon_driver_android/core/services/background_sync_service.dart';
+import 'package:operon_driver_android/core/services/location_service.dart';
+import 'package:operon_driver_android/presentation/blocs/trip/trip_bloc.dart';
 
 class OperonDriverApp extends StatelessWidget {
   const OperonDriverApp({super.key});
@@ -11,6 +14,12 @@ class OperonDriverApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authRepository = AuthRepository();
+    final locationService = LocationService();
+    final backgroundSyncService = BackgroundSyncService();
+    
+    // Start background sync service
+    backgroundSyncService.start();
+    
     final scheduledTripsRepository = ScheduledTripsRepository(
       dataSource: ScheduledTripsDataSource(
         firestore: authRepository.firestore,
@@ -37,6 +46,8 @@ class OperonDriverApp extends StatelessWidget {
         RepositoryProvider.value(value: organizationRepository),
         RepositoryProvider.value(value: appAccessRolesRepository),
         RepositoryProvider.value(value: scheduledTripsRepository),
+        RepositoryProvider.value(value: locationService),
+        RepositoryProvider.value(value: backgroundSyncService),
       ],
       child: MultiBlocProvider(
         providers: [
@@ -58,6 +69,13 @@ class OperonDriverApp extends StatelessWidget {
               orgContextCubit: context.read<OrganizationContextCubit>(),
               orgSelectorCubit: context.read<OrgSelectorCubit>(),
               appAccessRolesRepository: appAccessRolesRepository,
+            ),
+          ),
+          BlocProvider(
+            create: (_) => TripBloc(
+              firestore: authRepository.firestore,
+              locationService: locationService,
+              backgroundSyncService: backgroundSyncService,
             ),
           ),
         ],
