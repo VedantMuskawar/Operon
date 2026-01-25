@@ -334,20 +334,35 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
   Widget build(BuildContext context) {
     final items = widget.order['items'] as List<dynamic>? ?? [];
     final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
+    final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
+    
+    // Calculate total trips (original total = estimated + scheduled for each item)
+    // This ensures the denominator stays constant (e.g., 4) even as trips are scheduled
+    int totalTrips = 0;
+    if (autoSchedule?['totalTripsRequired'] != null) {
+      totalTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
+    } else {
+      // Sum (estimatedTrips + scheduledTrips) for each item to get original total
+      for (final item in items) {
+        final itemMap = item as Map<String, dynamic>;
+        final itemEstimatedTrips = (itemMap['estimatedTrips'] as int? ?? 0);
+        final itemScheduledTrips = (itemMap['scheduledTrips'] as int? ?? 0);
+        totalTrips += (itemEstimatedTrips + itemScheduledTrips);
+      }
+      if (totalTrips == 0 && firstItem != null) {
+        final firstItemEstimated = firstItem['estimatedTrips'] as int? ?? 0;
+        final firstItemScheduled = firstItem['scheduledTrips'] as int? ?? 0;
+        totalTrips = firstItemEstimated + firstItemScheduled;
+        if (totalTrips == 0) {
+          totalTrips = (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
+        }
+      }
+    }
+    
     final totalScheduledTrips = widget.order['totalScheduledTrips'] as int? ?? 0;
-    // Calculate total estimated trips from all items
-    int totalEstimatedTrips = 0;
-    for (final item in items) {
-      final itemMap = item as Map<String, dynamic>;
-      totalEstimatedTrips += (itemMap['estimatedTrips'] as int? ?? 0);
-    }
-    // If no estimated trips in items, fallback to tripIds length or first item
-    if (totalEstimatedTrips == 0) {
-      totalEstimatedTrips = firstItem?['estimatedTrips'] as int? ?? 
-          (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
-    }
-    final estimatedTrips = totalEstimatedTrips - totalScheduledTrips;
-    final totalTrips = totalScheduledTrips + (estimatedTrips > 0 ? estimatedTrips : 0);
+    // Calculate remaining estimated trips for display
+    final estimatedTrips = totalTrips - totalScheduledTrips;
+    
     final productName = firstItem?['productName'] as String? ?? 'N/A';
     final fixedQuantityPerTrip = firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
     final clientName = widget.order['clientName'] as String? ?? 'N/A';
@@ -360,7 +375,6 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
     final priority = widget.order['priority'] as String? ?? 'normal';
     final createdAt = widget.order['createdAt'];
     final updatedAt = widget.order['updatedAt'];
-    final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
     final estimatedDeliveryDate = autoSchedule?['estimatedDeliveryDate'];
     
     // Check if GST is included by checking pricing.totalGst or items with GST

@@ -1,41 +1,26 @@
+import 'package:dash_mobile/data/repositories/caller_overlay_repository.dart';
+import 'package:dash_mobile/presentation/blocs/call_overlay/call_overlay_bloc.dart';
+import 'package:dash_mobile/presentation/blocs/call_overlay/call_overlay_state.dart';
+import 'package:dash_mobile/shared/constants/app_colors.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
+/// Dark-themed, scannable Caller ID overlay card for incoming calls.
 class CallOverlayWidget extends StatelessWidget {
-  const CallOverlayWidget({
-    super.key,
-    required this.clientName,
-    required this.clientPhone,
-    required this.pendingOrders,
-    required this.completedOrders,
-    this.onDismiss,
-  });
+  const CallOverlayWidget({super.key});
 
-  final String clientName;
-  final String clientPhone;
-  final List<Map<String, dynamic>> pendingOrders;
-  final List<Map<String, dynamic>> completedOrders;
-  final VoidCallback? onDismiss;
-
-  String _formatCurrency(double amount) {
-    return '₹${amount.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
-        )}';
+  static String _formatDate(DateTime? d) {
+    if (d == null) return '—';
+    final yy = (d.year % 100).toString().padLeft(2, '0');
+    return '${d.day.toString().padLeft(2, '0')}-${_month(d.month)}-$yy';
   }
 
-  String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return 'N/A';
-    try {
-      DateTime date;
-      if (timestamp is DateTime) {
-        date = timestamp;
-      } else {
-        date = (timestamp as dynamic).toDate();
-      }
-      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year.toString().substring(2)}';
-    } catch (e) {
-      return 'N/A';
-    }
+  static String _month(int m) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[m - 1];
   }
 
   @override
@@ -43,286 +28,162 @@ class CallOverlayWidget extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Container(
-        width: 320,
-        margin: const EdgeInsets.all(16),
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.paddingLG),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF6F4BFF).withOpacity(0.5),
-            width: 2,
-          ),
-          boxShadow: [
+          color: AppColors.cardBackgroundElevated,
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          border: Border.all(color: AppColors.borderDefault),
+          boxShadow: const [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
+              color: Color.fromRGBO(0, 0, 0, 0.4),
+              blurRadius: 12,
+              offset: Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withOpacity(0.2),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(14),
-                  topRight: Radius.circular(14),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          clientName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+        child: BlocBuilder<CallOverlayBloc, CallOverlayState>(
+          builder: (context, state) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(state),
+                if (state.error != null) _buildError(state.error!),
+                if (state.isLoadingClient)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else ...[
+                  if (state.scheduledTrip != null)
+                    _buildScheduledTrip(state.scheduledTrip!)
+                  else if (state.pendingOrder != null && state.pendingOrder!.status != 'completed')
+                    _buildPendingOrder(state.pendingOrder!),
+                  if (state.lastTransaction != null) _buildLastTransaction(state.lastTransaction!),
+                  if (state.isLoadingDetails)
+                    const Padding(
+                      padding: EdgeInsets.only(top: AppSpacing.paddingSM),
+                      child: Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.phone,
-                              size: 12,
-                              color: Colors.white70,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              clientPhone,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (onDismiss != null)
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      onPressed: onDismiss,
-                      iconSize: 20,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                      ),
                     ),
                 ],
-              ),
-            ),
-            // Content
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Pending Orders
-                    if (pendingOrders.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.pending_actions,
-                            size: 16,
-                            color: Colors.orange,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Pending Orders (${pendingOrders.length})',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ...pendingOrders.take(5).map((order) {
-                        final items = order['items'] as List<dynamic>? ?? [];
-                        final firstItem = items.isNotEmpty
-                            ? items.first as Map<String, dynamic>
-                            : null;
-                        final productName =
-                            firstItem?['productName'] as String? ?? 'N/A';
-                        final fixedQuantityPerTrip =
-                            firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
-                        final trips = firstItem?['estimatedTrips'] as int? ?? 0;
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF131324),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.orange.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      productName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Qty: $fixedQuantityPerTrip • $trips Trip${trips != 1 ? 's' : ''}',
-                                      style: const TextStyle(
-                                        color: Colors.white60,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                      if (pendingOrders.length > 5)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            '+ ${pendingOrders.length - 5} more',
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                    ],
-                    // Completed Orders
-                    if (completedOrders.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            size: 16,
-                            color: Color(0xFF4CAF50),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Recent Completed (${completedOrders.length})',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ...completedOrders.map((order) {
-                        final amount =
-                            (order['amount'] as num?)?.toDouble() ?? 0.0;
-                        final type = order['type'] as String? ?? 'N/A';
-                        final date = order['transactionDate'];
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF131324),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: const Color(0xFF4CAF50).withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      type.replaceAll('_', ' ').toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _formatDate(date),
-                                      style: const TextStyle(
-                                        color: Colors.white60,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                _formatCurrency(amount),
-                                style: const TextStyle(
-                                  color: Color(0xFF4CAF50),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-                    // Empty state
-                    if (pendingOrders.isEmpty && completedOrders.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'No orders found',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
   }
-}
 
+  Widget _buildHeader(CallOverlayState state) {
+    final name = state.clientName ?? '—';
+    final number = state.clientNumber ?? '—';
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(name, style: AppTypography.h3),
+              const SizedBox(height: 2),
+              Text(number, style: AppTypography.bodySmall),
+            ],
+          ),
+        ),
+          IconButton(
+            onPressed: () async {
+              await FlutterOverlayWindow.closeOverlay();
+            },
+            icon: const Icon(Icons.close, color: AppColors.textPrimary),
+            style: IconButton.styleFrom(
+            padding: const EdgeInsets.all(AppSpacing.paddingXS),
+            minimumSize: const Size(36, 36),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildError(String message) {
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.paddingSM),
+      child: Text(
+        message,
+        style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _buildPendingOrder(CallerOverlayPendingOrder o) {
+    final createdStr = o.createdAt != null ? _formatDate(o.createdAt) : '—';
+    final zoneStr = o.zone ?? '—';
+    final unitStr = o.unitPrice != null ? '₹${o.unitPrice!.toStringAsFixed(0)}' : '—';
+    final tripQtyStr = o.tripTimesFixedQty ?? '—';
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.paddingMD),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Order created $createdStr', style: AppTypography.bodySmall),
+          Text('Zone $zoneStr', style: AppTypography.bodySmall),
+          Row(
+            children: [
+              Text('Unit price $unitStr', style: AppTypography.bodySmall),
+              const SizedBox(width: AppSpacing.paddingMD),
+              Text('Trip×FixedQty $tripQtyStr', style: AppTypography.bodySmall),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduledTrip(CallerOverlayScheduledTrip t) {
+    final dateStr = t.scheduledDate != null ? _formatDate(t.scheduledDate) : '—';
+    final zoneStr = t.zone ?? '—';
+    final statusStr = t.tripStatus ?? '—';
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.paddingMD),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Schedule $dateStr', style: AppTypography.bodySmall),
+          Text('Zone $zoneStr', style: AppTypography.bodySmall),
+          Text('Status $statusStr', style: AppTypography.bodySmall),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLastTransaction(CallerOverlayLastTransaction tx) {
+    final dateStr = _formatDate(tx.date);
+    final catStr = tx.category ?? '—';
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.paddingMD),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Last tx $dateStr', style: AppTypography.bodySmall),
+          Row(
+            children: [
+              Text('$catStr ', style: AppTypography.bodySmall),
+              Text('₹${tx.amount.toStringAsFixed(0)}', style: AppTypography.bodySmall),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:core_ui/theme/auth_colors.dart';
+import 'package:core_ui/components/data_table.dart' as custom_table;
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/views/fuel_ledger/record_fuel_purchase_dialog.dart';
 import 'package:dash_web/presentation/views/fuel_ledger/link_trips_dialog.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide DataTable;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
@@ -310,6 +312,86 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
     );
   }
 
+  void _showDeleteConfirmationDialog(Transaction purchase) {
+    // Validate transaction ID
+    if (purchase.id.isEmpty || purchase.id.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot delete purchase: Invalid transaction ID'),
+          backgroundColor: AuthColors.error,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AuthColors.surface,
+        title: const Text(
+          'Delete Fuel Purchase',
+          style: TextStyle(color: AuthColors.textMain),
+        ),
+        content: const Text(
+          'Are you sure you want to delete this fuel purchase? This action cannot be undone.',
+          style: TextStyle(color: AuthColors.textSub),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (purchase.id.isEmpty || purchase.id.trim().isEmpty) {
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Cannot delete purchase: Invalid transaction ID'),
+                    backgroundColor: AuthColors.error,
+                  ),
+                );
+                return;
+              }
+
+              try {
+                // Delete the transaction from Firestore
+                await FirebaseFirestore.instance
+                    .collection('TRANSACTIONS')
+                    .doc(purchase.id.trim())
+                    .delete();
+
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Fuel purchase deleted successfully'),
+                      backgroundColor: AuthColors.success,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (dialogContext.mounted) {
+                  Navigator.of(dialogContext).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete purchase: $e'),
+                      backgroundColor: AuthColors.error,
+                    ),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: AuthColors.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SectionWorkspaceLayout(
@@ -351,7 +433,6 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
             children: [
               // Statistics Dashboard
               _FuelStatsHeader(
-                totalPurchases: _fuelPurchases.length,
                 totalAmount: totalAmount,
                 totalLinkedTrips: totalLinkedTrips,
                 totalFuelVendorBalance: _totalFuelVendorBalance,
@@ -406,16 +487,16 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                      color: AuthColors.surface.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textMainWithOpacity(0.1),
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sort, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+                        Icon(Icons.sort, size: 16, color: AuthColors.textSub),
                         const SizedBox(width: 6),
                         DropdownButtonHideUnderline(
                           child: DropdownButton<_FuelSortOption>(
@@ -499,16 +580,16 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                      color: AuthColors.surface.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textMainWithOpacity(0.1),
                       ),
                     ),
                     child: Text(
                       '${filtered.length} ${filtered.length == 1 ? 'purchase' : 'purchases'}',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: AuthColors.textSub,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -530,8 +611,8 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6F4BFF),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AuthColors.primary,
+                      foregroundColor: AuthColors.textMain,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 16,
@@ -574,6 +655,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                       vendorNames: _vendorNames,
                       getLinkedTripsCount: _getLinkedTripsCount,
                       onLinkTrips: _showLinkTripsDialog,
+                      onDelete: _showDeleteConfirmationDialog,
                     ),
                     const SizedBox(height: 16),
                     // Pagination Controls
@@ -600,13 +682,11 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
 
 class _FuelStatsHeader extends StatelessWidget {
   const _FuelStatsHeader({
-    required this.totalPurchases,
     required this.totalAmount,
     required this.totalLinkedTrips,
     required this.totalFuelVendorBalance,
   });
 
-  final int totalPurchases;
   final double totalAmount;
   final int totalLinkedTrips;
   final double totalFuelVendorBalance;
@@ -621,22 +701,13 @@ class _FuelStatsHeader extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _StatCard(
-                      icon: Icons.local_gas_station,
-                      label: 'Total Purchases',
-                      value: totalPurchases.toString(),
-                      color: const Color(0xFF6F4BFF),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _StatCard(
                       icon: Icons.account_balance_wallet_outlined,
                       label: 'Total Amount',
                       value: '₹${totalAmount.toStringAsFixed(0).replaceAllMapped(
                         RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
                         (Match m) => '${m[1]},',
                       )}',
-                      color: const Color(0xFFFF9800),
+                      color: AuthColors.warning,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -645,7 +716,7 @@ class _FuelStatsHeader extends StatelessWidget {
                       icon: Icons.route,
                       label: 'Linked Trips',
                       value: totalLinkedTrips.toString(),
-                      color: const Color(0xFF5AD8A4),
+                      color: AuthColors.successVariant,
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -657,7 +728,7 @@ class _FuelStatsHeader extends StatelessWidget {
                         RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
                         (Match m) => '${m[1]},',
                       )}',
-                      color: const Color(0xFF2196F3),
+                      color: AuthColors.info,
                     ),
                   ),
                 ],
@@ -667,25 +738,19 @@ class _FuelStatsHeader extends StatelessWidget {
                 runSpacing: 16,
                 children: [
                   _StatCard(
-                    icon: Icons.local_gas_station,
-                    label: 'Total Purchases',
-                    value: totalPurchases.toString(),
-                    color: const Color(0xFF6F4BFF),
-                  ),
-                  _StatCard(
                     icon: Icons.account_balance_wallet_outlined,
                     label: 'Total Amount',
                     value: '₹${totalAmount.toStringAsFixed(0).replaceAllMapped(
                       RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
                       (Match m) => '${m[1]},',
                     )}',
-                    color: const Color(0xFFFF9800),
+                    color: AuthColors.warning,
                   ),
                   _StatCard(
                     icon: Icons.route,
                     label: 'Linked Trips',
                     value: totalLinkedTrips.toString(),
-                    color: const Color(0xFF5AD8A4),
+                    color: AuthColors.successVariant,
                   ),
                   _StatCard(
                     icon: Icons.account_balance,
@@ -694,7 +759,7 @@ class _FuelStatsHeader extends StatelessWidget {
                       RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
                       (Match m) => '${m[1]},',
                     )}',
-                    color: const Color(0xFF2196F3),
+                    color: AuthColors.info,
                   ),
                 ],
               );
@@ -721,21 +786,21 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
+            AuthColors.surface,
+            AuthColors.backgroundAlt,
           ],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textMainWithOpacity(0.1),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: AuthColors.background.withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -760,7 +825,7 @@ class _StatCard extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: AuthColors.textSub,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -769,7 +834,7 @@ class _StatCard extends StatelessWidget {
                 Text(
                   value,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -795,7 +860,7 @@ class _LoadingState extends StatelessWidget {
           Text(
             'Loading fuel purchases...',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AuthColors.textSub,
               fontSize: 16,
             ),
           ),
@@ -820,10 +885,10 @@ class _ErrorState extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C).withValues(alpha: 0.5),
+          color: AuthColors.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.redAccent.withValues(alpha: 0.3),
+            color: AuthColors.error.withValues(alpha: 0.3),
           ),
         ),
         child: Column(
@@ -832,13 +897,13 @@ class _ErrorState extends StatelessWidget {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.redAccent.withValues(alpha: 0.7),
+              color: AuthColors.error.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             const Text(
               'Failed to load fuel purchases',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -847,7 +912,7 @@ class _ErrorState extends StatelessWidget {
             Text(
               message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -858,8 +923,8 @@ class _ErrorState extends StatelessWidget {
               label: const Text('Retry'),
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 12,
@@ -891,13 +956,13 @@ class _EmptyPurchasesState extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-              const Color(0xFF161622).withValues(alpha: 0.8),
+              AuthColors.surface.withValues(alpha: 0.6),
+              AuthColors.backgroundAlt.withValues(alpha: 0.8),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
           ),
         ),
         child: Column(
@@ -907,20 +972,20 @@ class _EmptyPurchasesState extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withValues(alpha: 0.15),
+                color: AuthColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.local_gas_station_outlined,
                 size: 40,
-                color: Color(0xFF6F4BFF),
+                color: AuthColors.primary,
               ),
             ),
             const SizedBox(height: 24),
             const Text(
               'No fuel purchases yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
               ),
@@ -929,7 +994,7 @@ class _EmptyPurchasesState extends StatelessWidget {
             Text(
               'Start by recording your first fuel purchase',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textSub,
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -940,8 +1005,8 @@ class _EmptyPurchasesState extends StatelessWidget {
               label: const Text('Record Purchase'),
               onPressed: onRecordPurchase,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 32,
                   vertical: 16,
@@ -974,13 +1039,13 @@ class _EmptySearchState extends StatelessWidget {
             Icon(
               Icons.search_off,
               size: 64,
-              color: Colors.white.withValues(alpha: 0.3),
+              color: AuthColors.textDisabled,
             ),
             const SizedBox(height: 16),
             const Text(
               'No results found',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
@@ -989,7 +1054,7 @@ class _EmptySearchState extends StatelessWidget {
             Text(
               'No purchases match "$query"',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
             ),
@@ -1009,6 +1074,7 @@ class _FuelPurchaseTable extends StatelessWidget {
     required this.vendorNames,
     required this.getLinkedTripsCount,
     required this.onLinkTrips,
+    required this.onDelete,
   });
 
   final List<Transaction> purchases;
@@ -1017,174 +1083,156 @@ class _FuelPurchaseTable extends StatelessWidget {
   final Map<String, String> vendorNames;
   final int Function(Transaction) getLinkedTripsCount;
   final void Function(Transaction) onLinkTrips;
+  final void Function(Transaction) onDelete;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1F1F33),
-                    Color(0xFF1A1A28),
-                  ],
+    return custom_table.DataTable<Transaction>(
+      columns: [
+        custom_table.DataTableColumn<Transaction>(
+          label: 'Date',
+          icon: Icons.calendar_today,
+          flex: 2,
+          alignment: Alignment.center,
+          cellBuilder: (context, purchase, index) {
+              final date = purchase.createdAt ?? DateTime.now();
+              return Text(
+                formatDate(date),
+                style: const TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
                 ),
-        borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+                textAlign: TextAlign.center,
+              );
+          },
         ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(
-            Colors.black.withValues(alpha: 0.3),
-          ),
-          dataRowColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.hovered)) {
-              return Colors.white.withValues(alpha: 0.05);
-            }
-            return Colors.transparent;
-          }),
-          headingTextStyle: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-          dataTextStyle: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-          ),
-          columns: const [
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                      children: [
-                  Icon(Icons.calendar_today, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Date'),
-                ],
-              ),
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.store, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Vendor'),
-                ],
-              ),
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                                children: [
-                  Icon(Icons.currency_rupee, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Amount'),
-                ],
-              ),
-              numeric: true,
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.directions_car, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Vehicle'),
-                ],
-              ),
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.receipt, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Voucher'),
-                                ],
-                              ),
-                            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.route, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Trips'),
-                ],
-              ),
-              numeric: true,
-            ),
-            DataColumn(
-              label: Text('Actions'),
-            ),
-          ],
-          rows: purchases.map((purchase) {
-            final date = purchase.createdAt ?? DateTime.now();
-            final metadata = purchase.metadata;
-            final vehicleNumber = metadata?['vehicleNumber'] as String? ?? 'N/A';
-            final voucherNumber = metadata?['voucherNumber'] as String? ?? 'N/A';
-            final vendorName = vendorNames[purchase.vendorId ?? ''] ?? 'Unknown Vendor';
-            final linkedTripsCount = getLinkedTripsCount(purchase);
-
-            return DataRow(
-              cells: [
-                DataCell(Text(formatDate(date))),
-                DataCell(
-                              Text(
-                    vendorName,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+        custom_table.DataTableColumn<Transaction>(
+          label: 'Vendor',
+          icon: Icons.store,
+          flex: 3,
+          alignment: Alignment.center,
+          cellBuilder: (context, purchase, index) {
+              final vendorName = vendorNames[purchase.vendorId ?? ''] ?? 'Unknown Vendor';
+              return Text(
+                vendorName,
+                style: const TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              );
+          },
+        ),
+        custom_table.DataTableColumn<Transaction>(
+          label: 'Amount',
+          icon: Icons.currency_rupee,
+          flex: 2,
+          numeric: true,
+          alignment: Alignment.center,
+          cellBuilder: (context, purchase, index) {
+              return Text(
+                formatCurrency(purchase.amount),
+                style: const TextStyle(
+                  color: AuthColors.warning,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              );
+          },
+        ),
+        custom_table.DataTableColumn<Transaction>(
+          label: 'Vehicle',
+          icon: Icons.directions_car,
+          flex: 2,
+          alignment: Alignment.center,
+          cellBuilder: (context, purchase, index) {
+              final metadata = purchase.metadata;
+              final vehicleNumber = metadata?['vehicleNumber'] as String? ?? 'N/A';
+              return Text(
+                vehicleNumber,
+                style: const TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              );
+          },
+        ),
+        custom_table.DataTableColumn<Transaction>(
+          label: 'Voucher',
+          icon: Icons.receipt,
+          flex: 2,
+          alignment: Alignment.center,
+          cellBuilder: (context, purchase, index) {
+              final metadata = purchase.metadata;
+              final voucherNumber = metadata?['voucherNumber'] as String? ?? 'N/A';
+              return Text(
+                voucherNumber,
+                style: const TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              );
+          },
+        ),
+        custom_table.DataTableColumn<Transaction>(
+          label: 'Trips',
+          icon: Icons.route,
+          flex: 1,
+          numeric: true,
+          alignment: Alignment.center,
+          cellBuilder: (context, purchase, index) {
+              final linkedTripsCount = getLinkedTripsCount(purchase);
+              if (linkedTripsCount > 0) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                ),
-                DataCell(
-                              Text(
-                    formatCurrency(purchase.amount),
-                                style: const TextStyle(
-                                  color: Color(0xFFFF9800),
-                                  fontWeight: FontWeight.w700,
-                    ),
+                  decoration: BoxDecoration(
+                    color: AuthColors.primary.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                ),
-                DataCell(Text(vehicleNumber)),
-                DataCell(Text(voucherNumber)),
-                DataCell(
-                  linkedTripsCount > 0
-                      ? Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                            linkedTripsCount.toString(),
-                                  style: const TextStyle(
-                                    color: Color(0xFF6F4BFF),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                        )
-                      : const Text('0'),
-                ),
-                DataCell(
-                  IconButton(
-                    icon: const Icon(Icons.link, size: 18),
-                    color: const Color(0xFF6F4BFF),
-                    onPressed: () => onLinkTrips(purchase),
-                    tooltip: linkedTripsCount > 0 ? 'Update Trips' : 'Link Trips',
-                      ),
+                  child: Text(
+                    linkedTripsCount.toString(),
+                    style: TextStyle(
+                      color: AuthColors.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
-                ],
-            );
-          }).toList(),
-              ),
-      ),
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
+              return Text(
+                '0',
+                style: const TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              );
+          },
+        ),
+      ],
+      rows: purchases,
+      rowActions: [
+        custom_table.DataTableRowAction<Transaction>(
+          icon: Icons.link,
+          color: AuthColors.primary,
+          tooltip: 'Link Trips',
+          onTap: (purchase, index) => onLinkTrips(purchase),
+        ),
+        custom_table.DataTableRowAction<Transaction>(
+          icon: Icons.delete_outline,
+          color: AuthColors.error,
+          tooltip: 'Delete Purchase',
+          onTap: (purchase, index) => onDelete(purchase),
+        ),
+      ],
     );
   }
 }
@@ -1210,15 +1258,15 @@ class _PaginationControls extends StatelessWidget {
     final endItem = ((currentPage + 1) * itemsPerPage).clamp(0, totalItems);
 
     return Align(
-      alignment: Alignment.centerRight,
+      alignment: Alignment.center,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 600),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+          color: AuthColors.surface.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
           ),
         ),
         child: Row(
@@ -1229,7 +1277,7 @@ class _PaginationControls extends StatelessWidget {
             Text(
               'Showing $startItem-$endItem of $totalItems',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
             ),
@@ -1242,8 +1290,8 @@ class _PaginationControls extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.first_page, size: 20),
                 color: currentPage == 0
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.7),
+                    ? AuthColors.textDisabled
+                    : AuthColors.textSub,
                 onPressed: currentPage == 0
                     ? null
                     : () => onPageChanged(0),
@@ -1253,8 +1301,8 @@ class _PaginationControls extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.chevron_left, size: 24),
                 color: currentPage == 0
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.7),
+                    ? AuthColors.textDisabled
+                    : AuthColors.textSub,
                 onPressed: currentPage == 0
                     ? null
                     : () => onPageChanged(currentPage - 1),
@@ -1280,7 +1328,7 @@ class _PaginationControls extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Material(
                       color: isCurrentPage
-                          ? const Color(0xFF6F4BFF)
+                          ? AuthColors.primary
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                       child: InkWell(
@@ -1294,8 +1342,8 @@ class _PaginationControls extends StatelessWidget {
                             '${pageIndex + 1}',
                               style: TextStyle(
                               color: isCurrentPage
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.7),
+                                  ? AuthColors.textMain
+                                  : AuthColors.textSub,
                                 fontSize: 14,
                               fontWeight: isCurrentPage
                                   ? FontWeight.w700
@@ -1312,8 +1360,8 @@ class _PaginationControls extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.chevron_right, size: 24),
                 color: currentPage >= totalPages - 1
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.7),
+                    ? AuthColors.textDisabled
+                    : AuthColors.textSub,
                 onPressed: currentPage >= totalPages - 1
                     ? null
                     : () => onPageChanged(currentPage + 1),
@@ -1323,8 +1371,8 @@ class _PaginationControls extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.last_page, size: 20),
                 color: currentPage >= totalPages - 1
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.7),
+                    ? AuthColors.textDisabled
+                    : AuthColors.textSub,
                 onPressed: currentPage >= totalPages - 1
                     ? null
                     : () => onPageChanged(totalPages - 1),

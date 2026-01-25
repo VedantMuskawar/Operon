@@ -32,10 +32,6 @@ class AuthColors {
   static const Color info = Color(0xFF2196F3); // Info blue (used for operations)
   static const Color accentPurple = Color(0xFF9C27B0); // Accent purple (used for documents/status)
 
-  // Legacy accent color - widely used in UI (0xFF6F4BFF)
-  // Note: This differs from primary (burgundy). Consider migration to primary or keeping as accent.
-  static const Color legacyAccent = Color(0xFF6F4BFF);
-
   // Opacity variants
   static Color primaryWithOpacity(double opacity) => primary.withOpacity(opacity);
   static Color secondaryWithOpacity(double opacity) => secondary.withOpacity(opacity);

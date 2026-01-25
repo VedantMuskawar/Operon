@@ -890,7 +890,6 @@ class _ControlPanel extends StatelessWidget {
                 trip: selectedTrip!,
                 organizationId: organizationId,
                 onDispatch: (reading) async {
-                  // Call the existing dispatch handler
                   final tripId = selectedTrip!['id']?.toString();
                   final clientId = selectedTrip!['clientId']?.toString() ?? '';
                   if (tripId == null) return;
@@ -900,7 +899,6 @@ class _ControlPanel extends StatelessWidget {
                     tripId: tripId,
                     tripStatus: 'dispatched',
                     initialReading: reading,
-                    deliveredByRole: 'driver',
                     source: 'driver',
                   );
 
@@ -938,17 +936,19 @@ class _ControlPanel extends StatelessWidget {
                   }
                 },
                 onReturn: (reading) async {
-                  // Call the existing return handler
                   final tripId = selectedTrip!['id']?.toString();
                   if (tripId == null) return;
 
                   final user = context.read<AuthBloc>().state.userProfile;
                   if (user == null) return;
 
-                  final initialReading = (selectedTrip!['initialReading'] as num?)?.toDouble();
-                  final distance = (initialReading != null && reading >= initialReading)
-                      ? (reading - initialReading)
-                      : null;
+                  double? distance;
+                  if (reading != null) {
+                    final initialReading = (selectedTrip!['initialReading'] as num?)?.toDouble();
+                    if (initialReading != null && reading >= initialReading) {
+                      distance = reading - initialReading;
+                    }
+                  }
 
                   final locationService = context.read<LocationService>();
                   final computedDistance = locationService.totalDistance;

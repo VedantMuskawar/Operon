@@ -17,7 +17,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // Export all order-related functions
 __exportStar(require("./order-handlers"), exports);
 __exportStar(require("./order-whatsapp"), exports);
-__exportStar(require("./order-scheduling"), exports);
 __exportStar(require("./trip-scheduling"), exports);
 __exportStar(require("./trip-status-update"), exports);
 __exportStar(require("./delivery-memo"), exports);

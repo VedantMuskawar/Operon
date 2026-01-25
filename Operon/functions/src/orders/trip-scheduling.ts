@@ -230,34 +230,59 @@ export const onScheduledTripCreated = onDocumentCreated(
         }
 
         // Prepare trip entry for scheduledTrips array
-        const tripEntry = {
+        // IMPORTANT: Firestore doesn't allow null values, so we only include fields if they have values
+        const tripEntry: any = {
           tripId,
-          scheduleTripId: tripData.scheduleTripId || null,
           itemIndex: itemIndex, // ✅ Store which item this trip belongs to
           productId: productId || targetItem.productId, // ✅ Store product reference
           scheduledDate: tripData.scheduledDate,
-          scheduledDay: tripData.scheduledDay,
+          scheduledDay: tripData.scheduledDay || '',
           vehicleId: tripData.vehicleId,
           vehicleNumber: tripData.vehicleNumber,
-          driverName: tripData.driverName || null,
           slot: tripData.slot,
-          slotName: tripData.slotName,
+          slotName: tripData.slotName || '',
           customerNumber: tripData.customerNumber,
           paymentType: tripData.paymentType,
           tripStatus: 'scheduled',
           scheduledAt: tripData.createdAt,
           scheduledBy: tripData.createdBy,
         };
+        
+        // Only include optional fields if they have non-null values
+        if (tripData.scheduleTripId) {
+          tripEntry.scheduleTripId = tripData.scheduleTripId;
+        }
+        if (tripData.driverName) {
+          tripEntry.driverName = tripData.driverName;
+        }
+        if (tripData.driverId) {
+          tripEntry.driverId = tripData.driverId;
+        }
+        if (tripData.driverPhone) {
+          tripEntry.driverPhone = tripData.driverPhone;
+        }
 
         // Get existing scheduledTrips array
         const scheduledTripsArray = (orderData.scheduledTrips as any[]) || [];
         const totalScheduledTrips = (orderData.totalScheduledTrips as number) || 0;
 
+        // Clean items array to remove any null values before updating
+        const cleanedItems = items.map((item: any) => {
+          if (!item || typeof item !== 'object') return item;
+          const cleaned: any = {};
+          for (const [key, value] of Object.entries(item)) {
+            if (value !== null && value !== undefined) {
+              cleaned[key] = value;
+            }
+          }
+          return cleaned;
+        });
+
         // Update order
         const updateData: any = {
           scheduledTrips: [...scheduledTripsArray, tripEntry],
           totalScheduledTrips: totalScheduledTrips + 1,
-          updatedAt: new Date(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
         // Update item-level trip counts
@@ -265,7 +290,16 @@ export const onScheduledTripCreated = onDocumentCreated(
         scheduledTrips += 1;
         targetItem.estimatedTrips = estimatedTrips;
         targetItem.scheduledTrips = scheduledTrips;
-        updateData.items = items;
+        
+        // Clean the target item to remove nulls
+        const cleanedTargetItem: any = {};
+        for (const [key, value] of Object.entries(targetItem)) {
+          if (value !== null && value !== undefined) {
+            cleanedTargetItem[key] = value;
+          }
+        }
+        cleanedItems[itemIndex] = cleanedTargetItem;
+        updateData.items = cleanedItems;
 
         // Check if all items are fully scheduled
         const allItemsFullyScheduled = items.every((item: any) => {

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_models/core_models.dart';
+import 'package:flutter/foundation.dart';
 
 class OrganizationLocationDataSource {
   OrganizationLocationDataSource({FirebaseFirestore? firestore})
@@ -7,21 +8,51 @@ class OrganizationLocationDataSource {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> _locationsCollection(String orgId) {
+  static const _locCollectionName = 'LOCATIONS';
+
+  CollectionReference<Map<String, dynamic>> _locationsCollection(
+    String orgId, {
+    String? collectionName,
+  }) {
+    final name = collectionName ?? _locCollectionName;
     return _firestore
         .collection('ORGANIZATIONS')
         .doc(orgId)
-        .collection('LOCATIONS');
+        .collection(name);
   }
 
   Future<List<OrganizationLocation>> fetchLocations(String orgId) async {
-    final snapshot = await _locationsCollection(orgId)
-        .orderBy('is_primary', descending: true)
-        .orderBy('created_at', descending: true)
-        .get();
-    return snapshot.docs
+    QuerySnapshot<Map<String, dynamic>> snapshot =
+        await _locationsCollection(orgId).get();
+    if (kDebugMode) {
+      final path = 'ORGANIZATIONS/$orgId/$_locCollectionName';
+      // ignore: avoid_print
+      print('[OrganizationLocationDataSource] fetchLocations: $path → ${snapshot.docs.length} docs');
+    }
+    if (snapshot.docs.isEmpty) {
+      final alt = await _firestore
+          .collection('ORGANIZATIONS')
+          .doc(orgId)
+          .collection('locations')
+          .get();
+      if (kDebugMode && alt.docs.isNotEmpty) {
+        // ignore: avoid_print
+        print('[OrganizationLocationDataSource] Found ${alt.docs.length} docs in "locations" (lowercase). Use LOCATIONS to match.');
+      }
+      if (alt.docs.isNotEmpty) {
+        snapshot = alt;
+      }
+    }
+    final locations = snapshot.docs
         .map((doc) => OrganizationLocation.fromMap(doc.data(), doc.id))
         .toList();
+    locations.sort((a, b) {
+      if (a.isPrimary != b.isPrimary) return a.isPrimary ? -1 : 1;
+      final aAt = a.createdAt ?? DateTime(0);
+      final bAt = b.createdAt ?? DateTime(0);
+      return bAt.compareTo(aAt);
+    });
+    return locations;
   }
 
   Future<String> createLocation({

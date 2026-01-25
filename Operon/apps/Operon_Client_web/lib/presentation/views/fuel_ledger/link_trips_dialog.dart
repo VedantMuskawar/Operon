@@ -1,4 +1,5 @@
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_ui/theme/auth_colors.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -177,9 +178,9 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Trips linked successfully'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Trips linked successfully'),
+            backgroundColor: AuthColors.success,
           ),
         );
         Navigator.of(context).pop();
@@ -190,7 +191,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to link trips: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -204,7 +205,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.backgroundAlt,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -222,12 +223,12 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                      color: AuthColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.link,
-                      color: Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                       size: 20,
                     ),
                   ),
@@ -236,10 +237,10 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Link Trips to Voucher',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
@@ -248,14 +249,14 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                         Text(
                           'Voucher: ${widget.voucherNumber}',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: AuthColors.textSub,
                             fontSize: 12,
                           ),
                         ),
                         Text(
                           'Vehicle: ${widget.vehicleNumber}',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: AuthColors.textSub,
                             fontSize: 12,
                           ),
                         ),
@@ -264,7 +265,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: Icon(Icons.close, color: AuthColors.textSub),
                   ),
                 ],
               ),
@@ -278,14 +279,14 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _error!,
-                                  style: const TextStyle(color: Colors.red),
-                                  textAlign: TextAlign.center,
-                                ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _error!,
+                                    style: TextStyle(color: AuthColors.error),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 const SizedBox(height: 16),
                                 ElevatedButton(
                                   onPressed: _loadAvailableTrips,
@@ -305,13 +306,13 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                     Icon(
                                       Icons.directions_car_outlined,
                                       size: 64,
-                                      color: Colors.white.withValues(alpha: 0.3),
+                                      color: AuthColors.textDisabled,
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
                                       'No trips found',
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.6),
+                                        color: AuthColors.textSub,
                                         fontSize: 16,
                                       ),
                                     ),
@@ -319,7 +320,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                     Text(
                                       'No returned trips found for this vehicle in the past 3 days',
                                       style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.4),
+                                        color: AuthColors.textDisabled,
                                         fontSize: 12,
                                       ),
                                       textAlign: TextAlign.center,
@@ -347,17 +348,17 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                   margin: const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? const Color(0xFF6F4BFF).withValues(alpha: 0.2)
+                                        ? AuthColors.primary.withValues(alpha: 0.2)
                                         : hasFuelVoucher
-                                            ? Colors.orange.withValues(alpha: 0.1)
-                                            : const Color(0xFF13131E),
+                                            ? AuthColors.warning.withValues(alpha: 0.1)
+                                            : AuthColors.backgroundAlt,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: isSelected
-                                          ? const Color(0xFF6F4BFF)
+                                          ? AuthColors.primary
                                           : hasFuelVoucher
-                                              ? Colors.orange.withValues(alpha: 0.5)
-                                              : Colors.white.withValues(alpha: 0.1),
+                                              ? AuthColors.warning.withValues(alpha: 0.5)
+                                              : AuthColors.textMainWithOpacity(0.1),
                                       width: isSelected ? 2 : 1,
                                     ),
                                   ),
@@ -374,14 +375,14 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                               }
                                             });
                                           },
-                                    activeColor: const Color(0xFF6F4BFF),
+                                    activeColor: AuthColors.primary,
                                     title: Row(
                                       children: [
                                         Expanded(
                                           child: Text(
                                             clientName,
-                                            style: const TextStyle(
-                                              color: Colors.white,
+                                            style: TextStyle(
+                                              color: AuthColors.textMain,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -390,14 +391,14 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: Colors.orange.withValues(alpha: 0.2),
+                                              color: AuthColors.warning.withValues(alpha: 0.2),
                                               borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+                                              border: Border.all(color: AuthColors.warning.withValues(alpha: 0.5)),
                                             ),
-                                            child: const Text(
+                                            child: Text(
                                               'Linked',
                                               style: TextStyle(
-                                                color: Colors.orange,
+                                                color: AuthColors.warning,
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -411,12 +412,12 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Icon(Icons.calendar_today, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+                                            Icon(Icons.calendar_today, size: 12, color: AuthColors.textSub),
                                             const SizedBox(width: 4),
                                             Text(
                                               _formatDate(scheduledDate),
                                               style: TextStyle(
-                                                color: Colors.white.withValues(alpha: 0.6),
+                                                color: AuthColors.textSub,
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -425,13 +426,13 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Icon(Icons.location_on, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+                                            Icon(Icons.location_on, size: 12, color: AuthColors.textSub),
                                             const SizedBox(width: 4),
                                             Expanded(
                                               child: Text(
                                                 '$city${region.isNotEmpty ? ', $region' : ''}',
                                                 style: TextStyle(
-                                                  color: Colors.white.withValues(alpha: 0.6),
+                                                  color: AuthColors.textSub,
                                                   fontSize: 12,
                                                 ),
                                                 maxLines: 1,
@@ -444,12 +445,12 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [
-                                              Icon(Icons.straighten, size: 12, color: Colors.white.withValues(alpha: 0.6)),
+                                              Icon(Icons.straighten, size: 12, color: AuthColors.textSub),
                                               const SizedBox(width: 4),
                                               Text(
                                                 '${distance.toStringAsFixed(1)} KM',
                                                 style: TextStyle(
-                                                  color: Colors.white.withValues(alpha: 0.6),
+                                                  color: AuthColors.textSub,
                                                   fontSize: 12,
                                                 ),
                                               ),
@@ -471,9 +472,9 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
             // Summary and Actions
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1B1B2C),
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: AuthColors.surface,
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),
                 ),
@@ -487,15 +488,15 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                       children: [
                         Text(
                           '${_selectedDmIds.length} trip${_selectedDmIds.length > 1 ? 's' : ''} selected',
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          style: TextStyle(
+                            color: AuthColors.textSub,
                             fontSize: 14,
                           ),
                         ),
                         Text(
                           'Total Distance: ${_getTotalDistance().toStringAsFixed(1)} KM',
-                          style: const TextStyle(
-                            color: Color(0xFF6F4BFF),
+                          style: TextStyle(
+                            color: AuthColors.primary,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -511,7 +512,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                         onPressed: _isLinking ? null : () => Navigator.of(context).pop(),
                         child: Text(
                           'Skip',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                          style: TextStyle(color: AuthColors.textSub),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -519,7 +520,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                         TextButton(
                           onPressed: _isLinking ? null : () => Navigator.of(context).pop(),
                           style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF6F4BFF),
+                            foregroundColor: AuthColors.primary,
                           ),
                           child: const Text('Continue Without Linking'),
                         )
@@ -527,16 +528,16 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                         ElevatedButton(
                           onPressed: _isLinking ? null : _linkTrips,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6F4BFF),
-                            foregroundColor: Colors.white,
+                            backgroundColor: AuthColors.primary,
+                            foregroundColor: AuthColors.textMain,
                           ),
                           child: _isLinking
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                                   ),
                                 )
                               : Text('Link ${_selectedDmIds.length} Trip${_selectedDmIds.length > 1 ? 's' : ''}'),

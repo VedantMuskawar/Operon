@@ -30,10 +30,9 @@ class FinancialTransactionsAnalyticsView extends StatelessWidget {
             children: [
               // Summary Cards
               TransactionSummaryCards(
-                income: state.totalIncome,
-                payments: state.totalExpenses,
-                purchases: state.totalPurchases,
-                netBalance: state.netBalance,
+                totalPayments: state.totalIncome,
+                totalPurchases: state.totalPurchases,
+                totalExpenses: state.totalExpenses,
               ),
               const SizedBox(height: 24),
               // Analytics Section (can be expanded later)

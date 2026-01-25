@@ -17,79 +17,88 @@ class SplashContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Circular gradient dots
-        const RepaintBoundary(
-          child: ICloudDottedCircle(size: 120),
-        ),
-        const SizedBox(height: 40),
-        Container(
-          width: 80,
-          height: 80,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              colors: [AuthColors.primary, AuthColors.primaryVariant],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    // Ensure MediaQuery has a safe textScaler to prevent configuration ID errors
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final safeTextScaler = const TextScaler.linear(1.0);
+    final safeMediaQuery = mediaQuery?.copyWith(textScaler: safeTextScaler) ?? 
+        MediaQueryData(textScaler: safeTextScaler);
+    
+    return MediaQuery(
+      data: safeMediaQuery,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Circular gradient dots
+          const RepaintBoundary(
+            child: ICloudDottedCircle(size: 120),
+          ),
+          const SizedBox(height: 40),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: const LinearGradient(
+                colors: [AuthColors.primary, AuthColors.primaryVariant],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: const Icon(
+              Icons.dashboard,
+              color: Colors.white,
+              size: 40,
             ),
           ),
-          child: const Icon(
-            Icons.dashboard,
-            color: Colors.white,
-            size: 40,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AuthColors.primaryWithOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: const CircularProgressIndicator(
-            strokeWidth: 3,
-            valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          message,
-          style: const TextStyle(
-            color: AuthColors.textMain,
-            fontSize: 16,
-            fontFamily: 'SF Pro Display',
-          ),
-        ),
-        if (showRetry && onRetry != null) ...[
           const SizedBox(height: 24),
-          SizedBox(
-            width: 200,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AuthColors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AuthColors.primaryWithOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            message,
+            style: const TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 16,
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+          if (showRetry && onRetry != null) ...[
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 200,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: onRetry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AuthColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-              ),
-              child: const Text(
-                'Retry',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'SF Pro Display',
+                child: const Text(
+                  'Retry',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'SF Pro Display',
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

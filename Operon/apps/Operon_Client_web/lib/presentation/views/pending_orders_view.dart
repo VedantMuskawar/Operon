@@ -61,11 +61,28 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     _ordersSubscription = repository.watchPendingOrders(orgId).listen(
       (orders) {
         final tripsCount = orders.fold<int>(0, (total, order) {
-          final totalScheduledTrips = (order['totalScheduledTrips'] as num?)?.toInt() ?? 0;
           final items = order['items'] as List<dynamic>? ?? [];
           final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
-          final estimatedTrips = firstItem?['estimatedTrips'] as int? ?? 0;
-          return total + (totalScheduledTrips > 0 ? totalScheduledTrips : estimatedTrips);
+          final autoSchedule = order['autoSchedule'] as Map<String, dynamic>?;
+          
+          // Calculate total estimated trips using same logic as tile
+          // Priority: 1. autoSchedule.totalTripsRequired, 2. Sum of item estimatedTrips, 3. Fallback
+          int totalEstimatedTrips = 0;
+          if (autoSchedule?['totalTripsRequired'] != null) {
+            totalEstimatedTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
+          } else {
+            // Fallback: Sum estimated trips from all items
+            for (final item in items) {
+              final itemMap = item as Map<String, dynamic>;
+              totalEstimatedTrips += (itemMap['estimatedTrips'] as int? ?? 0);
+            }
+            if (totalEstimatedTrips == 0 && firstItem != null) {
+              totalEstimatedTrips = firstItem['estimatedTrips'] as int? ?? 
+                  (order['tripIds'] as List<dynamic>?)?.length ?? 0;
+            }
+          }
+          
+          return total + totalEstimatedTrips;
         });
 
         if (mounted) {

@@ -25,17 +25,17 @@ class TripExecutionSheet extends StatefulWidget {
   });
 
   final Map<String, dynamic> trip;
-  final Future<void> Function(double initialReading) onDispatch;
+  final Future<void> Function(double? initialReading) onDispatch;
   final Future<void> Function(String photoUrl) onDelivery;
-  final Future<void> Function(double finalReading) onReturn;
+  final Future<void> Function(double? finalReading) onReturn;
   final String? organizationId;
 
   static Future<void> show({
     required BuildContext context,
     required Map<String, dynamic> trip,
-    required Future<void> Function(double initialReading) onDispatch,
+    required Future<void> Function(double? initialReading) onDispatch,
     required Future<void> Function(String photoUrl) onDelivery,
-    required Future<void> Function(double finalReading) onReturn,
+    required Future<void> Function(double? finalReading) onReturn,
     String? organizationId,
   }) {
     return showModalBottomSheet(
@@ -102,6 +102,7 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
   String get _tripStatus => getTripStatus(widget.trip);
   String? get _source => widget.trip['source'] as String?;
   bool get _isManualDispatch => _source == 'client' && _tripStatus == 'dispatched';
+  bool get _askMeterReadings => (widget.trip['meterType'] as String?) == 'KM';
 
   /// Get status color based on trip status (matching schedule tiles)
   Color _getStatusColor(String status) {
@@ -140,9 +141,13 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
   }
 
   Future<void> _handleStartTrip() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_askMeterReadings && !(_formKey.currentState?.validate() ?? false)) return;
 
-    final reading = double.parse(_readingController.text.trim());
+    final reading = _askMeterReadings
+        ? double.tryParse(_readingController.text.trim())
+        : null;
+    if (_askMeterReadings && reading == null) return;
+
     setState(() => _isProcessing = true);
 
     try {
@@ -229,9 +234,13 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
   }
 
   Future<void> _handleMarkReturned() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_askMeterReadings && !(_formKey.currentState?.validate() ?? false)) return;
 
-    final reading = double.parse(_readingController.text.trim());
+    final reading = _askMeterReadings
+        ? double.tryParse(_readingController.text.trim())
+        : null;
+    if (_askMeterReadings && reading == null) return;
+
     setState(() => _isProcessing = true);
 
     try {
@@ -295,49 +304,61 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Enter initial odometer reading',
-          style: TextStyle(
-            color: AuthColors.textSub,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Form(
-          key: _formKey,
-          child: TextFormField(
-            controller: _readingController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(color: AuthColors.textMain),
-            decoration: InputDecoration(
-              labelText: 'Initial Reading',
-              labelStyle: const TextStyle(color: AuthColors.textSub),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              focusedBorder: const OutlineInputBorder(
-                borderSide: BorderSide(color: AuthColors.legacyAccent),
-                borderRadius: BorderRadius.all(Radius.circular(10)),
-              ),
-              filled: true,
-              fillColor: AuthColors.background,
+        if (_askMeterReadings)
+          const Text(
+            'Enter initial odometer reading',
+            style: TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 14,
             ),
-            validator: (value) {
-              final v = double.tryParse((value ?? '').trim());
-              if (v == null || v < 0) return 'Enter a valid number';
-              return null;
-            },
+          )
+        else
+          const Text(
+            'Slide to start this trip',
+            style: TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 14,
+            ),
           ),
-        ),
         const SizedBox(height: 24),
+        if (_askMeterReadings)
+          Form(
+            key: _formKey,
+            child: TextFormField(
+              controller: _readingController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AuthColors.textMain),
+              decoration: InputDecoration(
+                labelText: 'Initial Reading',
+                labelStyle: const TextStyle(color: AuthColors.textSub),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: AuthColors.legacyAccent),
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                ),
+                filled: true,
+                fillColor: AuthColors.background,
+              ),
+              validator: (value) {
+                final v = double.tryParse((value ?? '').trim());
+                if (v == null || v < 0) return 'Enter a valid number';
+                return null;
+              },
+            ),
+          ),
+        if (_askMeterReadings) const SizedBox(height: 24),
         SlideActionButton(
           onConfirmed: _isProcessing ? () {} : _handleStartTrip,
           text: _isProcessing ? 'Starting...' : 'Slide to Start Trip',
           confirmedText: 'Trip Started!',
-          enabled: _readingController.text.trim().isNotEmpty &&
-              double.tryParse(_readingController.text.trim()) != null &&
-              double.tryParse(_readingController.text.trim())! >= 0,
+          enabled: _askMeterReadings
+              ? (_readingController.text.trim().isNotEmpty &&
+                  double.tryParse(_readingController.text.trim()) != null &&
+                  (double.tryParse(_readingController.text.trim()) ?? -1) >= 0)
+              : true,
           foregroundColor: _getStatusColor('scheduled'),
           backgroundColor: AuthColors.surface,
         ),
@@ -457,53 +478,65 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
           ),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Enter final odometer reading',
-          style: TextStyle(
-            color: AuthColors.textSub,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Form(
-          key: _formKey,
-          child: TextFormField(
-            controller: _readingController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(color: AuthColors.textMain),
-            decoration: InputDecoration(
-              labelText: 'Final Reading',
-              labelStyle: const TextStyle(color: AuthColors.textSub),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              focusedBorder: const OutlineInputBorder(
-                borderSide: BorderSide(color: AuthColors.legacyAccent),
-                borderRadius: BorderRadius.all(Radius.circular(10)),
-              ),
-              filled: true,
-              fillColor: AuthColors.background,
+        if (_askMeterReadings)
+          const Text(
+            'Enter final odometer reading',
+            style: TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 14,
             ),
-            validator: (value) {
-              final v = double.tryParse((value ?? '').trim());
-              if (v == null || v < 0) return 'Enter a valid number';
-              final initialReading = (widget.trip['initialReading'] as num?)?.toDouble();
-              if (initialReading != null && v < initialReading) {
-                return 'Final reading must be >= initial reading';
-              }
-              return null;
-            },
+          )
+        else
+          const Text(
+            'Slide to mark this trip as returned',
+            style: TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 14,
+            ),
           ),
-        ),
         const SizedBox(height: 24),
+        if (_askMeterReadings)
+          Form(
+            key: _formKey,
+            child: TextFormField(
+              controller: _readingController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AuthColors.textMain),
+              decoration: InputDecoration(
+                labelText: 'Final Reading',
+                labelStyle: const TextStyle(color: AuthColors.textSub),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                focusedBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: AuthColors.legacyAccent),
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                ),
+                filled: true,
+                fillColor: AuthColors.background,
+              ),
+              validator: (value) {
+                final v = double.tryParse((value ?? '').trim());
+                if (v == null || v < 0) return 'Enter a valid number';
+                final initialReading = (widget.trip['initialReading'] as num?)?.toDouble();
+                if (initialReading != null && v < initialReading) {
+                  return 'Final reading must be >= initial reading';
+                }
+                return null;
+              },
+            ),
+          ),
+        if (_askMeterReadings) const SizedBox(height: 24),
         SlideActionButton(
           onConfirmed: _isProcessing ? () {} : _handleMarkReturned,
           text: _isProcessing ? 'Processing...' : 'Slide to Mark Returned',
           confirmedText: 'Returned!',
-          enabled: _readingController.text.trim().isNotEmpty &&
-              double.tryParse(_readingController.text.trim()) != null &&
-              double.tryParse(_readingController.text.trim())! >= 0,
+          enabled: _askMeterReadings
+              ? (_readingController.text.trim().isNotEmpty &&
+                  double.tryParse(_readingController.text.trim()) != null &&
+                  (double.tryParse(_readingController.text.trim()) ?? -1) >= 0)
+              : true,
           foregroundColor: _getStatusColor('delivered'),
           backgroundColor: AuthColors.surface,
         ),

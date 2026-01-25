@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
@@ -150,9 +151,9 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
 
       if (mounted && alreadyCredited) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Salary already credited for this month'),
-            backgroundColor: Colors.orange,
+          SnackBar(
+            content: const Text('Salary already credited for this month'),
+            backgroundColor: AuthColors.warning,
           ),
         );
       }
@@ -228,9 +229,9 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Salary credited successfully'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Salary credited successfully'),
+            backgroundColor: AuthColors.success,
           ),
         );
         Navigator.of(context).pop();
@@ -241,7 +242,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to credit salary: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -265,28 +266,28 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       filled: true,
-      fillColor: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+      fillColor: AuthColors.surface.withValues(alpha: 0.6),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+        borderSide: const BorderSide(color: AuthColors.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red, width: 2),
+        borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red, width: 2),
+        borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
     );
   }
@@ -294,7 +295,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -313,12 +314,12 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                      color: AuthColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
                       Icons.payments,
-                      color: Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                       size: 20,
                     ),
                   ),
@@ -327,7 +328,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                     child: Text(
                       'Credit Salary',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -335,7 +336,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                   ),
                 ],
               ),
@@ -345,15 +346,15 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
               DropdownButtonFormField<OrganizationEmployee>(
                 initialValue: _selectedEmployee,
                 decoration: _inputDecoration('Employee'),
-                dropdownColor: const Color(0xFF2B2B3C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: const TextStyle(color: AuthColors.textMain),
                 items: _employees.map((employee) {
                   return DropdownMenuItem<OrganizationEmployee>(
                     value: employee,
                     child: Text(
                       employee.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -375,7 +376,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                     children: [
                       Text(
                         _formatMonth(_selectedSalaryMonth),
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                       ),
                       if (_isCheckingSalary)
                         const SizedBox(
@@ -384,7 +385,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       else
-                        const Icon(Icons.calendar_today, color: Colors.white70),
+                        const Icon(Icons.calendar_today, color: AuthColors.textSub),
                     ],
                   ),
                 ),
@@ -396,7 +397,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _inputDecoration('Salary Amount'),
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Enter salary amount';
@@ -420,9 +421,9 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                     children: [
                       Text(
                         _formatDate(_paymentDate),
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                       ),
-                      const Icon(Icons.calendar_today, color: Colors.white70),
+                      const Icon(Icons.calendar_today, color: AuthColors.textSub),
                     ],
                   ),
                 ),
@@ -433,15 +434,15 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
               DropdownButtonFormField<PaymentAccount>(
                 initialValue: _selectedPaymentAccount,
                 decoration: _inputDecoration('Payment Account'),
-                dropdownColor: const Color(0xFF2B2B3C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: const TextStyle(color: AuthColors.textMain),
                 items: _paymentAccounts.map((account) {
                   return DropdownMenuItem<PaymentAccount>(
                     value: account,
                     child: Text(
                       account.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -457,7 +458,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
               TextFormField(
                 controller: _referenceNumberController,
                 decoration: _inputDecoration('Reference Number (Optional)'),
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
               ),
               const SizedBox(height: 16),
 
@@ -466,7 +467,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                 controller: _descriptionController,
                 maxLines: 2,
                 decoration: _inputDecoration('Description (Optional)'),
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
               ),
               const SizedBox(height: 24),
 
@@ -474,20 +475,20 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
               ElevatedButton(
                 onPressed: _isLoading ? null : _submitSalary,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6F4BFF),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AuthColors.primary,
+                  foregroundColor: AuthColors.textMain,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: _isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                         ),
                       )
                     : const Text(

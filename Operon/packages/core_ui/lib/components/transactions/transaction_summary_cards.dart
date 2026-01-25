@@ -2,21 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:core_ui/core_ui.dart';
 
 /// Reusable summary cards showing financial metrics
-/// Displays: Income, Payments, Purchases, Net Balance
+/// Displays: Total Payments, Total Purchases, Total Expenses
 class TransactionSummaryCards extends StatelessWidget {
   const TransactionSummaryCards({
     super.key,
-    required this.income,
-    required this.payments,
-    required this.purchases,
-    required this.netBalance,
+    required this.totalPayments,
+    required this.totalPurchases,
+    required this.totalExpenses,
     this.formatCurrency,
   });
 
-  final double income;
-  final double payments;
-  final double purchases;
-  final double netBalance;
+  final double totalPayments;
+  final double totalPurchases;
+  final double totalExpenses;
   final String Function(double)? formatCurrency;
 
   String _formatCurrency(double amount) {
@@ -39,37 +37,28 @@ class TransactionSummaryCards extends StatelessWidget {
             children: [
               Expanded(
                 child: _SummaryCard(
-                  icon: Icons.trending_up,
-                  label: 'Income',
-                  value: _formatCurrency(income),
+                  icon: Icons.payment,
+                  label: 'Total Payments',
+                  value: _formatCurrency(totalPayments),
                   color: AuthColors.success,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _SummaryCard(
-                  icon: Icons.trending_down,
-                  label: 'Payments',
-                  value: _formatCurrency(payments),
-                  color: AuthColors.warning,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SummaryCard(
                   icon: Icons.shopping_cart,
-                  label: 'Purchases',
-                  value: _formatCurrency(purchases),
+                  label: 'Total Purchases',
+                  value: _formatCurrency(totalPurchases),
                   color: AuthColors.info,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _SummaryCard(
-                  icon: Icons.account_balance_wallet,
-                  label: 'Net Balance',
-                  value: _formatCurrency(netBalance),
-                  color: netBalance >= 0 ? AuthColors.success : AuthColors.error,
+                  icon: Icons.trending_down,
+                  label: 'Total Expenses',
+                  value: _formatCurrency(totalExpenses),
+                  color: AuthColors.warning,
                 ),
               ),
             ],
@@ -81,44 +70,31 @@ class TransactionSummaryCards extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _SummaryCard(
-                      icon: Icons.trending_up,
-                      label: 'Income',
-                      value: _formatCurrency(income),
+                      icon: Icons.payment,
+                      label: 'Total Payments',
+                      value: _formatCurrency(totalPayments),
                       color: AuthColors.success,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: _SummaryCard(
-                      icon: Icons.trending_down,
-                      label: 'Payments',
-                      value: _formatCurrency(payments),
-                      color: AuthColors.warning,
+                      icon: Icons.shopping_cart,
+                      label: 'Total Purchases',
+                      value: _formatCurrency(totalPurchases),
+                      color: AuthColors.info,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SummaryCard(
-                      icon: Icons.shopping_cart,
-                      label: 'Purchases',
-                      value: _formatCurrency(purchases),
-                      color: AuthColors.info,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SummaryCard(
-                      icon: Icons.account_balance_wallet,
-                      label: 'Net Balance',
-                      value: _formatCurrency(netBalance),
-                      color: netBalance >= 0 ? AuthColors.success : AuthColors.error,
-                    ),
-                  ),
-                ],
+              Expanded(
+                child: _SummaryCard(
+                  icon: Icons.trending_down,
+                  label: 'Total Expenses',
+                  value: _formatCurrency(totalExpenses),
+                  color: AuthColors.warning,
+                ),
               ),
             ],
           );
@@ -144,7 +120,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -160,37 +136,35 @@ class _SummaryCard extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Icon(icon, color: color, size: 18),
-              ),
-              const Spacer(),
-            ],
+          // Icon
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(width: 12),
+          // Title
           Text(
             label,
             style: const TextStyle(
               color: AuthColors.textSub,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          const Spacer(),
+          // Total
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -18,7 +18,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
     this.startDate,
     this.endDate,
     this.financialYear,
-    this.isListView = false,
     this.message,
   }) : super(message: message);
 
@@ -30,7 +29,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? financialYear;
-  final bool isListView;
   @override
   final String? message;
 
@@ -72,7 +70,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
     DateTime? startDate,
     DateTime? endDate,
     String? financialYear,
-    bool? isListView,
     String? message,
   }) {
     return UnifiedFinancialTransactionsState(
@@ -85,7 +82,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       financialYear: financialYear ?? this.financialYear,
-      isListView: isListView ?? this.isListView,
       message: message ?? this.message,
     );
   }

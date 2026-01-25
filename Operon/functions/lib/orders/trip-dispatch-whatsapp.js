@@ -45,8 +45,9 @@ const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
  * Sends WhatsApp notification to client when a trip is dispatched
  */
 async function sendTripDispatchMessage(to, clientName, organizationId, tripId, tripData) {
+    var _a;
     const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId);
-    if (!settings) {
+    if (!(settings === null || settings === void 0 ? void 0 : settings.tripDispatchTemplateId)) {
         (0, logger_1.logWarning)('Trip/WhatsApp', 'sendTripDispatchMessage', 'Skipping send – no settings or disabled', {
             tripId,
             organizationId,
@@ -57,26 +58,7 @@ async function sendTripDispatchMessage(to, clientName, organizationId, tripId, t
     const displayName = clientName && clientName.trim().length > 0
         ? clientName.trim()
         : 'there';
-    // Format trip items for message
-    const itemsText = tripData.items && tripData.items.length > 0
-        ? tripData.items
-            .map((item, index) => {
-            const itemNum = index + 1;
-            const gstText = item.gstAmount && item.gstAmount > 0
-                ? `\n   GST: ₹${item.gstAmount.toFixed(2)}`
-                : '';
-            return `${itemNum}. ${item.productName}\n   Qty: ${item.fixedQuantityPerTrip} units\n   Unit Price: ₹${item.unitPrice.toFixed(2)}${gstText}`;
-        })
-            .join('\n\n')
-        : 'No items';
-    // Format trip pricing
-    const pricing = tripData.tripPricing;
-    const pricingText = pricing
-        ? `Subtotal: ₹${pricing.subtotal.toFixed(2)}\n` +
-            (pricing.gstAmount > 0 ? `GST: ₹${pricing.gstAmount.toFixed(2)}\n` : '') +
-            `Total: ₹${pricing.total.toFixed(2)}`
-        : 'Pricing not available';
-    // Format scheduled date
+    // Format scheduled date for parameter 2
     let scheduledDateText = 'N/A';
     if (tripData.scheduledDate) {
         try {
@@ -93,36 +75,52 @@ async function sendTripDispatchMessage(to, clientName, organizationId, tripId, t
             (0, logger_1.logError)('Trip/WhatsApp', 'sendTripDispatchMessage', 'Error formatting date', e instanceof Error ? e : new Error(String(e)));
         }
     }
-    // Format driver info
-    const driverInfo = tripData.driverName && tripData.driverPhone
-        ? `Driver: ${tripData.driverName}\nDriver Contact: ${tripData.driverPhone}`
-        : tripData.driverName
-            ? `Driver: ${tripData.driverName}`
-            : 'Driver information not available';
-    // Format vehicle and slot info
+    // Format vehicle and slot info for parameter 3
     const vehicleInfo = tripData.vehicleNumber
         ? `Vehicle: ${tripData.vehicleNumber}`
         : '';
     const slotInfo = tripData.slotName || (tripData.slot ? `Slot ${tripData.slot}` : '');
-    const scheduleInfo = [vehicleInfo, slotInfo].filter(Boolean).join(' | ');
-    // Build message body
-    const messageBody = `Hello ${displayName}!\n\n` +
-        `Your trip has been dispatched!\n\n` +
-        `Trip Details:\n` +
-        `Date: ${scheduledDateText}\n` +
-        (scheduleInfo ? `${scheduleInfo}\n` : '') +
-        `\nItems:\n${itemsText}\n\n` +
-        `Pricing:\n${pricingText}\n\n` +
-        `${driverInfo}\n\n` +
-        `Thank you!`;
+    const scheduleInfo = [vehicleInfo, slotInfo].filter(Boolean).join(' | ') || '';
+    // Format items list for parameter 4
+    const itemsText = tripData.items && tripData.items.length > 0
+        ? tripData.items
+            .map((item, index) => {
+            const itemNum = index + 1;
+            return `${itemNum}. ${item.productName} - Qty: ${item.fixedQuantityPerTrip} units - ₹${item.unitPrice.toFixed(2)}`;
+        })
+            .join('\n')
+        : 'No items';
+    // Format total amount for parameter 5
+    const pricing = tripData.tripPricing;
+    const totalAmountText = pricing
+        ? pricing.gstAmount > 0
+            ? `₹${pricing.total.toFixed(2)} (Subtotal: ₹${pricing.subtotal.toFixed(2)}, GST: ₹${pricing.gstAmount.toFixed(2)})`
+            : `₹${pricing.total.toFixed(2)} (Subtotal: ₹${pricing.subtotal.toFixed(2)})`
+        : 'Pricing not available';
+    // Format driver information for parameter 6
+    const driverInfo = tripData.driverName && tripData.driverPhone
+        ? `Driver: ${tripData.driverName} | Contact: ${tripData.driverPhone}`
+        : tripData.driverName
+            ? `Driver: ${tripData.driverName}`
+            : 'Driver information not available';
+    // Prepare template parameters
+    const parameters = [
+        displayName, // Parameter 1: Client name
+        scheduledDateText, // Parameter 2: Trip date
+        scheduleInfo, // Parameter 3: Vehicle and slot info
+        itemsText, // Parameter 4: Items list
+        totalAmountText, // Parameter 5: Total amount with breakdown
+        driverInfo, // Parameter 6: Driver information
+    ];
     (0, logger_1.logInfo)('Trip/WhatsApp', 'sendTripDispatchMessage', 'Sending dispatch notification', {
         organizationId,
         tripId,
         to: to.substring(0, 4) + '****',
         phoneId: settings.phoneId,
+        templateId: settings.tripDispatchTemplateId,
         hasItems: tripData.items && tripData.items.length > 0,
     });
-    await (0, whatsapp_service_1.sendWhatsappMessage)(url, settings.token, to, messageBody, 'trip-dispatch', {
+    await (0, whatsapp_service_1.sendWhatsappTemplateMessage)(url, settings.token, to, settings.tripDispatchTemplateId, (_a = settings.languageCode) !== null && _a !== void 0 ? _a : 'en', parameters, 'trip-dispatch', {
         organizationId,
         tripId,
     });

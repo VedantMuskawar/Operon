@@ -1,9 +1,16 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
+import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal, LedgerPdfPreviewModal;
+import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, generateLedgerPdf, LedgerRowData;
 import 'package:dash_web/data/repositories/clients_repository.dart';
+import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
+import 'package:dash_web/data/utils/financial_year_utils.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/pending_order_tile.dart';
@@ -11,6 +18,7 @@ import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 
 class ClientDetailPage extends StatefulWidget {
   const ClientDetailPage({
@@ -100,7 +108,10 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                   children: [
                 OverviewSection(clientId: widget.client.id),
                 PendingOrdersSection(clientId: widget.client.id),
-                AnalyticsSection(clientId: widget.client.id),
+                AnalyticsSection(
+                  clientId: widget.client.id,
+                  clientName: widget.client.name,
+                ),
                   ],
                 ),
               ],
@@ -1032,9 +1043,10 @@ class _PendingOrdersSectionState extends State<PendingOrdersSection> {
 
 
 class AnalyticsSection extends StatefulWidget {
-  const AnalyticsSection({super.key, required this.clientId});
+  const AnalyticsSection({super.key, required this.clientId, required this.clientName});
 
   final String clientId;
+  final String clientName;
 
   @override
   State<AnalyticsSection> createState() => _AnalyticsSectionState();
@@ -1163,37 +1175,31 @@ class _AnalyticsSectionState extends State<AnalyticsSection> {
       child: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.primary,
                 ),
               )
             : _ledger == null
-                ? const SingleChildScrollView(
-                    padding: EdgeInsets.all(20),
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
                     child: Center(
                       child: Text(
                         'No ledger data available for this client.',
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(color: AuthColors.textSub),
                       ),
                     ),
                   )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-                      _LedgerBalanceCard(
-                        ledger: _ledger!,
-                            formatCurrency: _formatCurrency,
-                          ),
-                        const SizedBox(height: 20),
-                      _LedgerTable(
-                        transactions: _transactions,
-                                          formatCurrency: _formatCurrency,
-                                          formatDate: _formatDate,
-            ),
-          ],
-        ),
-      ),
+                    child: _LedgerTable(
+                      openingBalance: (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
+                      transactions: _transactions,
+                      formatCurrency: _formatCurrency,
+                      formatDate: _formatDate,
+                      clientId: widget.clientId,
+                      clientName: widget.clientName,
+                      storedOpeningBalance: (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
+                    ),
+                  ),
     );
   }
 }
@@ -1205,6 +1211,8 @@ class _LedgerRowModel {
     required this.credit,
     required this.debit,
     required this.balanceAfter,
+    required this.type,
+    required this.remarks,
     this.paymentParts = const [],
     this.category,
   });
@@ -1214,8 +1222,10 @@ class _LedgerRowModel {
   final double credit;
   final double debit;
   final double balanceAfter;
+  final String type;
+  final String remarks;
   final List<_PaymentPart> paymentParts;
-  final String? category; // Category when DM number is not available
+  final String? category;
 }
 
 // Helper function to format category name (capitalize and add spaces)
@@ -1241,23 +1251,221 @@ class _PaymentPart {
 
 class _LedgerTable extends StatelessWidget {
   const _LedgerTable({
+    required this.openingBalance,
     required this.transactions,
     required this.formatCurrency,
     required this.formatDate,
+    required this.clientId,
+    required this.clientName,
+    required this.storedOpeningBalance,
   });
 
+  final double openingBalance;
   final List<Map<String, dynamic>> transactions;
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
+  final String clientId;
+  final String clientName;
+  final double storedOpeningBalance;
+
+  Future<void> _generateLedgerPdf(BuildContext context) async {
+    try {
+      // Show date range picker
+      final dateRange = await showLedgerDateRangeModal(context);
+      if (dateRange == null) return; // User cancelled
+
+      // Show loading indicator
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Get organization ID
+      final orgContext = context.read<OrganizationContextCubit>().state;
+      final organization = orgContext.organization;
+      if (organization == null || !context.mounted) {
+        Navigator.of(context).pop(); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No organization selected')),
+        );
+        return;
+      }
+
+      // Fetch all transactions for opening balance calculation
+      final transactionsDataSource = TransactionsDataSource();
+      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
+      final allTransactions = await transactionsDataSource.getClientTransactions(
+        organizationId: organization.id,
+        clientId: clientId,
+        financialYear: financialYear,
+      );
+
+      // Calculate opening balance for date range
+      // Use stored opening balance if no transactions before start date
+      final openingBal = calculateOpeningBalance(
+        allTransactions: allTransactions,
+        startDate: dateRange.start,
+        storedOpeningBalance: storedOpeningBalance,
+      );
+
+      // Filter transactions in date range
+      final transactionsInRange = allTransactions.where((tx) {
+        final txDate = tx.createdAt ?? tx.updatedAt;
+        if (txDate == null) return false;
+        return txDate.isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
+               txDate.isBefore(dateRange.end.add(const Duration(days: 1)));
+      }).toList();
+
+      // Sort chronologically
+      transactionsInRange.sort((a, b) {
+        final aDate = a.createdAt ?? a.updatedAt ?? DateTime(1970);
+        final bDate = b.createdAt ?? b.updatedAt ?? DateTime(1970);
+        return aDate.compareTo(bDate);
+      });
+
+      // Convert to LedgerRowData
+      double runningBalance = openingBal;
+      final ledgerRows = <LedgerRowData>[];
+      
+      for (final tx in transactionsInRange) {
+        final txDate = tx.createdAt ?? tx.updatedAt ?? DateTime.now();
+        final type = tx.type;
+        final amount = tx.amount;
+        final metadata = tx.metadata ?? {};
+        final dmNumber = metadata['dmNumber'] ?? tx.referenceNumber;
+        final category = tx.category;
+        final description = tx.description ?? '';
+
+        // Calculate debit/credit
+        double debit = 0.0;
+        double credit = 0.0;
+        if (type == TransactionType.credit) {
+          credit = amount;
+          runningBalance += amount;
+        } else if (type == TransactionType.debit) {
+          debit = amount;
+          runningBalance -= amount;
+        }
+
+        // Get reference (DM No. for client)
+        final reference = dmNumber?.toString() ?? '-';
+
+        // Get type name
+        final typeName = _formatCategoryName(category.name);
+
+        ledgerRows.add(LedgerRowData(
+          date: txDate,
+          reference: reference,
+          debit: debit,
+          credit: credit,
+          balance: runningBalance,
+          type: typeName,
+          remarks: description.isNotEmpty ? description : '-',
+        ));
+      }
+
+      // Fetch DM settings for company header
+      final dmSettingsRepo = context.read<DmSettingsRepository>();
+      final dmSettings = await dmSettingsRepo.fetchDmSettings(organization.id);
+      if (dmSettings == null || !context.mounted) {
+        Navigator.of(context).pop(); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('DM settings not found. Please configure DM settings first.')),
+        );
+        return;
+      }
+
+      // Load logo if available
+      Uint8List? logoBytes;
+      if (dmSettings.header.logoImageUrl != null && dmSettings.header.logoImageUrl!.isNotEmpty) {
+        try {
+          final logoUrl = dmSettings.header.logoImageUrl!;
+          final response = await http.get(Uri.parse(logoUrl));
+          if (response.statusCode == 200) {
+            logoBytes = response.bodyBytes;
+          }
+        } catch (e) {
+          // Logo loading failed, continue without it
+        }
+      }
+
+      // Generate PDF
+      final pdfBytes = await generateLedgerPdf(
+        ledgerType: LedgerType.clientLedger,
+        entityName: clientName,
+        transactions: ledgerRows,
+        openingBalance: openingBal,
+        companyHeader: dmSettings.header,
+        startDate: dateRange.start,
+        endDate: dateRange.end,
+        logoBytes: logoBytes,
+      );
+
+      // Close loading dialog
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+
+      // Show PDF preview modal
+      await LedgerPdfPreviewModal.show(
+        context: context,
+        pdfBytes: pdfBytes,
+        title: 'Ledger of $clientName',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading if still open
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate ledger PDF: $e')),
+        );
+      }
+    }
+  }
+
+  String _formatCategoryName(String category) {
+    if (category.isEmpty) return '';
+    return category
+        .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
+        .split(' ')
+        .map((word) => word.isEmpty
+            ? ''
+            : word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .join(' ')
+        .trim();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Show all transactions (status field removed, transactions are deleted when cancelled)
-    final visible = transactions;
+    final visible = List<Map<String, dynamic>>.from(transactions);
     if (visible.isEmpty) {
-      return const Text(
-        'No transactions found.',
-        style: TextStyle(color: Colors.white54),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ledger',
+            style: TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'No transactions found.',
+            style: TextStyle(color: AuthColors.textSub, fontSize: 13, fontFamily: 'SF Pro Display'),
+          ),
+          const SizedBox(height: 20),
+          _LedgerSummaryFooter(
+            openingBalance: openingBalance,
+            totalDebit: 0,
+            totalCredit: 0,
+            formatCurrency: formatCurrency,
+          ),
+        ],
       );
     }
 
@@ -1340,15 +1548,18 @@ class _LedgerTable extends StatelessWidget {
         final delta = totalCredit - totalDebit;
         running += delta;
         
+        final firstDesc = (visible[i]['description'] as String?)?.trim();
         rows.add(_LedgerRowModel(
           date: earliestDate,
           dmNumber: dmNumber,
           credit: totalCredit,
           debit: totalDebit,
           balanceAfter: running,
+          type: 'Order',
+          remarks: (firstDesc != null && firstDesc.isNotEmpty) ? firstDesc : '-',
           paymentParts: parts,
         ));
-        
+
         i = j;
       } else {
         // No DM number - show as individual transaction with category
@@ -1370,41 +1581,61 @@ class _LedgerTable extends StatelessWidget {
             delta = amount;
         }
         running += delta;
-        
+
+        final desc = (tx['description'] as String?)?.trim();
         rows.add(_LedgerRowModel(
           date: date,
           dmNumber: null,
           credit: delta > 0 ? delta : 0,
           debit: delta < 0 ? -delta : 0,
           balanceAfter: running,
-          category: category, // Store category for display
+          type: _formatCategoryName(category ?? ''),
+          remarks: (desc != null && desc.isNotEmpty) ? desc : '-',
+          category: category,
         ));
         i++;
       }
     }
 
+    final totalDebit = rows.fold<double>(0, (s, r) => s + r.debit);
+    final totalCredit = rows.fold<double>(0, (s, r) => s + r.credit);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Ledger',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Ledger',
+              style: TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'SF Pro Display',
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => _generateLedgerPdf(context),
+              icon: const Icon(Icons.picture_as_pdf, size: 18),
+              label: const Text('Generate Ledger'),
+              style: TextButton.styleFrom(
+                foregroundColor: AuthColors.primary,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF131324),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
               _LedgerTableHeader(),
-              const Divider(height: 1, color: Colors.white12),
+              Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
               ...rows.map((r) => _LedgerTableRow(
                     row: r,
                     formatCurrency: formatCurrency,
@@ -1413,26 +1644,95 @@ class _LedgerTable extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 20),
+        _LedgerSummaryFooter(
+          openingBalance: openingBalance,
+          totalDebit: totalDebit,
+          totalCredit: totalCredit,
+          formatCurrency: formatCurrency,
+        ),
       ],
     );
   }
-
 }
 
 class _LedgerTableHeader extends StatelessWidget {
+  static const _labelStyle = TextStyle(
+    color: AuthColors.textSub,
+    fontSize: 13,
+    fontFamily: 'SF Pro Display',
+  );
+  static final _cellBorder = Border(
+    right: BorderSide(color: AuthColors.textMain.withOpacity(0.12), width: 1),
+  );
+
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(width: 90, child: Text('Date', style: TextStyle(color: Colors.white70, fontSize: 11))),
-          SizedBox(width: 70, child: Text('DM No.', style: TextStyle(color: Colors.white70, fontSize: 11))),
-          Expanded(child: Text('Credit', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
-          Expanded(child: Text('Debit', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
-          Expanded(child: Text('Balance', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
-        ],
-      ),
+    return Row(
+      children: [
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
+            child: Text('Date', style: _labelStyle, textAlign: TextAlign.center),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
+            child: Text('DM No.', style: _labelStyle, textAlign: TextAlign.center),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
+            child: Text('Debit', style: _labelStyle, textAlign: TextAlign.center),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
+            child: Text('Credit', style: _labelStyle, textAlign: TextAlign.center),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
+            child: Text('Balance', style: _labelStyle, textAlign: TextAlign.center),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
+            child: Text('Type', style: _labelStyle, textAlign: TextAlign.center),
+          ),
+        ),
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            alignment: Alignment.center,
+            child: Text('Remarks', style: _labelStyle, textAlign: TextAlign.center),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1448,94 +1748,109 @@ class _LedgerTableRow extends StatelessWidget {
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
 
+  static const _cellStyle = TextStyle(
+    color: AuthColors.textMain,
+    fontSize: 13,
+    fontFamily: 'SF Pro Display',
+  );
+  static const _badgeStyle = TextStyle(
+    fontWeight: FontWeight.w600,
+    fontSize: 12,
+    fontFamily: 'SF Pro Display',
+  );
+  static final _cellBorder = Border(
+    right: BorderSide(color: AuthColors.textMain.withOpacity(0.12), width: 1),
+  );
+
   Color _accountColor(String type) {
     switch (type.toLowerCase()) {
       case 'upi':
-        return Colors.blueAccent;
+        return AuthColors.info;
       case 'bank':
-        return Colors.purpleAccent;
+        return AuthColors.accentPurple;
       case 'cash':
-        return Colors.greenAccent;
+        return AuthColors.success;
       default:
-        return Colors.white70;
+        return AuthColors.textSub;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-          SizedBox(
-            width: 90,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
             child: Text(
               formatDate(row.date),
-              style: const TextStyle(color: Colors.white, fontSize: 11),
+              style: _cellStyle,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(
-            width: 70,
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
             child: row.dmNumber != null
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.15),
+                      color: AuthColors.info.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       'DM-${row.dmNumber}',
-                      style: const TextStyle(
-                        color: Colors.blueAccent,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: _badgeStyle.copyWith(color: AuthColors.info),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   )
                 : row.category != null
                     ? Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.15),
+                          color: AuthColors.accentPurple.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          _formatCategoryName(row.category),
-                          style: const TextStyle(
-                            color: Colors.purpleAccent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          _formatCategoryName(row.category!),
+                          style: _badgeStyle.copyWith(color: AuthColors.accentPurple),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       )
-                    : const Text(
-                        '-',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
+                    : Text('-', style: _cellStyle.copyWith(color: AuthColors.textSub), textAlign: TextAlign.center),
           ),
-          Expanded(
-            child: Text(
-              row.credit > 0 ? formatCurrency(row.credit) : '-',
-              style: const TextStyle(color: Colors.white, fontSize: 11),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          Expanded(
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
             child: row.debit > 0
                 ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
-                        formatCurrency(row.debit),
-                        style: const TextStyle(color: Colors.white, fontSize: 11),
-                        textAlign: TextAlign.right,
-                      ),
+                      Text(formatCurrency(row.debit), style: _cellStyle, textAlign: TextAlign.center),
                       if (row.paymentParts.isNotEmpty)
                         Wrap(
                           spacing: 4,
                           runSpacing: 4,
-                          alignment: WrapAlignment.end,
+                          alignment: WrapAlignment.center,
                           children: row.paymentParts
                               .map((p) => Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -1545,173 +1860,158 @@ class _LedgerTableRow extends StatelessWidget {
                                     ),
                                     child: Text(
                                       formatCurrency(p.amount),
-                                      style: TextStyle(
-                                        color: _accountColor(p.accountType),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: _badgeStyle.copyWith(color: _accountColor(p.accountType)),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ))
                               .toList(),
                         ),
                     ],
                   )
-                : const Text('-', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right),
+                : Text('-', style: _cellStyle.copyWith(color: AuthColors.textSub), textAlign: TextAlign.center),
           ),
-          Expanded(
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
             child: Text(
-              formatCurrency(row.balanceAfter),
-              style: TextStyle(
-                color: row.balanceAfter >= 0 ? Colors.orangeAccent : Colors.greenAccent,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.right,
+              row.credit > 0 ? formatCurrency(row.credit) : '-',
+              style: _cellStyle,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-        ],
-      ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
+            child: Text(
+              formatCurrency(row.balanceAfter),
+              style: _cellStyle.copyWith(
+                color: row.balanceAfter >= 0 ? AuthColors.warning : AuthColors.success,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(border: _cellBorder),
+            alignment: Alignment.center,
+            child: Text(
+              row.type.isEmpty ? '-' : row.type,
+              style: _cellStyle,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            alignment: Alignment.center,
+            child: Text(
+              row.remarks,
+              style: _cellStyle,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _LedgerBalanceCard extends StatelessWidget {
-  const _LedgerBalanceCard({
-    required this.ledger,
+class _LedgerSummaryFooter extends StatelessWidget {
+  const _LedgerSummaryFooter({
+    required this.openingBalance,
+    required this.totalDebit,
+    required this.totalCredit,
     required this.formatCurrency,
   });
 
-  final Map<String, dynamic> ledger;
+  final double openingBalance;
+  final double totalDebit;
+  final double totalCredit;
   final String Function(double) formatCurrency;
 
+  static const _footerLabelStyle = TextStyle(
+    color: AuthColors.textSub,
+    fontSize: 13,
+    fontFamily: 'SF Pro Display',
+  );
+  static const _footerValueStyle = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    fontFamily: 'SF Pro Display',
+  );
+
   @override
   Widget build(BuildContext context) {
-    final currentBalance = (ledger['currentBalance'] as num?)?.toDouble() ?? 0.0;
-    final totalIncome = (ledger['totalIncome'] as num?)?.toDouble() ?? 0.0;
-    final totalReceivables = (ledger['totalReceivables'] as num?)?.toDouble() ?? 0.0;
-
-    final isReceivable = currentBalance > 0;
-    final isPayable = currentBalance < 0;
-
-    Color badgeColor() {
-      if (isReceivable) return Colors.orangeAccent;
-      if (isPayable) return Colors.greenAccent;
-      return Colors.white70;
-    }
-
-    String badgeText() {
-      if (isReceivable) return 'Client owes us';
-      if (isPayable) return 'We owe client';
-      return 'Settled';
-    }
-
+    final currentBalance = openingBalance + totalCredit - totalDebit;
     return Container(
-      padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-        color: const Color(0xFF131324),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-          ),
-          child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Ledger',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: badgeColor().withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: badgeColor().withOpacity(0.6)),
-                ),
-                child: Text(
-                  badgeText(),
-                  style: TextStyle(
-                    color: badgeColor(),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _LedgerRow(label: 'Current Balance', value: formatCurrency(currentBalance.abs())),
-          _LedgerRow(label: 'Total Income', value: formatCurrency(totalIncome)),
-          _LedgerRow(label: 'Total Receivables', value: formatCurrency(totalReceivables)),
-          if (ledger['dmNumbers'] != null &&
-              (ledger['dmNumbers'] as List).isNotEmpty) ...[
-            const SizedBox(height: 10),
-              const Text(
-              'DM Numbers',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: (ledger['dmNumbers'] as List)
-                  .map((dm) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white.withOpacity(0.15)),
-                        ),
-                        child: Text(
-                          'DM-$dm',
-                          style: const TextStyle(color: Colors.white, fontSize: 11),
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ],
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
-    );
-  }
-}
-
-class _LedgerRow extends StatelessWidget {
-  const _LedgerRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Opening Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(openingBalance), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
             ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Total Debit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(totalDebit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Total Credit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(totalCredit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Current Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(currentBalance), style: _footerValueStyle.copyWith(color: AuthColors.success), textAlign: TextAlign.center),
+            ],
+          ),
+        ],
       ),
     );
   }

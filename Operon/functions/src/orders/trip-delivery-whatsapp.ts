@@ -35,7 +35,7 @@ async function sendTripDeliveryMessage(
   },
 ): Promise<void> {
   const settings = await loadWhatsappSettings(organizationId);
-  if (!settings) {
+  if (!settings?.tripDeliveryTemplateId) {
     logWarning('Trip/WhatsApp', 'sendTripDeliveryMessage', 'Skipping send – no settings or disabled', {
       tripId,
       organizationId,
@@ -95,7 +95,7 @@ async function sendTripDeliveryMessage(
     url,
     settings.token,
     to,
-    settings.tripDeliveryTemplateId,
+    settings.tripDeliveryTemplateId!,
     settings.languageCode ?? 'en',
     parameters,
     'trip-delivery',
@@ -118,11 +118,21 @@ export const onTripDeliveredSendWhatsapp = functions.firestore
     const after = change.after.data();
 
     // Only proceed if trip status changed to 'delivered'
-    const beforeStatus = before.tripStatus as string | undefined;
-    const afterStatus = after.tripStatus as string | undefined;
+    const beforeStatus = (before.tripStatus as string | undefined)?.toLowerCase();
+    const afterStatus = (after.tripStatus as string | undefined)?.toLowerCase();
 
     if (beforeStatus === afterStatus || afterStatus !== 'delivered') {
       logInfo('Trip/WhatsApp', 'onTripDeliveredSendWhatsapp', 'Trip status not changed to delivered, skipping', {
+        tripId,
+        beforeStatus,
+        afterStatus,
+      });
+      return;
+    }
+
+    // Do not send when return is reverted (returned → delivered)
+    if (beforeStatus === 'returned' && afterStatus === 'delivered') {
+      logInfo('Trip/WhatsApp', 'onTripDeliveredSendWhatsapp', 'Trip return reverted, skipping WhatsApp', {
         tripId,
         beforeStatus,
         afterStatus,

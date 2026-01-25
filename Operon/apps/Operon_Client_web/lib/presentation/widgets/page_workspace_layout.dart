@@ -42,53 +42,83 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
   bool _isSettingsOpen = false;
 
   Widget _buildHeader(BuildContext context) {
-    if (widget.hideTitle) {
-      return Row(
-        children: [
-          IconButton(
-            onPressed: widget.onBack ??
-                () {
-                  if (context.canPop()) {
-                    context.pop();
-                  }
-                },
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              color: Colors.white70,
-            ),
-          ),
-        ],
-      );
+    void handleBack() {
+      if (widget.onBack != null) {
+        widget.onBack!();
+      } else {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
+      }
     }
-    return Row(
-      children: [
-        IconButton(
-          onPressed: widget.onBack ??
-              () {
-                if (context.canPop()) {
-                  context.pop();
-                }
-              },
-          icon: const Icon(
-            Icons.arrow_back_ios_new,
-            color: Colors.white70,
-          ),
-        ),
-        Expanded(
-          child: Text(
-            widget.title,
-            textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+
+    // Match Android ModernPageHeader: AuthColors.primary, white icon/title
+    const iconColor = Colors.white;
+    const iconSize = 20.0;
+    const titleStyle = TextStyle(
+      fontSize: 20.0,
+      fontWeight: FontWeight.w700,
+      color: Colors.white,
+      height: 1.3,
+    );
+
+    return Container(
+      height: 72,
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: AuthColors.primary,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: widget.hideTitle
+            ? Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  onPressed: handleBack,
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: iconColor,
+                    size: iconSize,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 56,
+                    minHeight: 56,
+                  ),
                 ),
-          ),
-        ),
-        const SizedBox(width: 48), // Balance for icon button
-      ],
+              )
+            : Center(
+                child: Row(
+                  children: [
+                    IconButton(
+                      onPressed: handleBack,
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: iconColor,
+                        size: iconSize,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 56,
+                        minHeight: 56,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: titleStyle,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 
@@ -248,8 +278,6 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                 },
                 showUsers: canManageUsers,
                 onOpenUsers: canManageUsers ? () => context.go('/users') : null,
-                showGeofences: canManageGeofences,
-                onOpenGeofences: canManageGeofences ? () => context.go('/locations-geofences') : null,
                 onOpenNotifications: () => context.go('/notifications'),
                 onLogout: () {
                   context.read<AuthBloc>().add(const AuthReset());
@@ -268,9 +296,11 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                 canManageRoles: isAdminRole,
                 canManageProducts:
                     appAccessRole?.canCreate('products') ?? isAdminRole,
+                canManageGeofences: canManageGeofences,
                 onClose: () => setState(() => _isSettingsOpen = false),
                 onOpenRoles: () => context.go('/roles'),
                 onOpenProducts: () => context.go('/products'),
+                onOpenGeofences: () => context.go('/locations-geofences'),
                 onOpenPaymentAccounts:
                     isAdminRole ? () => context.go('/payment-accounts') : null,
               ),
@@ -583,8 +613,6 @@ class _ProfileSideSheet extends StatelessWidget {
     required this.onChangeOrg,
     this.showUsers = false,
     this.onOpenUsers,
-    this.showGeofences = false,
-    this.onOpenGeofences,
     this.onOpenNotifications,
     required this.onLogout,
   });
@@ -596,8 +624,6 @@ class _ProfileSideSheet extends StatelessWidget {
   final VoidCallback onChangeOrg;
   final bool showUsers;
   final VoidCallback? onOpenUsers;
-  final bool showGeofences;
-  final VoidCallback? onOpenGeofences;
   final VoidCallback? onOpenNotifications;
   final VoidCallback onLogout;
 
@@ -723,15 +749,6 @@ class _ProfileSideSheet extends StatelessWidget {
                     onOpenUsers?.call();
                   },
                 ),
-              if (showGeofences)
-                _ProfileAction(
-                  icon: Icons.location_on_outlined,
-                  label: 'Locations & Geofences',
-                  onTap: () {
-                    onClose();
-                    onOpenGeofences?.call();
-                  },
-                ),
               _ProfileAction(
                 icon: Icons.notifications_outlined,
                 label: 'Notifications',
@@ -764,17 +781,21 @@ class _SettingsSideSheet extends StatelessWidget {
   const _SettingsSideSheet({
     required this.canManageRoles,
     required this.canManageProducts,
+    required this.canManageGeofences,
     required this.onClose,
     required this.onOpenRoles,
     required this.onOpenProducts,
+    required this.onOpenGeofences,
     this.onOpenPaymentAccounts,
   });
 
   final bool canManageRoles;
   final bool canManageProducts;
+  final bool canManageGeofences;
   final VoidCallback onClose;
   final VoidCallback onOpenRoles;
   final VoidCallback onOpenProducts;
+  final VoidCallback onOpenGeofences;
   final VoidCallback? onOpenPaymentAccounts;
 
   @override
@@ -842,6 +863,20 @@ class _SettingsSideSheet extends StatelessWidget {
                   onOpenProducts();
                 },
               ),
+              const SizedBox(height: 12),
+              if (canManageGeofences)
+                _SettingsTile(
+                  label: 'Locations & Geofences',
+                  onTap: () {
+                    onClose();
+                    onOpenGeofences();
+                  },
+                )
+              else
+                const Text(
+                  'Locations & Geofences available for admins only.',
+                  style: TextStyle(color: Colors.white38),
+                ),
               const SizedBox(height: 12),
               if (onOpenPaymentAccounts != null)
                 _SettingsTile(

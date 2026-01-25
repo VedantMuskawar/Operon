@@ -118,7 +118,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
   }
 
-  Future<void> _dispatchTrip(BuildContext context, double initialReading) async {
+  Future<void> _dispatchTrip(BuildContext context, double? initialReading) async {
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
       if (context.mounted) {
@@ -174,7 +174,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       setState(() {
         _trip['orderStatus'] = 'dispatched';
         _trip['tripStatus'] = 'dispatched';
-        _trip['initialReading'] = initialReading;
+        if (initialReading != null) _trip['initialReading'] = initialReading;
         _trip['dispatchedAt'] = DateTime.now();
         _trip['dispatchedBy'] = currentUser.uid;
         _trip['dispatchedByRole'] = userRole;
@@ -1087,7 +1087,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final isReturned = tripStatus.toLowerCase() == 'returned';
     final isPending = tripStatus.toLowerCase() == 'pending' || tripStatus.toLowerCase() == 'scheduled';
     final hasDM = dmNumber != null;
-    
+    final meterType = _trip['meterType'] as String?;
+    final askMeterReadings = meterType == 'KM';
+
     return _InfoCard(
       title: 'Trip Status',
                               children: [
@@ -1147,10 +1149,12 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
               onChanged: (isPending || isDispatched) && !isDelivered && hasDM
                   ? (value) async {
                       if (value) {
-                        // Dispatch - show initial reading dialog
-                        await _showInitialReadingDialog(context);
+                        if (askMeterReadings) {
+                          await _showInitialReadingDialog(context);
+                        } else {
+                          await _dispatchTrip(context, null);
+                        }
                       } else {
-                        // Revert dispatch
                         await _revertDispatch(context);
                       }
                     }
@@ -1212,8 +1216,11 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                 onChanged: isDelivered && !isReturned
                     ? (value) async {
                         if (value) {
-                          // Return - show final reading dialog
-                          await _showFinalReadingDialog(context);
+                          if (askMeterReadings) {
+                            await _showFinalReadingDialog(context);
+                          } else {
+                            await _markAsReturned(context, null);
+                          }
                         }
                       }
                     : isReturned
@@ -1576,7 +1583,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
   }
 
-  Future<void> _markAsReturned(BuildContext context, double finalReading) async {
+  Future<void> _markAsReturned(BuildContext context, double? finalReading) async {
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
       if (context.mounted) {
@@ -1609,26 +1616,28 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       return;
     }
 
-    // Get initial reading to calculate distance
-    final initialReading = _trip['initialReading'] as double?;
-    if (initialReading == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Initial reading not found. Cannot calculate distance.')),
-        );
+    // When meterType is KM we have finalReading; compute distance. Otherwise skip.
+    double? distanceTravelled;
+    if (finalReading != null) {
+      final initialReading = _trip['initialReading'] as double?;
+      if (initialReading == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Initial reading not found. Cannot calculate distance.')),
+          );
+        }
+        return;
       }
-      return;
-    }
-
-    // Calculate distance travelled
-    final distanceTravelled = finalReading - initialReading;
-    if (distanceTravelled < 0) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Final reading cannot be less than initial reading')),
-        );
+      final d = finalReading - initialReading;
+      distanceTravelled = d;
+      if (d < 0) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Final reading cannot be less than initial reading')),
+          );
+        }
+        return;
       }
-      return;
     }
 
     // Pricing and payments
@@ -1797,8 +1806,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       setState(() {
         _trip['orderStatus'] = 'returned';
         _trip['tripStatus'] = 'returned';
-        _trip['finalReading'] = finalReading;
-        _trip['distanceTravelled'] = distanceTravelled;
+        if (finalReading != null) _trip['finalReading'] = finalReading;
+        if (distanceTravelled != null) _trip['distanceTravelled'] = distanceTravelled;
         _trip['returnedAt'] = DateTime.now();
         _trip['returnedBy'] = currentUser.uid;
         _trip['returnedByRole'] = userRole;
@@ -1817,7 +1826,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Trip marked as returned. Distance: ${distanceTravelled.toStringAsFixed(2)} km',
+            distanceTravelled != null
+                ? 'Trip marked as returned. Distance: ${distanceTravelled.toStringAsFixed(2)} km'
+                : 'Trip marked as returned.',
           ),
         ),
       );

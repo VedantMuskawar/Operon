@@ -40,7 +40,7 @@ async function sendTripDispatchMessage(
   },
 ): Promise<void> {
   const settings = await loadWhatsappSettings(organizationId);
-  if (!settings) {
+  if (!settings?.tripDispatchTemplateId) {
     logWarning('Trip/WhatsApp', 'sendTripDispatchMessage', 'Skipping send – no settings or disabled', {
       tripId,
       organizationId,
@@ -125,7 +125,7 @@ async function sendTripDispatchMessage(
     url,
     settings.token,
     to,
-    settings.tripDispatchTemplateId,
+    settings.tripDispatchTemplateId!,
     settings.languageCode ?? 'en',
     parameters,
     'trip-dispatch',

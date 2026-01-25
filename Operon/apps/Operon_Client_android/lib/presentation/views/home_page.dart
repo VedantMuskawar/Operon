@@ -11,7 +11,7 @@ import 'package:dash_mobile/presentation/views/home_sections/pending_orders_view
 import 'package:dash_mobile/presentation/views/home_sections/schedule_orders_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/orders_map_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/attendance_view.dart';
-import 'package:dash_mobile/presentation/widgets/permissions_section.dart';
+import 'package:dash_mobile/presentation/widgets/caller_id_switch_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -542,15 +542,7 @@ class _HomeProfileDrawer extends StatelessWidget {
                 Future.microtask(() => context.go('/users'));
               }
             : null,
-        onOpenPermissions: () {
-          Scaffold.of(context).closeDrawer();
-          Future.microtask(() {
-            showDialog(
-              context: context,
-              builder: (context) => const PermissionsDialog(),
-            );
-          });
-        },
+        trailingSection: const CallerIdSwitchSection(),
       ),
     );
   }

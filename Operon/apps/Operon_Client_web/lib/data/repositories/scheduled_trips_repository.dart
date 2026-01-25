@@ -30,6 +30,7 @@ class ScheduledTripsRepository {
     required String createdBy,
     int? itemIndex,
     String? productId,
+    String? meterType,
   }) {
     return _dataSource.createScheduledTrip(
       organizationId: organizationId,
@@ -55,6 +56,7 @@ class ScheduledTripsRepository {
       createdBy: createdBy,
       itemIndex: itemIndex,
       productId: productId,
+      meterType: meterType,
     );
   }
 

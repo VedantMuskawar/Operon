@@ -1,11 +1,20 @@
+import 'dart:typed_data';
+
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
+import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal, LedgerPdfPreviewModal;
+import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, generateLedgerPdf, LedgerRowData;
+import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
+import 'package:dash_web/data/utils/financial_year_utils.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/domain/entities/wage_type.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/detail_modal_base.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:http/http.dart' as http;
 
 /// Modal dialog for displaying employee details
 class EmployeeDetailModal extends StatefulWidget {
@@ -642,16 +651,16 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
       final organization = orgState.organization;
 
       if (organization == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            'No organization selected',
-            style: TextStyle(color: Colors.white.withOpacity(0.7)),
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'No organization selected',
+              style: TextStyle(color: AuthColors.textSub),
+            ),
           ),
-        ),
-      );
-    }
+        );
+      }
 
     final repository = context.read<EmployeeWagesRepository>();
 
@@ -668,7 +677,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                 transactionsSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(
                 child: CircularProgressIndicator(
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.primary,
                 ),
               );
             }
@@ -683,13 +692,13 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                       Icon(
                         Icons.error_outline,
                         size: 48,
-                        color: Colors.red.withOpacity(0.7),
+                        color: AuthColors.error,
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'Failed to load ledger: ${ledgerSnapshot.error ?? transactionsSnapshot.error}',
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: AuthColors.textSub,
                           fontSize: 14,
                         ),
                         textAlign: TextAlign.center,
@@ -700,65 +709,18 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
               );
             }
 
-            final ledger = ledgerSnapshot.data;
             final transactions = transactionsSnapshot.data ?? [];
-
-            if (transactions.isEmpty && ledger == null) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.receipt_long_outlined,
-                          size: 64,
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'No Transactions',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No ledger entries found for this employee',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _LedgerBalanceCard(
-                    employee: widget.employee,
-                    ledger: ledger,
-                    formatCurrency: _formatCurrency,
-                  ),
-                  const SizedBox(height: 20),
-                  _LedgerTable(
-                    transactions: transactions,
-                    formatCurrency: _formatCurrency,
-                    formatDate: _formatDate,
-                  ),
-                ],
+              child: _LedgerTable(
+                openingBalance: widget.employee.openingBalance,
+                transactions: transactions,
+                formatCurrency: _formatCurrency,
+                formatDate: _formatDate,
+                employeeId: widget.employee.id,
+                employeeName: widget.employee.name,
+                storedOpeningBalance: widget.employee.openingBalance,
               ),
             );
           },
@@ -795,182 +757,289 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
   }
 }
 
-class _LedgerBalanceCard extends StatelessWidget {
-  const _LedgerBalanceCard({
-    required this.employee,
-    required this.ledger,
-    required this.formatCurrency,
-  });
-
-  final OrganizationEmployee employee;
-  final Map<String, dynamic>? ledger;
-  final String Function(double) formatCurrency;
-
-  @override
-  Widget build(BuildContext context) {
-    // Use ledger data if available, otherwise fall back to employee data
-    final currentBalance = (ledger?['currentBalance'] as num?)?.toDouble() ?? employee.currentBalance;
-    final openingBalance = employee.openingBalance;
-    final totalCredited = (ledger?['totalCredited'] as num?)?.toDouble() ?? (currentBalance - openingBalance);
-    final isReceivable = currentBalance > 0;
-    final isPayable = currentBalance < 0;
-
-    Color badgeColor() {
-      if (isReceivable) return Colors.orangeAccent;
-      if (isPayable) return Colors.greenAccent;
-      return Colors.white70;
-    }
-
-    String badgeText() {
-      if (isReceivable) return 'Employee owes us';
-      if (isPayable) return 'We owe employee';
-      return 'Settled';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF131324),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Ledger',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: badgeColor().withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: badgeColor().withOpacity(0.6)),
-                ),
-                child: Text(
-                  badgeText(),
-                  style: TextStyle(
-                    color: badgeColor(),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _LedgerRow(label: 'Current Balance', value: formatCurrency(currentBalance.abs())),
-          _LedgerRow(label: 'Opening Balance', value: formatCurrency(openingBalance)),
-          _LedgerRow(label: 'Total Credited', value: formatCurrency(totalCredited)),
-        ],
-      ),
-    );
-  }
-}
-
-class _LedgerRow extends StatelessWidget {
-  const _LedgerRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+String _formatCategoryName(String? category) {
+  if (category == null || category.isEmpty) return '';
+  return category
+      .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
+      .split(' ')
+      .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1).toLowerCase())
+      .join(' ')
+      .trim();
 }
 
 class _LedgerTable extends StatelessWidget {
   const _LedgerTable({
+    required this.openingBalance,
     required this.transactions,
     required this.formatCurrency,
     required this.formatDate,
+    required this.employeeId,
+    required this.employeeName,
+    required this.storedOpeningBalance,
   });
 
+  final double openingBalance;
   final List<Map<String, dynamic>> transactions;
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
+  final String employeeId;
+  final String employeeName;
+  final double storedOpeningBalance;
+
+  Future<void> _generateLedgerPdf(BuildContext context) async {
+    try {
+      // Show date range picker
+      final dateRange = await showLedgerDateRangeModal(context);
+      if (dateRange == null) return; // User cancelled
+
+      // Show loading indicator
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Get organization ID
+      final orgContext = context.read<OrganizationContextCubit>().state;
+      final organization = orgContext.organization;
+      if (organization == null || !context.mounted) {
+        Navigator.of(context).pop(); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No organization selected')),
+        );
+        return;
+      }
+
+      // Fetch all transactions for opening balance calculation
+      final employeeWagesDataSource = EmployeeWagesDataSource();
+      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
+      final allTransactions = await employeeWagesDataSource.fetchEmployeeTransactions(
+        organizationId: organization.id,
+        employeeId: employeeId,
+        financialYear: financialYear,
+      );
+
+      // Calculate opening balance for date range
+      // Use stored opening balance if no transactions before start date
+      final openingBal = calculateOpeningBalance(
+        allTransactions: allTransactions,
+        startDate: dateRange.start,
+        storedOpeningBalance: storedOpeningBalance,
+      );
+
+      // Filter transactions in date range
+      final transactionsInRange = allTransactions.where((tx) {
+        final txDate = tx.createdAt ?? tx.updatedAt;
+        if (txDate == null) return false;
+        return txDate.isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
+               txDate.isBefore(dateRange.end.add(const Duration(days: 1)));
+      }).toList();
+
+      // Sort chronologically
+      transactionsInRange.sort((a, b) {
+        final aDate = a.createdAt ?? a.updatedAt ?? DateTime(1970);
+        final bDate = b.createdAt ?? b.updatedAt ?? DateTime(1970);
+        return aDate.compareTo(bDate);
+      });
+
+      // Convert to LedgerRowData
+      double runningBalance = openingBal;
+      final ledgerRows = <LedgerRowData>[];
+      
+      for (final tx in transactionsInRange) {
+        final txDate = tx.createdAt ?? tx.updatedAt ?? DateTime.now();
+        final type = tx.type;
+        final amount = tx.amount;
+        final description = tx.description ?? '';
+
+        // Calculate debit/credit
+        double debit = 0.0;
+        double credit = 0.0;
+        if (type == TransactionType.credit) {
+          credit = amount;
+          runningBalance += amount;
+        } else if (type == TransactionType.debit) {
+          debit = amount;
+          runningBalance -= amount;
+        }
+
+        // Get reference (Batch/Trip from description for employee)
+        final reference = description.isNotEmpty ? description : '-';
+
+        // Get type name
+        final typeName = _formatCategoryName(tx.category.name);
+
+        ledgerRows.add(LedgerRowData(
+          date: txDate,
+          reference: reference,
+          debit: debit,
+          credit: credit,
+          balance: runningBalance,
+          type: typeName,
+          remarks: '-',
+        ));
+      }
+
+      // Fetch DM settings for company header
+      final dmSettingsRepo = context.read<DmSettingsRepository>();
+      final dmSettings = await dmSettingsRepo.fetchDmSettings(organization.id);
+      if (dmSettings == null || !context.mounted) {
+        Navigator.of(context).pop(); // Close loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('DM settings not found. Please configure DM settings first.')),
+        );
+        return;
+      }
+
+      // Load logo if available
+      Uint8List? logoBytes;
+      if (dmSettings.header.logoImageUrl != null && dmSettings.header.logoImageUrl!.isNotEmpty) {
+        try {
+          final logoUrl = dmSettings.header.logoImageUrl!;
+          final response = await http.get(Uri.parse(logoUrl));
+          if (response.statusCode == 200) {
+            logoBytes = response.bodyBytes;
+          }
+        } catch (e) {
+          // Logo loading failed, continue without it
+        }
+      }
+
+      // Generate PDF
+      final pdfBytes = await generateLedgerPdf(
+        ledgerType: LedgerType.employeeLedger,
+        entityName: employeeName,
+        transactions: ledgerRows,
+        openingBalance: openingBal,
+        companyHeader: dmSettings.header,
+        startDate: dateRange.start,
+        endDate: dateRange.end,
+        logoBytes: logoBytes,
+      );
+
+      // Close loading dialog
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+
+      // Show PDF preview modal
+      await LedgerPdfPreviewModal.show(
+        context: context,
+        pdfBytes: pdfBytes,
+        title: 'Ledger of $employeeName',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close loading if still open
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate ledger PDF: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    var totalDebit = 0.0;
+    var totalCredit = 0.0;
+    for (final tx in transactions) {
+      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
+      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      final isCredit = type == 'credit';
+      if (isCredit) {
+        totalCredit += amount;
+      } else {
+        totalDebit += amount;
+      }
+    }
+
     if (transactions.isEmpty) {
-      return const Text(
-        'No transactions found.',
-        style: TextStyle(color: Colors.white54),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ledger',
+            style: TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'SF Pro Display',
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'No transactions found.',
+            style: TextStyle(color: AuthColors.textSub, fontSize: 13, fontFamily: 'SF Pro Display'),
+          ),
+          const SizedBox(height: 20),
+          _LedgerSummaryFooter(
+            openingBalance: openingBalance,
+            totalDebit: 0,
+            totalCredit: 0,
+            formatCurrency: formatCurrency,
+          ),
+        ],
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Ledger',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Ledger',
+              style: TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'SF Pro Display',
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => _generateLedgerPdf(context),
+              icon: const Icon(Icons.picture_as_pdf, size: 18),
+              label: const Text('Generate Ledger'),
+              style: TextButton.styleFrom(
+                foregroundColor: AuthColors.primary,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF131324),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
               _LedgerTableHeader(),
-              const Divider(height: 1, color: Colors.white12),
+              Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
               ...transactions.map((tx) {
                 final type = tx['type'] as String? ?? 'credit';
                 final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
                 final balanceAfter = (tx['balanceAfter'] as num?)?.toDouble() ?? 0.0;
                 final date = tx['transactionDate'] ?? tx['createdAt'];
-                final referenceNumber = tx['referenceNumber'] as String? ?? tx['metadata']?['invoiceNumber'] as String? ?? '-';
-                
+                final desc = (tx['description'] as String?)?.trim();
+                final batchTrip = (desc != null && desc.isNotEmpty) ? desc : '-';
+                final category = tx['category'] as String?;
                 final isCredit = type == 'credit';
                 final credit = isCredit ? amount : 0.0;
                 final debit = !isCredit ? amount : 0.0;
 
                 return _LedgerTableRow(
                   date: date,
-                  reference: referenceNumber,
-                  credit: credit,
+                  batchTrip: batchTrip,
                   debit: debit,
+                  credit: credit,
                   balance: balanceAfter,
+                  type: _formatCategoryName(category),
+                  remarks: '-',
                   formatCurrency: formatCurrency,
                   formatDate: formatDate,
                 );
@@ -978,25 +1047,56 @@ class _LedgerTable extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 20),
+        _LedgerSummaryFooter(
+          openingBalance: openingBalance,
+          totalDebit: totalDebit,
+          totalCredit: totalCredit,
+          formatCurrency: formatCurrency,
+        ),
       ],
     );
   }
 }
 
 class _LedgerTableHeader extends StatelessWidget {
+  static const _labelStyle = TextStyle(
+    color: AuthColors.textSub,
+    fontSize: 13,
+    fontFamily: 'SF Pro Display',
+  );
+  static final _cellBorder = Border(
+    right: BorderSide(color: AuthColors.textMain.withOpacity(0.12), width: 1),
+  );
+
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          SizedBox(width: 90, child: Text('Date', style: TextStyle(color: Colors.white70, fontSize: 11))),
-          SizedBox(width: 70, child: Text('Reference', style: TextStyle(color: Colors.white70, fontSize: 11))),
-          Expanded(child: Text('Credit', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
-          Expanded(child: Text('Debit', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
-          Expanded(child: Text('Balance', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
-        ],
-      ),
+    return Row(
+      children: [
+        Expanded(flex: 1, child: _borderedCell('Date')),
+        Expanded(flex: 1, child: _borderedCell('Batch/Trip')),
+        Expanded(flex: 1, child: _borderedCell('Debit')),
+        Expanded(flex: 1, child: _borderedCell('Credit')),
+        Expanded(flex: 1, child: _borderedCell('Balance')),
+        Expanded(flex: 1, child: _borderedCell('Type')),
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+            alignment: Alignment.center,
+            child: Text('Remarks', style: _labelStyle, textAlign: TextAlign.center),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _borderedCell(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(border: _cellBorder),
+      alignment: Alignment.center,
+      child: Text(label, style: _labelStyle, textAlign: TextAlign.center),
     );
   }
 }
@@ -1004,68 +1104,139 @@ class _LedgerTableHeader extends StatelessWidget {
 class _LedgerTableRow extends StatelessWidget {
   const _LedgerTableRow({
     required this.date,
-    required this.reference,
-    required this.credit,
+    required this.batchTrip,
     required this.debit,
+    required this.credit,
     required this.balance,
+    required this.type,
+    required this.remarks,
     required this.formatCurrency,
     required this.formatDate,
   });
 
   final dynamic date;
-  final String reference;
-  final double credit;
+  final String batchTrip;
   final double debit;
+  final double credit;
   final double balance;
+  final String type;
+  final String remarks;
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
 
+  static const _cellStyle = TextStyle(
+    color: AuthColors.textMain,
+    fontSize: 13,
+    fontFamily: 'SF Pro Display',
+  );
+  static final _cellBorder = Border(
+    right: BorderSide(color: AuthColors.textMain.withOpacity(0.12), width: 1),
+  );
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    return Row(
+      children: [
+        Expanded(flex: 1, child: _cell(Text(formatDate(date), style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
+        Expanded(flex: 1, child: _cell(Text(batchTrip, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
+        Expanded(flex: 1, child: _cell(Text(debit > 0 ? formatCurrency(debit) : '-', style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
+        Expanded(flex: 1, child: _cell(Text(credit > 0 ? formatCurrency(credit) : '-', style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
+        Expanded(flex: 1, child: _cell(Text(formatCurrency(balance), style: _cellStyle.copyWith(color: balance >= 0 ? AuthColors.warning : AuthColors.success, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
+        Expanded(flex: 1, child: _cell(Text(type.isEmpty ? '-' : type, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
+        Expanded(
+          flex: 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            alignment: Alignment.center,
+            child: Text(remarks, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _cell(Widget child) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(border: _cellBorder),
+      alignment: Alignment.center,
+      child: child,
+    );
+  }
+}
+
+class _LedgerSummaryFooter extends StatelessWidget {
+  const _LedgerSummaryFooter({
+    required this.openingBalance,
+    required this.totalDebit,
+    required this.totalCredit,
+    required this.formatCurrency,
+  });
+
+  final double openingBalance;
+  final double totalDebit;
+  final double totalCredit;
+  final String Function(double) formatCurrency;
+
+  static const _footerLabelStyle = TextStyle(
+    color: AuthColors.textSub,
+    fontSize: 13,
+    fontFamily: 'SF Pro Display',
+  );
+  static const _footerValueStyle = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    fontFamily: 'SF Pro Display',
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final currentBalance = openingBalance + totalCredit - totalDebit;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              formatDate(date),
-              style: const TextStyle(color: Colors.white, fontSize: 11),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Opening Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(openingBalance), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+            ],
           ),
-          SizedBox(
-            width: 70,
-            child: Text(
-              reference,
-              style: const TextStyle(color: Colors.white70, fontSize: 11),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Total Debit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(totalDebit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+            ],
           ),
-          Expanded(
-            child: Text(
-              credit > 0 ? formatCurrency(credit) : '-',
-              style: const TextStyle(color: Colors.white, fontSize: 11),
-              textAlign: TextAlign.right,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Total Credit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(totalCredit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+            ],
           ),
-          Expanded(
-            child: Text(
-              debit > 0 ? formatCurrency(debit) : '-',
-              style: const TextStyle(color: Colors.white, fontSize: 11),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              formatCurrency(balance),
-              style: TextStyle(
-                color: balance >= 0 ? Colors.orangeAccent : Colors.greenAccent,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.right,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Current Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(currentBalance), style: _footerValueStyle.copyWith(color: AuthColors.success), textAlign: TextAlign.center),
+            ],
           ),
         ],
       ),

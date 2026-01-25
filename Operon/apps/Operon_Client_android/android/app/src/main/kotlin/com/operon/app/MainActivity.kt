@@ -1,108 +1,65 @@
 package com.operonclientandroid.app
 
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import android.content.Intent
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val CALL_DETECTION_CHANNEL = "call_detection"
-    private val CALL_OVERLAY_CHANNEL = "call_overlay"
-    private var callDetectionHandler: CallDetectionHandler? = null
-    private var overlayHandler: OverlayHandler? = null
+
+    companion object {
+        private const val TAG = "CallerOverlay"
+        private const val CHANNEL = "operon.app/caller_overlay"
+    }
+
+    private var pendingIncomingPhone: String? = null
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        pendingIncomingPhone = intent?.getStringExtra(CallDetectionReceiver.EXTRA_INCOMING_PHONE)
+            ?: CallDetectionReceiver.pendingIncomingPhone
+        Log.d(TAG, "onCreate pendingPhone=${pendingIncomingPhone?.take(6) ?: "null"}...")
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val phone = intent.getStringExtra(CallDetectionReceiver.EXTRA_INCOMING_PHONE)
+            ?: CallDetectionReceiver.pendingIncomingPhone
+        if (!phone.isNullOrEmpty()) {
+            pendingIncomingPhone = phone
+            Log.d(TAG, "onNewIntent pendingPhone=$phone")
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-
-        // Call Detection Channel
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CALL_DETECTION_CHANNEL).setMethodCallHandler { call, result ->
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+            Log.d(TAG, "method=${call.method}")
             when (call.method) {
-                "startListening" -> {
-                    if (checkPhonePermission()) {
-                        callDetectionHandler = CallDetectionHandler(this, MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CALL_DETECTION_CHANNEL))
-                        val success = callDetectionHandler?.startListening() ?: false
-                        result.success(success)
-                    } else {
-                        requestPhonePermission()
-                        result.success(false)
-                    }
+                "getPendingIncomingCall" -> {
+                    val phone = pendingIncomingPhone
+                        ?: CallDetectionReceiver.pendingIncomingPhone
+                    pendingIncomingPhone = null
+                    CallDetectionReceiver.clearPending()
+                    Log.d(TAG, "getPendingIncomingCall return=${phone?.take(6) ?: "null"}...")
+                    result.success(phone?.takeIf { it.isNotEmpty() })
                 }
-                "stopListening" -> {
-                    callDetectionHandler?.stopListening()
+                "getPendingIncomingCallPeek" -> {
+                    val phone = pendingIncomingPhone
+                        ?: CallDetectionReceiver.pendingIncomingPhone
+                    Log.d(TAG, "getPendingIncomingCallPeek return=${phone?.take(6) ?: "null"}...")
+                    result.success(phone?.takeIf { it.isNotEmpty() })
+                }
+                "clearPendingIncomingCall" -> {
+                    pendingIncomingPhone = null
+                    CallDetectionReceiver.clearPending()
+                    Log.d(TAG, "clearPendingIncomingCall")
                     result.success(null)
                 }
                 else -> result.notImplemented()
             }
         }
-
-        // Call Overlay Channel
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CALL_OVERLAY_CHANNEL).setMethodCallHandler { call, result ->
-            try {
-                android.util.Log.d("CallOverlay", "Method called: ${call.method}")
-                overlayHandler = overlayHandler ?: OverlayHandler(this)
-                when (call.method) {
-                    "showOverlay" -> {
-                        android.util.Log.d("CallOverlay", "showOverlay called")
-                        val args = call.arguments as? Map<*, *>
-                        if (args != null) {
-                            android.util.Log.d("CallOverlay", "Args received: clientName=${args["clientName"]}")
-                            val success = overlayHandler?.showOverlay(
-                                clientId = args["clientId"] as? String ?: "",
-                                clientName = args["clientName"] as? String ?: "",
-                                clientPhone = args["clientPhone"] as? String ?: "",
-                                pendingOrders = args["pendingOrders"] as? List<*>,
-                                completedOrders = args["completedOrders"] as? List<*>
-                            ) ?: false
-                            android.util.Log.d("CallOverlay", "showOverlay result: $success")
-                            result.success(success)
-                        } else {
-                            android.util.Log.e("CallOverlay", "showOverlay: No arguments provided")
-                            result.success(false)
-                        }
-                    }
-                    "hideOverlay" -> {
-                        android.util.Log.d("CallOverlay", "hideOverlay called")
-                        overlayHandler?.hideOverlay()
-                        result.success(true)
-                    }
-                    "isOverlayVisible" -> {
-                        val visible = overlayHandler?.isOverlayVisible() ?: false
-                        android.util.Log.d("CallOverlay", "isOverlayVisible: $visible")
-                        result.success(visible)
-                    }
-                    else -> {
-                        android.util.Log.w("CallOverlay", "Unknown method: ${call.method}")
-                        result.notImplemented()
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("CallOverlay", "Error in method call handler", e)
-                result.error("ERROR", e.message, e.stackTraceToString())
-            }
-        }
-    }
-
-    private fun checkPhonePermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.READ_PHONE_STATE
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestPhonePermission() {
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(Manifest.permission.READ_PHONE_STATE),
-            1001
-        )
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        callDetectionHandler?.stopListening()
-        overlayHandler?.hideOverlay()
     }
 }

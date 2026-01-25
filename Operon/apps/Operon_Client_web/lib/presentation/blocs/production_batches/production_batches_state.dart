@@ -18,6 +18,8 @@ class ProductionBatchesState extends BaseState {
     this.selectedStatus,
     this.startDate,
     this.endDate,
+    this.startDate2,
+    this.endDate2,
     this.searchQuery,
     this.selectedBatch,
     this.selectedTab = WorkflowTab.all,
@@ -27,6 +29,8 @@ class ProductionBatchesState extends BaseState {
   final ProductionBatchStatus? selectedStatus;
   final DateTime? startDate;
   final DateTime? endDate;
+  final DateTime? startDate2;
+  final DateTime? endDate2;
   final String? searchQuery;
   final ProductionBatch? selectedBatch;
   final WorkflowTab selectedTab;
@@ -120,6 +124,8 @@ class ProductionBatchesState extends BaseState {
     ProductionBatchStatus? selectedStatus,
     DateTime? startDate,
     DateTime? endDate,
+    DateTime? startDate2,
+    DateTime? endDate2,
     String? searchQuery,
     ProductionBatch? selectedBatch,
     WorkflowTab? selectedTab,
@@ -131,6 +137,8 @@ class ProductionBatchesState extends BaseState {
       selectedStatus: selectedStatus ?? this.selectedStatus,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      startDate2: startDate2 ?? this.startDate2,
+      endDate2: endDate2 ?? this.endDate2,
       searchQuery: searchQuery ?? this.searchQuery,
       selectedBatch: selectedBatch ?? this.selectedBatch,
       selectedTab: selectedTab ?? this.selectedTab,

@@ -239,26 +239,32 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
     final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
     final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
     
-    // Calculate total estimated trips
-    // Priority: 1. autoSchedule.totalTripsRequired, 2. Sum of item estimatedTrips, 3. Fallback
-    int totalEstimatedTrips = 0;
+    // Calculate total trips (original total = estimated + scheduled for each item)
+    // This ensures the denominator stays constant (e.g., 4) even as trips are scheduled
+    int totalTrips = 0;
     if (autoSchedule?['totalTripsRequired'] != null) {
-      totalEstimatedTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
+      totalTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
     } else {
-      // Fallback: Sum estimated trips from all items
+      // Sum (estimatedTrips + scheduledTrips) for each item to get original total
       for (final item in items) {
         final itemMap = item as Map<String, dynamic>;
-        totalEstimatedTrips += (itemMap['estimatedTrips'] as int? ?? 0);
+        final itemEstimatedTrips = (itemMap['estimatedTrips'] as int? ?? 0);
+        final itemScheduledTrips = (itemMap['scheduledTrips'] as int? ?? 0);
+        totalTrips += (itemEstimatedTrips + itemScheduledTrips);
       }
-      if (totalEstimatedTrips == 0 && firstItem != null) {
-        totalEstimatedTrips = firstItem['estimatedTrips'] as int? ?? 
-            (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
+      if (totalTrips == 0 && firstItem != null) {
+        final firstItemEstimated = firstItem['estimatedTrips'] as int? ?? 0;
+        final firstItemScheduled = firstItem['scheduledTrips'] as int? ?? 0;
+        totalTrips = firstItemEstimated + firstItemScheduled;
+        if (totalTrips == 0) {
+          totalTrips = (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
+        }
       }
     }
     
     final totalScheduledTrips = widget.order['totalScheduledTrips'] as int? ?? 0;
-    final estimatedTrips = totalEstimatedTrips - totalScheduledTrips;
-    final totalTrips = totalEstimatedTrips; // Use totalEstimatedTrips directly as the total
+    // Calculate remaining estimated trips for display
+    final estimatedTrips = totalTrips - totalScheduledTrips;
     
     final productName = firstItem?['productName'] as String? ?? 'N/A';
     final fixedQuantityPerTrip = firstItem?['fixedQuantityPerTrip'] as int? ?? 0;

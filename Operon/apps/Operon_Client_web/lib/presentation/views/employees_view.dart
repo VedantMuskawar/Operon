@@ -564,14 +564,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1B1C2C),
-                    Color(0xFF161622),
-                  ],
-                ),
+                color: AuthColors.surface,
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
@@ -588,12 +581,12 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                      color: AuthColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       isEditing ? Icons.edit : Icons.person_add,
-                      color: const Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                       size: 20,
                     ),
                   ),
@@ -602,14 +595,14 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                     child: Text(
                       isEditing ? 'Edit Employee' : 'Add Employee',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close',
                   ),
@@ -629,7 +622,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                     children: [
                       TextFormField(
                         controller: _nameController,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Employee name', Icons.person_outline),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
@@ -641,8 +634,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       // Job Roles Multi-Select
                       Text(
                         'Job Roles *',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
+                        style: const TextStyle(
+                          color: AuthColors.textSub,
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -651,11 +644,11 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       Container(
                         constraints: const BoxConstraints(maxHeight: 200),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1B1B2C),
+                          color: AuthColors.surface,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: _selectedJobRoleIds.isEmpty 
-                                ? Colors.red.withValues(alpha: 0.5)
+                                ? AuthColors.error.withValues(alpha: 0.5)
                                 : Colors.white.withValues(alpha: 0.1),
                           ),
                         ),
@@ -668,12 +661,12 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                             final isPrimary = _primaryJobRoleId == jobRole.id;
                             
                             return CheckboxListTile(
-                              title: Row(
+                                    title: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
                                       jobRole.title,
-                                      style: const TextStyle(color: Colors.white),
+                                      style: const TextStyle(color: AuthColors.textMain),
                                     ),
                                   ),
                                   if (isPrimary)
@@ -683,13 +676,13 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                                        color: AuthColors.primary.withValues(alpha: 0.2),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Text(
                                         'Primary',
                                         style: TextStyle(
-                                          color: Color(0xFF6F4BFF),
+                                          color: AuthColors.primary,
                                           fontSize: 10,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -698,8 +691,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                                 ],
                               ),
                               value: isSelected,
-                              activeColor: const Color(0xFF6F4BFF),
-                              checkColor: Colors.white,
+                              activeColor: AuthColors.primary,
+                              checkColor: AuthColors.textMain,
                               onChanged: (checked) {
                                 setState(() {
                                   if (checked == true) {
@@ -721,8 +714,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                                   ? IconButton(
                                       icon: const Icon(Icons.star, size: 20),
                                       color: isPrimary 
-                                          ? const Color(0xFF6F4BFF)
-                                          : Colors.white54,
+                                          ? AuthColors.primary
+                                          : AuthColors.textSub,
                                       onPressed: _selectedJobRoleIds.length > 1
                                           ? () {
                                               setState(() {
@@ -743,7 +736,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                           child: Text(
                             'Select at least one job role',
                             style: TextStyle(
-                              color: Colors.red.withValues(alpha: 0.8),
+                              color: AuthColors.error.withValues(alpha: 0.9),
                               fontSize: 12,
                             ),
                           ),
@@ -754,7 +747,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                         controller: _openingBalanceController,
                         enabled: !isEditing,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Opening balance', Icons.account_balance_wallet_outlined),
                         validator: (value) {
                           if (isEditing) return null;
@@ -772,8 +765,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       // Wage Type Selection
                       DropdownButtonFormField<WageType>(
                         initialValue: _selectedWageType,
-                        dropdownColor: const Color(0xFF1B1B2C),
-                        style: const TextStyle(color: Colors.white),
+                        dropdownColor: AuthColors.surface,
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: _inputDecoration('Wage Type', Icons.payments_outlined),
                         items: WageType.values.map((type) {
                           return DropdownMenuItem(
@@ -801,7 +794,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                         TextFormField(
                           controller: _wageAmountController,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(color: AuthColors.textMain),
                           decoration: _inputDecoration(
                             _getWageAmountLabel(_selectedWageType),
                             Icons.attach_money,
@@ -977,10 +970,10 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: Colors.white54, size: 20),
+      prefixIcon: Icon(icon, color: AuthColors.textSub, size: 20),
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
@@ -990,20 +983,20 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(
-          color: Color(0xFF6F4BFF),
+          color: AuthColors.primary,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(
-          color: Colors.redAccent,
+          color: AuthColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(
-          color: Colors.redAccent,
+          color: AuthColors.error,
           width: 2,
         ),
       ),
@@ -1056,15 +1049,6 @@ class _EmployeesStatsHeader extends StatelessWidget {
                   const SizedBox(width: 16),
                   Expanded(
                     child: _StatCard(
-                      icon: Icons.account_balance_wallet_outlined,
-                      label: 'Total Opening Balance',
-                      value: '₹${totalOpeningBalance.toStringAsFixed(2)}',
-                      color: AuthColors.success,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _StatCard(
                       icon: Icons.trending_up,
                       label: 'Total Current Balance',
                       value: '₹${totalCurrentBalance.toStringAsFixed(2)}',
@@ -1095,12 +1079,6 @@ class _EmployeesStatsHeader extends StatelessWidget {
                     label: 'Total Employees',
                     value: totalEmployees.toString(),
                     color: AuthColors.primary,
-                  ),
-                  _StatCard(
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: 'Total Opening Balance',
-                    value: '₹${totalOpeningBalance.toStringAsFixed(2)}',
-                    color: AuthColors.success,
                   ),
                   _StatCard(
                     icon: Icons.trending_up,

@@ -5,7 +5,6 @@ import {
   PENDING_ORDERS_COLLECTION,
 } from '../shared/constants';
 import { getFirestore } from '../shared/firestore-helpers';
-import { removeEstimatedDeliveryDateReference } from './order-scheduling';
 import { getFinancialContext } from '../shared/financial-year';
 
 const db = getFirestore();
@@ -619,33 +618,12 @@ export const onOrderUpdated = functions
       });
       
       try {
-        const orderData = after;
-        const items = (orderData.items as any[]) || [];
-        const autoSchedule = orderData.autoSchedule;
-        
         // Remove auto-schedule data since order is cancelled
         await change.after.ref.update({
           autoSchedule: admin.firestore.FieldValue.delete(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
-        
-        // Remove this order's estimated date from reference data
-        if (autoSchedule?.estimatedDeliveryDate && items.length > 0) {
-          const primaryProduct = items[0];
-          const productId = primaryProduct.productId as string;
-          const fixedQuantityPerTrip = (primaryProduct.fixedQuantityPerTrip as number) || (primaryProduct.totalQuantity as number);
-          const organizationId = orderData.organizationId as string;
-          
-          if (organizationId && productId && fixedQuantityPerTrip) {
-            await removeEstimatedDeliveryDateReference(
-              organizationId,
-              productId,
-              fixedQuantityPerTrip,
-              autoSchedule.estimatedDeliveryDate as admin.firestore.Timestamp,
-            );
-          }
-        }
-        
+
         console.log('[Order Update] Successfully cleaned up auto-schedule data', {
           orderId,
         });

@@ -1,7 +1,10 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:core_bloc/core_bloc.dart';
 import 'package:dash_mobile/config/firebase_options.dart';
+import 'package:dash_mobile/data/services/caller_overlay_service.dart';
+import 'package:dash_mobile/overlay_entry.dart' show runOverlayApp;
 import 'package:dash_mobile/presentation/app.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 // import 'package:firebase_app_check/firebase_app_check.dart';  // Temporarily disabled
@@ -79,5 +82,23 @@ Future<void> main() async {
   }
   
   Bloc.observer = const AppBlocObserver();
+  if (Platform.isAndroid) {
+    Future.microtask(() async {
+      try {
+        developer.log('main: checking pending call...', name: 'CallerOverlay');
+        final ok = await CallerOverlayService.instance.checkAndTriggerFromPendingCall();
+        developer.log('main: checkAndTriggerFromPendingCall => $ok', name: 'CallerOverlay');
+      } catch (e, st) {
+        developer.log('main error: $e', name: 'CallerOverlay');
+        developer.log('$st', name: 'CallerOverlay');
+      }
+    });
+  }
   runApp(const DashMobileApp());
+}
+
+/// Overlay entry point for Caller ID. Invoked by flutter_overlay_window when overlay is shown.
+@pragma('vm:entry-point')
+void overlayMain() {
+  runOverlayApp();
 }

@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/domain/entities/organization_employee.dart';
@@ -164,9 +165,9 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bonus recorded successfully'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Bonus recorded successfully'),
+            backgroundColor: AuthColors.success,
           ),
         );
         Navigator.of(context).pop();
@@ -176,7 +177,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to record bonus: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -195,28 +196,28 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
+      fillColor: AuthColors.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+        borderSide: const BorderSide(color: AuthColors.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red, width: 2),
+        borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.red, width: 2),
+        borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
     );
   }
@@ -224,7 +225,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -242,12 +243,12 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF9C27B0).withOpacity(0.2),
+                        color: AuthColors.accentPurple.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
                         Icons.card_giftcard,
-                        color: Color(0xFF9C27B0),
+                        color: AuthColors.accentPurple,
                         size: 20,
                       ),
                     ),
@@ -255,16 +256,12 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                     const Expanded(
                       child: Text(
                         'Record Bonus',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(color: AuthColors.textMain, fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: const Icon(Icons.close, color: AuthColors.textSub),
                     ),
                   ],
                 ),
@@ -273,17 +270,14 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 DropdownButtonFormField<OrganizationEmployee>(
                   initialValue: _selectedEmployee,
                   decoration: _inputDecoration('Employee'),
-                  dropdownColor: const Color(0xFF2B2B3C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: const TextStyle(color: AuthColors.textMain),
                   items: _employees.map((employee) {
                     return DropdownMenuItem<OrganizationEmployee>(
                       value: employee,
                       child: Text(
                         employee.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(color: AuthColors.textMain, fontWeight: FontWeight.w600),
                       ),
                     );
                   }).toList(),
@@ -298,17 +292,14 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 DropdownButtonFormField<String>(
                   initialValue: _selectedBonusType,
                   decoration: _inputDecoration('Bonus Type'),
-                  dropdownColor: const Color(0xFF2B2B3C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: const TextStyle(color: AuthColors.textMain),
                   items: _bonusTypes.map((type) {
                     return DropdownMenuItem<String>(
                       value: type,
                       child: Text(
                         type,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(color: AuthColors.textMain, fontWeight: FontWeight.w600),
                       ),
                     );
                   }).toList(),
@@ -324,7 +315,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                   controller: _amountController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: _inputDecoration('Bonus Amount'),
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Enter bonus amount';
@@ -347,9 +338,9 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                       children: [
                         Text(
                           _formatDate(_paymentDate),
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(color: AuthColors.textMain),
                         ),
-                        const Icon(Icons.calendar_today, color: Colors.white70),
+                        const Icon(Icons.calendar_today, color: AuthColors.textSub),
                       ],
                     ),
                   ),
@@ -359,17 +350,14 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 DropdownButtonFormField<PaymentAccount>(
                   initialValue: _selectedPaymentAccount,
                   decoration: _inputDecoration('Payment Account'),
-                  dropdownColor: const Color(0xFF2B2B3C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: const TextStyle(color: AuthColors.textMain),
                   items: _paymentAccounts.map((account) {
                     return DropdownMenuItem<PaymentAccount>(
                       value: account,
                       child: Text(
                         account.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(color: AuthColors.textMain, fontWeight: FontWeight.w600),
                       ),
                     );
                   }).toList(),
@@ -382,7 +370,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 TextFormField(
                   controller: _referenceNumberController,
                   decoration: _inputDecoration('Reference Number (Optional)'),
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                 ),
                 const SizedBox(height: 16),
 
@@ -390,35 +378,30 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                   controller: _descriptionController,
                   maxLines: 2,
                   decoration: _inputDecoration('Description (Optional)'),
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                 ),
                 const SizedBox(height: 24),
 
                 ElevatedButton(
                   onPressed: _isLoading ? null : _submitBonus,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF9C27B0),
-                    foregroundColor: Colors.white,
+                    backgroundColor: AuthColors.accentPurple,
+                    foregroundColor: AuthColors.textMain,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                           ),
                         )
                       : const Text(
                           'Record Bonus',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                         ),
                 ),
               ],

@@ -2,18 +2,17 @@ import 'dart:async';
 
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/components/data_table.dart' as custom_table;
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_state.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
-import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/credit_salary_dialog.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/record_bonus_dialog.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/employee_wages_analytics_page.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -43,15 +42,22 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
   _WagesSortOption _sortOption = _WagesSortOption.dateNewest;
   String? _currentOrgId;
   List<Transaction> _previousTransactions = [];
-  DateTime? _startDate;
-  DateTime? _endDate;
+  late DateTime _startDate;
+  late DateTime _endDate;
+
+  static const int _itemsPerPage = 50;
+  int _wagesCurrentPage = 0;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, now.day);
+    _endDate = DateTime(now.year, now.month, now.day);
     _searchController.addListener(() {
       setState(() {
         _query = _searchController.text;
+        _wagesCurrentPage = 0;
       });
     });
     _pageController = PageController()
@@ -133,17 +139,13 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
   List<Transaction> _applyFiltersAndSort(List<Transaction> transactions) {
     var filtered = List<Transaction>.from(transactions);
 
-    // Apply date range filter
-    if (_startDate != null || _endDate != null) {
-      filtered = filtered.where((tx) {
-        final txDate = tx.createdAt ?? DateTime(1970);
-        final start = _startDate ?? DateTime(1970);
-        final end = _endDate ?? DateTime.now();
-        
-        return txDate.isAfter(start.subtract(const Duration(days: 1))) &&
-               txDate.isBefore(end.add(const Duration(days: 1)));
-      }).toList();
-    }
+    // Apply date range filter (default today–today)
+    final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
+    final end = DateTime(_endDate.year, _endDate.month, _endDate.day).add(const Duration(days: 1));
+    filtered = filtered.where((tx) {
+      final txDate = tx.createdAt ?? DateTime(1970);
+      return !txDate.isBefore(start) && txDate.isBefore(end);
+    }).toList();
 
     if (_query.isNotEmpty) {
       final queryLower = _query.toLowerCase();
@@ -204,6 +206,18 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     final month = months[date.month - 1];
     final year = date.year;
     return '$day $month $year';
+  }
+
+  List<Transaction> _getPaginatedData(List<Transaction> all) {
+    final start = _wagesCurrentPage * _itemsPerPage;
+    final end = (start + _itemsPerPage).clamp(0, all.length);
+    if (start >= all.length) return [];
+    return all.sublist(start, end);
+  }
+
+  int _getTotalPages(int n) {
+    if (n == 0) return 1;
+    return ((n - 1) ~/ _itemsPerPage) + 1;
   }
 
   Future<void> _deleteTransaction(String transactionId) async {
@@ -372,123 +386,142 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                               }
                               
                               final filtered = _applyFiltersAndSort(transactions);
+                              final totalAmount = filtered.fold<double>(0.0, (acc, tx) => acc + tx.amount);
+                              final salaryCount = filtered.where((tx) => tx.category == TransactionCategory.salaryCredit).length;
+                              final bonusCount = filtered.where((tx) => tx.category == TransactionCategory.bonus).length;
+                              final usePagination = filtered.length > 50;
+                              final displayList = usePagination ? _getPaginatedData(filtered) : filtered;
 
                               return SingleChildScrollView(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Date Range Picker
-                                    DateRangePicker(
-                                      startDate: _startDate,
-                                      endDate: _endDate,
-                                      onStartDateChanged: (date) {
-                                        setState(() => _startDate = date);
-                                      },
-                                      onEndDateChanged: (date) {
-                                        setState(() => _endDate = date);
-                                      },
+                                    // Row 1: Stats + Stacked buttons
+                                    _AndroidWagesStatsRow(
+                                      totalAmount: totalAmount,
+                                      salaryCount: salaryCount,
+                                      bonusCount: bonusCount,
+                                      formatCurrency: _formatCurrency,
+                                      onCreditSalary: _openCreditSalaryDialog,
+                                      onRecordBonus: _openRecordBonusDialog,
                                     ),
                                     const SizedBox(height: 16),
-                                    
-                                    // Search Bar
-                                    TextField(
-                                      controller: _searchController,
-                                      style: const TextStyle(color: AuthColors.textMain),
-                                      decoration: InputDecoration(
-                                        prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
-                                        suffixIcon: _query.isNotEmpty
-                                            ? IconButton(
-                                                icon: const Icon(Icons.close, color: AuthColors.textSub),
-                                                onPressed: () => _searchController.clear(),
-                                              )
-                                            : null,
-                                        hintText: 'Search by employee, description...',
-                                        hintStyle: const TextStyle(color: Colors.white38),
-                                        filled: true,
-                                        fillColor: const Color(0xFF1B1B2C),
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(14),
-                                          borderSide: BorderSide.none,
+                                    // Row 2: Date range (left of search) + Search + Sort
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          flex: 2,
+                                          child: DateRangePicker(
+                                            startDate: _startDate,
+                                            endDate: _endDate,
+                                            onStartDateChanged: (d) {
+                                              if (d != null) {
+                                                setState(() {
+                                                  _startDate = d;
+                                                  if (_endDate.isBefore(_startDate)) _endDate = _startDate;
+                                                  _wagesCurrentPage = 0;
+                                                });
+                                              }
+                                            },
+                                            onEndDateChanged: (d) {
+                                              if (d != null) {
+                                                setState(() {
+                                                  _endDate = d;
+                                                  if (_startDate.isAfter(_endDate)) _startDate = _endDate;
+                                                  _wagesCurrentPage = 0;
+                                                });
+                                              }
+                                            },
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    
-                                    // Sort Dropdown
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF1B1B2C),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Colors.white.withOpacity(0.1)),
-                                      ),
-                                      child: DropdownButtonHideUnderline(
-                                        child: DropdownButton<_WagesSortOption>(
-                                          value: _sortOption,
-                                          dropdownColor: AuthColors.surface,
-                                          style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
-                                          isExpanded: true,
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value: _WagesSortOption.dateNewest,
-                                              child: Text('Date (Newest)'),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          flex: 3,
+                                          child: TextField(
+                                            controller: _searchController,
+                                            style: const TextStyle(color: AuthColors.textMain),
+                                            decoration: InputDecoration(
+                                              prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
+                                              suffixIcon: _query.isNotEmpty
+                                                  ? IconButton(
+                                                      icon: const Icon(Icons.close, color: AuthColors.textSub),
+                                                      onPressed: () => _searchController.clear(),
+                                                    )
+                                                  : null,
+                                              hintText: 'Search...',
+                                              hintStyle: const TextStyle(color: AuthColors.textSub),
+                                              filled: true,
+                                              fillColor: AuthColors.surface,
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(14),
+                                                borderSide: BorderSide.none,
+                                              ),
                                             ),
-                                            DropdownMenuItem(
-                                              value: _WagesSortOption.dateOldest,
-                                              child: Text('Date (Oldest)'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: _WagesSortOption.amountHigh,
-                                              child: Text('Amount (High to Low)'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: _WagesSortOption.amountLow,
-                                              child: Text('Amount (Low to High)'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: _WagesSortOption.employeeAsc,
-                                              child: Text('Employee (A-Z)'),
-                                            ),
-                                          ],
-                                          onChanged: (value) {
-                                            if (value != null) {
-                                              setState(() => _sortOption = value);
-                                            }
-                                          },
-                                          icon: const Icon(Icons.sort, color: AuthColors.textSub, size: 20),
-                                          isDense: true,
+                                          ),
                                         ),
-                                      ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: AuthColors.surface,
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                                          ),
+                                          child: DropdownButtonHideUnderline(
+                                            child: DropdownButton<_WagesSortOption>(
+                                              value: _sortOption,
+                                              dropdownColor: AuthColors.surface,
+                                              style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
+                                              isExpanded: true,
+                                              items: const [
+                                                DropdownMenuItem(value: _WagesSortOption.dateNewest, child: Text('Newest')),
+                                                DropdownMenuItem(value: _WagesSortOption.dateOldest, child: Text('Oldest')),
+                                                DropdownMenuItem(value: _WagesSortOption.amountHigh, child: Text('Amt ↑')),
+                                                DropdownMenuItem(value: _WagesSortOption.amountLow, child: Text('Amt ↓')),
+                                                DropdownMenuItem(value: _WagesSortOption.employeeAsc, child: Text('A–Z')),
+                                              ],
+                                              onChanged: (v) {
+                                                if (v != null) setState(() { _sortOption = v; _wagesCurrentPage = 0; });
+                                              },
+                                              icon: const Icon(Icons.sort, color: AuthColors.textSub, size: 18),
+                                              isDense: true,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 16),
-                                    
-                                    // Results count
-                                    Text(
-                                      '${filtered.length} ${filtered.length == 1 ? 'transaction' : 'transactions'}',
-                                      style: TextStyle(
-                                        color: AuthColors.textMainWithOpacity(0.7),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    
-                                    // Transactions Table
                                     if (filtered.isEmpty && _query.isNotEmpty)
                                       _EmptySearchState(query: _query)
                                     else if (filtered.isEmpty)
-                                      const _EmptyTransactionsState()
+                                      _EmptyTransactionsState(onCreditSalary: _openCreditSalaryDialog)
                                     else
-                                      SingleChildScrollView(
-                                        scrollDirection: Axis.horizontal,
-                                        child: _WagesTransactionsTable(
-                                          transactions: filtered,
-                                          employeeNames: _employeeNames,
-                                          formatCurrency: _formatCurrency,
-                                          formatDate: _formatDate,
-                                          onDelete: (transaction) => _showDeleteConfirmation(context, transaction),
-                                        ),
+                                      Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            child: _WagesDataTable(
+                                              transactions: displayList,
+                                              employeeNames: _employeeNames,
+                                              formatCurrency: _formatCurrency,
+                                              formatDate: _formatDate,
+                                              onDelete: (tx) => _showDeleteConfirmation(context, tx),
+                                            ),
+                                          ),
+                                          if (usePagination) ...[
+                                            const SizedBox(height: 12),
+                                            _PaginationControls(
+                                              currentPage: _wagesCurrentPage,
+                                              totalPages: _getTotalPages(filtered.length),
+                                              totalItems: filtered.length,
+                                              itemsPerPage: _itemsPerPage,
+                                              onPageChanged: (p) => setState(() => _wagesCurrentPage = p),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                   ],
                                 ),
@@ -512,38 +545,120 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                   ),
                 ],
               ),
-              // Quick Action Menu - only show on transactions page
-              if (_currentPage == 0)
-                Builder(
-                  builder: (context) {
-                    final media = MediaQuery.of(context);
-                    final bottomPadding = media.padding.bottom;
-                    // Nav bar height (~80px) + safe area bottom + spacing (20px)
-                    final bottomOffset = 80 + bottomPadding + 20;
-                    return QuickActionMenu(
-                      right: 40,
-                      bottom: bottomOffset,
-                      actions: [
-                        QuickActionItem(
-                          icon: Icons.payments,
-                          label: 'Credit Salary',
-                          onTap: _openCreditSalaryDialog,
-                        ),
-                        QuickActionItem(
-                          icon: Icons.card_giftcard,
-                          label: 'Record Bonus',
-                          onTap: _openRecordBonusDialog,
-                        ),
-                      ],
-                    );
-                  },
-                ),
             ],
           ),
         ),
       ),
       ),
       ],
+    );
+  }
+}
+
+class _AndroidWagesStatsRow extends StatelessWidget {
+  const _AndroidWagesStatsRow({
+    required this.totalAmount,
+    required this.salaryCount,
+    required this.bonusCount,
+    required this.formatCurrency,
+    required this.onCreditSalary,
+    required this.onRecordBonus,
+  });
+
+  final double totalAmount;
+  final int salaryCount;
+  final int bonusCount;
+  final String Function(double) formatCurrency;
+  final VoidCallback onCreditSalary;
+  final VoidCallback onRecordBonus;
+
+  @override
+  Widget build(BuildContext context) {
+    final formatted = formatCurrency(totalAmount);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _MiniStat(label: 'Total Amount', value: formatted, color: AuthColors.warning),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _MiniStat(label: 'Salary', value: salaryCount.toString(), color: AuthColors.successVariant),
+                  const SizedBox(width: 12),
+                  _MiniStat(label: 'Bonuses', value: bonusCount.toString(), color: AuthColors.info),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 140,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.payments, size: 18),
+                label: const Text('Credit Salary'),
+                onPressed: onCreditSalary,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AuthColors.primary,
+                  foregroundColor: AuthColors.textMain,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: 140,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.card_giftcard, size: 18),
+                label: const Text('Record Bonus'),
+                onPressed: onRecordBonus,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AuthColors.accentPurple,
+                  foregroundColor: AuthColors.textMain,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({required this.label, required this.value, required this.color});
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 6),
+          Text(value, style: const TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w700)),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(color: AuthColors.textSub, fontSize: 11)),
+        ],
+      ),
     );
   }
 }
@@ -575,7 +690,7 @@ class _PageIndicator extends StatelessWidget {
               width: isActive ? 24 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: isActive ? AuthColors.legacyAccent : AuthColors.textDisabled,
+                color: isActive ? AuthColors.primary : AuthColors.textDisabled,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -599,12 +714,9 @@ class _LoadingState extends StatelessWidget {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 24),
-            Text(
+            const Text(
               'Loading employee wages...',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
-              ),
+              style: TextStyle(color: AuthColors.textSub, fontSize: 16),
             ),
           ],
         ),
@@ -630,27 +742,16 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.redAccent.withOpacity(0.7),
-            ),
+            Icon(Icons.error_outline, size: 64, color: AuthColors.error.withValues(alpha: 0.7)),
             const SizedBox(height: 16),
             const Text(
               'Failed to load employee wages',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -659,15 +760,10 @@ class _ErrorState extends StatelessWidget {
               label: const Text('Retry'),
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -678,7 +774,9 @@ class _ErrorState extends StatelessWidget {
 }
 
 class _EmptyTransactionsState extends StatelessWidget {
-  const _EmptyTransactionsState();
+  const _EmptyTransactionsState({required this.onCreditSalary});
+
+  final VoidCallback onCreditSalary;
 
   @override
   Widget build(BuildContext context) {
@@ -692,32 +790,33 @@ class _EmptyTransactionsState extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withOpacity(0.15),
+                color: AuthColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.payments_outlined,
-                size: 40,
-                color: Color(0xFF6F4BFF),
-              ),
+              child: const Icon(Icons.payments_outlined, size: 40, color: AuthColors.primary),
             ),
             const SizedBox(height: 24),
             const Text(
               'No wages transactions yet',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: AuthColors.textMain, fontSize: 20, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             const Text(
               'Start by crediting salary to your employees',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.payments, size: 20),
+              label: const Text('Credit Salary'),
+              onPressed: onCreditSalary,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ],
         ),
@@ -739,27 +838,16 @@ class _EmptySearchState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.search_off,
-              size: 64,
-              color: Colors.white.withOpacity(0.3),
-            ),
+            Icon(Icons.search_off, size: 64, color: AuthColors.textSub.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
             const Text(
               'No results found',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: AuthColors.textMain, fontSize: 20, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               'No transactions match "$query"',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 14,
-              ),
+              style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
             ),
           ],
         ),
@@ -768,8 +856,8 @@ class _EmptySearchState extends StatelessWidget {
   }
 }
 
-class _WagesTransactionsTable extends StatelessWidget {
-  const _WagesTransactionsTable({
+class _WagesDataTable extends StatelessWidget {
+  const _WagesDataTable({
     required this.transactions,
     required this.employeeNames,
     required this.formatCurrency,
@@ -781,238 +869,123 @@ class _WagesTransactionsTable extends StatelessWidget {
   final Map<String, String> employeeNames;
   final String Function(double) formatCurrency;
   final String Function(DateTime) formatDate;
-  final void Function(Transaction) onDelete;
-
-  String _getCategoryName(TransactionCategory category) {
-    switch (category) {
-      case TransactionCategory.salaryCredit:
-        return 'Salary';
-      case TransactionCategory.bonus:
-        return 'Bonus';
-      default:
-        return category.name;
-    }
-  }
-
-  Color _getCategoryColor(TransactionCategory category) {
-    switch (category) {
-      case TransactionCategory.salaryCredit:
-        return const Color(0xFF6F4BFF);
-      case TransactionCategory.bonus:
-        return const Color(0xFF9C27B0);
-      default:
-        return Colors.white70;
-    }
-  }
+  final ValueChanged<Transaction> onDelete;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 100),
-      constraints: const BoxConstraints(minWidth: 770),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+    final columns = <custom_table.DataTableColumn<Transaction>>[
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Date',
+        icon: Icons.calendar_today,
+        width: 100,
+        cellBuilder: (context, tx, _) => Text(formatDate(tx.createdAt ?? DateTime.now()), style: const TextStyle(color: AuthColors.textMain, fontSize: 12)),
       ),
-      child: Table(
-        columnWidths: const {
-          0: FixedColumnWidth(120), // Date
-          1: FixedColumnWidth(150), // Employee
-          2: FixedColumnWidth(100), // Category
-          3: FixedColumnWidth(120), // Amount
-          4: FixedColumnWidth(200), // Description
-          5: FixedColumnWidth(80), // Actions
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Employee',
+        icon: Icons.person,
+        width: 130,
+        cellBuilder: (context, tx, _) {
+          final name = employeeNames[tx.employeeId ?? ''] ?? 'Unknown';
+          return Text(name, style: const TextStyle(color: AuthColors.textMain, fontSize: 12, fontWeight: FontWeight.w600));
         },
-        border: TableBorder(
-          horizontalInside: BorderSide(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
-        ),
-        children: [
-          // Header Row
-          TableRow(
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            children: const [
-              _TableHeaderCell('Date'),
-              _TableHeaderCell('Employee'),
-              _TableHeaderCell('Category'),
-              _TableHeaderCell('Amount'),
-              _TableHeaderCell('Description'),
-              _TableHeaderCell('Actions'),
-            ],
-          ),
-          // Data Rows
-          ...transactions.asMap().entries.map((entry) {
-            final index = entry.key;
-            final transaction = entry.value;
-            final date = transaction.createdAt ?? DateTime.now();
-            final employeeName = employeeNames[transaction.employeeId ?? ''] ?? 'Loading...';
-            final categoryName = _getCategoryName(transaction.category);
-            final categoryColor = _getCategoryColor(transaction.category);
-            final description = transaction.description ?? '-';
-            final isLast = index == transactions.length - 1;
-
-            return TableRow(
-              decoration: BoxDecoration(
-                color: index % 2 == 0
-                    ? Colors.transparent
-                    : Colors.white.withOpacity(0.02),
-                borderRadius: isLast
-                    ? const BorderRadius.only(
-                        bottomLeft: Radius.circular(12),
-                        bottomRight: Radius.circular(12),
-                      )
-                    : null,
-              ),
-              children: [
-                _TableDataCell(
-                  formatDate(date),
-                  alignment: Alignment.centerLeft,
-                ),
-                _TableDataCell(
-                  employeeName != 'Loading...' ? employeeName : 'Unknown',
-                  alignment: Alignment.centerLeft,
-                ),
-                _TableDataCell(
-                  categoryName,
-                  alignment: Alignment.center,
-                  categoryColor: categoryColor,
-                ),
-                _TableDataCell(
-                  formatCurrency(transaction.amount),
-                  alignment: Alignment.centerRight,
-                  isAmount: true,
-                ),
-                _TableDataCell(
-                  description,
-                  alignment: Alignment.centerLeft,
-                ),
-                _TableActionCell(
-                  onDelete: () => onDelete(transaction),
-                ),
-              ],
-            );
-          }),
-        ],
       ),
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Type',
+        icon: Icons.category,
+        width: 80,
+        cellBuilder: (context, tx, _) {
+          final isSalary = tx.category == TransactionCategory.salaryCredit;
+          final label = isSalary ? 'Salary' : (tx.category == TransactionCategory.bonus ? 'Bonus' : tx.category.name);
+          final color = isSalary ? AuthColors.primary : AuthColors.accentPurple;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+            child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 11)),
+          );
+        },
+      ),
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Amount',
+        icon: Icons.currency_rupee,
+        width: 90,
+        numeric: true,
+        cellBuilder: (context, tx, _) => Text(formatCurrency(tx.amount), style: const TextStyle(color: AuthColors.warning, fontWeight: FontWeight.w700, fontSize: 12)),
+      ),
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Description',
+        icon: Icons.description,
+        flex: 1,
+        cellBuilder: (context, tx, _) => Text(tx.description ?? '-', style: const TextStyle(color: AuthColors.textSub, fontSize: 12)),
+      ),
+    ];
+    final rowActions = [
+      custom_table.DataTableRowAction<Transaction>(
+        icon: Icons.delete_outline,
+        onTap: (tx, _) => onDelete(tx),
+        tooltip: 'Delete',
+        color: AuthColors.error,
+      ),
+    ];
+    return custom_table.DataTable<Transaction>(
+      columns: columns,
+      rows: transactions,
+      rowActions: rowActions,
+      emptyStateMessage: 'No transactions in this range',
+      emptyStateIcon: Icons.inbox_outlined,
     );
   }
 }
 
-class _TableHeaderCell extends StatelessWidget {
-  const _TableHeaderCell(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _TableDataCell extends StatelessWidget {
-  const _TableDataCell(
-    this.text, {
-    required this.alignment,
-    this.isAmount = false,
-    this.categoryColor,
+class _PaginationControls extends StatelessWidget {
+  const _PaginationControls({
+    required this.currentPage,
+    required this.totalPages,
+    required this.totalItems,
+    required this.itemsPerPage,
+    required this.onPageChanged,
   });
 
-  final String text;
-  final Alignment alignment;
-  final bool isAmount;
-  final Color? categoryColor;
+  final int currentPage;
+  final int totalPages;
+  final int totalItems;
+  final int itemsPerPage;
+  final ValueChanged<int> onPageChanged;
 
   @override
   Widget build(BuildContext context) {
-    Widget content = Text(
-      text,
-      style: TextStyle(
-        color: isAmount
-            ? const Color(0xFFFF9800)
-            : categoryColor != null
-                ? categoryColor!
-                : Colors.white70,
-        fontSize: 13,
-        fontWeight: isAmount ? FontWeight.w700 : FontWeight.w500,
+    final start = (currentPage * itemsPerPage) + 1;
+    final end = ((currentPage + 1) * itemsPerPage).clamp(0, totalItems);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
-
-    if (categoryColor != null) {
-      content = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: categoryColor!.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: categoryColor!.withOpacity(0.5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('$start–$end of $totalItems', style: const TextStyle(color: AuthColors.textSub, fontSize: 13)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left, size: 22),
+                onPressed: currentPage == 0 ? null : () => onPageChanged(currentPage - 1),
+                color: currentPage == 0 ? AuthColors.textDisabled : AuthColors.textSub,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text('${currentPage + 1} / $totalPages', style: const TextStyle(color: AuthColors.textMain, fontSize: 13)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right, size: 22),
+                onPressed: currentPage >= totalPages - 1 ? null : () => onPageChanged(currentPage + 1),
+                color: currentPage >= totalPages - 1 ? AuthColors.textDisabled : AuthColors.textSub,
+              ),
+            ],
           ),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: categoryColor!,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Align(
-        alignment: alignment,
-        child: content,
-      ),
-    );
-  }
-}
-
-class _TableActionCell extends StatelessWidget {
-  const _TableActionCell({required this.onDelete});
-
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Center(
-        child: IconButton(
-          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-          onPressed: onDelete,
-          tooltip: 'Delete',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
+        ],
       ),
     );
   }

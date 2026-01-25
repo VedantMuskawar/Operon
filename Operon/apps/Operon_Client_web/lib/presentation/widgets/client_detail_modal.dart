@@ -201,7 +201,10 @@ class _ClientDetailModalState extends State<ClientDetailModal> {
               index: _selectedTabIndex,
               children: [
                 PendingOrdersSection(clientId: widget.client.id),
-                AnalyticsSection(clientId: widget.client.id),
+                AnalyticsSection(
+                  clientId: widget.client.id,
+                  clientName: widget.client.name,
+                ),
               ],
             ),
           ),

@@ -466,12 +466,23 @@ class _AttendanceGrid extends StatelessWidget {
           children: [
           // Header row
           Container(
-            color: AuthColors.background,
+            decoration: const BoxDecoration(
+              color: AuthColors.background,
+            ),
             child: Row(
               children: [
-                const SizedBox(
+                Container(
                   width: 150,
-                  child: Padding(
+                  decoration: const BoxDecoration(
+                    color: AuthColors.background,
+                    border: Border(
+                      right: BorderSide(
+                        color: AuthColors.textSub,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: const Padding(
                     padding: EdgeInsets.all(16),
                     child: Text(
                       'Employee',
@@ -483,8 +494,17 @@ class _AttendanceGrid extends StatelessWidget {
                   ),
                 ),
                 ...dates.map((date) {
-                  return SizedBox(
+                  return Container(
                     width: 60,
+                    decoration: const BoxDecoration(
+                      color: AuthColors.background,
+                      border: Border(
+                        right: BorderSide(
+                          color: AuthColors.textSub,
+                          width: 1,
+                        ),
+                      ),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(8),
                       child: Text(
@@ -499,9 +519,12 @@ class _AttendanceGrid extends StatelessWidget {
                     ),
                   );
                 }),
-                const SizedBox(
+                Container(
                   width: 100,
-                  child: Padding(
+                  decoration: const BoxDecoration(
+                    color: AuthColors.background,
+                  ),
+                  child: const Padding(
                     padding: EdgeInsets.all(16),
                     child: Text(
                       'Summary',
@@ -523,11 +546,28 @@ class _AttendanceGrid extends StatelessWidget {
             itemBuilder: (context, index) {
               final employee = employees[index];
               return Container(
-                color: AuthColors.background,
+                decoration: const BoxDecoration(
+                  color: AuthColors.background,
+                  border: Border(
+                    top: BorderSide(
+                      color: AuthColors.textSub,
+                      width: 1,
+                    ),
+                  ),
+                ),
                 child: Row(
                   children: [
-                    SizedBox(
+                    Container(
                       width: 150,
+                      decoration: const BoxDecoration(
+                        color: AuthColors.background,
+                        border: Border(
+                          right: BorderSide(
+                            color: AuthColors.textSub,
+                            width: 1,
+                          ),
+                        ),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(
@@ -538,8 +578,17 @@ class _AttendanceGrid extends StatelessWidget {
                     ),
                     ...dates.map((date) {
                       final isPresent = _isPresentOnDate(employee, date);
-                      return SizedBox(
+                      return Container(
                         width: 60,
+                        decoration: const BoxDecoration(
+                          color: AuthColors.background,
+                          border: Border(
+                            right: BorderSide(
+                              color: AuthColors.textSub,
+                              width: 1,
+                            ),
+                          ),
+                        ),
                         child: Center(
                           child: IconButton(
                             icon: Icon(
@@ -558,8 +607,11 @@ class _AttendanceGrid extends StatelessWidget {
                         ),
                       );
                     }),
-                    SizedBox(
+                    Container(
                       width: 100,
+                      decoration: const BoxDecoration(
+                        color: AuthColors.background,
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(

@@ -34,8 +34,14 @@ class TransactionsDataSource {
     String? cancelledBy,
     String? cancellationReason,
   }) async {
+    // Validate transaction ID
+    if (transactionId.isEmpty || transactionId.trim().isEmpty) {
+      throw ArgumentError('Transaction ID cannot be empty');
+    }
+
+    final trimmedId = transactionId.trim();
     // Delete the transaction document instead of marking as cancelled
-    await _transactionsRef().doc(transactionId).delete();
+    await _transactionsRef().doc(trimmedId).delete();
   }
 
   /// Get transactions for a client in a financial year

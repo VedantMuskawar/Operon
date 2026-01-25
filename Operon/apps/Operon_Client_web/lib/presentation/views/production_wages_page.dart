@@ -118,50 +118,6 @@ class _ProductionWagesContent extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Production Wages',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: AuthColors.textMain,
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      if (organization != null) {
-                        final cubit = context.read<ProductionBatchesCubit>();
-                        final employeesRepo = context.read<EmployeesRepository>();
-                        final productsRepo = context.read<ProductsRepository>();
-                        final wageSettingsRepo = context.read<WageSettingsRepository>();
-                        showDialog(
-                          context: context,
-                          builder: (dialogContext) => BlocProvider.value(
-                            value: cubit,
-                            child: ProductionBatchForm(
-                              organizationId: organization.id,
-                              employeesRepository: employeesRepo,
-                              productsRepository: productsRepo,
-                              wageSettingsRepository: wageSettingsRepo,
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('New Batch'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Record and manage production batches for wage calculation.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AuthColors.textSub,
-                    ),
-              ),
               const SizedBox(height: 24),
               // Statistics Cards
               const _StatisticsCards(),
@@ -250,7 +206,7 @@ class _StatisticsCards extends StatelessWidget {
                 icon: Icons.inventory_2_outlined,
                 label: 'Total Batches',
                 value: state.totalBatches.toString(),
-                color: AuthColors.legacyAccent,
+                color: AuthColors.primary,
               ),
             ),
             const SizedBox(width: 16),
@@ -445,7 +401,7 @@ class _TabButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           decoration: BoxDecoration(
             color: isSelected
-                ? AuthColors.legacyAccent.withValues(alpha: 0.2)
+                ? AuthColors.primary.withValues(alpha: 0.2)
                 : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
           ),
@@ -466,7 +422,7 @@ class _TabButton extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AuthColors.legacyAccent
+                        ? AuthColors.primary
                         : AuthColors.textMainWithOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -504,6 +460,8 @@ class _EmptyState extends StatelessWidget {
     final hasFilters = state.searchQuery != null ||
         state.startDate != null ||
         state.endDate != null ||
+        state.startDate2 != null ||
+        state.endDate2 != null ||
         state.selectedTab != WorkflowTab.all;
 
     return Center(
@@ -616,22 +574,28 @@ class _EmptyState extends StatelessWidget {
 class _FiltersBar extends StatelessWidget {
   const _FiltersBar();
 
-  Future<void> _showDateRangePicker(BuildContext context) async {
+  Future<void> _showDateRangePicker(BuildContext context, {bool isSecond = false}) async {
     final cubit = context.read<ProductionBatchesCubit>();
     final state = cubit.state;
+
+    final initialRange = isSecond
+        ? (state.startDate2 != null && state.endDate2 != null
+            ? DateTimeRange(start: state.startDate2!, end: state.endDate2!)
+            : null)
+        : (state.startDate != null && state.endDate != null
+            ? DateTimeRange(start: state.startDate!, end: state.endDate!)
+            : null);
 
     final pickedRange = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      initialDateRange: state.startDate != null && state.endDate != null
-          ? DateTimeRange(start: state.startDate!, end: state.endDate!)
-          : null,
+      initialDateRange: initialRange,
       builder: (context, child) {
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: AuthColors.legacyAccent,
+              primary: AuthColors.primary,
               onPrimary: AuthColors.textMain,
               surface: AuthColors.surface,
               onSurface: AuthColors.textMain,
@@ -643,17 +607,26 @@ class _FiltersBar extends StatelessWidget {
     );
 
     if (pickedRange != null) {
-      cubit.setDateRange(pickedRange.start, pickedRange.end);
+      if (isSecond) {
+        cubit.setDateRange2(pickedRange.start, pickedRange.end);
+      } else {
+        cubit.setDateRange(pickedRange.start, pickedRange.end);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    final organization = orgState.organization;
+
     return BlocBuilder<ProductionBatchesCubit, ProductionBatchesState>(
       builder: (context, state) {
         final hasActiveFilters = state.searchQuery != null ||
             state.startDate != null ||
-            state.endDate != null;
+            state.endDate != null ||
+            state.startDate2 != null ||
+            state.endDate2 != null;
 
         return Container(
           padding: const EdgeInsets.all(16),
@@ -666,6 +639,66 @@ class _FiltersBar extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // First Date Range
+              OutlinedButton.icon(
+                onPressed: () => _showDateRangePicker(context, isSecond: false),
+                icon: const Icon(Icons.date_range, size: 18),
+                label: Text(
+                  state.startDate != null && state.endDate != null
+                      ? '${state.startDate!.day}/${state.startDate!.month}/${state.startDate!.year} - ${state.endDate!.day}/${state.endDate!.month}/${state.endDate!.year}'
+                      : 'Date Range',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  side: BorderSide(
+                    color: state.startDate != null && state.endDate != null
+                        ? AuthColors.primary
+                        : Colors.white.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+              if (state.startDate != null && state.endDate != null) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    context.read<ProductionBatchesCubit>().clearDateRange();
+                  },
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: 'Clear date range',
+                  color: Colors.white70,
+                ),
+              ],
+              const SizedBox(width: 16),
+              // Second Date Range
+              OutlinedButton.icon(
+                onPressed: () => _showDateRangePicker(context, isSecond: true),
+                icon: const Icon(Icons.date_range, size: 18),
+                label: Text(
+                  state.startDate2 != null && state.endDate2 != null
+                      ? '${state.startDate2!.day}/${state.startDate2!.month}/${state.startDate2!.year} - ${state.endDate2!.day}/${state.endDate2!.month}/${state.endDate2!.year}'
+                      : 'Date Range 2',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white70,
+                  side: BorderSide(
+                    color: state.startDate2 != null && state.endDate2 != null
+                        ? AuthColors.primary
+                        : Colors.white.withValues(alpha: 0.2),
+                  ),
+                ),
+              ),
+              if (state.startDate2 != null && state.endDate2 != null) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    context.read<ProductionBatchesCubit>().clearDateRange2();
+                  },
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: 'Clear date range 2',
+                  color: Colors.white70,
+                ),
+              ],
+              const SizedBox(width: 16),
               // Search
               Expanded(
                 flex: 2,
@@ -700,7 +733,7 @@ class _FiltersBar extends StatelessWidget {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(
-                        color: Color(0xFF6F4BFF),
+                        color: AuthColors.primary,
                         width: 2,
                       ),
                     ),
@@ -713,35 +746,31 @@ class _FiltersBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              // Date Range
-              OutlinedButton.icon(
-                onPressed: () => _showDateRangePicker(context),
-                icon: const Icon(Icons.date_range, size: 18),
-                label: Text(
-                  state.startDate != null && state.endDate != null
-                      ? '${state.startDate!.day}/${state.startDate!.month}/${state.startDate!.year} - ${state.endDate!.day}/${state.endDate!.month}/${state.endDate!.year}'
-                      : 'Date Range',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  side: BorderSide(
-                    color: state.startDate != null && state.endDate != null
-                        ? const Color(0xFF6F4BFF)
-                        : Colors.white.withValues(alpha: 0.2),
-                  ),
-                ),
+              // New Batch Button
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (organization != null) {
+                    final cubit = context.read<ProductionBatchesCubit>();
+                    final employeesRepo = context.read<EmployeesRepository>();
+                    final productsRepo = context.read<ProductsRepository>();
+                    final wageSettingsRepo = context.read<WageSettingsRepository>();
+                    showDialog(
+                      context: context,
+                      builder: (dialogContext) => BlocProvider.value(
+                        value: cubit,
+                        child: ProductionBatchForm(
+                          organizationId: organization.id,
+                          employeesRepository: employeesRepo,
+                          productsRepository: productsRepo,
+                          wageSettingsRepository: wageSettingsRepo,
+                        ),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('New Batch'),
               ),
-              if (state.startDate != null && state.endDate != null) ...[
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    context.read<ProductionBatchesCubit>().clearDateRange();
-                  },
-                  icon: const Icon(Icons.clear, size: 18),
-                  tooltip: 'Clear date range',
-                  color: Colors.white70,
-                ),
-              ],
               if (hasActiveFilters) ...[
                 const SizedBox(width: 8),
                 TextButton.icon(

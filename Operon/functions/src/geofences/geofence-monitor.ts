@@ -84,10 +84,13 @@ export const onDriverLocationUpdate = functions.database
 
       return null;
     } catch (error) {
-      logError('GeofenceMonitor', 'onDriverLocationUpdate', 'Error processing geofence check', {
-        uid,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      logError(
+        'GeofenceMonitor',
+        'onDriverLocationUpdate',
+        'Error processing geofence check',
+        error instanceof Error ? error : new Error(String(error)),
+        { uid },
+      );
       return null;
     }
   });

@@ -163,7 +163,6 @@ class _DriverProfileDrawer extends StatelessWidget {
         },
         // Driver app doesn’t expose admin pages (users/permissions) right now.
         onOpenUsers: null,
-        onOpenPermissions: null,
       ),
     );
   }

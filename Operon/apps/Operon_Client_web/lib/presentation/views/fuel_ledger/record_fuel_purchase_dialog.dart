@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/theme/auth_colors.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/vehicles_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
@@ -220,9 +221,9 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fuel purchase recorded successfully'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Fuel purchase recorded successfully'),
+            backgroundColor: AuthColors.success,
           ),
         );
         
@@ -253,7 +254,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to record purchase: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -267,7 +268,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.backgroundAlt,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -286,21 +287,21 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                      color: AuthColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.local_gas_station,
-                      color: Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                       size: 20,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Record Fuel Purchase',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -308,7 +309,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: Icon(Icons.close, color: AuthColors.textSub),
                   ),
                 ],
               ),
@@ -318,8 +319,8 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
               DropdownButtonFormField<Vendor>(
                 initialValue: _selectedVendor,
                 decoration: _inputDecoration('Fuel Vendor'),
-                dropdownColor: const Color(0xFF2B2B3C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: TextStyle(color: AuthColors.textMain),
                 items: _fuelVendors.map((vendor) {
                   return DropdownMenuItem<Vendor>(
                     value: vendor,
@@ -329,15 +330,15 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                       children: [
                         Text(
                           vendor.name,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AuthColors.textMain,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           'Balance: ₹${vendor.currentBalance.toStringAsFixed(2)}',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color: AuthColors.textSub,
                             fontSize: 12,
                           ),
                         ),
@@ -364,9 +365,9 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                     children: [
                       Text(
                         _formatDate(_selectedDate),
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: AuthColors.textMain),
                       ),
-                      const Icon(Icons.calendar_today, color: Colors.white54, size: 20),
+                      Icon(Icons.calendar_today, color: AuthColors.textSub, size: 20),
                     ],
                   ),
                 ),
@@ -376,7 +377,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
               // Amount
               TextFormField(
                 controller: _amountController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _inputDecoration('Amount'),
                 validator: (value) {
@@ -401,15 +402,15 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                   : DropdownButtonFormField<Vehicle>(
                       initialValue: _selectedVehicle,
                       decoration: _inputDecoration('Vehicle'),
-                      dropdownColor: const Color(0xFF2B2B3C),
-                      style: const TextStyle(color: Colors.white),
+                      dropdownColor: AuthColors.surface,
+                      style: TextStyle(color: AuthColors.textMain),
                       items: _vehicles.map((vehicle) {
                         return DropdownMenuItem<Vehicle>(
                           value: vehicle,
                           child: Text(
                             vehicle.vehicleNumber,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AuthColors.textMain,
                               fontWeight: FontWeight.w600,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -428,7 +429,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
               // Voucher Number
               TextFormField(
                 controller: _voucherNumberController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Voucher Number'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -445,15 +446,15 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                     _linkTripsNow = value ?? false;
                   });
                 },
-                title: const Text(
+                title: Text(
                   'Link trips now (Optional)',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                 ),
-                subtitle: const Text(
+                subtitle: Text(
                   'Open trip selection dialog after recording',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
-                activeColor: const Color(0xFF6F4BFF),
+                activeColor: AuthColors.primary,
                 contentPadding: EdgeInsets.zero,
               ),
               const SizedBox(height: 24),
@@ -466,23 +467,23 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                     onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
                     child: Text(
                       'Cancel',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                      style: TextStyle(color: AuthColors.textSub),
                     ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _submitPurchase,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6F4BFF),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AuthColors.primary,
+                      foregroundColor: AuthColors.textMain,
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                             ),
                           )
                         : const Text('Record Purchase'),
@@ -500,31 +501,31 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF2B2B3C),
-      labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textMainWithOpacity(0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: Color(0xFF6F4BFF),
+        borderSide: BorderSide(
+          color: AuthColors.primary,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: Colors.red,
+        borderSide: BorderSide(
+          color: AuthColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(
-          color: Colors.red,
+        borderSide: BorderSide(
+          color: AuthColors.error,
           width: 2,
         ),
       ),

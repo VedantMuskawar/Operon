@@ -24,11 +24,13 @@ dependencies:
   url_launcher: ^6.2.5
   fl_chart: ^0.68.0
   flutter_overlay_window: ^0.4.0
+  path_provider: ^2.1.2
   shared_preferences: ^2.3.2
   image_picker: ^1.0.7
   pdf: ^3.11.1
   printing: ^5.13.1
   flutter_staggered_animations: ^1.1.1
+  shimmer: ^3.0.0
   core_bloc:
     path: ../../packages/core_bloc
   core_models:

@@ -44,7 +44,7 @@ class TransactionTypeSegmentedControl extends StatelessWidget {
           }
         },
         backgroundColor: Colors.transparent,
-        thumbColor: AuthColors.legacyAccent,
+        thumbColor: AuthColors.primary,
         children: const {
           0: Padding(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),

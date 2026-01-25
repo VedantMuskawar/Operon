@@ -26,14 +26,11 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/data/services/analytics_service.dart';
 import 'package:dash_mobile/data/services/qr_code_service.dart';
-import 'package:dash_mobile/data/services/call_detection_service.dart';
-import 'package:dash_mobile/data/services/caller_id_service.dart';
-import 'package:dash_mobile/data/services/call_overlay_manager.dart';
 import 'package:dash_mobile/presentation/blocs/app_initialization/app_initialization_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
-import 'package:dash_mobile/presentation/blocs/call_detection/call_detection_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_selector/org_selector_cubit.dart';
+import 'package:dash_mobile/presentation/widgets/caller_overlay_bootstrap.dart';
 import 'package:dash_mobile/presentation/widgets/textured_background.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -174,17 +171,10 @@ class DashMobileApp extends StatelessWidget {
 
     final qrCodeService = QrCodeService();
 
-    final callDetectionService = CallDetectionService();
-    final callOverlayManager = CallOverlayManager();
-    final callerIdService = CallerIdService(
-      clientService: ClientService(firestore: authRepository.firestore),
-      pendingOrdersRepository: pendingOrdersRepository,
-      clientLedgerRepository: clientLedgerRepository,
-    );
-
     final router = buildRouter();
-    return MultiRepositoryProvider(
-      providers: [
+    return CallerOverlayBootstrap(
+      child: MultiRepositoryProvider(
+        providers: [
         RepositoryProvider.value(value: authRepository),
         RepositoryProvider.value(value: organizationRepository),
         RepositoryProvider.value(value: rolesRepository),
@@ -232,35 +222,45 @@ class DashMobileApp extends StatelessWidget {
               appAccessRolesRepository: appAccessRolesRepository,
             ),
           ),
-          BlocProvider(
-            create: (context) => CallDetectionCubit(
-              callDetectionService: callDetectionService,
-              callerIdService: callerIdService,
-              overlayManager: callOverlayManager,
-              orgContextCubit: context.read<OrganizationContextCubit>(),
-            ),
-          ),
         ],
-        child: MaterialApp.router(
-          title: 'Dash Mobile',
-          theme: buildDashTheme(),
-          routerConfig: router,
-          debugShowCheckedModeBanner: false,
-          builder: (context, child) {
-            if (kDebugMode) {
-              debugPrint('[MaterialApp.builder] Called with child: ${child != null ? child.runtimeType : "null"}');
-            }
-            final wrapped = TexturedBackground(
-              pattern: BackgroundPattern.dotted, // More visible pattern
-              opacity: 1.0, // Maximum visibility for testing
-              debugMode: kDebugMode, // Enable debug in debug mode
-              child: child ?? const SizedBox.shrink(),
-            );
-            if (kDebugMode) {
-              debugPrint('[MaterialApp.builder] Returning TexturedBackground widget');
-            }
-            return wrapped;
-          },
+          child: MaterialApp.router(
+            title: 'Dash Mobile',
+            theme: buildDashTheme(),
+            routerConfig: router,
+            debugShowCheckedModeBanner: false,
+            builder: (context, child) {
+              if (kDebugMode) {
+                debugPrint('[MaterialApp.builder] Called with child: ${child != null ? child.runtimeType : "null"}');
+              }
+              
+              // Ensure MediaQuery has a valid textScaler to prevent configuration ID errors
+              // Always wrap with a safe textScaler to avoid the -2147483648 configuration ID error
+              final mediaQuery = MediaQuery.maybeOf(context);
+              final safeTextScaler = const TextScaler.linear(1.0);
+              
+              Widget wrappedChild = child ?? const SizedBox.shrink();
+              
+              // Always wrap with MediaQuery that has a safe textScaler
+              // This prevents the "incorrect configuration id: -2147483648" error
+              if (mediaQuery != null) {
+                wrappedChild = MediaQuery(
+                  data: mediaQuery.copyWith(textScaler: safeTextScaler),
+                  child: wrappedChild,
+                );
+              }
+              
+              final wrapped = TexturedBackground(
+                pattern: BackgroundPattern.dotted, // More visible pattern
+                opacity: 1.0, // Maximum visibility for testing
+                debugMode: kDebugMode, // Enable debug in debug mode
+                child: wrappedChild,
+              );
+              if (kDebugMode) {
+                debugPrint('[MaterialApp.builder] Returning TexturedBackground widget');
+              }
+              return wrapped;
+            },
+          ),
         ),
       ),
     );

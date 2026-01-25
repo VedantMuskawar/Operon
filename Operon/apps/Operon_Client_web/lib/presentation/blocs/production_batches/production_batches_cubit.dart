@@ -209,9 +209,19 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
     emit(state.copyWith(startDate: start, endDate: end));
   }
 
+  /// Set second date range filter
+  void setDateRange2(DateTime? start, DateTime? end) {
+    emit(state.copyWith(startDate2: start, endDate2: end));
+  }
+
   /// Clear date range filter
   void clearDateRange() {
     emit(state.copyWith(startDate: null, endDate: null));
+  }
+
+  /// Clear second date range filter
+  void clearDateRange2() {
+    emit(state.copyWith(startDate2: null, endDate2: null));
   }
 
   /// Clear all filters
@@ -220,6 +230,8 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
       selectedTab: WorkflowTab.all,
       startDate: null,
       endDate: null,
+      startDate2: null,
+      endDate2: null,
       searchQuery: null,
       selectedStatus: null,
     ));

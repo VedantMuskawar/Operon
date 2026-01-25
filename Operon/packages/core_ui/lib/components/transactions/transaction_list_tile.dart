@@ -215,12 +215,21 @@ class TransactionListTile extends StatelessWidget {
     DateTime date,
     double? balanceAfter,
   ) {
-    final refText = (transaction.referenceNumber != null &&
-            transaction.referenceNumber!.trim().isNotEmpty)
-        ? 'Ref: ${transaction.referenceNumber!.trim()}'
-        : (subtitle != null && subtitle!.trim().isNotEmpty)
-            ? subtitle!.trim()
-            : '';
+    // Build subtitle text - show reference number if available, otherwise use subtitle prop
+    final hasReference = transaction.referenceNumber != null &&
+        transaction.referenceNumber!.trim().isNotEmpty;
+    final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
+    
+    String? subtitleText;
+    if (hasReference) {
+      subtitleText = 'Ref: ${transaction.referenceNumber!.trim()}';
+      // If there's also a custom subtitle, append it
+      if (hasSubtitle && subtitle!.trim() != subtitleText) {
+        subtitleText = '$subtitleText • ${subtitle!.trim()}';
+      }
+    } else if (hasSubtitle) {
+      subtitleText = subtitle!.trim();
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -267,22 +276,38 @@ class TransactionListTile extends StatelessWidget {
                         ),
                       ],
                     ),
+                    // Row 2: Subtitle (if available)
+                    if (subtitleText != null && subtitleText!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitleText!,
+                        style: const TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 13,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    // Row 3: Balance + Delete button
                     const SizedBox(height: 6),
-
-                    // Row 2: Ref (left) + Delete (right)
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            refText,
-                            style: const TextStyle(
-                              color: AuthColors.textSub,
-                              fontSize: 13,
+                        if (balanceAfter != null) ...[
+                          Expanded(
+                            child: Text(
+                              'Balance: ${_formatCurrency(balanceAfter)}',
+                              style: const TextStyle(
+                                color: AuthColors.textSub,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
+                        ] else ...[
+                          const Spacer(),
+                        ],
                         if (onDelete != null) ...[
                           const SizedBox(width: 8),
                           IconButton(
@@ -295,20 +320,6 @@ class TransactionListTile extends StatelessWidget {
                         ],
                       ],
                     ),
-
-                    // Row 3: Balance
-                    if (balanceAfter != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Balance: ${_formatCurrency(balanceAfter)}',
-                        style: const TextStyle(
-                          color: AuthColors.textSub,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
                   ],
                 ),
               ),

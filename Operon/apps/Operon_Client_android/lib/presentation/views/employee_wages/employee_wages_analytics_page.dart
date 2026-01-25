@@ -1,6 +1,7 @@
+import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_state.dart';
-import 'package:core_models/core_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -20,28 +21,17 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.analytics_outlined,
-                    size: 64,
-                    color: Colors.white.withOpacity(0.3),
-                  ),
+                  Icon(Icons.analytics_outlined, size: 64, color: AuthColors.textSub.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
                   Text(
                     'No analytics data available',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: const TextStyle(color: AuthColors.textSub, fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Analytics will appear once wages transactions are recorded.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                   ),
                 ],
               ),
@@ -49,17 +39,11 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
           );
         }
 
-        // Calculate statistics
-        final totalTransactions = transactions.length;
-        final totalAmount = transactions.fold<double>(
-          0.0,
-          (sum, tx) => sum + tx.amount,
-        );
+        final totalAmount = transactions.fold<double>(0.0, (acc, tx) => acc + tx.amount);
         final salaryCount = transactions.where((tx) => tx.category == TransactionCategory.salaryCredit).length;
         final bonusCount = transactions.where((tx) => tx.category == TransactionCategory.bonus).length;
-        final avgAmount = totalTransactions > 0 ? totalAmount / totalTransactions : 0.0;
-        
-        // Calculate monthly totals
+        final avgAmount = transactions.isNotEmpty ? totalAmount / transactions.length : 0.0;
+
         final monthlyTotals = <String, double>{};
         for (final tx in transactions) {
           final date = tx.createdAt ?? DateTime.now();
@@ -74,9 +58,7 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Statistics Header
             _WagesStatsHeader(
-              totalTransactions: totalTransactions,
               totalAmount: totalAmount,
               salaryCount: salaryCount,
               bonusCount: bonusCount,
@@ -84,16 +66,8 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
               avgMonthly: avgMonthly,
             ),
             const SizedBox(height: 24),
-            // Info Tiles
             Row(
               children: [
-                Expanded(
-                  child: _InfoTile(
-                    title: 'Total Transactions',
-                    value: totalTransactions.toString(),
-                  ),
-                ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: _InfoTile(
                     title: 'Average Amount',
@@ -103,39 +77,27 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            // Placeholder for future charts
             Container(
               padding: const EdgeInsets.all(40),
               decoration: BoxDecoration(
-                color: const Color(0xFF131324),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+                border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.bar_chart_outlined,
-                    size: 48,
-                    color: Colors.white.withOpacity(0.3),
-                  ),
+                  Icon(Icons.bar_chart_outlined, size: 48, color: AuthColors.textSub.withValues(alpha: 0.5)),
                   const SizedBox(height: 16),
-                  Text(
+                  const Text(
                     'Charts coming soon',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  const Text(
                     'Wages analytics charts will be available here.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                   ),
                 ],
               ),
@@ -149,7 +111,6 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
 
 class _WagesStatsHeader extends StatelessWidget {
   const _WagesStatsHeader({
-    required this.totalTransactions,
     required this.totalAmount,
     required this.salaryCount,
     required this.bonusCount,
@@ -157,7 +118,6 @@ class _WagesStatsHeader extends StatelessWidget {
     required this.avgMonthly,
   });
 
-  final int totalTransactions;
   final double totalAmount;
   final int salaryCount;
   final int bonusCount;
@@ -179,41 +139,19 @@ class _WagesStatsHeader extends StatelessWidget {
           children: [
             Expanded(
               child: _StatCard(
-                icon: Icons.receipt_long,
-                label: 'Total Transactions',
-                value: totalTransactions.toString(),
-                color: const Color(0xFF6F4BFF),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _StatCard(
                 icon: Icons.account_balance_wallet_outlined,
                 label: 'Total Amount',
                 value: _formatCurrency(totalAmount),
-                color: const Color(0xFFFF9800),
+                color: AuthColors.warning,
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
+            const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
                 icon: Icons.payments,
                 label: 'Salary Credits',
                 value: salaryCount.toString(),
-                color: const Color(0xFF5AD8A4),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _StatCard(
-                icon: Icons.card_giftcard,
-                label: 'Bonuses',
-                value: bonusCount.toString(),
-                color: const Color(0xFF2196F3),
+                color: AuthColors.successVariant,
               ),
             ),
           ],
@@ -223,21 +161,35 @@ class _WagesStatsHeader extends StatelessWidget {
           children: [
             Expanded(
               child: _StatCard(
-                icon: Icons.trending_up,
-                label: 'Average Amount',
-                value: _formatCurrency(avgAmount),
-                color: const Color(0xFF9C27B0),
+                icon: Icons.card_giftcard,
+                label: 'Bonuses',
+                value: bonusCount.toString(),
+                color: AuthColors.info,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
+                icon: Icons.trending_up,
+                label: 'Average Amount',
+                value: _formatCurrency(avgAmount),
+                color: AuthColors.accentPurple,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _StatCard(
                 icon: Icons.calendar_month,
                 label: 'Avg Monthly',
                 value: _formatCurrency(avgMonthly),
-                color: const Color(0xFFE91E63),
+                color: AuthColors.secondary,
               ),
             ),
+            const Spacer(),
           ],
         ),
       ],
@@ -263,25 +215,9 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
-          ],
-        ),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +229,7 @@ class _StatCard extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: color, size: 18),
@@ -304,22 +240,14 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(color: AuthColors.textMain, fontSize: 16, fontWeight: FontWeight.w700),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: AuthColors.textSub, fontSize: 11, fontWeight: FontWeight.w500),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -343,36 +271,21 @@ class _InfoTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF6F4BFF).withOpacity(0.2),
-            const Color(0xFF4CE0B3).withOpacity(0.1),
-          ],
-        ),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: AuthColors.textSub, fontSize: 14, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(color: AuthColors.textMain, fontSize: 28, fontWeight: FontWeight.w700),
           ),
         ],
       ),

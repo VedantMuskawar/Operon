@@ -686,6 +686,33 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "clientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "financialYear",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "organizationId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "TRANSACTIONS",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "organizationId",
           "order": "ASCENDING"
         },

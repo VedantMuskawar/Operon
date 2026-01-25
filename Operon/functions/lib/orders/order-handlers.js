@@ -38,7 +38,6 @@ const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
-const order_scheduling_1 = require("./order-scheduling");
 const financial_year_1 = require("../shared/financial-year");
 const db = (0, firestore_helpers_1.getFirestore)();
 const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
@@ -602,24 +601,11 @@ exports.onOrderUpdated = functions
             previousStatus: beforeStatus,
         });
         try {
-            const orderData = after;
-            const items = orderData.items || [];
-            const autoSchedule = orderData.autoSchedule;
             // Remove auto-schedule data since order is cancelled
             await change.after.ref.update({
                 autoSchedule: admin.firestore.FieldValue.delete(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
-            // Remove this order's estimated date from reference data
-            if ((autoSchedule === null || autoSchedule === void 0 ? void 0 : autoSchedule.estimatedDeliveryDate) && items.length > 0) {
-                const primaryProduct = items[0];
-                const productId = primaryProduct.productId;
-                const fixedQuantityPerTrip = primaryProduct.fixedQuantityPerTrip || primaryProduct.totalQuantity;
-                const organizationId = orderData.organizationId;
-                if (organizationId && productId && fixedQuantityPerTrip) {
-                    await (0, order_scheduling_1.removeEstimatedDeliveryDateReference)(organizationId, productId, fixedQuantityPerTrip, autoSchedule.estimatedDeliveryDate);
-                }
-            }
             console.log('[Order Update] Successfully cleaned up auto-schedule data', {
                 orderId,
             });

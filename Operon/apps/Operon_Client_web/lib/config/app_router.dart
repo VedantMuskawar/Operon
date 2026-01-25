@@ -803,12 +803,14 @@ GoRouter buildRouter() {
             );
           }
           final transactionsRepository = context.read<TransactionsRepository>();
+          final vendorsRepository = context.read<VendorsRepository>();
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
             child: BlocProvider(
               create: (_) => UnifiedFinancialTransactionsCubit(
                 transactionsRepository: transactionsRepository,
+                vendorsRepository: vendorsRepository,
                 organizationId: organization.id,
               ),
               child: const UnifiedFinancialTransactionsView(),

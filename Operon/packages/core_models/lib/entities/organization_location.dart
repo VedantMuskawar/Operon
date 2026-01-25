@@ -32,9 +32,21 @@ class OrganizationLocation {
       longitude: (map['longitude'] as num?)?.toDouble() ?? 0.0,
       address: map['address'] as String?,
       isPrimary: map['is_primary'] as bool? ?? false,
-      createdAt: (map['created_at'] as Timestamp?)?.toDate(),
-      updatedAt: (map['updated_at'] as Timestamp?)?.toDate(),
+      createdAt: _parseTimestamp(map['created_at']),
+      updatedAt: _parseTimestamp(map['updated_at']),
     );
+  }
+
+  static DateTime? _parseTimestamp(dynamic v) {
+    if (v == null) return null;
+    if (v is Timestamp) return v.toDate();
+    if (v is DateTime) return v;
+    if (v is Map && v['_seconds'] != null) {
+      final s = (v['_seconds'] as num).toInt();
+      return DateTime.fromMillisecondsSinceEpoch(s * 1000);
+    }
+    if (v is String) return DateTime.tryParse(v);
+    return null;
   }
 
   Map<String, dynamic> toMap() {

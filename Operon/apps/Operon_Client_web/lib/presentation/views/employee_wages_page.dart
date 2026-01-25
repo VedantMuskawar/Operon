@@ -2,13 +2,14 @@ import 'dart:async';
 
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/components/data_table.dart' as custom_table;
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_state.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/views/employee_wages/credit_salary_dialog.dart';
 import 'package:dash_web/presentation/views/employee_wages/record_bonus_dialog.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -34,12 +35,24 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
   String _query = '';
   _WagesSortOption _sortOption = _WagesSortOption.dateNewest;
 
-  // Pagination state
+  // Date range: default today–today
+  late DateTime _startDate;
+  late DateTime _endDate;
+
+  // Pagination state (only when > 50 rows; 50 per page)
   int _currentPage = 0;
-  final int _itemsPerPage = 10;
+  static const int _itemsPerPage = 50;
 
   String? _currentOrgId;
   List<Transaction> _previousTransactions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, now.day);
+    _endDate = DateTime(now.year, now.month, now.day);
+  }
 
   @override
   void didChangeDependencies() {
@@ -105,6 +118,14 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
 
   List<Transaction> _applyFiltersAndSort(List<Transaction> transactions) {
     var filtered = List<Transaction>.from(transactions);
+
+    // Apply date range filter
+    final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
+    final end = DateTime(_endDate.year, _endDate.month, _endDate.day).add(const Duration(days: 1));
+    filtered = filtered.where((tx) {
+      final txDate = tx.createdAt ?? DateTime(1970);
+      return !txDate.isBefore(start) && txDate.isBefore(end);
+    }).toList();
 
     // Apply search filter
     if (_query.isNotEmpty) {
@@ -189,9 +210,9 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Transaction deleted successfully'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Transaction deleted successfully'),
+            backgroundColor: AuthColors.success,
           ),
         );
       }
@@ -200,7 +221,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to delete transaction: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -218,17 +239,17 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
+        backgroundColor: AuthColors.surface,
         title: const Text(
           'Delete Transaction',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete this transaction?\n\n'
           'Employee: $employeeName\n'
           'Type: $categoryName\n'
           'Amount: ${_formatCurrency(transaction.amount)}',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -238,7 +259,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
           ),
           TextButton(
             onPressed: () {
@@ -246,7 +267,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
               Navigator.of(dialogContext).pop();
             },
             style: TextButton.styleFrom(
-              foregroundColor: Colors.redAccent,
+              foregroundColor: AuthColors.error,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -256,6 +277,38 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _selectStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime(2020),
+      lastDate: _endDate,
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _startDate = DateTime(picked.year, picked.month, picked.day);
+        if (_endDate.isBefore(_startDate)) _endDate = _startDate;
+        _currentPage = 0;
+      });
+    }
+  }
+
+  Future<void> _selectEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate,
+      firstDate: _startDate,
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _endDate = DateTime(picked.year, picked.month, picked.day);
+        if (_startDate.isAfter(_endDate)) _startDate = _endDate;
+        _currentPage = 0;
+      });
+    }
   }
 
   @override
@@ -289,142 +342,154 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
             });
           }
           final filtered = _applyFiltersAndSort(transactions);
-          final totalAmount = transactions.fold<double>(0.0, (sum, tx) => sum + tx.amount);
-          final salaryCount = transactions.where((tx) => tx.category == TransactionCategory.salaryCredit).length;
-          final bonusCount = transactions.where((tx) => tx.category == TransactionCategory.bonus).length;
+          final totalAmount = filtered.fold<double>(0.0, (acc, tx) => acc + tx.amount);
+          final salaryCount = filtered.where((tx) => tx.category == TransactionCategory.salaryCredit).length;
+          final bonusCount = filtered.where((tx) => tx.category == TransactionCategory.bonus).length;
+
+          final usePagination = filtered.length > 50;
+          final displayList = usePagination ? _getPaginatedData(filtered) : filtered;
+
+          void openCreditSalary() {
+            final cubit = context.read<EmployeeWagesCubit>();
+            showDialog(
+              context: context,
+              builder: (dialogContext) => BlocProvider.value(
+                value: cubit,
+                child: CreditSalaryDialog(onSalaryCredited: () {}),
+              ),
+            );
+          }
+
+          void openRecordBonus() {
+            final cubit = context.read<EmployeeWagesCubit>();
+            showDialog(
+              context: context,
+              builder: (dialogContext) => BlocProvider.value(
+                value: cubit,
+                child: RecordBonusDialog(onBonusRecorded: () {}),
+              ),
+            );
+          }
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Statistics Dashboard
-              _WagesStatsHeader(
-                totalTransactions: transactions.length,
-                totalAmount: totalAmount,
-                salaryCount: salaryCount,
-                bonusCount: bonusCount,
+              // Row 1: Summary Stats + Stacked Buttons (Credit Salary, Record Bonus)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _WagesStatsHeader(
+                      totalAmount: totalAmount,
+                      salaryCount: salaryCount,
+                      bonusCount: bonusCount,
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.payments, size: 20),
+                        label: const Text('Credit Salary'),
+                        onPressed: openCreditSalary,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AuthColors.primary,
+                          foregroundColor: AuthColors.textMain,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.card_giftcard, size: 20),
+                        label: const Text('Record Bonus'),
+                        onPressed: openRecordBonus,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AuthColors.accentPurple,
+                          foregroundColor: AuthColors.textMain,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
 
-              // Top Action Bar with Filters
+              // Row 2: Date range (left of search) + Search + Sort
               Row(
                 children: [
+                  // Date range – left of search
+                  _DateRangeChips(
+                    startDate: _startDate,
+                    endDate: _endDate,
+                    onStartTap: _selectStartDate,
+                    onEndTap: _selectEndDate,
+                    formatDate: _formatDate,
+                  ),
+                  const SizedBox(width: 12),
                   // Search Bar
                   Expanded(
                     child: Container(
                       constraints: const BoxConstraints(maxWidth: 400),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                        color: AuthColors.surface.withValues(alpha:0.6),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
-                        ),
+                        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
                       ),
                       child: TextField(
                         onChanged: (v) => setState(() {
                           _query = v;
                           _currentPage = 0;
                         }),
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: InputDecoration(
                           hintText: 'Search by employee, description...',
-                          hintStyle: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.4),
-                          ),
+                          hintStyle: const TextStyle(color: AuthColors.textSub),
                           filled: true,
                           fillColor: Colors.transparent,
-                          prefixIcon: const Icon(Icons.search, color: Colors.white54),
+                          prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
                           suffixIcon: _query.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear, color: Colors.white54),
+                                  icon: const Icon(Icons.clear, color: AuthColors.textSub),
                                   onPressed: () => setState(() => _query = ''),
                                 )
                               : null,
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Sort Options
+                  // Sort
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                      color: AuthColors.surface.withValues(alpha:0.6),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
+                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sort, size: 16, color: Colors.white.withValues(alpha: 0.7)),
+                        const Icon(Icons.sort, size: 16, color: AuthColors.textSub),
                         const SizedBox(width: 6),
                         DropdownButtonHideUnderline(
                           child: DropdownButton<_WagesSortOption>(
                             value: _sortOption,
-                            dropdownColor: const Color(0xFF1B1B2C),
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
+                            dropdownColor: AuthColors.surface,
+                            style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
                             items: const [
-                              DropdownMenuItem(
-                                value: _WagesSortOption.dateNewest,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.calendar_today, size: 16, color: Colors.white70),
-                                    SizedBox(width: 8),
-                                    Text('Date (Newest)'),
-                                  ],
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: _WagesSortOption.dateOldest,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.calendar_today, size: 16, color: Colors.white70),
-                                    SizedBox(width: 8),
-                                    Text('Date (Oldest)'),
-                                  ],
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: _WagesSortOption.amountHigh,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.trending_down, size: 16, color: Colors.white70),
-                                    SizedBox(width: 8),
-                                    Text('Amount (High to Low)'),
-                                  ],
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: _WagesSortOption.amountLow,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.trending_up, size: 16, color: Colors.white70),
-                                    SizedBox(width: 8),
-                                    Text('Amount (Low to High)'),
-                                  ],
-                                ),
-                              ),
-                              DropdownMenuItem(
-                                value: _WagesSortOption.employeeAsc,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.person, size: 16, color: Colors.white70),
-                                    SizedBox(width: 8),
-                                    Text('Employee (A-Z)'),
-                                  ],
-                                ),
-                              ),
+                              DropdownMenuItem(value: _WagesSortOption.dateNewest, child: Text('Date (Newest)')),
+                              DropdownMenuItem(value: _WagesSortOption.dateOldest, child: Text('Date (Oldest)')),
+                              DropdownMenuItem(value: _WagesSortOption.amountHigh, child: Text('Amount (High to Low)')),
+                              DropdownMenuItem(value: _WagesSortOption.amountLow, child: Text('Amount (Low to High)')),
+                              DropdownMenuItem(value: _WagesSortOption.employeeAsc, child: Text('Employee (A-Z)')),
                             ],
                             onChanged: (value) {
                               if (value != null) {
@@ -434,146 +499,43 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                 });
                               }
                             },
-                            icon: Icon(Icons.arrow_drop_down, color: Colors.white.withValues(alpha: 0.7), size: 20),
+                            icon: const Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
                             isDense: true,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Results count
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Text(
-                      '${filtered.length} ${filtered.length == 1 ? 'transaction' : 'transactions'}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Credit Salary Button
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.payments, size: 20),
-                    label: const Text('Credit Salary'),
-                    onPressed: () {
-                      final cubit = context.read<EmployeeWagesCubit>();
-                      showDialog(
-                        context: context,
-                        builder: (dialogContext) => BlocProvider.value(
-                          value: cubit,
-                          child: CreditSalaryDialog(
-                            onSalaryCredited: () {
-                              // Streams will auto-update
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6F4BFF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Record Bonus Button
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.card_giftcard, size: 20),
-                    label: const Text('Record Bonus'),
-                    onPressed: () {
-                      final cubit = context.read<EmployeeWagesCubit>();
-                      showDialog(
-                        context: context,
-                        builder: (dialogContext) => BlocProvider.value(
-                          value: cubit,
-                          child: RecordBonusDialog(
-                            onBonusRecorded: () {
-                              // Streams will auto-update
-                            },
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF9C27B0),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
                 ],
               ),
               const SizedBox(height: 24),
 
-              // Transactions Table
+              // Transactions Table (core_ui DataTable) + conditional pagination
               if (filtered.isEmpty && _query.isNotEmpty)
                 _EmptySearchState(query: _query)
               else if (filtered.isEmpty)
-                Builder(
-                  builder: (context) => _EmptyTransactionsState(
-                    onCreditSalary: () {
-                      final cubit = context.read<EmployeeWagesCubit>();
-                      showDialog(
-                        context: context,
-                        builder: (dialogContext) => BlocProvider.value(
-                          value: cubit,
-                          child: CreditSalaryDialog(
-                            onSalaryCredited: () {},
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                )
+                _EmptyTransactionsState(onCreditSalary: openCreditSalary)
               else
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Table
-                    _WagesTransactionTable(
-                      transactions: _getPaginatedData(filtered),
+                    _WagesDataTable(
+                      transactions: displayList,
                       formatCurrency: _formatCurrency,
                       formatDate: _formatDate,
                       employeeNames: _employeeNames,
-                      onDelete: (transaction) => _showDeleteConfirmation(context, transaction),
+                      onDelete: (tx) => _showDeleteConfirmation(context, tx),
                     ),
-                    const SizedBox(height: 16),
-                    // Pagination Controls
-                    _PaginationControls(
-                      currentPage: _currentPage,
-                      totalPages: _getTotalPages(filtered.length),
-                      totalItems: filtered.length,
-                      itemsPerPage: _itemsPerPage,
-                      onPageChanged: (page) {
-                        setState(() {
-                          _currentPage = page;
-                        });
-                      },
-                    ),
+                    if (usePagination) ...[
+                      const SizedBox(height: 16),
+                      _PaginationControls(
+                        currentPage: _currentPage,
+                        totalPages: _getTotalPages(filtered.length),
+                        totalItems: filtered.length,
+                        itemsPerPage: _itemsPerPage,
+                        onPageChanged: (page) => setState(() => _currentPage = page),
+                      ),
+                    ],
                   ],
                 ),
             ],
@@ -584,101 +546,128 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
   }
 }
 
+class _DateRangeChips extends StatelessWidget {
+  const _DateRangeChips({
+    required this.startDate,
+    required this.endDate,
+    required this.onStartTap,
+    required this.onEndTap,
+    required this.formatDate,
+  });
+
+  final DateTime startDate;
+  final DateTime endDate;
+  final VoidCallback onStartTap;
+  final VoidCallback onEndTap;
+  final String Function(DateTime) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _DateChip(label: 'Start', date: startDate, formatDate: formatDate, onTap: onStartTap),
+        const SizedBox(width: 8),
+        _DateChip(label: 'End', date: endDate, formatDate: formatDate, onTap: onEndTap),
+      ],
+    );
+  }
+}
+
+class _DateChip extends StatelessWidget {
+  const _DateChip({
+    required this.label,
+    required this.date,
+    required this.formatDate,
+    required this.onTap,
+  });
+
+  final String label;
+  final DateTime date;
+  final String Function(DateTime) formatDate;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AuthColors.surface.withValues(alpha:0.6),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 16),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(label, style: const TextStyle(color: AuthColors.textSub, fontSize: 10)),
+                  Text(formatDate(date), style: const TextStyle(color: AuthColors.textMain, fontSize: 12, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WagesStatsHeader extends StatelessWidget {
   const _WagesStatsHeader({
-    required this.totalTransactions,
     required this.totalAmount,
     required this.salaryCount,
     required this.bonusCount,
   });
 
-  final int totalTransactions;
   final double totalAmount;
   final int salaryCount;
   final int bonusCount;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 1200;
-        return isWide
-            ? Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.receipt_long,
-                      label: 'Total Transactions',
-                      value: totalTransactions.toString(),
-                      color: const Color(0xFF6F4BFF),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.account_balance_wallet_outlined,
-                      label: 'Total Amount',
-                      value: '₹${totalAmount.toStringAsFixed(0).replaceAllMapped(
-                        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-                        (Match m) => '${m[1]},',
-                      )}',
-                      color: const Color(0xFFFF9800),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.payments,
-                      label: 'Salary Credits',
-                      value: salaryCount.toString(),
-                      color: const Color(0xFF5AD8A4),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.card_giftcard,
-                      label: 'Bonuses',
-                      value: bonusCount.toString(),
-                      color: const Color(0xFF2196F3),
-                    ),
-                  ),
-                ],
-              )
-            : Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  _StatCard(
-                    icon: Icons.receipt_long,
-                    label: 'Total Transactions',
-                    value: totalTransactions.toString(),
-                    color: const Color(0xFF6F4BFF),
-                  ),
-                  _StatCard(
-                    icon: Icons.account_balance_wallet_outlined,
-                    label: 'Total Amount',
-                    value: '₹${totalAmount.toStringAsFixed(0).replaceAllMapped(
-                      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-                      (Match m) => '${m[1]},',
-                    )}',
-                    color: const Color(0xFFFF9800),
-                  ),
-                  _StatCard(
-                    icon: Icons.payments,
-                    label: 'Salary Credits',
-                    value: salaryCount.toString(),
-                    color: const Color(0xFF5AD8A4),
-                  ),
-                  _StatCard(
-                    icon: Icons.card_giftcard,
-                    label: 'Bonuses',
-                    value: bonusCount.toString(),
-                    color: const Color(0xFF2196F3),
-                  ),
-                ],
-              );
-      },
+    final formattedAmount = '₹${totalAmount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    )}';
+    return Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            icon: Icons.account_balance_wallet_outlined,
+            label: 'Total Amount',
+            value: formattedAmount,
+            color: AuthColors.warning,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.payments,
+            label: 'Salary Credits',
+            value: salaryCount.toString(),
+            color: AuthColors.successVariant,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.card_giftcard,
+            label: 'Bonuses',
+            value: bonusCount.toString(),
+            color: AuthColors.info,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -701,25 +690,9 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
-          ],
-        ),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
         children: [
@@ -727,7 +700,7 @@ class _StatCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
+              color: color.withValues(alpha:0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -739,8 +712,8 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                  style: const TextStyle(
+                    color: AuthColors.textSub,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
@@ -749,7 +722,7 @@ class _StatCard extends StatelessWidget {
                 Text(
                   value,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -774,10 +747,7 @@ class _LoadingState extends StatelessWidget {
           const SizedBox(height: 24),
           Text(
             'Loading employee wages...',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 16,
-            ),
+            style: const TextStyle(color: AuthColors.textSub, fontSize: 16),
           ),
         ],
       ),
@@ -800,53 +770,31 @@ class _ErrorState extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C).withValues(alpha: 0.5),
+          color: AuthColors.surface.withValues(alpha:0.5),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.redAccent.withValues(alpha: 0.3),
-          ),
+          border: Border.all(color: AuthColors.error.withValues(alpha:0.3)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.redAccent.withValues(alpha: 0.7),
-            ),
+            Icon(Icons.error_outline, size: 64, color: AuthColors.error.withValues(alpha:0.7)),
             const SizedBox(height: 16),
             const Text(
               'Failed to load employee wages',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            Text(
-              message,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(message, style: const TextStyle(color: AuthColors.textSub, fontSize: 14), textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Retry'),
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -867,18 +815,9 @@ class _EmptyTransactionsState extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(48),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-              const Color(0xFF161622).withValues(alpha: 0.8),
-            ],
-          ),
+          color: AuthColors.surface.withValues(alpha:0.6),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
+          border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -887,31 +826,20 @@ class _EmptyTransactionsState extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withValues(alpha: 0.15),
+                color: AuthColors.primary.withValues(alpha:0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.payments_outlined,
-                size: 40,
-                color: Color(0xFF6F4BFF),
-              ),
+              child: const Icon(Icons.payments_outlined, size: 40, color: AuthColors.primary),
             ),
             const SizedBox(height: 24),
             const Text(
               'No wages transactions yet',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: AuthColors.textMain, fontSize: 24, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Start by crediting salary to your employees',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 16,
-              ),
+              style: TextStyle(color: AuthColors.textSub, fontSize: 16),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -920,15 +848,10 @@ class _EmptyTransactionsState extends StatelessWidget {
               label: const Text('Credit Salary'),
               onPressed: onCreditSalary,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -951,28 +874,11 @@ class _EmptySearchState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.search_off,
-              size: 64,
-              color: Colors.white.withValues(alpha: 0.3),
-            ),
+            Icon(Icons.search_off, size: 64, color: AuthColors.textSub.withValues(alpha:0.5)),
             const SizedBox(height: 16),
-            const Text(
-              'No results found',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+            const Text('No results found', style: TextStyle(color: AuthColors.textMain, fontSize: 20, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            Text(
-              'No transactions match "$query"',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
-                fontSize: 14,
-              ),
-            ),
+            Text('No transactions match "$query"', style: const TextStyle(color: AuthColors.textSub, fontSize: 14)),
           ],
         ),
       ),
@@ -980,8 +886,8 @@ class _EmptySearchState extends StatelessWidget {
   }
 }
 
-class _WagesTransactionTable extends StatelessWidget {
-  const _WagesTransactionTable({
+class _WagesDataTable extends StatelessWidget {
+  const _WagesDataTable({
     required this.transactions,
     required this.formatCurrency,
     required this.formatDate,
@@ -997,177 +903,73 @@ class _WagesTransactionTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+    final columns = <custom_table.DataTableColumn<Transaction>>[
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Date',
+        icon: Icons.calendar_today,
+        width: 120,
+        cellBuilder: (context, tx, _) => Text(formatDate(tx.createdAt ?? DateTime.now()), style: const TextStyle(color: AuthColors.textMain, fontSize: 13)),
+      ),
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Employee',
+        icon: Icons.person,
+        width: 160,
+        cellBuilder: (context, tx, _) {
+          final name = employeeNames[tx.employeeId ?? ''] ?? 'Unknown Employee';
+          return Text(name, style: const TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w600));
+        },
+      ),
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Type',
+        icon: Icons.category,
+        width: 100,
+        cellBuilder: (context, tx, _) {
+          final isSalary = tx.category == TransactionCategory.salaryCredit;
+          final label = isSalary ? 'Salary' : (tx.category == TransactionCategory.bonus ? 'Bonus' : tx.category.name);
+          final color = isSalary ? AuthColors.primary : AuthColors.accentPurple;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha:0.2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12)),
+          );
+        },
+      ),
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Amount',
+        icon: Icons.currency_rupee,
+        width: 120,
+        numeric: true,
+        cellBuilder: (context, tx, _) => Text(
+          formatCurrency(tx.amount),
+          style: const TextStyle(color: AuthColors.warning, fontWeight: FontWeight.w700, fontSize: 13),
         ),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(
-            Colors.black.withValues(alpha: 0.3),
-          ),
-          dataRowColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.hovered)) {
-              return Colors.white.withValues(alpha: 0.05);
-            }
-            return Colors.transparent;
-          }),
-          headingTextStyle: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-          dataTextStyle: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-          ),
-          columns: const [
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.calendar_today, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Date'),
-                ],
-              ),
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.person, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Employee'),
-                ],
-              ),
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.category, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Type'),
-                ],
-              ),
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.currency_rupee, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Amount'),
-                ],
-              ),
-              numeric: true,
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.description, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Description'),
-                ],
-              ),
-            ),
-            DataColumn(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.more_vert, size: 16, color: Colors.white70),
-                  SizedBox(width: 8),
-                  Text('Actions'),
-                ],
-              ),
-            ),
-          ],
-          rows: transactions.map((tx) {
-            final date = tx.createdAt ?? DateTime.now();
-            final employeeName = employeeNames[tx.employeeId ?? ''] ?? 'Unknown Employee';
-            final categoryName = tx.category == TransactionCategory.salaryCredit
-                ? 'Salary'
-                : tx.category == TransactionCategory.bonus
-                    ? 'Bonus'
-                    : tx.category.name;
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Description',
+        icon: Icons.description,
+        flex: 1,
+        cellBuilder: (context, tx, _) => Text(tx.description ?? '-', style: const TextStyle(color: AuthColors.textSub, fontSize: 13)),
+      ),
+    ];
 
-            return DataRow(
-              cells: [
-                DataCell(Text(formatDate(date))),
-                DataCell(
-                  Text(
-                    employeeName,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                DataCell(
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: tx.category == TransactionCategory.salaryCredit
-                          ? const Color(0xFF6F4BFF).withValues(alpha: 0.2)
-                          : const Color(0xFF9C27B0).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      categoryName,
-                      style: TextStyle(
-                        color: tx.category == TransactionCategory.salaryCredit
-                            ? const Color(0xFF6F4BFF)
-                            : const Color(0xFF9C27B0),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  Text(
-                    formatCurrency(tx.amount),
-                    style: const TextStyle(
-                      color: Color(0xFFFF9800),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                DataCell(
-                  Text(
-                    tx.description ?? '-',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    color: Colors.redAccent.withValues(alpha: 0.8),
-                    onPressed: () => onDelete(tx),
-                    tooltip: 'Delete transaction',
-                  ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
+    final rowActions = [
+      custom_table.DataTableRowAction<Transaction>(
+        icon: Icons.delete_outline,
+        onTap: (tx, _) => onDelete(tx),
+        tooltip: 'Delete transaction',
+        color: AuthColors.error,
       ),
+    ];
+
+    return custom_table.DataTable<Transaction>(
+      columns: columns,
+      rows: transactions,
+      rowActions: rowActions,
+      emptyStateMessage: 'No transactions in this range',
+      emptyStateIcon: Icons.inbox_outlined,
     );
   }
 }
@@ -1195,52 +997,34 @@ class _PaginationControls extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+        color: AuthColors.surface.withValues(alpha:0.6),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Items info
           Text(
             'Showing $startItem-$endItem of $totalItems',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 14,
-            ),
+            style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
           ),
-          // Pagination buttons
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // First page
               IconButton(
                 icon: const Icon(Icons.first_page, size: 20),
-                color: currentPage == 0
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.7),
-                onPressed: currentPage == 0
-                    ? null
-                    : () => onPageChanged(0),
+                color: currentPage == 0 ? AuthColors.textDisabled : AuthColors.textSub,
+                onPressed: currentPage == 0 ? null : () => onPageChanged(0),
                 tooltip: 'First page',
               ),
-              // Previous page
               IconButton(
                 icon: const Icon(Icons.chevron_left, size: 24),
-                color: currentPage == 0
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.7),
-                onPressed: currentPage == 0
-                    ? null
-                    : () => onPageChanged(currentPage - 1),
+                color: currentPage == 0 ? AuthColors.textDisabled : AuthColors.textSub,
+                onPressed: currentPage == 0 ? null : () => onPageChanged(currentPage - 1),
                 tooltip: 'Previous page',
               ),
-              // Page numbers
               ...List.generate(
-                totalPages.clamp(0, 7), // Show max 7 page numbers
+                totalPages.clamp(0, 7),
                 (index) {
                   int pageIndex;
                   if (totalPages <= 7) {
@@ -1252,14 +1036,11 @@ class _PaginationControls extends StatelessWidget {
                   } else {
                     pageIndex = currentPage - 3 + index;
                   }
-
                   final isCurrentPage = pageIndex == currentPage;
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Material(
-                      color: isCurrentPage
-                          ? const Color(0xFF6F4BFF)
-                          : Colors.transparent,
+                      color: isCurrentPage ? AuthColors.primary : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                       child: InkWell(
                         onTap: () => onPageChanged(pageIndex),
@@ -1271,13 +1052,9 @@ class _PaginationControls extends StatelessWidget {
                           child: Text(
                             '${pageIndex + 1}',
                             style: TextStyle(
-                              color: isCurrentPage
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.7),
+                              color: isCurrentPage ? AuthColors.textMain : AuthColors.textSub,
                               fontSize: 14,
-                              fontWeight: isCurrentPage
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
+                              fontWeight: isCurrentPage ? FontWeight.w700 : FontWeight.w500,
                             ),
                           ),
                         ),
@@ -1286,26 +1063,16 @@ class _PaginationControls extends StatelessWidget {
                   );
                 },
               ),
-              // Next page
               IconButton(
                 icon: const Icon(Icons.chevron_right, size: 24),
-                color: currentPage >= totalPages - 1
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.7),
-                onPressed: currentPage >= totalPages - 1
-                    ? null
-                    : () => onPageChanged(currentPage + 1),
+                color: currentPage >= totalPages - 1 ? AuthColors.textDisabled : AuthColors.textSub,
+                onPressed: currentPage >= totalPages - 1 ? null : () => onPageChanged(currentPage + 1),
                 tooltip: 'Next page',
               ),
-              // Last page
               IconButton(
                 icon: const Icon(Icons.last_page, size: 20),
-                color: currentPage >= totalPages - 1
-                    ? Colors.white.withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.7),
-                onPressed: currentPage >= totalPages - 1
-                    ? null
-                    : () => onPageChanged(totalPages - 1),
+                color: currentPage >= totalPages - 1 ? AuthColors.textDisabled : AuthColors.textSub,
+                onPressed: currentPage >= totalPages - 1 ? null : () => onPageChanged(totalPages - 1),
                 tooltip: 'Last page',
               ),
             ],

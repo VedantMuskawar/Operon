@@ -301,9 +301,35 @@ class _OrderTileState extends State<OrderTile> {
   Widget build(BuildContext context) {
     final items = widget.order['items'] as List<dynamic>? ?? [];
     final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
-    final estimatedTrips = firstItem?['estimatedTrips'] as int? ?? 0;
+    final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
+    
+    // Calculate total trips (original total = estimated + scheduled for each item)
+    // This ensures the denominator stays constant (e.g., 4) even as trips are scheduled
+    int totalTrips = 0;
+    if (autoSchedule?['totalTripsRequired'] != null) {
+      totalTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
+    } else {
+      // Sum (estimatedTrips + scheduledTrips) for each item to get original total
+      for (final item in items) {
+        final itemMap = item as Map<String, dynamic>;
+        final itemEstimatedTrips = (itemMap['estimatedTrips'] as int? ?? 0);
+        final itemScheduledTrips = (itemMap['scheduledTrips'] as int? ?? 0);
+        totalTrips += (itemEstimatedTrips + itemScheduledTrips);
+      }
+      if (totalTrips == 0 && firstItem != null) {
+        final firstItemEstimated = firstItem['estimatedTrips'] as int? ?? 0;
+        final firstItemScheduled = firstItem['scheduledTrips'] as int? ?? 0;
+        totalTrips = firstItemEstimated + firstItemScheduled;
+        if (totalTrips == 0) {
+          totalTrips = (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
+        }
+      }
+    }
+    
     final totalScheduledTrips = widget.order['totalScheduledTrips'] as int? ?? 0;
-    final totalTrips = totalScheduledTrips + estimatedTrips;
+    // Calculate remaining estimated trips for display
+    final estimatedTrips = totalTrips - totalScheduledTrips;
+    
     final productName = firstItem?['productName'] as String? ?? 'N/A';
     final fixedQuantityPerTrip = firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
     final clientName = widget.order['clientName'] as String? ?? 'N/A';
@@ -314,7 +340,6 @@ class _OrderTileState extends State<OrderTile> {
     final createdAt = widget.order['createdAt'];
     final priorityColor = _getPriorityBorderColor();
     final priorityShadows = _getPriorityShadows();
-    final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
     final estimatedDeliveryDate = autoSchedule?['estimatedDeliveryDate'];
 
     return RepaintBoundary(

@@ -63,7 +63,7 @@ exports.onClientCreated = functions.firestore
     await (0, firestore_helpers_1.seedAnalyticsDoc)(analyticsRef, fyLabel, organizationId);
     await analyticsRef.set({
         generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        [`metrics.activeClients.values.${monthKey}`]: admin.firestore.FieldValue.increment(1),
+        'metrics.totalActiveClients': admin.firestore.FieldValue.increment(1),
         [`metrics.userOnboarding.values.${monthKey}`]: admin.firestore.FieldValue.increment(1),
     }, { merge: true });
 });
@@ -97,37 +97,21 @@ exports.rebuildClientAnalytics = functions.pubsub
             .collection(constants_1.ANALYTICS_COLLECTION)
             .doc(`${constants_1.SOURCE_KEY}_${organizationId}_${fyLabel}`);
         const onboardingCounts = {};
-        const creationDates = [];
+        // Count total active clients (all clients, irrespective of time period)
+        const totalActiveClients = orgClients.length;
+        // Count monthly onboarding for current financial year
         orgClients.forEach((doc) => {
             var _a;
             const createdAt = (0, firestore_helpers_1.getCreationDate)(doc);
-            if (createdAt < fyEnd) {
-                creationDates.push(createdAt);
-            }
             if (createdAt >= fyStart && createdAt < fyEnd) {
                 const { monthKey } = (0, financial_year_1.getFinancialContext)(createdAt);
                 onboardingCounts[monthKey] = ((_a = onboardingCounts[monthKey]) !== null && _a !== void 0 ? _a : 0) + 1;
             }
         });
-        creationDates.sort((a, b) => a.getTime() - b.getTime());
-        const activeCounts = {};
-        let pointer = 0;
-        for (let i = 0; i < 12; i += 1) {
-            const iterMonth = new Date(Date.UTC(fyStart.getUTCFullYear(), fyStart.getUTCMonth() + i, 1));
-            const monthKey = `${iterMonth.getUTCFullYear()}-${String(iterMonth.getUTCMonth() + 1).padStart(2, '0')}`;
-            const monthEnd = new Date(iterMonth);
-            monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1, 0);
-            monthEnd.setUTCHours(23, 59, 59, 999);
-            while (pointer < creationDates.length &&
-                creationDates[pointer].getTime() <= monthEnd.getTime()) {
-                pointer += 1;
-            }
-            activeCounts[monthKey] = pointer;
-        }
         await (0, firestore_helpers_1.seedAnalyticsDoc)(analyticsRef, fyLabel, organizationId);
         await analyticsRef.set({
             generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            'metrics.activeClients.values': activeCounts,
+            'metrics.totalActiveClients': totalActiveClients,
             'metrics.userOnboarding.values': onboardingCounts,
         }, { merge: true });
     });

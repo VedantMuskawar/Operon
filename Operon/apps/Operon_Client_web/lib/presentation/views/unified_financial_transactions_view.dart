@@ -1,12 +1,12 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:core_ui/components/data_table.dart' as custom_table;
 import 'package:dash_web/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart';
 import 'package:dash_web/presentation/blocs/financial_transactions/unified_financial_transactions_state.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class UnifiedFinancialTransactionsView extends StatefulWidget {
@@ -86,7 +86,7 @@ class _UnifiedFinancialTransactionsViewState
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: AuthColors.legacyAccent,
+              primary: AuthColors.primary,
               onPrimary: AuthColors.textMain,
               surface: AuthColors.surface,
               onSurface: AuthColors.textMain,
@@ -118,7 +118,7 @@ class _UnifiedFinancialTransactionsViewState
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: AuthColors.legacyAccent,
+              primary: AuthColors.primary,
               onPrimary: AuthColors.textMain,
               surface: AuthColors.surface,
               onSurface: AuthColors.textMain,
@@ -146,7 +146,7 @@ class _UnifiedFinancialTransactionsViewState
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message!),
-              backgroundColor: Colors.red,
+              backgroundColor: AuthColors.error,
             ),
           );
         }
@@ -163,10 +163,7 @@ class _UnifiedFinancialTransactionsViewState
               // Summary Cards
               _buildSummaryCards(),
               const SizedBox(height: 24),
-              // Tab Selector
-              _buildTabSelector(),
-              const SizedBox(height: 24),
-              // Filter Bar (Date Range + Search + View Toggle)
+              // Filter Bar (Date Range + Search + Tab Selector)
               _buildFilterBar(),
               const SizedBox(height: 24),
               // Transaction List/Grid
@@ -183,10 +180,9 @@ class _UnifiedFinancialTransactionsViewState
         UnifiedFinancialTransactionsState>(
       builder: (context, state) {
         return TransactionSummaryCards(
-          income: state.totalIncome,
-          payments: state.totalExpenses,
-          purchases: state.totalPurchases,
-          netBalance: state.netBalance,
+          totalPayments: state.totalIncome,
+          totalPurchases: state.totalPurchases,
+          totalExpenses: state.totalExpenses,
           formatCurrency: _formatCurrency,
         );
       },
@@ -327,37 +323,6 @@ class _UnifiedFinancialTransactionsViewState
               ),
             ),
             const SizedBox(width: 12),
-            // View Toggle
-            Container(
-              decoration: BoxDecoration(
-                color: AuthColors.surface.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _ViewToggleButton(
-                    icon: Icons.grid_view,
-                    isSelected: !state.isListView,
-                    onTap: () => context.read<UnifiedFinancialTransactionsCubit>().toggleView(),
-                    tooltip: 'Grid View',
-                  ),
-                  Container(
-                    width: 1,
-                    height: 32,
-                    color: AuthColors.textMainWithOpacity(0.1),
-                  ),
-                  _ViewToggleButton(
-                    icon: Icons.list,
-                    isSelected: state.isListView,
-                    onTap: () => context.read<UnifiedFinancialTransactionsCubit>().toggleView(),
-                    tooltip: 'List View',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
             // Refresh Button
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -377,6 +342,9 @@ class _UnifiedFinancialTransactionsViewState
                 ),
               ),
             ),
+            const SizedBox(width: 12),
+            // Tab Selector (Sections Pill)
+            _buildTabSelector(),
           ],
         );
       },
@@ -438,160 +406,200 @@ class _UnifiedFinancialTransactionsViewState
           );
         }
 
-        // Group transactions by date
-        final groupedTransactions = _groupTransactionsByDate(transactions);
-
-        if (state.isListView) {
-          return AnimationLimiter(
-            child: Column(
-              children: [
-                for (final entry in groupedTransactions.entries) ...[
-                  TransactionDateGroupHeader(date: entry.key),
-                  const SizedBox(height: 8),
-                  ...entry.value.asMap().entries.map((txEntry) {
-                    final index = txEntry.key;
-                    final transaction = txEntry.value;
-                    return AnimationConfiguration.staggeredList(
-                      position: index,
-                      duration: const Duration(milliseconds: 200),
-                      child: SlideAnimation(
-                        verticalOffset: 50.0,
-                        child: FadeInAnimation(
-                          curve: Curves.easeOut,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              bottom: index < entry.value.length - 1 ? 12 : 0,
-                            ),
-                            child: _buildTransactionTile(transaction, true),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 16),
-                ],
-              ],
-            ),
-          );
-        } else {
-          // Grid view
-          return AnimationLimiter(
-            child: Column(
-              children: [
-                for (final entry in groupedTransactions.entries) ...[
-                  TransactionDateGroupHeader(date: entry.key),
-                  const SizedBox(height: 16),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.85,
-                    ),
-                    itemCount: entry.value.length,
-                    itemBuilder: (context, index) {
-                      final transaction = entry.value[index];
-                      return AnimationConfiguration.staggeredGrid(
-                        position: index,
-                        duration: const Duration(milliseconds: 200),
-                        columnCount: 3,
-                        child: SlideAnimation(
-                          verticalOffset: 50.0,
-                          child: FadeInAnimation(
-                            curve: Curves.easeOut,
-                            child: _buildTransactionTile(transaction, false),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ],
-            ),
-          );
-        }
+        return _buildTransactionTable(transactions);
       },
     );
   }
 
-  Widget _buildTransactionTile(Transaction transaction, bool isListView) {
-    String title;
-    String? subtitle;
+  Widget _buildTransactionTable(List<Transaction> transactions) {
+    // Build columns - Date column must be first
+    final columns = <custom_table.DataTableColumn<Transaction>>[
+      // 1st Column: Date (compact width for date/time display)
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Date',
+        icon: Icons.calendar_today,
+        flex: 2,
+        alignment: Alignment.center,
+        cellBuilder: (context, transaction, index) {
+          final date = transaction.createdAt ?? DateTime.now();
+          return Text(
+            _formatDate(date),
+            style: const TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 13,
+              fontFamily: 'SF Pro Display',
+            ),
+            textAlign: TextAlign.center,
+          );
+        },
+      ),
+      // 2nd Column: Name (flexible to take remaining space)
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Name',
+        icon: Icons.person,
+        flex: 3,
+        alignment: Alignment.center,
+        cellBuilder: (context, transaction, index) {
+          final title = _getTransactionTitle(transaction);
+          return Text(
+            title,
+            style: const TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'SF Pro Display',
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          );
+        },
+      ),
+      // 3rd Column: Reference (flexible width for reference numbers)
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Reference',
+        icon: Icons.receipt,
+        flex: 2,
+        alignment: Alignment.center,
+        cellBuilder: (context, transaction, index) {
+          final ref = transaction.referenceNumber ?? '-';
+          return Text(
+            ref,
+            style: const TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 13,
+              fontFamily: 'SF Pro Display',
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          );
+        },
+      ),
+      // 4th Column: Amount (flexible width for currency values)
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Amount',
+        icon: Icons.currency_rupee,
+        flex: 2,
+        alignment: Alignment.center,
+        numeric: true,
+        cellBuilder: (context, transaction, index) {
+          final amountColor = transaction.type == TransactionType.credit
+              ? AuthColors.success
+              : AuthColors.error;
+          return Text(
+            _formatCurrency(transaction.amount),
+            style: TextStyle(
+              color: amountColor,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'SF Pro Display',
+            ),
+            textAlign: TextAlign.center,
+          );
+        },
+      ),
+      // 5th Column: Balance (flexible width for currency values)
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Balance',
+        icon: Icons.account_balance_wallet,
+        flex: 2,
+        alignment: Alignment.center,
+        numeric: true,
+        cellBuilder: (context, transaction, index) {
+          final balance = transaction.balanceAfter;
+          if (balance == null) {
+            return const Text(
+              '-',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 13,
+                fontFamily: 'SF Pro Display',
+              ),
+              textAlign: TextAlign.center,
+            );
+          }
+          return Text(
+            _formatCurrency(balance),
+            style: const TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 13,
+              fontFamily: 'SF Pro Display',
+            ),
+            textAlign: TextAlign.center,
+          );
+        },
+      ),
+    ];
 
+    return custom_table.DataTable<Transaction>(
+      columns: columns,
+      rows: transactions,
+      rowActions: [
+        custom_table.DataTableRowAction<Transaction>(
+          icon: Icons.delete_outline,
+          tooltip: 'Delete',
+          color: AuthColors.error,
+          onTap: (transaction, index) {
+            _showDeleteConfirmation(context, transaction);
+          },
+        ),
+      ],
+      emptyStateMessage: 'No transactions found',
+      emptyStateIcon: Icons.receipt_long_outlined,
+    );
+  }
+
+  String _getTransactionTitle(Transaction transaction) {
     switch (transaction.category) {
       case TransactionCategory.clientPayment:
-        title = transaction.metadata?['clientName'] ?? 'Client Payment';
-        break;
+        return transaction.metadata?['clientName']?.toString().trim() ??
+                (transaction.description?.isNotEmpty == true 
+                    ? transaction.description! 
+                    : 'Client Payment');
       case TransactionCategory.vendorPurchase:
-        title = transaction.metadata?['vendorName'] ?? 'Vendor Purchase';
-        subtitle = transaction.referenceNumber;
-        break;
+        return transaction.metadata?['vendorName']?.toString().trim() ??
+                (transaction.description?.isNotEmpty == true 
+                    ? transaction.description! 
+                    : 'Vendor Purchase');
       case TransactionCategory.vendorPayment:
-        title = transaction.metadata?['vendorName'] ?? 'Vendor Payment';
-        break;
+        return transaction.metadata?['vendorName']?.toString().trim() ??
+                (transaction.description?.isNotEmpty == true 
+                    ? transaction.description! 
+                    : 'Vendor Payment');
       case TransactionCategory.salaryDebit:
-        title = transaction.metadata?['employeeName'] ?? 'Salary Payment';
-        break;
+        return transaction.metadata?['employeeName']?.toString().trim() ??
+                (transaction.description?.isNotEmpty == true 
+                    ? transaction.description! 
+                    : 'Salary Payment');
       case TransactionCategory.generalExpense:
-        title = transaction.metadata?['subCategoryName'] ?? 'General Expense';
-        subtitle = transaction.description;
-        break;
+        return transaction.metadata?['subCategoryName']?.toString().trim() ??
+                (transaction.description?.isNotEmpty == true 
+                    ? transaction.description! 
+                    : 'General Expense');
       default:
-        title = transaction.description ?? 'Transaction';
+        return transaction.description?.isNotEmpty == true 
+            ? transaction.description! 
+            : 'Transaction';
     }
-
-    return TransactionListTile(
-      transaction: transaction,
-      title: title,
-      subtitle: subtitle,
-      formatCurrency: _formatCurrency,
-      formatDate: _formatDate,
-      isGridView: !isListView,
-      onDelete: () => _showDeleteConfirmation(context, transaction),
-    );
   }
 
-  Map<DateTime, List<Transaction>> _groupTransactionsByDate(
-    List<Transaction> transactions,
-  ) {
-    final Map<DateTime, List<Transaction>> grouped = {};
-
-    for (final tx in transactions) {
-      final date = tx.createdAt ?? DateTime.now();
-      final dateOnly = DateTime(date.year, date.month, date.day);
-
-      if (grouped.containsKey(dateOnly)) {
-        grouped[dateOnly]!.add(tx);
-      } else {
-        grouped[dateOnly] = [tx];
-      }
-    }
-
-    // Sort dates descending (most recent first)
-    final sortedDates = grouped.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
-
-    // Sort transactions within each date group
-    for (final date in sortedDates) {
-      grouped[date]!.sort((a, b) {
-        final aDate = a.createdAt ?? DateTime(1970);
-        final bDate = b.createdAt ?? DateTime(1970);
-        return bDate.compareTo(aDate);
-      });
-    }
-
-    return Map.fromEntries(
-      sortedDates.map((date) => MapEntry(date, grouped[date]!)),
-    );
-  }
 
   void _showDeleteConfirmation(
     BuildContext context,
     Transaction transaction,
   ) {
+    // Validate transaction ID before showing dialog
+    if (transaction.id.isEmpty || transaction.id.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Cannot delete transaction: Invalid transaction ID'),
+          backgroundColor: AuthColors.error,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -611,6 +619,16 @@ class _UnifiedFinancialTransactionsViewState
           ),
           TextButton(
             onPressed: () {
+              if (transaction.id.isEmpty || transaction.id.trim().isEmpty) {
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Cannot delete transaction: Invalid transaction ID'),
+                    backgroundColor: AuthColors.error,
+                  ),
+                );
+                return;
+              }
               context
                   .read<UnifiedFinancialTransactionsCubit>()
                   .deleteTransaction(transaction.id);
@@ -622,47 +640,6 @@ class _UnifiedFinancialTransactionsViewState
             child: const Text('Delete'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ViewToggleButton extends StatelessWidget {
-  const _ViewToggleButton({
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-    required this.tooltip,
-  });
-
-  final IconData icon;
-  final bool isSelected;
-  final VoidCallback onTap;
-  final String tooltip;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AuthColors.legacyAccent.withOpacity(0.2)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: isSelected
-                ? AuthColors.legacyAccent
-                : AuthColors.textSub,
-          ),
-        ),
       ),
     );
   }

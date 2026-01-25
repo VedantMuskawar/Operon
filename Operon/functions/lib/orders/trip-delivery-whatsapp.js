@@ -45,8 +45,9 @@ const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
  * Sends WhatsApp notification to client when a trip is delivered
  */
 async function sendTripDeliveryMessage(to, clientName, organizationId, tripId, tripData) {
+    var _a;
     const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId);
-    if (!settings) {
+    if (!(settings === null || settings === void 0 ? void 0 : settings.tripDeliveryTemplateId)) {
         (0, logger_1.logWarning)('Trip/WhatsApp', 'sendTripDeliveryMessage', 'Skipping send – no settings or disabled', {
             tripId,
             organizationId,
@@ -57,16 +58,7 @@ async function sendTripDeliveryMessage(to, clientName, organizationId, tripId, t
     const displayName = clientName && clientName.trim().length > 0
         ? clientName.trim()
         : 'there';
-    // Format trip items for message
-    const itemsText = tripData.items && tripData.items.length > 0
-        ? tripData.items
-            .map((item, index) => {
-            const itemNum = index + 1;
-            return `${itemNum}. ${item.productName} - ${item.fixedQuantityPerTrip} units`;
-        })
-            .join('\n')
-        : 'No items';
-    // Format trip date
+    // Format trip date for parameter 2
     let scheduledDateText = 'N/A';
     if (tripData.scheduledDate) {
         try {
@@ -83,24 +75,30 @@ async function sendTripDeliveryMessage(to, clientName, organizationId, tripId, t
             (0, logger_1.logError)('Trip/WhatsApp', 'sendTripDeliveryMessage', 'Error formatting date', e instanceof Error ? e : new Error(String(e)));
         }
     }
-    // Build message body
-    const confirmationMessage = 'Delivery completed successfully. We hope you\'re satisfied with your order!';
-    const nextStepsMessage = 'If you have any feedback or need assistance, please let us know. We appreciate your business!';
-    const messageBody = `Hello ${displayName}!\n\n` +
-        `Your delivery has been completed!\n\n` +
-        `Trip Date: ${scheduledDateText}\n\n` +
-        `Items Delivered:\n${itemsText}\n\n` +
-        `${confirmationMessage}\n\n` +
-        `${nextStepsMessage}\n\n` +
-        `Thank you for choosing us!`;
+    // Format items delivered for parameter 3
+    const itemsText = tripData.items && tripData.items.length > 0
+        ? tripData.items
+            .map((item, index) => {
+            const itemNum = index + 1;
+            return `${itemNum}. ${item.productName} - ${item.fixedQuantityPerTrip} units`;
+        })
+            .join('\n')
+        : 'No items';
+    // Prepare template parameters
+    const parameters = [
+        displayName, // Parameter 1: Client name
+        scheduledDateText, // Parameter 2: Trip date
+        itemsText, // Parameter 3: Items delivered list
+    ];
     (0, logger_1.logInfo)('Trip/WhatsApp', 'sendTripDeliveryMessage', 'Sending delivery notification', {
         organizationId,
         tripId,
         to: to.substring(0, 4) + '****',
         phoneId: settings.phoneId,
+        templateId: settings.tripDeliveryTemplateId,
         hasItems: tripData.items && tripData.items.length > 0,
     });
-    await (0, whatsapp_service_1.sendWhatsappMessage)(url, settings.token, to, messageBody, 'trip-delivery', {
+    await (0, whatsapp_service_1.sendWhatsappTemplateMessage)(url, settings.token, to, settings.tripDeliveryTemplateId, (_a = settings.languageCode) !== null && _a !== void 0 ? _a : 'en', parameters, 'trip-delivery', {
         organizationId,
         tripId,
     });
@@ -112,14 +110,24 @@ async function sendTripDeliveryMessage(to, clientName, organizationId, tripId, t
 exports.onTripDeliveredSendWhatsapp = functions.firestore
     .document(`${SCHEDULED_TRIPS_COLLECTION}/{tripId}`)
     .onUpdate(async (change, context) => {
+    var _a, _b;
     const tripId = context.params.tripId;
     const before = change.before.data();
     const after = change.after.data();
     // Only proceed if trip status changed to 'delivered'
-    const beforeStatus = before.tripStatus;
-    const afterStatus = after.tripStatus;
+    const beforeStatus = (_a = before.tripStatus) === null || _a === void 0 ? void 0 : _a.toLowerCase();
+    const afterStatus = (_b = after.tripStatus) === null || _b === void 0 ? void 0 : _b.toLowerCase();
     if (beforeStatus === afterStatus || afterStatus !== 'delivered') {
         (0, logger_1.logInfo)('Trip/WhatsApp', 'onTripDeliveredSendWhatsapp', 'Trip status not changed to delivered, skipping', {
+            tripId,
+            beforeStatus,
+            afterStatus,
+        });
+        return;
+    }
+    // Do not send when return is reverted (returned → delivered)
+    if (beforeStatus === 'returned' && afterStatus === 'delivered') {
+        (0, logger_1.logInfo)('Trip/WhatsApp', 'onTripDeliveredSendWhatsapp', 'Trip return reverted, skipping WhatsApp', {
             tripId,
             beforeStatus,
             afterStatus,

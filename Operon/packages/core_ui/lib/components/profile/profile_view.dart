@@ -17,7 +17,7 @@ class ProfileView extends StatelessWidget {
     required this.onChangeOrg,
     required this.onLogout,
     this.onOpenUsers,
-    this.onOpenPermissions,
+    this.trailingSection,
   });
 
   final UserProfile? user;
@@ -27,7 +27,8 @@ class ProfileView extends StatelessWidget {
   final VoidCallback onChangeOrg;
   final VoidCallback onLogout;
   final VoidCallback? onOpenUsers;
-  final VoidCallback? onOpenPermissions;
+  /// Optional widget shown after quick actions, before Logout (e.g. Caller ID switch on Android).
+  final Widget? trailingSection;
 
   @override
   Widget build(BuildContext context) {
@@ -113,15 +114,11 @@ class ProfileView extends StatelessWidget {
             label: 'Users',
             onTap: onOpenUsers!,
           ),
-        if (onOpenPermissions != null)
-          _ProfileAction(
-            icon: Icons.security,
-            label: 'Permissions',
-            onTap: onOpenPermissions!,
-          ),
-        
+        if (trailingSection != null) ...[
+          const SizedBox(height: 16),
+          trailingSection!,
+        ],
         const SizedBox(height: 24),
-        
         // Logout Button
         DashButton(
           label: 'Logout',

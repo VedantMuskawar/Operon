@@ -294,6 +294,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   late final TextEditingController _customTagController;
   String? _selectedTag;
   bool _showCustomTag = false;
+  String? _selectedMeterType;
 
   List<OrganizationProduct> _products = const [];
   bool _isLoadingProducts = true;
@@ -354,6 +355,9 @@ class _VehicleDialogState extends State<_VehicleDialog> {
       _showCustomTag = false;
       _customTagController = TextEditingController();
     }
+    
+    // Initialize meter type
+    _selectedMeterType = vehicle?.meterType;
     
     _loadProducts();
   }
@@ -480,6 +484,46 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                             activeThumbColor: AuthColors.primary,
                             dense: true,
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Meter Type',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('KM'),
+                          selected: _selectedMeterType == 'KM',
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedMeterType = _selectedMeterType == 'KM' ? null : 'KM';
+                            });
+                          },
+                          selectedColor: AuthColors.primary,
+                          labelStyle: TextStyle(
+                            color: _selectedMeterType == 'KM' ? Colors.white : Colors.white70,
+                          ),
+                          backgroundColor: AuthColors.surface,
+                        ),
+                        ChoiceChip(
+                          label: const Text('HOUR'),
+                          selected: _selectedMeterType == 'HOUR',
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedMeterType = _selectedMeterType == 'HOUR' ? null : 'HOUR';
+                            });
+                          },
+                          selectedColor: AuthColors.primary,
+                          labelStyle: TextStyle(
+                            color: _selectedMeterType == 'HOUR' ? Colors.white : Colors.white70,
+                          ),
+                          backgroundColor: AuthColors.surface,
                         ),
                       ],
                     ),
@@ -745,6 +789,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
             ? null
             : _notesController.text.trim(),
         tag: tagValue,
+        meterType: _selectedMeterType,
       );
 
       final cubit = context.read<VehiclesCubit>();

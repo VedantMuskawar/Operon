@@ -60,7 +60,7 @@ export const rebuildEmployeeAnalytics = functions.pubsub
   .timeZone('UTC')
   .onRun(async () => {
     const now = new Date();
-    const { fyLabel, fyStart, fyEnd } = getFinancialContext(now);
+    const { fyLabel } = getFinancialContext(now);
 
     // Get all employees and group by organizationId
     const employeesSnapshot = await db.collection(EMPLOYEES_COLLECTION).get();

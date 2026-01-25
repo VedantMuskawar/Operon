@@ -4,8 +4,8 @@ import {
   CLIENTS_COLLECTION,
 } from '../shared/constants';
 import { getFirestore } from '../shared/firestore-helpers';
-import { loadWhatsappSettings, sendWhatsappTemplateMessage } from '../shared/whatsapp-service';
-import { logInfo } from '../shared/logger';
+import { loadWhatsappSettings, sendWhatsappTemplateMessage, sendWhatsappMessage } from '../shared/whatsapp-service';
+import { logInfo, logError } from '../shared/logger';
 
 const db = getFirestore();
 
@@ -28,7 +28,7 @@ async function sendOrderConfirmationMessage(
     }>;
     pricing: {
       subtotal: number;
-      totalGst: number;
+      totalGst?: number;
       totalAmount: number;
       currency: string;
     };
@@ -39,12 +39,12 @@ async function sendOrderConfirmationMessage(
     advanceAmount?: number;
   },
 ): Promise<void> {
-  const settings = await loadWhatsappSettings(organizationId);
-  if (!settings) {
-    console.log(
-      '[WhatsApp Order] Skipping send – no settings or disabled.',
-      { orderId, organizationId },
-    );
+  const settings = await loadWhatsappSettings(organizationId, true);
+  if (!settings?.orderConfirmationTemplateId) {
+    logInfo('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Skipping – no WhatsApp settings or orderConfirmationTemplateId for org', {
+      orderId,
+      organizationId: organizationId ?? 'missing',
+    });
     return;
   }
 
@@ -73,14 +73,16 @@ async function sendOrderConfirmationMessage(
     : 'To be confirmed';
 
   // Format total amount for parameter 4
-  const totalAmountText = orderData.pricing.totalGst > 0
-    ? `₹${orderData.pricing.totalAmount.toFixed(2)} (Subtotal: ₹${orderData.pricing.subtotal.toFixed(2)}, GST: ₹${orderData.pricing.totalGst.toFixed(2)})`
+  const totalGst = orderData.pricing.totalGst ?? 0;
+  const totalAmountText = totalGst > 0
+    ? `₹${orderData.pricing.totalAmount.toFixed(2)} (Subtotal: ₹${orderData.pricing.subtotal.toFixed(2)}, GST: ₹${totalGst.toFixed(2)})`
     : `₹${orderData.pricing.totalAmount.toFixed(2)} (Subtotal: ₹${orderData.pricing.subtotal.toFixed(2)})`;
 
-  // Format advance payment info for parameter 5 (optional)
+  // Format advance payment info for parameter 5
+  // WhatsApp rejects empty template parameters – use placeholder when no advance
   const advanceText = orderData.advanceAmount && orderData.advanceAmount > 0
     ? `Advance Paid: ₹${orderData.advanceAmount.toFixed(2)} | Remaining: ₹${(orderData.pricing.totalAmount - orderData.advanceAmount).toFixed(2)}`
-    : '';
+    : '—';
 
   // Prepare template parameters
   const parameters = [
@@ -88,7 +90,7 @@ async function sendOrderConfirmationMessage(
     itemsText,          // Parameter 2: Order items list
     deliveryInfo,       // Parameter 3: Delivery zone
     totalAmountText,    // Parameter 4: Total amount with breakdown
-    advanceText,        // Parameter 5: Advance payment info (can be empty)
+    advanceText,        // Parameter 5: Advance payment info (never empty)
   ];
 
   logInfo('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Sending order confirmation', {
@@ -104,7 +106,7 @@ async function sendOrderConfirmationMessage(
     url,
     settings.token,
     to,
-    settings.orderConfirmationTemplateId,
+    settings.orderConfirmationTemplateId!,
     settings.languageCode ?? 'en',
     parameters,
     'order-confirmation',
@@ -134,7 +136,7 @@ async function sendOrderUpdateMessage(
     }>;
     pricing: {
       subtotal: number;
-      totalGst: number;
+      totalGst?: number;
       totalAmount: number;
       currency: string;
     };
@@ -180,10 +182,9 @@ async function sendOrderUpdateMessage(
     : 'To be confirmed';
 
   // Format pricing summary
+  const totalGst = orderData.pricing.totalGst ?? 0;
   const pricingText = `Subtotal: ₹${orderData.pricing.subtotal.toFixed(2)}\n` +
-    (orderData.pricing.totalGst > 0
-      ? `GST: ₹${orderData.pricing.totalGst.toFixed(2)}\n`
-      : '') +
+    (totalGst > 0 ? `GST: ₹${totalGst.toFixed(2)}\n` : '') +
     `Total: ₹${orderData.pricing.totalAmount.toFixed(2)}`;
 
   // Format advance payment info if applicable
@@ -244,7 +245,7 @@ export const onOrderCreatedSendWhatsapp = functions
       }>;
       pricing?: {
         subtotal: number;
-        totalGst: number;
+        totalGst?: number;
         totalAmount: number;
         currency: string;
       };
@@ -256,7 +257,7 @@ export const onOrderCreatedSendWhatsapp = functions
     };
 
     if (!orderData) {
-      console.log('[WhatsApp Order] No order data found', { orderId });
+      logInfo('Order/WhatsApp', 'onOrderCreatedSendWhatsapp', 'No order data in snapshot, skipping', { orderId });
       return;
     }
 
@@ -280,25 +281,25 @@ export const onOrderCreatedSendWhatsapp = functions
           }
         }
       } catch (error) {
-        console.error('[WhatsApp Order] Error fetching client data', {
+        logError('Order/WhatsApp', 'onOrderCreatedSendWhatsapp', 'Error fetching client data', error instanceof Error ? error : undefined, {
           orderId,
           clientId: orderData.clientId,
-          error,
         });
       }
     }
 
     if (!clientPhone) {
-      console.log(
-        '[WhatsApp Order] No phone found for order, skipping notification.',
-        { orderId, clientId: orderData.clientId },
-      );
+      logInfo('Order/WhatsApp', 'onOrderCreatedSendWhatsapp', 'No client phone for order, skipping WhatsApp', {
+        orderId,
+        clientId: orderData.clientId,
+        hadClientPhoneOnOrder: !!orderData.clientPhone,
+      });
       return;
     }
 
     // Validate required order data
     if (!orderData.items || !orderData.pricing) {
-      console.log('[WhatsApp Order] Missing required order data', {
+      logInfo('Order/WhatsApp', 'onOrderCreatedSendWhatsapp', 'Missing items or pricing, skipping WhatsApp', {
         orderId,
         hasItems: !!orderData.items,
         hasPricing: !!orderData.pricing,
@@ -306,19 +307,28 @@ export const onOrderCreatedSendWhatsapp = functions
       return;
     }
 
-    await sendOrderConfirmationMessage(
-      clientPhone,
-      clientName,
-      orderData.organizationId,
-      orderId,
-      {
-        orderNumber: orderData.orderNumber,
-        items: orderData.items,
-        pricing: orderData.pricing,
-        deliveryZone: orderData.deliveryZone,
-        advanceAmount: orderData.advanceAmount,
-      },
-    );
+    try {
+      await sendOrderConfirmationMessage(
+        clientPhone,
+        clientName,
+        orderData.organizationId,
+        orderId,
+        {
+          orderNumber: orderData.orderNumber,
+          items: orderData.items,
+          pricing: orderData.pricing,
+          deliveryZone: orderData.deliveryZone,
+          advanceAmount: orderData.advanceAmount,
+        },
+      );
+    } catch (err) {
+      logError('Order/WhatsApp', 'onOrderCreatedSendWhatsapp', 'Failed to send order confirmation WhatsApp', err instanceof Error ? err : undefined, {
+        orderId,
+        organizationId: orderData.organizationId,
+        clientId: orderData.clientId,
+      });
+      throw err;
+    }
   });
 
 /**
@@ -364,7 +374,7 @@ export const onOrderUpdatedSendWhatsapp = functions
       }>;
       pricing?: {
         subtotal: number;
-        totalGst: number;
+        totalGst?: number;
         totalAmount: number;
         currency: string;
       };
@@ -377,7 +387,7 @@ export const onOrderUpdatedSendWhatsapp = functions
     };
 
     if (!orderData) {
-      console.log('[WhatsApp Order] No order data found', { orderId });
+      logInfo('Order/WhatsApp', 'onOrderUpdatedSendWhatsapp', 'No order data in snapshot, skipping', { orderId });
       return;
     }
 
@@ -401,16 +411,28 @@ export const onOrderUpdatedSendWhatsapp = functions
           }
         }
       } catch (error) {
-        // Error already handled, continue silently
+        logError('Order/WhatsApp', 'onOrderUpdatedSendWhatsapp', 'Error fetching client data', error instanceof Error ? error : undefined, {
+          orderId,
+          clientId: orderData.clientId,
+        });
       }
     }
 
     if (!clientPhone) {
+      logInfo('Order/WhatsApp', 'onOrderUpdatedSendWhatsapp', 'No client phone, skipping update notification', {
+        orderId,
+        clientId: orderData.clientId,
+      });
       return;
     }
 
     // Validate required order data
     if (!orderData.items || !orderData.pricing) {
+      logInfo('Order/WhatsApp', 'onOrderUpdatedSendWhatsapp', 'Missing items or pricing, skipping', {
+        orderId,
+        hasItems: !!orderData.items,
+        hasPricing: !!orderData.pricing,
+      });
       return;
     }
 

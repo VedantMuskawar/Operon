@@ -510,257 +510,256 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
           _subscribeToTrips();
         }
       },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-        // Summary Cards
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: AuthColors.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AuthColors.textMainWithOpacity(0.1),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AuthColors.background.withOpacity(0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Summary Cards
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: AuthColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AuthColors.textMainWithOpacity(0.1),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AuthColors.background.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: _SummaryItem(
-                      value: '${_getTotalTrips()}',
-                      color: AuthColors.primary,
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 40,
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    color: AuthColors.textMainWithOpacity(0.1),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: _SummaryItem(
-                      value: _formatCurrency(_getTotalValue()),
-                      color: AuthColors.success,
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 40,
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    color: AuthColors.textMainWithOpacity(0.1),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: _SummaryItem(
-                      value: _formatNumber(_getTotalQuantity()),
-                      color: AuthColors.warning,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Horizontal Date Picker
-        SizedBox(
-          height: 80,
-          child: ListView.builder(
-            controller: _scrollController,
-            scrollDirection: Axis.horizontal,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: dates.length,
-            itemBuilder: (context, index) {
-              final date = dates[index];
-              final isSelected = date.year == _selectedDate.year &&
-                  date.month == _selectedDate.month &&
-                  date.day == _selectedDate.day;
-              
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedDate = date;
-                  });
-                  _onDateChanged(date);
-                  _scrollToCenter();
-                },
-                child: Container(
-                  width: 64,
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AuthColors.primary
-                        : AuthColors.surface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isSelected
-                          ? AuthColors.primary
-                          : AuthColors.textMainWithOpacity(0.1),
-                      width: 1,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
                     children: [
-                      Text(
-                        _getMonthAbbr(date),
-                        style: TextStyle(
-                          color: isSelected
-                              ? AuthColors.textMain
-                              : AuthColors.textSub,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        flex: 1,
+                        child: _SummaryItem(
+                          value: '${_getTotalTrips()}',
+                          color: AuthColors.primary,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        date.day.toString(),
-                        style: TextStyle(
-                          color: AuthColors.textMain,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      Container(
+                        width: 1,
+                        height: 40,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        color: AuthColors.textMainWithOpacity(0.1),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: _SummaryItem(
+                          value: _formatCurrency(_getTotalValue()),
+                          color: AuthColors.success,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        _getDayAbbr(date),
-                        style: TextStyle(
-                          color: isSelected
-                              ? AuthColors.textMain
-                              : AuthColors.textSub,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
+                      Container(
+                        width: 1,
+                        height: 40,
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        color: AuthColors.textMainWithOpacity(0.1),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: _SummaryItem(
+                          value: _formatNumber(_getTotalQuantity()),
+                          color: AuthColors.warning,
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Vehicle Filter - Horizontal Scrollable Buttons
-        SizedBox(
-          height: 40,
-          child: Builder(
-            builder: (context) {
-              final filteredVehicles = _getFilteredVehicles();
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: filteredVehicles.length + 1, // +1 for "All" option
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    // "All Vehicles" option
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _VehicleFilterButton(
-                        label: 'All',
-                        isSelected: _selectedVehicleId == null,
-                        onTap: () => _onVehicleFilterChanged(null),
-                      ),
-                    );
-                  } else {
-                    // Vehicle options
-                    final vehicle = filteredVehicles[index - 1];
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _VehicleFilterButton(
-                        label: vehicle.vehicleNumber,
-                        isSelected: _selectedVehicleId == vehicle.id,
-                        onTap: () => _onVehicleFilterChanged(vehicle.id),
-                      ),
-                    );
-                  }
-                },
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Scheduled Trips List
-        if (_isLoadingTrips)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (_scheduledTrips.isEmpty)
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Text(
-                'No scheduled trips for this date',
-                style: TextStyle(
-                  color: AuthColors.textSub,
-                  fontSize: 14,
-                ),
               ),
             ),
-          )
-        else
-          AnimationLimiter(
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              itemCount: _scheduledTrips.length,
-              itemBuilder: (context, index) {
-                return AnimationConfiguration.staggeredList(
-                  position: index,
-                  duration: const Duration(milliseconds: 200),
-                  child: SlideAnimation(
-                    verticalOffset: 50.0,
-                    child: FadeInAnimation(
-                      curve: Curves.easeOut,
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 12,
-                          left: 16.0,
-                          right: 16.0,
-                        ),
-                        child: ScheduledTripTile(
-                          trip: _scheduledTrips[index],
-                          onReschedule: () => _onReschedule(_scheduledTrips[index]),
-                          onOpenDetails: () async {
-                            final trip = _scheduledTrips[index];
-                            final result = await Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => ScheduleTripDetailPage(trip: trip),
-                              ),
-                            );
-                            if (result == true) {
-                              // Refresh trips after detail actions
-                              _subscribeToTrips();
-                            }
-                          },
+            const SizedBox(height: 12),
+            // Horizontal Date Picker
+            SizedBox(
+              height: 80,
+              child: ListView.builder(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: dates.length,
+                itemBuilder: (context, index) {
+                  final date = dates[index];
+                  final isSelected = date.year == _selectedDate.year &&
+                      date.month == _selectedDate.month &&
+                      date.day == _selectedDate.day;
+
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedDate = date;
+                      });
+                      _onDateChanged(date);
+                      _scrollToCenter();
+                    },
+                    child: Container(
+                      width: 64,
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AuthColors.primary
+                            : AuthColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected
+                              ? AuthColors.primary
+                              : AuthColors.textMainWithOpacity(0.1),
+                          width: 1,
                         ),
                       ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _getMonthAbbr(date),
+                            style: TextStyle(
+                              color: isSelected
+                                  ? AuthColors.textMain
+                                  : AuthColors.textSub,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            date.day.toString(),
+                            style: TextStyle(
+                              color: AuthColors.textMain,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _getDayAbbr(date),
+                            style: TextStyle(
+                              color: isSelected
+                                  ? AuthColors.textMain
+                                  : AuthColors.textSub,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Vehicle Filter - Horizontal Scrollable Buttons
+            SizedBox(
+              height: 40,
+              child: Builder(
+                builder: (context) {
+                  final filteredVehicles = _getFilteredVehicles();
+                  return ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: filteredVehicles.length + 1, // +1 for "All" option
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _VehicleFilterButton(
+                            label: 'All',
+                            isSelected: _selectedVehicleId == null,
+                            onTap: () => _onVehicleFilterChanged(null),
+                          ),
+                        );
+                      } else {
+                        final vehicle = filteredVehicles[index - 1];
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _VehicleFilterButton(
+                            label: vehicle.vehicleNumber,
+                            isSelected: _selectedVehicleId == vehicle.id,
+                            onTap: () => _onVehicleFilterChanged(vehicle.id),
+                          ),
+                        );
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Scheduled Trips List
+            if (_isLoadingTrips)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_scheduledTrips.isEmpty)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Text(
+                    'No scheduled trips for this date',
+                    style: TextStyle(
+                      color: AuthColors.textSub,
+                      fontSize: 14,
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-      ],
+                ),
+              )
+            else
+              AnimationLimiter(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: _scheduledTrips.length,
+                  itemBuilder: (context, index) {
+                    return AnimationConfiguration.staggeredList(
+                      position: index,
+                      duration: const Duration(milliseconds: 200),
+                      child: SlideAnimation(
+                        verticalOffset: 50.0,
+                        child: FadeInAnimation(
+                          curve: Curves.easeOut,
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: 12,
+                              left: 16.0,
+                              right: 16.0,
+                            ),
+                            child: ScheduledTripTile(
+                              trip: _scheduledTrips[index],
+                              onReschedule: () => _onReschedule(_scheduledTrips[index]),
+                              onOpenDetails: () async {
+                                final trip = _scheduledTrips[index];
+                                final result = await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ScheduleTripDetailPage(trip: trip),
+                                  ),
+                                );
+                                if (result == true) {
+                                  _subscribeToTrips();
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -268,9 +268,16 @@ class DashWebApp extends StatelessWidget {
                         // If already restored, check if we need to navigate
                         final orgState = context.read<OrganizationContextCubit>().state;
                         if (orgState.hasSelection) {
-                          final currentRoute = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
-                          if (currentRoute == '/splash' || currentRoute == '/') {
-                            context.go('/home');
+                          try {
+                            final router = GoRouter.maybeOf(context);
+                            if (router != null) {
+                              final currentRoute = router.routerDelegate.currentConfiguration.uri.path;
+                              if (currentRoute == '/splash' || currentRoute == '/') {
+                                context.go('/home');
+                              }
+                            }
+                          } catch (_) {
+                            // GoRouter not available yet, skip navigation
                           }
                         }
                       }

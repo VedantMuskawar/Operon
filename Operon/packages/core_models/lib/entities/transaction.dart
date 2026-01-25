@@ -111,8 +111,14 @@ class Transaction {
   }
 
   factory Transaction.fromJson(Map<String, dynamic> json, String docId) {
+    // Ensure we always have a valid ID - prefer transactionId from JSON, fallback to docId
+    final transactionId = json['transactionId'] as String?;
+    final finalId = (transactionId != null && transactionId.isNotEmpty)
+        ? transactionId
+        : (docId.isNotEmpty ? docId : '');
+    
     return Transaction(
-      id: json['transactionId'] as String? ?? docId,
+      id: finalId,
       organizationId: json['organizationId'] as String? ?? '',
       clientId: json['clientId'] as String?,
       vendorId: json['vendorId'] as String?,

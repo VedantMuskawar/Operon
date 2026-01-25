@@ -35,6 +35,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCreationDate = getCreationDate;
 exports.seedAnalyticsDoc = seedAnalyticsDoc;
+exports.seedEmployeeAnalyticsDoc = seedEmployeeAnalyticsDoc;
+exports.seedVendorAnalyticsDoc = seedVendorAnalyticsDoc;
 exports.getFirestore = getFirestore;
 const admin = __importStar(require("firebase-admin"));
 const constants_1 = require("./constants");
@@ -55,6 +57,18 @@ function getCreationDate(snapshot) {
  */
 async function seedAnalyticsDoc(docRef, fyLabel, organizationId) {
     await docRef.set(Object.assign(Object.assign({ source: constants_1.SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('CLIENTS'), 'metrics.activeClients.type': 'monthly', 'metrics.activeClients.unit': 'count', 'metrics.userOnboarding.type': 'monthly', 'metrics.userOnboarding.unit': 'count' }), { merge: true });
+}
+/**
+ * Seed/initialize an employee analytics document with default structure
+ */
+async function seedEmployeeAnalyticsDoc(docRef, fyLabel, organizationId) {
+    await docRef.set(Object.assign(Object.assign({ source: constants_1.EMPLOYEES_SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('EMPLOYEES', 'TRANSACTIONS'), 'metrics.wagesCreditMonthly.type': 'monthly', 'metrics.wagesCreditMonthly.unit': 'currency' }), { merge: true });
+}
+/**
+ * Seed/initialize a vendor analytics document with default structure
+ */
+async function seedVendorAnalyticsDoc(docRef, fyLabel, organizationId) {
+    await docRef.set(Object.assign(Object.assign({ source: constants_1.VENDORS_SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('VENDORS', 'TRANSACTIONS'), 'metrics.purchasesByVendorType.type': 'monthly', 'metrics.purchasesByVendorType.unit': 'currency' }), { merge: true });
 }
 /**
  * Get Firestore database instance

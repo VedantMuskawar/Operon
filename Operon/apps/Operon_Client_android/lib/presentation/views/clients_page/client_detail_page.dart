@@ -1,7 +1,9 @@
 import 'dart:async';
 
-import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
+import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/order_tile.dart';
@@ -9,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 // ignore_for_file: deprecated_member_use, unused_element, no_leading_underscores_for_local_identifiers, avoid_types_as_parameter_names
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ClientDetailPage extends StatefulWidget {
   const ClientDetailPage({super.key, required this.client});
@@ -955,34 +956,25 @@ class _AnalyticsSectionState extends State<_AnalyticsSection> {
       child: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.primary,
                 ),
               )
             : _ledger == null
-                ? const Center(
-        child: Text(
-                    'No ledger data available for this client.',
-          style: TextStyle(color: Colors.white54),
-        ),
+                ? Center(
+                    child: Text(
+                      'No ledger data available for this client.',
+                      style: TextStyle(color: AuthColors.textSub),
+                    ),
                   )
                 : SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                      _LedgerBalanceCard(
-                        ledger: _ledger!,
-                            formatCurrency: _formatCurrency,
-                          ),
-                        const SizedBox(height: 20),
-                      _LedgerTable(
-                        transactions: _transactions,
-                                          formatCurrency: _formatCurrency,
-                                          formatDate: _formatDate,
-                                        ),
-                                ],
-        ),
-      ),
+                    child: _LedgerTable(
+                      openingBalance: (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
+                      transactions: _transactions,
+                      formatCurrency: _formatCurrency,
+                      formatDate: _formatDate,
+                    ),
+                  ),
     );
   }
 }
@@ -1469,23 +1461,45 @@ class _TransactionListItem extends StatelessWidget {
 
 class _LedgerTable extends StatelessWidget {
   const _LedgerTable({
+    required this.openingBalance,
     required this.transactions,
     required this.formatCurrency,
     required this.formatDate,
   });
 
+  final double openingBalance;
   final List<Map<String, dynamic>> transactions;
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
 
   @override
   Widget build(BuildContext context) {
-    // Show all transactions (status field removed, transactions are deleted when cancelled)
-    final visible = transactions;
+    final visible = List<Map<String, dynamic>>.from(transactions);
     if (visible.isEmpty) {
-      return const Text(
-        'No transactions found.',
-        style: TextStyle(color: Colors.white54),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Ledger',
+            style: TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'No transactions found.',
+            style: TextStyle(color: AuthColors.textSub),
+          ),
+          const SizedBox(height: 20),
+          _LedgerSummaryFooter(
+            openingBalance: openingBalance,
+            totalDebit: 0,
+            totalCredit: 0,
+            formatCurrency: formatCurrency,
+          ),
+        ],
       );
     }
 
@@ -1568,15 +1582,18 @@ class _LedgerTable extends StatelessWidget {
         final delta = totalCredit - totalDebit;
         running += delta;
         
+        final firstDesc = (visible[i]['description'] as String?)?.trim();
         rows.add(_LedgerRowModel(
           date: earliestDate,
           dmNumber: dmNumber,
           credit: totalCredit,
           debit: totalDebit,
           balanceAfter: running,
+          type: 'Order',
+          remarks: (firstDesc != null && firstDesc.isNotEmpty) ? firstDesc : '-',
           paymentParts: parts,
         ));
-        
+
         i = j;
       } else {
         // No DM number - show as individual transaction with category
@@ -1598,18 +1615,24 @@ class _LedgerTable extends StatelessWidget {
             delta = amount;
         }
         running += delta;
-        
+
+        final desc = (tx['description'] as String?)?.trim();
         rows.add(_LedgerRowModel(
           date: date,
           dmNumber: null,
           credit: delta > 0 ? delta : 0,
           debit: delta < 0 ? -delta : 0,
           balanceAfter: running,
-          category: category, // Store category for display
+          type: _formatCategoryName(category),
+          remarks: (desc != null && desc.isNotEmpty) ? desc : '-',
+          category: category,
         ));
         i++;
       }
     }
+
+    final totalDebit = rows.fold<double>(0, (s, r) => s + r.debit);
+    final totalCredit = rows.fold<double>(0, (s, r) => s + r.credit);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1617,7 +1640,7 @@ class _LedgerTable extends StatelessWidget {
         const Text(
           'Ledger',
           style: TextStyle(
-            color: Colors.white,
+            color: AuthColors.textMain,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -1625,14 +1648,14 @@ class _LedgerTable extends StatelessWidget {
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF131324),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
               _LedgerTableHeader(),
-              const Divider(height: 1, color: Colors.white12),
+              Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
               ...rows.map((r) => _LedgerTableRow(
                     row: r,
                     formatCurrency: formatCurrency,
@@ -1641,10 +1664,16 @@ class _LedgerTable extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 20),
+        _LedgerSummaryFooter(
+          openingBalance: openingBalance,
+          totalDebit: totalDebit,
+          totalCredit: totalCredit,
+          formatCurrency: formatCurrency,
+        ),
       ],
     );
   }
-
 }
 
 class _LedgerRowModel {
@@ -1654,6 +1683,8 @@ class _LedgerRowModel {
     required this.credit,
     required this.debit,
     required this.balanceAfter,
+    required this.type,
+    required this.remarks,
     this.paymentParts = const [],
     this.category,
   });
@@ -1663,8 +1694,10 @@ class _LedgerRowModel {
   final double credit;
   final double debit;
   final double balanceAfter;
+  final String type;
+  final String remarks;
   final List<_PaymentPart> paymentParts;
-  final String? category; // Category when DM number is not available
+  final String? category;
 }
 
 // Helper function to format category name (capitalize and add spaces)
@@ -1691,15 +1724,17 @@ class _PaymentPart {
 class _LedgerTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
-          SizedBox(width: 90, child: Text('Date', style: TextStyle(color: Colors.white70, fontSize: 11))),
-          SizedBox(width: 70, child: Text('DM No.', style: TextStyle(color: Colors.white70, fontSize: 11))),
-          Expanded(child: Text('Credit', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
-          Expanded(child: Text('Debit', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
-          Expanded(child: Text('Balance', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right)),
+          Expanded(flex: 1, child: Text('Date', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('DM No.', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Type', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(flex: 2, child: Text('Remarks', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
         ],
       ),
     );
@@ -1720,13 +1755,13 @@ class _LedgerTableRow extends StatelessWidget {
   Color _accountColor(String type) {
     switch (type.toLowerCase()) {
       case 'upi':
-        return Colors.blueAccent;
+        return AuthColors.info;
       case 'bank':
-        return Colors.purpleAccent;
+        return AuthColors.accentPurple;
       case 'cash':
-        return Colors.greenAccent;
+        return AuthColors.success;
       default:
-        return Colors.white70;
+        return AuthColors.textSub;
     }
   }
 
@@ -1735,76 +1770,83 @@ class _LedgerTableRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 90,
+          Expanded(
+            flex: 1,
             child: Text(
               formatDate(row.date),
-              style: const TextStyle(color: Colors.white, fontSize: 11),
+              style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(
-            width: 70,
-            child: row.dmNumber != null
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'DM-${row.dmNumber}',
-                      style: const TextStyle(
-                        color: Colors.blueAccent,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: row.dmNumber != null
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AuthColors.info.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ),
-                  )
-                : row.category != null
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
+                      child: Text(
+                        'DM-${row.dmNumber}',
+                        style: const TextStyle(
+                          color: AuthColors.info,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                         ),
-                        child: Text(
-                          _formatCategoryName(row.category),
-                          style: const TextStyle(
-                            color: Colors.purpleAccent,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                  : row.category != null
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AuthColors.accentPurple.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(4),
                           ),
+                          child: Text(
+                            _formatCategoryName(row.category!),
+                            style: const TextStyle(
+                              color: AuthColors.accentPurple,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        )
+                      : Text(
+                          '-',
+                          style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    : const Text(
-                        '-',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
-                      ),
-          ),
-          Expanded(
-            child: Text(
-              row.credit > 0 ? formatCurrency(row.credit) : '-',
-              style: const TextStyle(color: Colors.white, fontSize: 11),
-              textAlign: TextAlign.right,
             ),
           ),
           Expanded(
+            flex: 1,
             child: row.debit > 0
                 ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         formatCurrency(row.debit),
-                        style: const TextStyle(color: Colors.white, fontSize: 11),
-                        textAlign: TextAlign.right,
+                        style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                        textAlign: TextAlign.center,
                       ),
                       if (row.paymentParts.isNotEmpty)
                         Wrap(
                           spacing: 4,
                           runSpacing: 4,
-                          alignment: WrapAlignment.end,
+                          alignment: WrapAlignment.center,
                           children: row.paymentParts
                               .map((p) => Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
@@ -1819,23 +1861,57 @@ class _LedgerTableRow extends StatelessWidget {
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
                                       ),
+                                      textAlign: TextAlign.center,
                                     ),
                                   ))
                               .toList(),
                         ),
                     ],
                   )
-                : const Text('-', style: TextStyle(color: Colors.white70, fontSize: 11), textAlign: TextAlign.right),
+                : Text('-', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
           ),
           Expanded(
+            flex: 1,
+            child: Text(
+              row.credit > 0 ? formatCurrency(row.credit) : '-',
+              style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 1,
             child: Text(
               formatCurrency(row.balanceAfter),
               style: TextStyle(
-                color: row.balanceAfter >= 0 ? Colors.orangeAccent : Colors.greenAccent,
+                color: row.balanceAfter >= 0 ? AuthColors.warning : AuthColors.success,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Text(
+              row.type.isEmpty ? '-' : row.type,
+              style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              row.remarks,
+              style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1844,141 +1920,67 @@ class _LedgerTableRow extends StatelessWidget {
   }
 }
 
-class _LedgerBalanceCard extends StatelessWidget {
-  const _LedgerBalanceCard({
-    required this.ledger,
+class _LedgerSummaryFooter extends StatelessWidget {
+  const _LedgerSummaryFooter({
+    required this.openingBalance,
+    required this.totalDebit,
+    required this.totalCredit,
     required this.formatCurrency,
   });
 
-  final Map<String, dynamic> ledger;
+  final double openingBalance;
+  final double totalDebit;
+  final double totalCredit;
   final String Function(double) formatCurrency;
 
   @override
   Widget build(BuildContext context) {
-    final currentBalance = (ledger['currentBalance'] as num?)?.toDouble() ?? 0.0;
-    final totalIncome = (ledger['totalIncome'] as num?)?.toDouble() ?? 0.0;
-    final totalReceivables = (ledger['totalReceivables'] as num?)?.toDouble() ?? 0.0;
-
-    final isReceivable = currentBalance > 0;
-    final isPayable = currentBalance < 0;
-
-    Color badgeColor() {
-      if (isReceivable) return Colors.orangeAccent;
-      if (isPayable) return Colors.greenAccent;
-      return Colors.white70;
-    }
-
-    String badgeText() {
-      if (isReceivable) return 'Client owes us';
-      if (isPayable) return 'We owe client';
-      return 'Settled';
-    }
-
+    final currentBalance = openingBalance + totalCredit - totalDebit;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF131324),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'Ledger',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: badgeColor().withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: badgeColor().withOpacity(0.6)),
-                ),
-                child: Text(
-                  badgeText(),
-                  style: TextStyle(
-                    color: badgeColor(),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              Text('Opening Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(openingBalance), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
-          const SizedBox(height: 10),
-          _LedgerRow(label: 'Current Balance', value: formatCurrency(currentBalance.abs())),
-          _LedgerRow(label: 'Total Income', value: formatCurrency(totalIncome)),
-          _LedgerRow(label: 'Total Receivables', value: formatCurrency(totalReceivables)),
-          if (ledger['dmNumbers'] != null &&
-              (ledger['dmNumbers'] as List).isNotEmpty) ...[
-            const SizedBox(height: 10),
-            const Text(
-              'DM Numbers',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: (ledger['dmNumbers'] as List)
-                  .map((dm) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white.withOpacity(0.15)),
-                        ),
-                        child: Text(
-                          'DM-$dm',
-                          style: const TextStyle(color: Colors.white, fontSize: 11),
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _LedgerRow extends StatelessWidget {
-  const _LedgerRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Total Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(totalDebit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+            ],
           ),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Total Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(totalCredit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Current Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              Text(formatCurrency(currentBalance), style: const TextStyle(color: AuthColors.success, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+            ],
           ),
         ],
       ),

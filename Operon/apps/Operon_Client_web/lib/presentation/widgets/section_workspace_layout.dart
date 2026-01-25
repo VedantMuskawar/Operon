@@ -11,6 +11,8 @@ import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/job_roles_repository.dart';
 import 'package:dash_web/data/repositories/vehicles_repository.dart';
 import 'package:dash_web/data/repositories/delivery_zones_repository.dart';
+import 'package:dash_web/data/repositories/geofences_repository.dart';
+import 'package:dash_web/data/repositories/organization_locations_repository.dart';
 import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:dash_web/presentation/blocs/job_roles/job_roles_cubit.dart';
 import 'package:dash_web/presentation/blocs/products/products_cubit.dart';
@@ -20,6 +22,8 @@ import 'package:dash_web/presentation/blocs/users/users_cubit.dart';
 import 'package:dash_web/presentation/blocs/employees/employees_cubit.dart';
 import 'package:dash_web/presentation/blocs/vehicles/vehicles_cubit.dart';
 import 'package:dash_web/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
+import 'package:dash_web/presentation/blocs/geofences/geofences_cubit.dart';
+import 'package:dash_web/presentation/blocs/organization_locations/organization_locations_cubit.dart';
 import 'package:dash_web/presentation/views/roles_page.dart';
 import 'package:dash_web/presentation/views/products_page.dart';
 import 'package:dash_web/presentation/views/raw_materials_page.dart';
@@ -36,6 +40,8 @@ import 'package:dash_web/presentation/views/dm_settings_page.dart';
 import 'package:dash_web/presentation/blocs/dm_settings/dm_settings_cubit.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/presentation/views/expense_sub_categories_page.dart';
+import 'package:dash_web/presentation/views/geofences_page_content.dart';
+import 'package:dash_web/presentation/views/organization_locations_page_content.dart';
 import 'package:dash_web/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_web/presentation/widgets/select_client_dialog.dart';
@@ -79,7 +85,7 @@ class SectionWorkspaceLayout extends StatefulWidget {
   State<SectionWorkspaceLayout> createState() => _SectionWorkspaceLayoutState();
 }
 
-enum ContentPage { none, roles, products, vehicles, rawMaterials, paymentAccounts, users, employees, zones, wageSettings, productionBatchTemplates, dmSettings, expenseSubCategories }
+enum ContentPage { none, roles, products, vehicles, rawMaterials, paymentAccounts, users, employees, zones, wageSettings, productionBatchTemplates, dmSettings, expenseSubCategories, locationsGeofences }
 
 class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
   bool _isProfileOpen = false;
@@ -105,6 +111,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
     final isAdminRole = appAccessRole?.isAdmin ?? fallbackAdmin;
     final canManageUsers = appAccessRole?.canCreate('users') ?? isAdminRole;
     final canManageVehicles = appAccessRole?.canAccessPage('vehicles') ?? isAdminRole;
+    final canManageGeofences = appAccessRole?.canCreate('geofences') ?? isAdminRole;
     final visibleSections = widget.allowedSections?.toList() ??
         computeHomeSections(appAccessRole);
     final media = MediaQuery.of(context);
@@ -271,12 +278,6 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                                 _contentPage = ContentPage.users;
                               }
                             : null,
-                        onOpenPermissions: isAdminRole
-                            ? () {
-                                setState(() => _isProfileOpen = false);
-                                context.go('/access-control');
-                              }
-                            : null,
                       ),
                       Positioned(
                         top: 16,
@@ -334,6 +335,15 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   _isSettingsOpen = false;
                   _contentPage = ContentPage.rawMaterials;
                 }),
+                canManageGeofences: canManageGeofences,
+                onOpenGeofences: canManageGeofences
+                    ? () {
+                        setState(() {
+                          _isSettingsOpen = false;
+                          _contentPage = ContentPage.locationsGeofences;
+                        });
+                      }
+                    : null,
                 onOpenPaymentAccounts: isAdminRole
                     ? () => setState(() {
                         _isSettingsOpen = false;
@@ -783,54 +793,7 @@ class _AnimatedSectionSwitcherState extends State<_AnimatedSectionSwitcher>
                   children: [
                     if (widget.panelTitle != null &&
                         widget.panelTitle!.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF1B1C2C),
-                              Color(0xFF161622),
-                            ],
-                          ),
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.08),
-                              width: 1,
-                            ),
-                          ),
-                        ),
-                        child: SizedBox(
-                          height: 32,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: IconButton(
-                                  onPressed: () => context.go('/home'),
-                                  icon: const Icon(Icons.arrow_back, color: Colors.white70),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  tooltip: 'Back to home',
-                                ),
-                              ),
-                              Center(
-                                child: Text(
-                                  widget.panelTitle!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      _ModernStylePanelHeader(title: widget.panelTitle!),
                       const SizedBox(height: 16),
                     ],
                     widget.child,
@@ -840,6 +803,74 @@ class _AnimatedSectionSwitcherState extends State<_AnimatedSectionSwitcher>
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Panel header styled like Android ModernPageHeader (AuthColors.primary, white icon/title).
+class _ModernStylePanelHeader extends StatelessWidget {
+  const _ModernStylePanelHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    void handleBack() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
+    }
+
+    const iconColor = Colors.white;
+    const iconSize = 20.0;
+    const titleStyle = TextStyle(
+      fontSize: 20.0,
+      fontWeight: FontWeight.w700,
+      color: Colors.white,
+      height: 1.3,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        color: AuthColors.primary,
+      ),
+      child: SizedBox(
+        height: 56,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: handleBack,
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: iconColor,
+                  size: iconSize,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 56,
+                  minHeight: 56,
+                ),
+                tooltip: 'Back to home',
+              ),
+            ),
+            Center(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: titleStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1415,12 +1446,14 @@ class _SettingsSideSheet extends StatelessWidget {
     required this.canManageVehicles,
     required this.canManageProducts,
     required this.canManageRawMaterials,
+    required this.canManageGeofences,
     required this.onClose,
     this.onOpenUsers,
     this.onOpenVehicles,
     required this.onOpenRoles,
     required this.onOpenProducts,
     required this.onOpenRawMaterials,
+    this.onOpenGeofences,
     this.onOpenPaymentAccounts,
     this.onOpenWageSettings,
     this.onOpenProductionBatchTemplates,
@@ -1433,12 +1466,14 @@ class _SettingsSideSheet extends StatelessWidget {
   final bool canManageVehicles;
   final bool canManageProducts;
   final bool canManageRawMaterials;
+  final bool canManageGeofences;
   final VoidCallback onClose;
   final VoidCallback? onOpenUsers;
   final VoidCallback? onOpenVehicles;
   final VoidCallback onOpenRoles;
   final VoidCallback onOpenProducts;
   final VoidCallback onOpenRawMaterials;
+  final VoidCallback? onOpenGeofences;
   final VoidCallback? onOpenPaymentAccounts;
   final VoidCallback? onOpenWageSettings;
   final VoidCallback? onOpenProductionBatchTemplates;
@@ -1522,7 +1557,17 @@ class _SettingsSideSheet extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
-              // 3. Vehicles
+              // 3. Locations & Geofences
+              if (onOpenGeofences != null)
+                _SettingsTile(
+                  label: 'Locations & Geofences',
+                  onTap: () {
+                    onClose();
+                    onOpenGeofences!();
+                  },
+                ),
+              if (onOpenGeofences != null) const SizedBox(height: 12),
+              // 4. Vehicles
               if (onOpenVehicles != null)
                 _SettingsTile(
                   label: 'Vehicles',
@@ -1532,7 +1577,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 ),
               if (onOpenVehicles != null) const SizedBox(height: 12),
-              // 4. Raw Materials
+              // 5. Raw Materials
               _SettingsTile(
                 label: 'Raw Materials',
                 subtitle: canManageRawMaterials ? null : 'Read only',
@@ -1542,7 +1587,7 @@ class _SettingsSideSheet extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 12),
-              // 5. Payment Accounts
+              // 6. Payment Accounts
               if (onOpenPaymentAccounts != null)
                 _SettingsTile(
                   label: 'Payment Accounts',
@@ -1561,7 +1606,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 12),
-              // 6. Wage Settings
+              // 7. Wage Settings
               if (onOpenWageSettings != null)
                 _SettingsTile(
                   label: 'Wage Settings',
@@ -1571,7 +1616,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 ),
               if (onOpenWageSettings != null) const SizedBox(height: 12),
-              // 7. Production Batches
+              // 8. Production Batches
               if (onOpenProductionBatchTemplates != null)
                 _SettingsTile(
                   label: 'Production Batches',
@@ -1581,7 +1626,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 ),
               if (onOpenProductionBatchTemplates != null) const SizedBox(height: 12),
-              // 8. DM Settings
+              // 9. DM Settings
               if (onOpenDmSettings != null)
                 _SettingsTile(
                   label: 'DM Settings',
@@ -1591,7 +1636,7 @@ class _SettingsSideSheet extends StatelessWidget {
                   },
                 ),
               if (onOpenDmSettings != null) const SizedBox(height: 12),
-              // 9. Expense Sub Categories
+              // 10. Expense Sub Categories
               if (onOpenExpenseSubCategories != null)
                 _SettingsTile(
                   label: 'Expense Sub Categories',
@@ -1922,6 +1967,64 @@ class _ContentSideSheet extends StatelessWidget {
               userId: userId,
             )..load(),
             child: const ExpenseSubCategoriesPageContent(),
+          );
+        }
+        break;
+      case ContentPage.locationsGeofences:
+        title = 'Locations & Geofences';
+        if (orgId == null) {
+          content = const Center(child: Text('No organization selected'));
+        } else {
+          final orgIdNonNull = orgId!;
+          content = MultiBlocProvider(
+            providers: [
+              BlocProvider<OrganizationLocationsCubit>(
+                create: (context) => OrganizationLocationsCubit(
+                  repository: context.read<OrganizationLocationsRepository>(),
+                  organizationId: orgIdNonNull,
+                )..load(),
+              ),
+              BlocProvider<GeofencesCubit>(
+                create: (context) => GeofencesCubit(
+                  repository: context.read<GeofencesRepository>(),
+                  organizationId: orgIdNonNull,
+                )..load(),
+              ),
+            ],
+            child: DefaultTabController(
+              length: 2,
+              initialIndex: 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TabBar(
+                    labelColor: AuthColors.textMain,
+                    unselectedLabelColor: AuthColors.textSub,
+                    indicatorColor: AuthColors.primary,
+                    tabs: const [
+                      Tab(text: 'Locations'),
+                      Tab(text: 'Geofences'),
+                    ],
+                  ),
+                  SizedBox(
+                    height: 420,
+                    child: TabBarView(
+                      children: [
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: const OrganizationLocationsPageContent(),
+                        ),
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: const GeofencesPageContent(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
         break;

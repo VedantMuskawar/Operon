@@ -59,7 +59,7 @@ class TransactionDateGroupHeader extends StatelessWidget {
             width: 3,
             height: 16,
             decoration: BoxDecoration(
-              color: AuthColors.legacyAccent,
+              color: AuthColors.primary,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

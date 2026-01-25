@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:call_log/call_log.dart' as device_log;
 import 'package:flutter/material.dart';
@@ -9,42 +10,64 @@ import 'package:flutter_contacts/flutter_contacts.dart' as device_contacts;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/presentation/blocs/contacts/contact_cubit.dart';
+import 'package:dash_mobile/presentation/blocs/contacts/contact_state.dart';
 import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
+import 'package:dash_mobile/presentation/views/clients_page/contact_processing.dart';
+import 'package:dash_mobile/presentation/widgets/loading/contact_skeleton.dart';
+import 'package:dash_mobile/presentation/widgets/alphabet_strip.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:core_bloc/core_bloc.dart' as core_bloc;
 
-class ContactPage extends StatefulWidget {
+enum _ListItemType { header, contact }
+
+class _ListItem {
+  const _ListItem({
+    required this.type,
+    this.letter,
+    this.contact,
+  });
+
+  final _ListItemType type;
+  final String? letter;
+  final ContactEntry? contact;
+}
+
+class ContactPage extends StatelessWidget {
   const ContactPage({super.key});
 
   @override
-  State<ContactPage> createState() => _ContactPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => ContactCubit(),
+      child: const _ContactPageContent(),
+    );
+  }
 }
 
-class _ContactPageState extends State<ContactPage> {
-  static const int _contactBatchSize = 20; // Reduced for faster initial load
-  static const int _initialDisplayCount = 20; // Show fewer initially
+class _ContactPageContent extends StatefulWidget {
+  const _ContactPageContent();
 
+  @override
+  State<_ContactPageContent> createState() => _ContactPageState();
+}
+
+class _ContactPageState extends State<_ContactPageContent> {
   bool _isCallLogLoading = true;
-  bool _isContactsLoading = false; // Start as false to allow initial load
-  bool _hasContactsPermission = false;
   String? _callLogMessage;
-  String? _contactsMessage;
-
   List<_CallLogEntry> _entries = const [];
-  final List<_ContactEntry> _allContacts = [];
-  List<_ContactEntry> _filteredContacts = [];
-  final List<_ContactEntry> _recentContacts = [];
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _contactListController = ScrollController();
+  final ScrollController _callLogScrollController = ScrollController();
   late final PageController _pageController;
   double _currentPage = 0;
-  Timer? _searchDebounce;
   final ClientService _clientService = ClientService();
-  bool _isLoadingMoreContacts = false;
-  int _visibleContactLimit = _contactBatchSize;
-  final Map<String, List<_ContactEntry>> _searchCache = {};
+  String? _currentLetter; // For alphabet strip
+  Isolate? _contactsIsolate;
+  ReceivePort? _receivePort;
 
   static const List<String> _clientTags = [
     'Individual',
@@ -73,7 +96,9 @@ class _ContactPageState extends State<ContactPage> {
     _pageController.dispose();
     _contactListController.removeListener(_handleContactListScroll);
     _contactListController.dispose();
-    _searchDebounce?.cancel();
+    _callLogScrollController.dispose();
+    _contactsIsolate?.kill(priority: Isolate.immediate);
+    _receivePort?.close();
     super.dispose();
   }
 
@@ -136,145 +161,67 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<void> _loadContacts() async {
-    // Prevent concurrent loads
-    if (_isContactsLoading) {
-      debugPrint('Contact loading already in progress, skipping...');
-      return;
-    }
-
-    debugPrint('Starting contact load...');
-
-    // Reset state
-    _visibleContactLimit = _contactBatchSize;
-    _isLoadingMoreContacts = false;
-
     if (!mounted) return;
-
-    setState(() {
-      _filteredContacts = [];
-      _isContactsLoading = true;
-      _contactsMessage = null;
-    });
+    final cubit = context.read<ContactCubit>();
 
     if (!Platform.isAndroid) {
-      if (!mounted) return;
-      setState(() {
-        _contactsMessage = 'Phone contacts are only available on Android devices.';
-        _isContactsLoading = false;
-      });
+      cubit.setError('Phone contacts are only available on Android devices.');
       return;
     }
 
     try {
-      // Check permission with better error handling
-      debugPrint('Requesting contacts permission...');
-      final hasPermission = await device_contacts.FlutterContacts.requestPermission(
-        readonly: true,
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint('Permission request timed out');
-          return false;
-        },
-      );
-      
-      debugPrint('Permission result: $hasPermission');
-      
-      if (!mounted) return;
+      // Check current permission status first
+      final permissionStatus = await Permission.contacts.status;
+      bool hasPermission = permissionStatus.isGranted;
       
       if (!hasPermission) {
-        debugPrint('Permission denied, showing error message');
-        if (!mounted) return;
-        setState(() {
-          _hasContactsPermission = hasPermission;
-          _contactsMessage = 'Contacts permission denied. Enable it in settings.';
-          _isContactsLoading = false;
-        });
-        return;
+        // Request permission
+        debugPrint('Requesting contacts permission...');
+        final requestResult = await Permission.contacts.request();
+        hasPermission = requestResult.isGranted;
+        
+        if (!hasPermission) {
+          if (!mounted) return;
+          // Check if permanently denied
+          if (requestResult.isPermanentlyDenied) {
+            cubit.setError(
+              'Contacts permission is required. Please enable it in app settings.',
+            );
+          } else {
+            cubit.setError(
+              'Contacts permission is required to view your phone contacts.',
+            );
+          }
+          return;
+        }
       }
-      
-      // Batch permission state update
-      setState(() {
-        _hasContactsPermission = hasPermission;
-      });
 
-      // Load contacts with timeout and error handling
-      debugPrint('Loading contacts from device...');
+      // Initialize loading
+      cubit.initializeLoading();
+
+      // Load contacts WITHOUT properties for speed - lazy load phone numbers on demand
+      debugPrint('Loading contacts from device (lazy mode)...');
       final contacts = await device_contacts.FlutterContacts.getContacts(
-        withProperties: true, // Required to get phone numbers
-        withPhoto: false, // Photos not needed - saves memory
-        sorted: false, // Sort in isolate instead to avoid blocking
+        withProperties: false, // Don't load phone numbers initially - much faster!
+        withPhoto: false,
+        sorted: false,
       ).timeout(
         const Duration(seconds: 30),
         onTimeout: () {
-          debugPrint('Contact loading timed out after 30 seconds');
-          throw TimeoutException('Contact loading timed out after 30 seconds');
+          throw TimeoutException('Contact loading timed out');
         },
       );
       
-      debugPrint('Loaded ${contacts.length} raw contacts from device');
+      debugPrint('Loaded ${contacts.length} raw contacts from device (names only)');
       
       if (!mounted) return;
 
-      // Process contacts in background isolate with error handling
-      debugPrint('Processing contacts in isolate...');
-      final entries = await compute(_processContactsInBackground, contacts)
-          .timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              debugPrint('Contact processing timed out');
-              return <_ContactEntry>[];
-            },
-          );
-
-      debugPrint('Processed ${entries.length} valid contacts');
-
-      if (!mounted) return;
-
-      // Update state with processed contacts
-      debugPrint('Updating UI with ${entries.length} contacts');
+      // Process contacts in chunks using isolate
+      await _processContactsInChunks(contacts, cubit);
       
-      // Optimize: Show minimal initial batch for fastest first render
-      final initialLimit = entries.length < _initialDisplayCount
-          ? entries.length
-          : _initialDisplayCount;
-      
-      if (!mounted) return;
-      
-      // Update state immediately with small batch
-      setState(() {
-        _allContacts.clear();
-        _allContacts.addAll(entries);
-        
-        _filteredContacts = entries.take(initialLimit).toList();
-        _visibleContactLimit = initialLimit;
-        
-        _contactsMessage = entries.isEmpty
-            ? 'No phone contacts found on this device.'
-            : null;
-        _isContactsLoading = false;
-      });
-      
-      // Load more contacts after first frame for smoother experience
-      if (entries.length > initialLimit && !_isSearchActive) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_isSearchActive) {
-            setState(() {
-              final nextLimit = entries.length < _contactBatchSize * 2
-                  ? entries.length
-                  : _contactBatchSize * 2;
-              _filteredContacts = entries.take(nextLimit).toList();
-              _visibleContactLimit = nextLimit;
-            });
-          }
-        });
-      }
-      
-      debugPrint('Contact loading completed successfully');
     } catch (error) {
       if (!mounted) return;
       
-      // Better error messages
       String errorMessage;
       if (error is TimeoutException) {
         errorMessage = 'Loading contacts took too long. Please try again.';
@@ -287,196 +234,97 @@ class _ContactPageState extends State<ContactPage> {
       }
       
       debugPrint('Error loading contacts: $error');
-      
-      setState(() {
-        _contactsMessage = errorMessage;
-        _isContactsLoading = false;
-        // Don't clear contacts on error - keep what we have
-      });
+      cubit.setError(errorMessage);
     }
+  }
+
+  Future<void> _processContactsInChunks(
+    List<device_contacts.Contact> contacts,
+    ContactCubit cubit,
+  ) async {
+    // Store contacts count for batching optimization
+    final totalContacts = contacts.length;
+    if (!mounted) return;
+
+    // Create receive port for chunked data
+    _receivePort = ReceivePort();
+    final sendPort = _receivePort!.sendPort;
+
+    // Spawn isolate for processing
+    final params = _ProcessContactsParams(sendPort: sendPort, contacts: contacts);
+    _contactsIsolate = await Isolate.spawn<_ProcessContactsParams>(
+      _ContactPageState._isolateEntryPoint,
+      params,
+    );
+
+    // Progressive loading: First chunk shows immediately, subsequent chunks batch
+    int processedCount = 0;
+    bool isFirstChunk = true;
+    final chunkBuffer = <List<ContactEntry>>[];
+    Timer? batchTimer;
+    final isLargeList = totalContacts > 5000;
+    
+    await for (final message in _receivePort!) {
+      if (!mounted) break;
+      
+      if (message == null) {
+        // Process any remaining buffered chunks
+        batchTimer?.cancel();
+        if (chunkBuffer.isNotEmpty) {
+          cubit.setLoadingChunk(true);
+          cubit.loadContactChunks(chunkBuffer);
+          chunkBuffer.clear();
+          cubit.setLoadingChunk(false);
+        }
+        // Completion signal
+        cubit.finishLoading();
+        debugPrint('Contact processing completed: $processedCount contacts processed');
+        break;
+      } else if (message is List<ContactEntry>) {
+        processedCount += message.length;
+        
+        if (isFirstChunk) {
+          // First chunk (300 contacts) - show IMMEDIATELY for instant feedback
+          isFirstChunk = false;
+          cubit.setLoadingChunk(true);
+          cubit.loadContactChunk(message);
+          cubit.setLoadingChunk(false);
+          debugPrint('First batch displayed: ${message.length} contacts');
+        } else {
+          // Subsequent chunks - batch them to reduce UI rebuilds
+          chunkBuffer.add(message);
+          
+          // Batch every 2-3 chunks depending on list size
+          final batchThreshold = isLargeList ? 3 : 2;
+          if (chunkBuffer.length >= batchThreshold) {
+            batchTimer?.cancel();
+            final delay = isLargeList
+                ? const Duration(milliseconds: 50)  // Less frequent for huge lists
+                : const Duration(milliseconds: 32);  // More frequent for smaller lists
+            batchTimer = Timer(delay, () {
+              if (chunkBuffer.isNotEmpty && mounted) {
+                cubit.setLoadingChunk(true);
+                final toProcess = List<List<ContactEntry>>.from(chunkBuffer);
+                chunkBuffer.clear();
+                cubit.loadContactChunks(toProcess);
+                cubit.setLoadingChunk(false);
+              }
+            });
+          }
+        }
+      }
+    }
+    
+    batchTimer?.cancel();
   }
 
   // Helper function to process contacts in background isolate
   // Optimized with better error handling and validation
-  static List<_ContactEntry> _processContactsInBackground(
-      List<device_contacts.Contact> contacts) {
-    if (contacts.isEmpty) return <_ContactEntry>[];
-    
-    final entries = <_ContactEntry>[];
-    
-    for (final contact in contacts) {
-      try {
-        // Skip contacts without phone numbers
-        if (contact.phones.isEmpty) continue;
-
-        // Extract and validate phone numbers
-        final displayPhones = contact.phones
-            .map((phone) => phone.number.trim())
-            .where((number) => number.isNotEmpty)
-            .toList();
-            
-        if (displayPhones.isEmpty) continue;
-
-        // Normalize phone numbers (digits only for matching)
-        final normalizedPhones = displayPhones
-            .map((number) => number.replaceAll(RegExp(r'[^0-9+]'), ''))
-            .where((number) => number.isNotEmpty && number.length >= 3) // Minimum 3 digits
-            .toList();
-            
-        if (normalizedPhones.isEmpty) continue;
-
-        // Get contact name or use phone as fallback
-        final name = (contact.displayName.trim().isNotEmpty
-                ? contact.displayName.trim()
-                : displayPhones.first)
-            .trim();
-            
-        // Skip if name is still empty
-        if (name.isEmpty) continue;
-
-        // Create contact entry
-        entries.add(
-          _ContactEntry(
-            id: contact.id.isNotEmpty ? contact.id : 'unknown_${entries.length}',
-            name: name,
-            normalizedName: name.toLowerCase(),
-            displayPhones: displayPhones,
-            normalizedPhones: normalizedPhones,
-          ),
-        );
-      } catch (e) {
-        // Skip invalid contacts silently
-        continue;
-      }
-    }
-    
-    return entries;
-  }
-
   void _onSearchChanged() {
     final query = _searchController.text;
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
-      _performContactSearch(query);
-    });
-  }
-
-  Future<void> _performContactSearch(String rawQuery) async {
     if (!mounted) return;
-    
-    final query = rawQuery.trim();
-    
-    // Handle empty query - reset to paginated list
-    if (query.isEmpty) {
-      final limit = _allContacts.length < _visibleContactLimit
-          ? _allContacts.length
-          : _visibleContactLimit;
-      
-      if (!mounted) return;
-      
-      setState(() {
-        _filteredContacts = _allContacts.take(limit).toList();
-        // Only show permission message if permission is not granted
-        if (_allContacts.isEmpty) {
-          _contactsMessage = _hasContactsPermission
-              ? null // Permission granted, no message needed
-              : 'Contacts permission is required. Please grant permission to view contacts.';
-        } else {
-          _contactsMessage = null;
-        }
-      });
-      return;
-    }
-
-    try {
-      // Normalize query for matching
-      final normalized = query.toLowerCase().trim();
-      final digitsQuery = normalized.replaceAll(RegExp(r'[^0-9+]'), '');
-      
-      // Check cache first
-      final cacheKey = normalized;
-      if (_searchCache.containsKey(cacheKey)) {
-        if (!mounted) return;
-        setState(() {
-          _filteredContacts = _searchCache[cacheKey]!;
-          _contactsMessage = _filteredContacts.isEmpty
-              ? 'No contacts matched "$query".'
-              : null;
-        });
-        return;
-      }
-      
-      // Optimize: Use isolate for very large lists, direct search for smaller ones
-      List<_ContactEntry> results;
-      
-      // Lower threshold for isolate - use for lists >500 contacts
-      if (_allContacts.length > 500) {
-        // Large list - use isolate to avoid blocking UI
-        results = await compute(
-          _searchContactsInBackground,
-          _SearchContactsParams(
-            contacts: _allContacts,
-            normalizedQuery: normalized,
-            digitsQuery: digitsQuery,
-            maxResults: 100, // Increased limit for better UX
-          ),
-        ).timeout(
-          const Duration(seconds: 3), // Reduced timeout for faster feedback
-          onTimeout: () {
-            debugPrint('Search timed out');
-            return <_ContactEntry>[];
-          },
-        );
-      } else {
-        // Small list - direct search is faster (no isolate overhead)
-        results = <_ContactEntry>[];
-        const maxResults = 100; // Increased for better UX
-        
-        for (final contact in _allContacts) {
-          if (results.length >= maxResults) break;
-          
-          // Name matching (case-insensitive contains)
-          final nameMatch = contact.normalizedName.contains(normalized);
-          
-          // Phone matching (digits only)
-          final phoneMatch = digitsQuery.isNotEmpty &&
-              contact.normalizedPhones.any(
-                  (phone) => phone.contains(digitsQuery));
-          
-          if (nameMatch || phoneMatch) {
-            results.add(contact);
-          }
-        }
-      }
-
-      if (!mounted) return;
-
-      // Cache results
-      _searchCache[cacheKey] = results;
-      // Limit cache size to prevent memory issues
-      if (_searchCache.length > 50) {
-        final firstKey = _searchCache.keys.first;
-        _searchCache.remove(firstKey);
-      }
-
-      setState(() {
-        _filteredContacts = results;
-        _contactsMessage = results.isEmpty
-            ? 'No contacts matched "$query".'
-            : null;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      
-      debugPrint('Error searching contacts: $error');
-      setState(() {
-        // On error, show current filtered list or empty
-        _contactsMessage = 'Search error occurred. Please try again.';
-      });
-    }
+    context.read<ContactCubit>().searchContacts(query);
   }
-
-  bool get _isSearchActive => _searchController.text.trim().isNotEmpty;
 
   void _onPageChanged() {
     if (!_pageController.hasClients) return;
@@ -490,52 +338,98 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   void _handleContactListScroll() {
-    if (_isSearchActive) return;
     if (!_contactListController.hasClients) return;
+    if (!mounted) return;
+
+    final cubit = context.read<ContactCubit>();
+    if (cubit.state.isSearchActive) return;
 
     final position = _contactListController.position;
-    if (position.pixels >= position.maxScrollExtent - 120) {
-      _loadMoreVisibleContacts();
+    if (position.pixels >= position.maxScrollExtent - 200) {
+      // Update current letter for alphabet strip
+      _updateCurrentLetter(position.pixels);
     }
   }
 
-  Future<void> _loadMoreVisibleContacts() async {
-    // Prevent concurrent loads or loading during search
-    if (_isSearchActive || _isLoadingMoreContacts || _isContactsLoading) return;
-    
-    final hasMoreLocal = _filteredContacts.length < _allContacts.length;
-    if (!hasMoreLocal) return;
-
+  void _updateCurrentLetter(double scrollPosition) {
     if (!mounted) return;
+    final cubit = context.read<ContactCubit>();
+    final contacts = cubit.state.filteredContacts;
+    if (contacts.isEmpty) return;
 
-    setState(() {
-      _isLoadingMoreContacts = true;
-      _visibleContactLimit += _contactBatchSize;
+    // Calculate which letter section we're in based on scroll position
+    // This is approximate - for exact calculation, we'd need item positions
+    final itemHeight = 72.0;
+    final headerHeight = 60.0;
+    final estimatedIndex = ((scrollPosition - headerHeight) / itemHeight).floor();
+    
+    if (estimatedIndex >= 0 && estimatedIndex < contacts.length) {
+      final contact = contacts[estimatedIndex];
+      final firstChar = contact.normalizedName.isNotEmpty
+          ? contact.normalizedName[0].toUpperCase()
+          : '#';
+      final letter = RegExp(r'[A-Z]').hasMatch(firstChar) ? firstChar : '#';
+      
+      if (_currentLetter != letter) {
+        setState(() {
+          _currentLetter = letter;
+        });
+      }
+    }
+  }
+
+  void _jumpToLetter(String letter) {
+    if (!mounted) return;
+    final cubit = context.read<ContactCubit>();
+    final contacts = cubit.state.filteredContacts;
+    if (contacts.isEmpty) return;
+
+    // Find first contact with this letter
+    final index = contacts.indexWhere((contact) {
+      final firstChar = contact.normalizedName.isNotEmpty
+          ? contact.normalizedName[0].toUpperCase()
+          : '#';
+      final contactLetter = RegExp(r'[A-Z]').hasMatch(firstChar) ? firstChar : '#';
+      return contactLetter == letter;
     });
 
-    // Small delay to allow UI to update
-    await Future.delayed(const Duration(milliseconds: 50));
-
-    if (!mounted) return;
-
-    final available = _allContacts.length;
-    final target =
-        available < _visibleContactLimit ? available : _visibleContactLimit;
-
-    if (target > _filteredContacts.length) {
-      setState(() {
-        _filteredContacts = _allContacts.take(target).toList();
-        _isLoadingMoreContacts = false;
-      });
-    } else {
-      setState(() {
-        _isLoadingMoreContacts = false;
-      });
+    if (index >= 0) {
+      final itemHeight = 72.0;
+      final headerHeight = 60.0;
+      final targetPosition = (index * itemHeight) + headerHeight;
+      _contactListController.animateTo(
+        targetPosition,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
-  Future<void> _handleContactTap(_ContactEntry entry) async {
-    final existingClient = await _findExistingClient(entry);
+  Future<void> _handleContactTap(ContactEntry entry) async {
+    if (!mounted) return;
+    final cubit = context.read<ContactCubit>();
+
+    // Lazy load contact details if needed
+    ContactEntry contactToUse = entry;
+    if (!entry.hasPhones && entry.contactId != null) {
+      try {
+        final fullContact = await device_contacts.FlutterContacts.getContact(
+          entry.contactId!,
+          withProperties: true,
+        );
+        if (fullContact != null && mounted) {
+          final processed = await processContactWithDetails(entry.id, fullContact);
+          if (processed.isNotEmpty) {
+            contactToUse = processed.first;
+            cubit.updateContactDetails(contactToUse);
+          }
+        }
+      } catch (e) {
+        debugPrint('Error loading contact details: $e');
+      }
+    }
+
+    final existingClient = await _findExistingClient(contactToUse);
     if (existingClient != null) {
       final action = await _showDuplicateClientSheet(existingClient);
       if (action == _ExistingClientAction.viewExisting && mounted) {
@@ -548,12 +442,12 @@ class _ContactPageState extends State<ContactPage> {
     if (action == null) return;
 
     if (action == _ContactAction.newClient) {
-      final saved = await _showClientFormSheet(entry);
+      final saved = await _showClientFormSheet(contactToUse);
       if (saved == true && mounted) {
-        _recordRecentContact(entry);
+        cubit.addRecentContact(contactToUse);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Client "${entry.name}" saved'),
+            content: Text('Client "${contactToUse.name}" saved'),
           ),
         );
       }
@@ -564,32 +458,21 @@ class _ContactPageState extends State<ContactPage> {
     if (selectedClient == null) return;
 
     final success = await _showAddContactToClientSheet(
-      entry: entry,
+      entry: contactToUse,
       client: selectedClient,
     );
 
     if (success == true && mounted) {
-      _recordRecentContact(entry);
+      cubit.addRecentContact(contactToUse);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content:
-              Text('Added contact to ${selectedClient.name}.'),
+          content: Text('Added contact to ${selectedClient.name}.'),
         ),
       );
     }
   }
 
-  void _recordRecentContact(_ContactEntry entry) {
-    setState(() {
-      _recentContacts.removeWhere((existing) => existing.id == entry.id);
-      _recentContacts.insert(0, entry);
-      if (_recentContacts.length > 5) {
-        _recentContacts.removeLast();
-      }
-    });
-  }
-
-  Future<ClientRecord?> _findExistingClient(_ContactEntry entry) async {
+  Future<ClientRecord?> _findExistingClient(ContactEntry entry) async {
     // Optimize: Check all phones in parallel instead of sequentially
     final futures = entry.displayPhones
         .map((phone) => _clientService.findClientByPhone(phone))
@@ -637,7 +520,7 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<bool?> _showAddContactToClientSheet({
-    required _ContactEntry entry,
+    required ContactEntry entry,
     required ClientRecord client,
   }) {
     return showDialog<bool>(
@@ -674,7 +557,7 @@ class _ContactPageState extends State<ContactPage> {
         ? phone
         : entry.contactName.trim();
 
-    final contactEntry = _ContactEntry(
+    final contactEntry = ContactEntry(
       id: 'call_${entry.timestamp.millisecondsSinceEpoch}_$phone',
       name: contactName,
       normalizedName: contactName.toLowerCase(),
@@ -682,6 +565,7 @@ class _ContactPageState extends State<ContactPage> {
       normalizedPhones: [
         phone.replaceAll(RegExp(r'[^0-9+]'), ''),
       ],
+      hasPhones: true,
     );
 
     await _handleContactTap(contactEntry);
@@ -690,8 +574,6 @@ class _ContactPageState extends State<ContactPage> {
   @override
   Widget build(BuildContext context) {
     final grouped = _groupByDay(_entries);
-    final hasMoreContacts =
-        !_isSearchActive && _filteredContacts.length < _allContacts.length;
 
     return Scaffold(
       backgroundColor: AuthColors.background,
@@ -734,6 +616,7 @@ class _ContactPageState extends State<ContactPage> {
                       allowImplicitScrolling: false,
                       children: [
                         SingleChildScrollView(
+                          controller: _callLogScrollController,
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                           physics: const ClampingScrollPhysics(),
                           child: _CallLogsCard(
@@ -743,25 +626,104 @@ class _ContactPageState extends State<ContactPage> {
                             onCallTap: _handleCallLogTap,
                           ),
                         ),
-                        RefreshIndicator(
-                          onRefresh: _loadContacts,
-                          color: AuthColors.legacyAccent,
-                          child: SingleChildScrollView(
-                            controller: _contactListController,
-                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                            physics: const ClampingScrollPhysics(),
-                            child: _ContactSearchCard(
-                              controller: _searchController,
-                              isLoading:
-                                  _isContactsLoading && _filteredContacts.isEmpty,
-                              message: _contactsMessage,
-                              filteredContacts: _filteredContacts,
-                              recentContacts: _recentContacts,
-                              onContactTap: _handleContactTap,
-                              isLoadingMore: _isLoadingMoreContacts,
-                              hasMore: hasMoreContacts,
-                            ),
-                          ),
+                        BlocBuilder<ContactCubit, ContactState>(
+                          builder: (context, state) {
+                            return RefreshIndicator(
+                              onRefresh: _loadContacts,
+                              color: AuthColors.legacyAccent,
+                              child: Stack(
+                                children: [
+                                  CustomScrollView(
+                                    controller: _contactListController,
+                                    physics: const ClampingScrollPhysics(),
+                                    slivers: [
+                                      SliverPersistentHeader(
+                                        pinned: true,
+                                        delegate: _PinnedSearchHeader(
+                                          searchController: _searchController,
+                                          recentContacts: state.recentContacts,
+                                          onContactTap: _handleContactTap,
+                                        ),
+                                      ),
+                                      if (state.status == core_bloc.ViewStatus.loading &&
+                                          state.allContacts.isEmpty)
+                                        const SliverToBoxAdapter(
+                                          child: Padding(
+                                            padding: EdgeInsets.all(20),
+                                            child: ContactListSkeleton(itemCount: 10),
+                                          ),
+                                        )
+                                      else if (state.message != null &&
+                                          state.allContacts.isEmpty)
+                                        SliverFillRemaining(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(20),
+                                            child: _ContactPermissionErrorWidget(
+                                              message: state.message ?? '',
+                                              onOpenSettings: () async {
+                                                await openAppSettings();
+                                                // Reload contacts after returning from settings
+                                                if (mounted) {
+                                                  await Future.delayed(
+                                                    const Duration(milliseconds: 500),
+                                                  );
+                                                  _loadContacts();
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        )
+                                      else if (state.filteredContacts.isEmpty &&
+                                          state.isSearchActive)
+                                        const SliverFillRemaining(
+                                          child: Padding(
+                                            padding: EdgeInsets.all(20),
+                                            child: Center(
+                                              child: Text(
+                                                'No contacts match your search.',
+                                                style: TextStyle(
+                                                  color: AuthColors.textSub,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        _buildContactList(state),
+                                      if (state.isLoadingChunk)
+                                        const SliverToBoxAdapter(
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(vertical: 16),
+                                            child: Center(
+                                              child: SizedBox(
+                                                height: 20,
+                                                width: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  if (!state.isSearchActive &&
+                                      state.filteredContacts.isNotEmpty)
+                                    AlphabetStrip(
+                                      onLetterTap: _jumpToLetter,
+                                      currentLetter: _currentLetter,
+                                      availableLetters: getAvailableLetters(
+                                        groupContactsByLetter<ContactEntry>(
+                                          contacts: state.filteredContacts,
+                                          getName: (c) => c.normalizedName,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -774,6 +736,97 @@ class _ContactPageState extends State<ContactPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildContactList(ContactState state) {
+    // Use cached index if available, otherwise group on the fly
+    // For very large lists, use flat list without grouping for better performance
+    final contacts = state.filteredContacts;
+    
+    if (contacts.length > 5000) {
+      // Very large list - use flat list for better performance
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            if (index >= contacts.length) return null;
+            final contact = contacts[index];
+            return RepaintBoundary(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _ContactListTile(
+                  key: ValueKey(contact.id),
+                  contact: contact,
+                  onTap: () => _handleContactTap(contact),
+                ),
+              ),
+            );
+          },
+          childCount: contacts.length,
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: true,
+        ),
+      );
+    }
+    
+    // Smaller lists - use grouped view with alphabet sections
+    final grouped = groupContactsByLetter<ContactEntry>(
+      contacts: contacts,
+      getName: (c) => c.normalizedName,
+    );
+    final letters = getAvailableLetters(grouped);
+
+    // Pre-calculate item positions for O(1) lookup
+    final itemPositions = <int, _ListItem>{};
+    int position = 0;
+    for (final letter in letters) {
+      final sectionContacts = grouped[letter] ?? [];
+      itemPositions[position] = _ListItem(type: _ListItemType.header, letter: letter);
+      position++;
+      for (int i = 0; i < sectionContacts.length; i++) {
+        itemPositions[position] = _ListItem(
+          type: _ListItemType.contact,
+          contact: sectionContacts[i],
+        );
+        position++;
+      }
+    }
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          final item = itemPositions[index];
+          if (item == null) return null;
+          
+          if (item.type == _ListItemType.header) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Text(
+                item.letter!,
+                style: const TextStyle(
+                  color: AuthColors.textSub,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          } else {
+            return RepaintBoundary(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _ContactListTile(
+                  key: ValueKey(item.contact!.id),
+                  contact: item.contact!,
+                  onTap: () => _handleContactTap(item.contact!),
+                ),
+              ),
+            );
+          }
+        },
+        childCount: position,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
       ),
     );
   }
@@ -802,8 +855,12 @@ class _ContactPageState extends State<ContactPage> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
+  // Helper method for isolate entry point
+  static void _isolateEntryPoint(_ProcessContactsParams params) {
+    processContactsInChunks(params.sendPort, params.contacts);
+  }
 
-  Future<bool?> _showClientFormSheet(_ContactEntry entry) {
+  Future<bool?> _showClientFormSheet(ContactEntry entry) {
     final orgContext = context.read<OrganizationContextCubit>().state;
     final organizationId = orgContext.organization?.id;
 
@@ -837,6 +894,69 @@ class _ContactPageState extends State<ContactPage> {
           },
         );
       },
+    );
+  }
+}
+
+class _ProcessContactsParams {
+  const _ProcessContactsParams({
+    required this.sendPort,
+    required this.contacts,
+  });
+
+  final SendPort sendPort;
+  final List<device_contacts.Contact> contacts;
+}
+
+/// Widget to display permission error with option to open settings
+class _ContactPermissionErrorWidget extends StatelessWidget {
+  const _ContactPermissionErrorWidget({
+    required this.message,
+    required this.onOpenSettings,
+  });
+
+  final String message;
+  final VoidCallback onOpenSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.contacts_outlined,
+            size: 64,
+            color: AuthColors.textMainWithOpacity(0.3),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: const TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: onOpenSettings,
+            icon: const Icon(Icons.settings, size: 18),
+            label: const Text('Open Settings'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AuthColors.legacyAccent,
+              foregroundColor: AuthColors.textMain,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 12,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -916,6 +1036,7 @@ class _CallLogTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       entry.contactName,
@@ -1003,59 +1124,117 @@ class _CallLogEntry {
   final bool isOutgoing;
 }
 
-// Helper class for search parameters
-class _SearchContactsParams {
-  const _SearchContactsParams({
-    required this.contacts,
-    required this.normalizedQuery,
-    required this.digitsQuery,
-    required this.maxResults,
+/// Pinned search header delegate for SliverPersistentHeader
+class _PinnedSearchHeader extends SliverPersistentHeaderDelegate {
+  const _PinnedSearchHeader({
+    required this.searchController,
+    required this.recentContacts,
+    required this.onContactTap,
   });
 
-  final List<_ContactEntry> contacts;
-  final String normalizedQuery;
-  final String digitsQuery;
-  final int maxResults;
-}
+  final TextEditingController searchController;
+  final List<ContactEntry> recentContacts;
+  final ValueChanged<ContactEntry> onContactTap;
 
-// Helper function to search contacts in background
-List<_ContactEntry> _searchContactsInBackground(_SearchContactsParams params) {
-  final results = <_ContactEntry>[];
-  final maxResults = params.maxResults;
-  
-  for (final contact in params.contacts) {
-    if (results.length >= maxResults) break;
-    
-    final nameMatch = contact.normalizedName.contains(params.normalizedQuery);
-    final phoneMatch = params.digitsQuery.isNotEmpty &&
-        contact.normalizedPhones.any(
-            (phone) => phone.contains(params.digitsQuery));
-    
-    if (nameMatch || phoneMatch) {
-      results.add(contact);
-    }
+  @override
+  double get minExtent => 120.0;
+
+  @override
+  double get maxExtent => recentContacts.isNotEmpty ? 180.0 : 120.0;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: AuthColors.background,
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Search Contacts',
+            style: TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Search through your phone contacts to quickly reach the right person.',
+            style: TextStyle(
+              color: AuthColors.textMainWithOpacity(0.6),
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: searchController,
+            style: const TextStyle(color: AuthColors.textMain, fontSize: 15),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search, color: AuthColors.textSub, size: 20),
+              hintText: 'Search contacts',
+              hintStyle: const TextStyle(color: AuthColors.textDisabled, fontSize: 14),
+              filled: true,
+              fillColor: AuthColors.backgroundAlt,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(
+                  color: AuthColors.legacyAccent,
+                  width: 2,
+                ),
+              ),
+            ),
+            textInputAction: TextInputAction.search,
+          ),
+          if (recentContacts.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'Recently searched',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemBuilder: (context, index) {
+                  final contact = recentContacts[index];
+                  return ActionChip(
+                    label: Text(contact.name),
+                    labelStyle: const TextStyle(color: AuthColors.textMain),
+                    backgroundColor: AuthColors.surface,
+                    onPressed: () => onContactTap(contact),
+                  );
+                },
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemCount: recentContacts.length,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
-  
-  return results;
-}
 
-class _ContactEntry {
-  const _ContactEntry({
-    required this.id,
-    required this.name,
-    required this.normalizedName,
-    required this.displayPhones,
-    required this.normalizedPhones,
-  });
-
-  final String id;
-  final String name;
-  final String normalizedName;
-  final List<String> displayPhones;
-  final List<String> normalizedPhones;
-
-  String get primaryDisplayPhone =>
-      displayPhones.isNotEmpty ? displayPhones.first : '-';
+  @override
+  bool shouldRebuild(_PinnedSearchHeader oldDelegate) {
+    return searchController.text != oldDelegate.searchController.text ||
+        recentContacts.length != oldDelegate.recentContacts.length;
+  }
 }
 
 
@@ -1066,7 +1245,7 @@ class _ContactListTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final _ContactEntry contact;
+  final ContactEntry contact;
   final VoidCallback onTap;
 
   @override
@@ -1190,9 +1369,9 @@ class _ContactSearchCard extends StatelessWidget {
   final TextEditingController controller;
   final bool isLoading;
   final String? message;
-  final List<_ContactEntry> filteredContacts;
-  final List<_ContactEntry> recentContacts;
-  final ValueChanged<_ContactEntry> onContactTap;
+  final List<ContactEntry> filteredContacts;
+  final List<ContactEntry> recentContacts;
+  final ValueChanged<ContactEntry> onContactTap;
   final bool isLoadingMore;
   final bool hasMore;
 
@@ -1374,6 +1553,7 @@ class _CallLogsCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (isLoading)
             const Padding(
@@ -1784,7 +1964,7 @@ class _AddContactToClientSheet extends StatefulWidget {
     required this.onSubmit,
   });
 
-  final _ContactEntry entry;
+  final ContactEntry entry;
   final ClientRecord client;
   final Future<void> Function(String name, String phone, String? description)
       onSubmit;
@@ -2075,7 +2255,7 @@ class _ClientFormSheet extends StatefulWidget {
     required this.onSubmit,
   });
 
-  final _ContactEntry entry;
+  final ContactEntry entry;
   final List<String> availableTags;
   final Future<void> Function(String name, String phone, String tag) onSubmit;
 

@@ -33,12 +33,75 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.sendWhatsappTemplateMessage = sendWhatsappTemplateMessage;
 exports.loadWhatsappSettings = loadWhatsappSettings;
 exports.sendWhatsappMessage = sendWhatsappMessage;
+exports.checkWhatsappMessageStatus = checkWhatsappMessageStatus;
 const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("./constants");
 const firestore_helpers_1 = require("./firestore-helpers");
 const db = (0, firestore_helpers_1.getFirestore)();
+/**
+ * Send WhatsApp template message using Meta Graph API
+ *
+ * @param url - Graph API endpoint URL
+ * @param token - WhatsApp API token
+ * @param to - Recipient phone number (E.164 format)
+ * @param templateName - Template name to use
+ * @param languageCode - Language code (default: 'en')
+ * @param parameters - Array of text parameters for the template
+ * @param messageType - Type of message for logging purposes
+ * @param context - Context information for logging
+ * @returns Promise that resolves when message is sent
+ */
+async function sendWhatsappTemplateMessage(url, token, to, templateName, languageCode, parameters, messageType, context) {
+    var _a, _b;
+    const payload = {
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'template',
+        template: {
+            name: templateName,
+            language: {
+                code: languageCode,
+            },
+            components: [
+                {
+                    type: 'body',
+                    parameters: parameters.map((param) => ({
+                        type: 'text',
+                        text: param,
+                    })),
+                },
+            ],
+        },
+    };
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        let errorDetails;
+        try {
+            errorDetails = JSON.parse(errorText);
+        }
+        catch (_c) {
+            errorDetails = errorText;
+        }
+        throw new Error(`WhatsApp API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorDetails)}`);
+    }
+    const result = await response.json();
+    if (result.errors && result.errors.length > 0) {
+        const errorMessages = result.errors.map((e) => e.message || 'Unknown error').join(', ');
+        throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
+    }
+    console.log(`[WhatsApp Service] ${messageType} template message sent`, Object.assign(Object.assign({}, context), { to: to.substring(0, 4) + '****', templateName, messageId: (_b = (_a = result.messages) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id }));
+}
 /**
  * Load WhatsApp settings for an organization
  * First tries organization-specific settings, then falls back to global config
@@ -48,7 +111,7 @@ const db = (0, firestore_helpers_1.getFirestore)();
  * @returns WhatsApp settings or null if not enabled/configured
  */
 async function loadWhatsappSettings(organizationId, verbose = false) {
-    var _a;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     // First, try to load organization-specific settings
     if (organizationId) {
         const trimmedOrgId = organizationId.trim();
@@ -101,11 +164,11 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
                     enabled: true,
                     token: data.token,
                     phoneId: data.phoneId,
-                    welcomeTemplateId: data.welcomeTemplateId,
-                    languageCode: data.languageCode,
-                    orderConfirmationTemplateId: data.orderConfirmationTemplateId,
-                    tripDispatchTemplateId: data.tripDispatchTemplateId,
-                    tripDeliveryTemplateId: data.tripDeliveryTemplateId,
+                    welcomeTemplateId: (_a = data.welcomeTemplateId) !== null && _a !== void 0 ? _a : 'lakshmee_client_added',
+                    languageCode: (_b = data.languageCode) !== null && _b !== void 0 ? _b : 'en',
+                    orderConfirmationTemplateId: (_c = data.orderConfirmationTemplateId) !== null && _c !== void 0 ? _c : 'lakshmee_order_added',
+                    tripDispatchTemplateId: (_d = data.tripDispatchTemplateId) !== null && _d !== void 0 ? _d : 'lakshmee_trip_dispatch',
+                    tripDeliveryTemplateId: (_e = data.tripDeliveryTemplateId) !== null && _e !== void 0 ? _e : 'lakshmee_trip_delivered',
                 };
             }
             else {
@@ -146,7 +209,7 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
         }
     }
     // Fallback to global config (for backward compatibility)
-    const globalConfig = (_a = functions.config().whatsapp) !== null && _a !== void 0 ? _a : {};
+    const globalConfig = (_f = functions.config().whatsapp) !== null && _f !== void 0 ? _f : {};
     if (globalConfig.token &&
         globalConfig.phone_id &&
         globalConfig.enabled !== 'false') {
@@ -157,11 +220,11 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
             enabled: true,
             token: globalConfig.token,
             phoneId: globalConfig.phone_id,
-            welcomeTemplateId: globalConfig.welcome_template_id,
-            languageCode: globalConfig.language_code,
-            orderConfirmationTemplateId: globalConfig.order_confirmation_template_id,
-            tripDispatchTemplateId: globalConfig.trip_dispatch_template_id,
-            tripDeliveryTemplateId: globalConfig.trip_delivery_template_id,
+            welcomeTemplateId: (_g = globalConfig.welcome_template_id) !== null && _g !== void 0 ? _g : 'lakshmee_client_added',
+            languageCode: (_h = globalConfig.language_code) !== null && _h !== void 0 ? _h : 'en',
+            orderConfirmationTemplateId: (_j = globalConfig.order_confirmation_template_id) !== null && _j !== void 0 ? _j : 'lakshmee_order_added',
+            tripDispatchTemplateId: (_k = globalConfig.trip_dispatch_template_id) !== null && _k !== void 0 ? _k : 'lakshmee_trip_dispatch',
+            tripDeliveryTemplateId: (_l = globalConfig.trip_delivery_template_id) !== null && _l !== void 0 ? _l : 'lakshmee_trip_delivered',
         };
     }
     if (verbose) {
@@ -207,5 +270,32 @@ async function sendWhatsappMessage(url, token, to, messageBody, messageType, con
         throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
     }
     console.log(`[WhatsApp Service] ${messageType} message sent`, Object.assign(Object.assign({}, context), { to: to.substring(0, 4) + '****', messageId: (_b = (_a = result.messages) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id }));
+}
+/**
+ * Check WhatsApp message delivery status using Meta Graph API
+ * Note: The Cloud API primarily uses webhooks for status updates, but this can help verify if a message was accepted
+ *
+ * @param messageId - The WhatsApp message ID (wamid.*) from the send response
+ * @param phoneId - The WhatsApp Business Phone Number ID
+ * @param token - WhatsApp API access token
+ * @returns Promise with message status information
+ */
+async function checkWhatsappMessageStatus(messageId, phoneId, token) {
+    // Note: The Cloud API doesn't have a direct "get status" endpoint
+    // Status updates are sent via webhooks. However, we can verify the message was accepted
+    // by checking if messageId is valid format
+    if (!messageId || !messageId.startsWith('wamid.')) {
+        throw new Error(`Invalid message ID format: ${messageId}. Expected format: wamid.*`);
+    }
+    console.log('[WhatsApp Service] Checking message status', {
+        messageId,
+        phoneId,
+        note: 'Status updates are primarily delivered via webhooks. See Meta Business Suite for real-time status.',
+    });
+    // Return basic validation - actual status should be checked via webhooks
+    return {
+        messageId,
+        note: 'Message ID is valid. To check delivery status: 1) Use Meta Business Suite 2) Set up webhooks 3) Check webhook payloads',
+    };
 }
 //# sourceMappingURL=whatsapp-service.js.map
