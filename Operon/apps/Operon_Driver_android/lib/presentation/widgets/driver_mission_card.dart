@@ -1,6 +1,10 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:operon_auth_flow/operon_auth_flow.dart';
+import 'package:operon_driver_android/core/services/dm_print_helper.dart';
 import 'package:operon_driver_android/core/utils/trip_status_utils.dart';
+import 'package:operon_driver_android/presentation/widgets/driver_dm_print_sheet.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DriverMissionCard extends StatelessWidget {
@@ -57,6 +61,38 @@ class DriverMissionCard extends StatelessWidget {
         );
       }
     }
+  }
+
+  Future<void> _openPrintDm(BuildContext context) async {
+    final org = context.read<OrganizationContextCubit>().state.organization;
+    if (org == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Select an organization first'),
+            backgroundColor: AuthColors.error,
+          ),
+        );
+      }
+      return;
+    }
+    final helper = context.read<DmPrintHelper>();
+    final dmNumber = trip['dmNumber'] as int?;
+    if (dmNumber == null) return;
+    final dmData = await helper.fetchDmByNumberOrId(
+      organizationId: org.id,
+      dmNumber: dmNumber,
+      dmId: trip['dmId'] as String?,
+      tripData: trip,
+    );
+    if (dmData == null || !context.mounted) return;
+    showDriverDmPrintSheet(
+      context: context,
+      organizationId: org.id,
+      dmData: dmData,
+      dmNumber: dmNumber,
+      dmPrintHelper: helper,
+    );
   }
 
   Future<void> _openMap(BuildContext context) async {
@@ -248,30 +284,40 @@ class DriverMissionCard extends StatelessWidget {
                 final dmNumber = trip['dmNumber'] as int?;
                 final hasDM = dmNumber != null;
                 if (hasDM) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.receipt_long,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'DM-$dmNumber',
-                          style: const TextStyle(
+                  return InkWell(
+                    onTap: () => _openPrintDm(context),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.receipt_long,
+                            size: 14,
                             color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            'DM-$dmNumber',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.print_outlined,
+                            size: 12,
+                            color: Colors.white70,
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 } else {

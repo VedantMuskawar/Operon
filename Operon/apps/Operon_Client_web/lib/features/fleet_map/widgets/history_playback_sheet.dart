@@ -71,8 +71,10 @@ class _HistoryPlaybackSheetState extends State<HistoryPlaybackSheet> {
 
         if (selectedDateTime.isAfter(now)) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Cannot select future time')),
+            DashSnackbar.show(
+              context,
+              message: 'Cannot select future time',
+              isError: true,
             );
           }
           return;
@@ -218,16 +220,10 @@ class _HistoryPlaybackSheetState extends State<HistoryPlaybackSheet> {
                 ],
               ),
               // Speed toggle (right)
-              TextButton(
+              DashButton(
+                label: '${controller.playbackSpeed.toInt()}x',
                 onPressed: controller.cycleSpeed,
-                child: Text(
-                  '${controller.playbackSpeed.toInt()}x',
-                  style: TextStyle(
-                    color: LogisticsColors.navyBlue,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                variant: DashButtonVariant.text,
               ),
             ],
           ),

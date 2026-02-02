@@ -6,7 +6,6 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/users_repository.dart';
 import 'package:dash_web/domain/entities/organization_user.dart';
 import 'package:dash_web/presentation/widgets/notification_center.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -203,24 +202,10 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                   ),
                   Expanded(
                     child: Center(
-                      child: DecoratedBox(
-                        decoration: kDebugMode
-                            ? BoxDecoration(
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: Colors.orangeAccent,
-                                  width: 1.25,
-                                ),
-                                color: AuthColors.background.withValues(
-                                  alpha: 0.95,
-                                ),
-                              )
-                            : const BoxDecoration(),
-                        child: _TopNavBar(
-                          currentIndex: widget.currentIndex,
-                          onTap: widget.onNavTap,
-                          visibleSections: visibleSections,
-                        ),
+                      child: _TopNavBar(
+                        currentIndex: widget.currentIndex,
+                        onTap: widget.onNavTap,
+                        visibleSections: visibleSections,
                       ),
                     ),
                   ),

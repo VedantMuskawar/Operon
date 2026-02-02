@@ -33,7 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rebuildEmployeeAnalytics = exports.onEmployeeCreated = void 0;
+exports.onEmployeeCreated = void 0;
+exports.rebuildEmployeeAnalyticsCore = rebuildEmployeeAnalyticsCore;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("../shared/constants");
@@ -68,18 +69,11 @@ exports.onEmployeeCreated = functions.firestore
     }, { merge: true });
 });
 /**
- * Cloud Function: Scheduled function to rebuild employee analytics
- * Runs every 24 hours to recalculate analytics for all organizations
+ * Core logic to rebuild employee analytics for all organizations.
+ * Called by unified analytics scheduler.
  */
-exports.rebuildEmployeeAnalytics = functions.pubsub
-    .schedule('every 24 hours')
-    .timeZone('UTC')
-    .onRun(async () => {
-    const now = new Date();
-    const { fyLabel } = (0, financial_year_1.getFinancialContext)(now);
-    // Get all employees and group by organizationId
+async function rebuildEmployeeAnalyticsCore(fyLabel) {
     const employeesSnapshot = await db.collection(constants_1.EMPLOYEES_COLLECTION).get();
-    // Group employees by organizationId
     const employeesByOrg = {};
     employeesSnapshot.forEach((doc) => {
         var _a;
@@ -91,14 +85,11 @@ exports.rebuildEmployeeAnalytics = functions.pubsub
             employeesByOrg[organizationId].push(doc);
         }
     });
-    // Process analytics for each organization
     const analyticsUpdates = Object.entries(employeesByOrg).map(async ([organizationId, orgEmployees]) => {
         const analyticsRef = db
             .collection(constants_1.ANALYTICS_COLLECTION)
             .doc(`${constants_1.EMPLOYEES_SOURCE_KEY}_${organizationId}_${fyLabel}`);
-        // Count total active employees (all employees, irrespective of time period)
         const totalActiveEmployees = orgEmployees.length;
-        // Query all wage credit transactions for this organization
         const wageCreditsSnapshot = await db
             .collection(constants_1.TRANSACTIONS_COLLECTION)
             .where('organizationId', '==', organizationId)
@@ -106,11 +97,9 @@ exports.rebuildEmployeeAnalytics = functions.pubsub
             .where('type', '==', 'credit')
             .where('category', '==', 'wageCredit')
             .get();
-        // Group wages by month
         const wagesByMonth = {};
         wageCreditsSnapshot.forEach((doc) => {
             const transactionData = doc.data();
-            // Use transactionDate (primary) or paymentDate (fallback) or createdAt
             const transactionDate = transactionData.transactionDate
                 || transactionData.paymentDate
                 || transactionData.createdAt;
@@ -130,5 +119,5 @@ exports.rebuildEmployeeAnalytics = functions.pubsub
     });
     await Promise.all(analyticsUpdates);
     console.log(`[Employee Analytics] Rebuilt analytics for ${Object.keys(employeesByOrg).length} organizations`);
-});
+}
 //# sourceMappingURL=employee-analytics.js.map

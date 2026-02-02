@@ -123,7 +123,31 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
         final cubit = context.read<VendorsCubit>();
         final isLoading = state.status == ViewStatus.loading && state.vendors.isEmpty;
         if (isLoading) {
-          return _LoadingState();
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SkeletonLoader(
+                    height: 40,
+                    width: double.infinity,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(8, (_) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SkeletonLoader(
+                      height: 80,
+                      width: double.infinity,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          );
         }
         if (state.status == ViewStatus.failure && state.vendors.isEmpty) {
           return _ErrorState(
@@ -380,26 +404,14 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                         ),
                 const SizedBox(width: 12),
                 // Add Vendor Button
-                          ElevatedButton.icon(
-                  icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Add Vendor'),
+                          DashButton(
+                  icon: Icons.add,
+                  label: 'Add Vendor',
                   onPressed: () {
                     final cubit = context.read<VendorsCubit>();
                     _showVendorDialog(context, null, cubit);
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AuthColors.primary,
-                    foregroundColor: AuthColors.textMain,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
-          ),
+                ),
         ],
       ),
             const SizedBox(height: 24),
@@ -517,29 +529,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DashCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AuthColors.surface,
-            AuthColors.background,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AuthColors.background.withOpacity(0.5),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
       child: Row(
         children: [
           Container(
@@ -652,21 +643,10 @@ class _ErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+            DashButton(
+              icon: Icons.refresh,
+              label: 'Retry',
               onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),
@@ -734,22 +714,11 @@ class _EmptyVendorsState extends StatelessWidget {
               textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Add Vendor'),
+            DashButton(
+              icon: Icons.add,
+              label: 'Add Vendor',
               onPressed: onAddVendor,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6F4BFF),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                        ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                ),
+            ),
               ],
         ),
       ),
@@ -1026,9 +995,10 @@ Future<void> _handleDeleteVendor(BuildContext context, Vendor vendor, VendorsCub
           style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'OK',
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            variant: DashButtonVariant.text,
           ),
         ],
       ),
@@ -1050,18 +1020,20 @@ Future<void> _handleDeleteVendor(BuildContext context, Vendor vendor, VendorsCub
         style: const TextStyle(color: AuthColors.textSub),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: 'Delete',
           onPressed: () => Navigator.pop(context, true),
-          style: TextButton.styleFrom(foregroundColor: AuthColors.error),
-          child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
+          variant: DashButtonVariant.text,
+          isDestructive: true,
+        ),
+      ],
+    ),
+  );
 
   if (confirmed == true && context.mounted) {
     cubit.deleteVendor(vendor.id);
@@ -1140,9 +1112,7 @@ class _VendorDialogState extends State<_VendorDialog> {
     } catch (e) {
       setState(() => _isLoadingMaterials = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load raw materials: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to load raw materials: $e', isError: true);
       }
     }
   }
@@ -1454,24 +1424,15 @@ class _VendorDialogState extends State<_VendorDialog> {
               child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Cancel'),
-                    ),
+          variant: DashButtonVariant.text,
+        ),
                     const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    icon: Icon(_isEditing ? Icons.check : Icons.add, size: 18),
-                    label: Text(_isEditing ? 'Save Changes' : 'Create Vendor'),
+                  DashButton(
+                    icon: _isEditing ? Icons.check : Icons.add,
+                    label: _isEditing ? 'Save Changes' : 'Create Vendor',
           onPressed: () async {
             if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -1522,17 +1483,6 @@ class _VendorDialogState extends State<_VendorDialog> {
               Navigator.of(context).pop();
             }
           },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6F4BFF),
-            foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                        vertical: 14,
-          ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
         ),
       ],
             ),
@@ -1559,7 +1509,7 @@ class _VendorDialogState extends State<_VendorDialog> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(
-          color: Color(0xFF6F4BFF),
+          color: AuthColors.primary,
           width: 2,
         ),
       ),

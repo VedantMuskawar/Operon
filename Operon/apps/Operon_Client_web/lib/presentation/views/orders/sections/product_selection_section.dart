@@ -1,5 +1,6 @@
-import 'package:dash_web/domain/entities/order_item.dart';
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton;
+import 'package:dash_web/domain/entities/order_item.dart';
 import 'package:dash_web/presentation/blocs/create_order/create_order_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -27,7 +28,7 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
         const Text(
           'Select Product & Trips',
           style: TextStyle(
-            color: Colors.white,
+            color: AuthColors.textMain,
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
@@ -113,7 +114,8 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
               // Add Product Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: DashButton(
+                  label: 'Add Product',
                   onPressed: () {
                     cubit.addProductItem(
                       product: _selectedProduct!,
@@ -127,20 +129,6 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
                       _estimatedTrips = 1;
                     });
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6F4BFF),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Add Product',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
               ),
             ],

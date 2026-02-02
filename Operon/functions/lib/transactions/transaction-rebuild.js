@@ -33,7 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rebuildTransactionAnalytics = exports.rebuildClientLedgers = void 0;
+exports.rebuildClientLedgers = void 0;
+exports.rebuildTransactionAnalyticsForOrg = rebuildTransactionAnalyticsForOrg;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("../shared/constants");
@@ -179,9 +180,11 @@ async function rebuildClientLedger(organizationId, clientId, financialYear) {
     }, { merge: true });
 }
 /**
- * Rebuild transaction analytics for a specific organization and financial year
+ * Rebuild transaction analytics for a specific organization and financial year.
+ * Exported for use by unified analytics rebuild.
  */
 async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) {
+    var _a;
     const analyticsDocId = `${constants_1.TRANSACTIONS_SOURCE_KEY}_${organizationId}_${financialYear}`;
     const analyticsRef = db.collection(constants_1.ANALYTICS_COLLECTION).doc(analyticsDocId);
     // Get all transactions for this organization in this FY
@@ -199,6 +202,15 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
     const byType = {};
     const byPaymentAccount = {};
     const byPaymentMethodType = {};
+    const fuelPurchaseMonthly = {};
+    let fuelPurchaseYearly = 0;
+    const fuelByVehicleMonthly = {};
+    const fuelByVehicleYearly = {};
+    const fuelDistanceByVehicleMonthly = {};
+    const fuelDistanceByVehicleYearly = {};
+    const fuelAverageByVehicleMonthly = {};
+    const fuelAverageByVehicleYearly = {};
+    let totalPayableToVendors = 0;
     let transactionCount = 0;
     let completedTransactionCount = 0;
     transactionsSnapshot.forEach((doc) => {
@@ -272,7 +284,60 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
         byPaymentMethodType[methodType].daily[dateString] = (byPaymentMethodType[methodType].daily[dateString] || 0) + (amount * multiplier);
         byPaymentMethodType[methodType].weekly[weekString] = (byPaymentMethodType[methodType].weekly[weekString] || 0) + (amount * multiplier);
         byPaymentMethodType[methodType].monthly[monthString] = (byPaymentMethodType[methodType].monthly[monthString] || 0) + (amount * multiplier);
+        // Total payable to vendors: vendorLedger + type credit
+        const ledgerType = tx.ledgerType;
+        if (ledgerType === 'vendorLedger' && type === 'credit') {
+            totalPayableToVendors += amount;
+        }
+        // Fuel purchases: metadata.purchaseType === 'fuel' or (category vendorPurchase + metadata.purchaseType fuel)
+        const metadata = tx.metadata || {};
+        const purchaseType = metadata.purchaseType;
+        const isFuelPurchase = purchaseType === 'fuel' ||
+            (category === 'vendorPurchase' && purchaseType === 'fuel');
+        if (isFuelPurchase && amount > 0) {
+            const monthKey = (0, date_helpers_1.getYearMonth)(transactionDate);
+            fuelPurchaseMonthly[monthKey] = (fuelPurchaseMonthly[monthKey] || 0) + amount;
+            fuelPurchaseYearly += amount;
+            const vehicleNumber = metadata.vehicleNumber || 'unknown';
+            if (!fuelByVehicleMonthly[vehicleNumber]) {
+                fuelByVehicleMonthly[vehicleNumber] = {};
+                fuelByVehicleYearly[vehicleNumber] = 0;
+                fuelDistanceByVehicleMonthly[vehicleNumber] = {};
+                fuelDistanceByVehicleYearly[vehicleNumber] = 0;
+            }
+            fuelByVehicleMonthly[vehicleNumber][monthKey] =
+                (fuelByVehicleMonthly[vehicleNumber][monthKey] || 0) + amount;
+            fuelByVehicleYearly[vehicleNumber] += amount;
+            const linkedTrips = metadata.linkedTrips || [];
+            let totalDistance = 0;
+            for (const trip of linkedTrips) {
+                totalDistance += trip.distanceKm || 0;
+            }
+            if (totalDistance > 0) {
+                fuelDistanceByVehicleMonthly[vehicleNumber][monthKey] =
+                    (fuelDistanceByVehicleMonthly[vehicleNumber][monthKey] || 0) + totalDistance;
+                fuelDistanceByVehicleYearly[vehicleNumber] += totalDistance;
+            }
+        }
     });
+    // Compute fuel average (amount / distance = cost per km) per vehicle per month/year
+    for (const [vehicle, monthlyAmounts] of Object.entries(fuelByVehicleMonthly)) {
+        if (!fuelAverageByVehicleMonthly[vehicle]) {
+            fuelAverageByVehicleMonthly[vehicle] = {};
+        }
+        for (const [monthKey, amt] of Object.entries(monthlyAmounts)) {
+            const dist = ((_a = fuelDistanceByVehicleMonthly[vehicle]) === null || _a === void 0 ? void 0 : _a[monthKey]) || 0;
+            if (dist > 0) {
+                fuelAverageByVehicleMonthly[vehicle][monthKey] = amt / dist;
+            }
+        }
+    }
+    for (const [vehicle, yearlyAmt] of Object.entries(fuelByVehicleYearly)) {
+        const yearlyDist = fuelDistanceByVehicleYearly[vehicle] || 0;
+        if (yearlyDist > 0) {
+            fuelAverageByVehicleYearly[vehicle] = yearlyAmt / yearlyDist;
+        }
+    }
     // Clean daily data (keep only last 90 days)
     const cleanedIncomeDaily = (0, date_helpers_1.cleanDailyData)(incomeDaily, 90);
     const cleanedExpenseDaily = (0, date_helpers_1.cleanDailyData)(expenseDaily, 90);
@@ -309,6 +374,13 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
         netIncome,
         transactionCount,
         completedTransactionCount,
+        totalPayableToVendors,
+        fuelPurchaseMonthly: { values: fuelPurchaseMonthly },
+        fuelPurchaseYearly,
+        fuelByVehicleMonthly,
+        fuelByVehicleYearly,
+        fuelAverageByVehicleMonthly,
+        fuelAverageByVehicleYearly,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 }
@@ -360,47 +432,5 @@ exports.rebuildClientLedgers = functions.pubsub
     });
     await Promise.all(rebuildPromises);
     console.log(`[Client Ledger Rebuild] Rebuilt ${ledgersSnapshot.size} client ledgers`);
-});
-/**
- * Cloud Function: Scheduled function to rebuild transaction analytics
- * Runs every 24 hours to recalculate analytics for all organizations
- */
-exports.rebuildTransactionAnalytics = functions.pubsub
-    .schedule('every 24 hours')
-    .timeZone('UTC')
-    .onRun(async () => {
-    const now = new Date();
-    const { fyLabel } = (0, financial_year_1.getFinancialContext)(now);
-    // Get all unique organizations from transactions
-    const transactionsSnapshot = await db
-        .collection(constants_1.TRANSACTIONS_COLLECTION)
-        .where('financialYear', '==', fyLabel)
-        .get();
-    const organizationIds = new Set();
-    transactionsSnapshot.forEach((doc) => {
-        var _a;
-        const organizationId = (_a = doc.data()) === null || _a === void 0 ? void 0 : _a.organizationId;
-        if (organizationId) {
-            organizationIds.add(organizationId);
-        }
-    });
-    const rebuildPromises = Array.from(organizationIds).map(async (organizationId) => {
-        try {
-            await rebuildTransactionAnalyticsForOrg(organizationId, fyLabel);
-            console.log('[Transaction Analytics Rebuild] Successfully rebuilt', {
-                organizationId,
-                financialYear: fyLabel,
-            });
-        }
-        catch (error) {
-            console.error('[Transaction Analytics Rebuild] Error rebuilding analytics', {
-                organizationId,
-                financialYear: fyLabel,
-                error,
-            });
-        }
-    });
-    await Promise.all(rebuildPromises);
-    console.log(`[Transaction Analytics Rebuild] Rebuilt analytics for ${organizationIds.size} organizations`);
 });
 //# sourceMappingURL=transaction-rebuild.js.map

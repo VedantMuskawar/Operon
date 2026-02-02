@@ -459,7 +459,7 @@ class _ZonesPageState extends State<ZonesPage> {
         title: const Text('Delete City', style: TextStyle(color: AuthColors.textMain)),
         content: Text(
           'Deleting "${city.name}" will remove all regions and prices in this city. This cannot be undone.',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -819,11 +819,11 @@ class _AddCityDialogState extends State<_AddCityDialog> {
         key: _formKey,
         child: TextFormField(
           controller: _controller,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: const InputDecoration(
             labelText: 'City name',
             filled: true,
-            fillColor: Color(0xFF1B1B2C),
+            fillColor: AuthColors.surface,
             labelStyle: TextStyle(color: AuthColors.textSub),
             border: OutlineInputBorder(borderSide: BorderSide.none),
           ),
@@ -920,7 +920,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                 children: [
                   DropdownButtonFormField<String>(
                     initialValue: _selectedCity,
-                    dropdownColor: const Color(0xFF1B1B2C),
+                    dropdownColor: AuthColors.surface,
                     decoration: const InputDecoration(
                       labelText: 'City',
                       filled: true,
@@ -1106,7 +1106,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.zone.region, style: const TextStyle(color: Colors.white)),
+              Text(widget.zone.region, style: const TextStyle(color: AuthColors.textMain)),
               Text(widget.zone.cityName, style: const TextStyle(color: AuthColors.textSub)),
             ],
           ),
@@ -1123,7 +1123,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                     children: [
                       DropdownButtonFormField<String>(
                         initialValue: _selectedProductId,
-                        dropdownColor: const Color(0xFF1B1B2C),
+                        dropdownColor: AuthColors.surface,
                         decoration: const InputDecoration(
                           labelText: 'Product',
                           filled: true,
@@ -1163,9 +1163,9 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                         },
                         decoration: InputDecoration(
                           labelText: 'Unit Price',
-                          labelStyle: const TextStyle(color: Colors.white70),
+                          labelStyle: const TextStyle(color: AuthColors.textSub),
                           filled: true,
-                          fillColor: const Color(0xFF1B1B2C),
+                          fillColor: AuthColors.surface,
                           errorStyle: const TextStyle(color: AuthColors.error),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -1178,7 +1178,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(
-                              color: Color(0xFF6F4BFF),
+                              color: AuthColors.primary,
                               width: 2,
                             ),
                           ),
@@ -1215,10 +1215,10 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                     context: context,
                     builder: (context) => AlertDialog(
                       backgroundColor: AuthColors.surface,
-                      title: const Text('Delete Region', style: TextStyle(color: Colors.white)),
+                      title: const Text('Delete Region', style: TextStyle(color: AuthColors.textMain)),
                       content: Text(
                         'Are you sure you want to delete "${widget.zone.region}"? This will also delete all prices for this region.',
-                        style: const TextStyle(color: Colors.white70),
+                        style: const TextStyle(color: AuthColors.textSub),
                       ),
                       actions: [
                         TextButton(
@@ -1244,7 +1244,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Region deleted successfully'),
-                          backgroundColor: Color(0xFF4CAF50),
+                          backgroundColor: AuthColors.success,
                         ),
                       );
                     }
@@ -1297,7 +1297,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Price updated successfully'),
-                              backgroundColor: Color(0xFF4CAF50),
+                              backgroundColor: AuthColors.success,
                             ),
                           );
                         }
@@ -1402,7 +1402,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
       backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Zone' : 'Add Zone',
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: Form(
         key: _formKey,
@@ -1456,7 +1456,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                   : null,
               title: const Text(
                 'Active',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
               ),
             ),
             if (!canSubmit)
@@ -1464,7 +1464,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
                   'You do not have permission to save changes for this zone.',
-                  style: TextStyle(color: Colors.redAccent, fontSize: 12),
+                  style: TextStyle(color: AuthColors.error, fontSize: 12),
               ),
             ),
           ],
@@ -1543,8 +1543,8 @@ class _ZoneDialogState extends State<_ZoneDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

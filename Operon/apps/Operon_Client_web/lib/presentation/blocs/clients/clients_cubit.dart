@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_bloc/core_bloc.dart';
 import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
@@ -22,19 +23,25 @@ class ClientsCubit extends Cubit<ClientsState> {
   final String _orgId;
   final AnalyticsRepository? _analyticsRepository;
   Timer? _searchDebounce;
+  DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
+  static const int _pageSize = 20;
 
   Future<void> loadClients() async {
+    _lastDoc = null;
     emit(state.copyWith(status: ViewStatus.loading));
     try {
       debugPrint('[ClientsCubit] Loading clients');
-      final clients = await _repository.fetchClients();
-      debugPrint('[ClientsCubit] Fetched ${clients.length} clients');
+      final result = await _repository.fetchClients(orgId: _orgId, limit: _pageSize);
+      _lastDoc = result.lastDoc;
+      final hasMore = result.clients.length == _pageSize;
+      debugPrint('[ClientsCubit] Fetched ${result.clients.length} clients');
       emit(state.copyWith(
         status: ViewStatus.success,
-        clients: clients,
+        clients: result.clients,
+        hasMore: hasMore,
         message: null,
       ));
-      
+
       // Load analytics in parallel
       loadAnalytics();
     } catch (e, stackTrace) {
@@ -44,6 +51,29 @@ class ClientsCubit extends Cubit<ClientsState> {
         status: ViewStatus.failure,
         message: 'Failed to load clients: ${e.toString()}',
       ));
+    }
+  }
+
+  Future<void> loadMoreClients() async {
+    if (!state.hasMore || state.isLoadingMore || _lastDoc == null) return;
+    emit(state.copyWith(isLoadingMore: true));
+    try {
+      final result = await _repository.fetchClients(
+        orgId: _orgId,
+        limit: _pageSize,
+        startAfterDocument: _lastDoc,
+      );
+      _lastDoc = result.lastDoc;
+      final hasMore = result.clients.length == _pageSize;
+      final newClients = [...state.clients, ...result.clients];
+      emit(state.copyWith(
+        clients: newClients,
+        hasMore: hasMore,
+        isLoadingMore: false,
+      ));
+    } catch (e) {
+      debugPrint('[ClientsCubit] Error loading more clients: $e');
+      emit(state.copyWith(isLoadingMore: false));
     }
   }
 
@@ -71,7 +101,7 @@ class ClientsCubit extends Cubit<ClientsState> {
   Future<void> loadRecentClients({int limit = 10}) async {
     emit(state.copyWith(isRecentLoading: true, message: null));
     try {
-      final clients = await _repository.fetchRecentClients(limit: limit);
+      final clients = await _repository.fetchRecentClients(orgId: _orgId, limit: limit);
       emit(state.copyWith(
         recentClients: clients,
         isRecentLoading: false,
@@ -115,7 +145,7 @@ class ClientsCubit extends Cubit<ClientsState> {
     );
 
     try {
-      final results = await _repository.searchClients(trimmed);
+      final results = await _repository.searchClients(_orgId, trimmed);
       emit(
         state.copyWith(
           searchResults: results,

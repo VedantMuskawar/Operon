@@ -14,6 +14,7 @@ class EmployeesDataSource {
     final snapshot = await _employeesRef
         .where('organizationId', isEqualTo: organizationId)
         .orderBy('employeeName')
+        .limit(500)
         .get();
     return snapshot.docs
         .map((doc) => OrganizationEmployee.fromJson(doc.data(), doc.id))

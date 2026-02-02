@@ -4,15 +4,16 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors;
-import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal, LedgerPdfPreviewModal;
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar, OperonPdfPreviewModal, showLedgerDateRangeModal;
 import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, generateLedgerPdf, LedgerRowData;
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
 import 'package:dash_web/domain/entities/client.dart';
+import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_web/presentation/widgets/pending_order_tile.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
@@ -143,9 +144,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
         : _buildPrimaryOptions(widget.client);
     if (options.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No contacts available to assign.')),
-      );
+      DashSnackbar.show(context, message: 'No contacts available to assign.', isError: true);
       return;
     }
 
@@ -184,14 +183,10 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
         _primaryPhone = newPhone;
         _primaryOptions = updatedOptions;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Primary number updated.')),
-      );
+      DashSnackbar.show(context, message: 'Primary number updated.', isError: false);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to update number: $error')),
-      );
+      DashSnackbar.show(context, message: 'Unable to update number: $error', isError: true);
     }
   }
 
@@ -209,15 +204,11 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
       final repository = context.read<ClientsRepository>();
       await repository.deleteClient(widget.client.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Client deleted.')),
-      );
+      DashSnackbar.show(context, message: 'Client deleted.', isError: false);
       context.go('/clients');
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to delete client: $error')),
-      );
+      DashSnackbar.show(context, message: 'Unable to delete client: $error', isError: true);
     }
   }
 }
@@ -343,8 +334,8 @@ class _PrimaryContactDialog extends StatelessWidget {
                     ),
                     leading: CircleAvatar(
                       backgroundColor: isSelected
-                          ? const Color(0xFF6F4BFF)
-                          : const Color(0xFF2A2A3D),
+                          ? AuthColors.accentPurple
+                          : AuthColors.surface,
                       child: Text(
                         option.label.isNotEmpty ? option.label[0] : '?',
                         style: const TextStyle(color: Colors.white),
@@ -410,28 +401,22 @@ class _DeleteClientDialog extends StatelessWidget {
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFED5A5A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
+              child: DashButton(
+                label: 'Delete client',
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete client'),
+                isDestructive: true,
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: TextButton(
+              child: DashButton(
+                label: 'Cancel',
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                variant: DashButtonVariant.text,
+              ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -583,7 +568,7 @@ class _OverviewSectionState extends State<OverviewSection> {
                                 value: _formatCurrency(
                                   (_ledger!['totalIncome'] as num?)?.toDouble() ?? 0.0,
                                 ),
-                                color: const Color(0xFF4CAF50),
+                                color: AuthColors.success,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -593,7 +578,7 @@ class _OverviewSectionState extends State<OverviewSection> {
                                 value: _formatCurrency(
                                   (_ledger!['totalReceivables'] as num?)?.toDouble() ?? 0.0,
                                 ),
-                                color: const Color(0xFFEF5350),
+                                color: AuthColors.error,
                               ),
                             ),
                           ],
@@ -605,7 +590,7 @@ class _OverviewSectionState extends State<OverviewSection> {
                             (_ledger!['netBalance'] as num?)?.toDouble() ??
                                 (_ledger!['currentBalance'] as num?)?.toDouble() ?? 0.0,
                           ),
-                          color: const Color(0xFF6F4BFF),
+                          color: AuthColors.accentPurple,
                         ),
                         const SizedBox(height: 16),
                         // Transaction Summary
@@ -649,27 +634,29 @@ class _BalanceCard extends StatelessWidget {
           )}';
     }
 
-    return Container(
+    return DashCard(
       padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-          colors: isPositive
-              ? [const Color(0xFF4CAF50).withOpacity(0.2), const Color(0xFF4CAF50).withOpacity(0.05)]
-              : [const Color(0xFFEF5350).withOpacity(0.2), const Color(0xFFEF5350).withOpacity(0.05)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-        borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-          color: (isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350)).withOpacity(0.3),
-          width: 1,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isPositive
+                ? [AuthColors.success.withOpacity(0.2), AuthColors.success.withOpacity(0.05)]
+                : [AuthColors.error.withOpacity(0.2), AuthColors.error.withOpacity(0.05)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: (isPositive ? AuthColors.success : AuthColors.error).withOpacity(0.3),
+            width: 1,
+          ),
         ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                    const Text(
-            'Current Balance',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Current Balance',
                       style: TextStyle(
               color: Colors.white70,
               fontSize: 13,
@@ -686,25 +673,26 @@ class _BalanceCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                isPositive ? Icons.trending_up : Icons.trending_down,
-                        size: 16,
-                color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '${isPositive ? '+' : ''}${formatCurrency(change.abs())} from opening',
-                        style: TextStyle(
-                  color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+            Row(
+              children: [
+                Icon(
+                  isPositive ? Icons.trending_up : Icons.trending_down,
+                  size: 16,
+                  color: isPositive ? AuthColors.success : AuthColors.error,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${isPositive ? '+' : ''}${formatCurrency(change.abs())} from opening',
+                  style: TextStyle(
+                    color: isPositive ? AuthColors.success : AuthColors.error,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
-        ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -723,27 +711,19 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
+    return DashCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-                          style: const TextStyle(
-              color: Colors.white70,
+            style: const TextStyle(
+              color: AuthColors.textSub,
               fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 6),
           Text(
             value,
@@ -1013,30 +993,30 @@ class _PendingOrdersSectionState extends State<PendingOrdersSection> {
             )
           : _orders.isEmpty
               ? const Center(
-        child: Text(
+                  child: Text(
                     'No pending orders for this client.',
-          style: TextStyle(color: Colors.white54),
-        ),
+                    style: TextStyle(color: Colors.white54),
+                  ),
                 )
-              : SingleChildScrollView(
+              : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: Column(
-                    children: [
-                      ..._orders.map((order) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: PendingOrderTile(
-                              order: order,
-                              onTripsUpdated: () {
-                                // Refresh is handled by stream
-                              },
-                              onDeleted: () {
-                                // Refresh is handled by stream
-                              },
-                            ),
-                          )),
-                    ],
-        ),
-      ),
+                  itemCount: _orders.length,
+                  itemBuilder: (context, index) {
+                    final order = _orders[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: PendingOrderTile(
+                        order: order,
+                        onTripsUpdated: () {
+                          // Refresh is handled by stream
+                        },
+                        onDeleted: () {
+                          // Refresh is handled by stream
+                        },
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }
@@ -1289,9 +1269,7 @@ class _LedgerTable extends StatelessWidget {
       final organization = orgContext.organization;
       if (organization == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No organization selected')),
-        );
+        DashSnackbar.show(context, message: 'No organization selected', isError: true);
         return;
       }
 
@@ -1373,9 +1351,7 @@ class _LedgerTable extends StatelessWidget {
       final dmSettings = await dmSettingsRepo.fetchDmSettings(organization.id);
       if (dmSettings == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('DM settings not found. Please configure DM settings first.')),
-        );
+        DashSnackbar.show(context, message: 'DM settings not found. Please configure DM settings first.', isError: true);
         return;
       }
 
@@ -1410,7 +1386,7 @@ class _LedgerTable extends StatelessWidget {
       Navigator.of(context).pop();
 
       // Show PDF preview modal
-      await LedgerPdfPreviewModal.show(
+      await OperonPdfPreviewModal.show(
         context: context,
         pdfBytes: pdfBytes,
         title: 'Ledger of $clientName',
@@ -1418,9 +1394,7 @@ class _LedgerTable extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // Close loading if still open
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to generate ledger PDF: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to generate ledger PDF: $e', isError: true);
       }
     }
   }
@@ -1615,13 +1589,11 @@ class _LedgerTable extends StatelessWidget {
                 fontFamily: 'SF Pro Display',
               ),
             ),
-            TextButton.icon(
+            DashButton(
+              label: 'Generate Ledger',
+              icon: Icons.picture_as_pdf,
               onPressed: () => _generateLedgerPdf(context),
-              icon: const Icon(Icons.picture_as_pdf, size: 18),
-              label: const Text('Generate Ledger'),
-              style: TextButton.styleFrom(
-                foregroundColor: AuthColors.primary,
-              ),
+              variant: DashButtonVariant.text,
             ),
           ],
         ),
@@ -1748,6 +1720,66 @@ class _LedgerTableRow extends StatelessWidget {
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
 
+  static Future<void> _openPrintDm(BuildContext context, dynamic dmNumber) async {
+    final org = context.read<OrganizationContextCubit>().state.organization;
+    if (org == null) {
+      DashSnackbar.show(context, message: 'Organization not found', isError: true);
+      return;
+    }
+    final dmNum = dmNumber is int ? dmNumber : (dmNumber is num ? dmNumber.toInt() : null);
+    if (dmNum == null) return;
+    final printService = context.read<DmPrintService>();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(
+        child: Card(
+          color: AuthColors.surface,
+          child: const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: AuthColors.info),
+                SizedBox(height: 16),
+                Text('Loading DM...', style: TextStyle(color: AuthColors.textMain)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    try {
+      final dmData = await printService.fetchDmByNumberOrId(
+        organizationId: org.id,
+        dmNumber: dmNum,
+        dmId: null,
+        tripData: null,
+      );
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      if (dmData == null) {
+        DashSnackbar.show(context, message: 'DM not found', isError: true);
+        return;
+      }
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => DmPrintDialog(
+          dmPrintService: printService,
+          organizationId: org.id,
+          dmData: dmData,
+          dmNumber: (dmData['dmNumber'] as int?) ?? dmNum,
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        DashSnackbar.show(context, message: 'Failed to open print: $e', isError: true);
+      }
+    }
+  }
+
   static const _cellStyle = TextStyle(
     color: AuthColors.textMain,
     fontSize: 13,
@@ -1802,18 +1834,22 @@ class _LedgerTableRow extends StatelessWidget {
             decoration: BoxDecoration(border: _cellBorder),
             alignment: Alignment.center,
             child: row.dmNumber != null
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AuthColors.info.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'DM-${row.dmNumber}',
-                      style: _badgeStyle.copyWith(color: AuthColors.info),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                ? InkWell(
+                    onTap: () => _LedgerTableRow._openPrintDm(context, row.dmNumber),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AuthColors.info.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'DM-${row.dmNumber}',
+                        style: _badgeStyle.copyWith(color: AuthColors.info),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                 : row.category != null
@@ -2036,7 +2072,7 @@ class _TabButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF6F4BFF) : Colors.transparent,
+          color: isSelected ? AuthColors.accentPurple : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(

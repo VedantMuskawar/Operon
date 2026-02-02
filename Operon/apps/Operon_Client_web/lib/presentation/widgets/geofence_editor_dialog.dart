@@ -224,9 +224,10 @@ class _GeofenceEditorDialogState extends State<GeofenceEditorDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
         if (!_isLoading && _loadError == null && _location != null && organization != null)
           BlocConsumer<GeofencesCubit, GeofencesState>(
@@ -240,9 +241,11 @@ class _GeofenceEditorDialogState extends State<GeofenceEditorDialog> {
             },
             builder: (context, state) {
               final busy = state.status == ViewStatus.loading;
-              return TextButton(
+              return DashButton(
+                label: isCreate ? 'Create' : 'Update',
                 onPressed: busy ? null : () => _save(context),
-                child: Text(isCreate ? 'Create' : 'Update'),
+                variant: DashButtonVariant.text,
+                isLoading: busy,
               );
             },
           ),
@@ -565,9 +568,10 @@ class _GeofenceEditorDialogState extends State<GeofenceEditorDialog> {
                   label: 'Finish Drawing',
                   onPressed: () {
                     if (_polygonPoints.length < 3) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Polygon needs at least 3 points')),
+                      DashSnackbar.show(
+                        context,
+                        message: 'Polygon needs at least 3 points',
+                        isError: true,
                       );
                       return;
                     }
@@ -684,21 +688,19 @@ class _GeofenceEditorDialogState extends State<GeofenceEditorDialog> {
   void _save(BuildContext context) {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a geofence name')),
-      );
+      DashSnackbar.show(context, message: 'Please enter a geofence name', isError: true);
       return;
     }
     if (_location == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location not found')),
-      );
+      DashSnackbar.show(context, message: 'Location not found', isError: true);
       return;
     }
     if (_selectedType == core_models.GeofenceType.polygon &&
         _polygonPoints.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Polygon needs at least 3 points')),
+      DashSnackbar.show(
+        context,
+        message: 'Polygon needs at least 3 points',
+        isError: true,
       );
       return;
     }

@@ -34,11 +34,132 @@ class DmPrintService {
   final QrCodeService _qrCodeService;
   final FirebaseStorage _storage;
 
-  /// Fetch DM document by dmNumber or dmId
+  /// Convert schedule trip data to DM data format
+  Map<String, dynamic> convertTripToDmData(Map<String, dynamic> tripData) {
+    // Extract items - handle both list and single item
+    final itemsData = tripData['items'];
+    final items = itemsData is List ? itemsData : 
+                  (itemsData != null ? [itemsData] : []);
+    
+    // Extract trip pricing - ensure it's a map
+    var tripPricingData = tripData['tripPricing'] as Map<String, dynamic>?;
+    if (tripPricingData == null) {
+      // Try to construct from individual pricing fields
+      tripPricingData = <String, dynamic>{};
+      if (tripData['total'] != null) {
+        tripPricingData['total'] = tripData['total'];
+      }
+      if (tripData['subtotal'] != null) {
+        tripPricingData['subtotal'] = tripData['subtotal'];
+      }
+      // Calculate total from items if not present
+      if (tripPricingData['total'] == null && items.isNotEmpty) {
+        double calculatedTotal = 0.0;
+        for (final item in items) {
+          if (item is Map<String, dynamic>) {
+            final quantity = (item['fixedQuantityPerTrip'] as num?)?.toDouble() ?? 
+                           (item['totalQuantity'] as num?)?.toDouble() ?? 
+                           (item['quantity'] as num?)?.toDouble() ?? 0.0;
+            final unitPrice = (item['unitPrice'] as num?)?.toDouble() ?? 
+                            (item['price'] as num?)?.toDouble() ?? 0.0;
+            calculatedTotal += quantity * unitPrice;
+          }
+        }
+        tripPricingData['total'] = calculatedTotal;
+      }
+    }
+    
+    // Extract delivery zone
+    var deliveryZone = tripData['deliveryZone'] as Map<String, dynamic>?;
+    if (deliveryZone == null) {
+      deliveryZone = <String, dynamic>{};
+      // Try to extract zone info from other fields
+      if (tripData['region'] != null) {
+        deliveryZone['region'] = tripData['region'];
+      }
+      if (tripData['city'] != null || tripData['cityName'] != null) {
+        deliveryZone['city_name'] = tripData['cityName'] ?? tripData['city'];
+      }
+      if (tripData['area'] != null) {
+        deliveryZone['area'] = tripData['area'];
+      }
+    }
+    
+    // Extract scheduled date - handle multiple formats
+    var scheduledDate = tripData['scheduledDate'] ?? tripData['deliveryDate'];
+    
+    // Build DM data structure from trip data
+    final dmData = <String, dynamic>{
+      'dmNumber': tripData['dmNumber'] ?? 0,
+      'dmId': tripData['dmId'],
+      'clientName': tripData['clientName'] ?? 'N/A',
+      'clientPhone': tripData['clientPhone'] ?? 
+                    tripData['clientPhoneNumber'] ?? 
+                    tripData['customerNumber'] ?? 
+                    'N/A',
+      'deliveryZone': deliveryZone,
+      'scheduledDate': scheduledDate,
+      'vehicleNumber': tripData['vehicleNumber'] ?? 'N/A',
+      'driverName': tripData['driverName'] ?? 'N/A',
+      'driverPhone': tripData['driverPhone'] ?? 
+                     tripData['driverPhoneNumber'] ?? 
+                     'N/A',
+      'items': items,
+      'tripPricing': tripPricingData,
+      'paymentStatus': tripData['paymentStatus'] ?? false,
+      'toAccount': tripData['toAccount'],
+      'paySchedule': tripData['paySchedule'],
+      'address': tripData['address'],
+      'regionName': tripData['regionName'] ?? 
+                   ((deliveryZone['region'] as String?) ?? ''),
+    };
+    
+    // Convert Timestamp fields if present
+    if (dmData['scheduledDate'] is Timestamp) {
+      final ts = dmData['scheduledDate'] as Timestamp;
+      dmData['scheduledDate'] = {
+        '_seconds': ts.seconds,
+        '_nanoseconds': ts.nanoseconds,
+      };
+    }
+    
+    return dmData;
+  }
+
+  /// Normalize DM data to ensure all required fields are present
+  Map<String, dynamic> normalizeDmData(Map<String, dynamic> dmData) {
+    final normalized = Map<String, dynamic>.from(dmData);
+    
+    // Ensure items is a list
+    if (normalized['items'] == null) {
+      normalized['items'] = [];
+    } else if (normalized['items'] is! List) {
+      normalized['items'] = [normalized['items']];
+    }
+    
+    // Ensure tripPricing is a map
+    if (normalized['tripPricing'] == null) {
+      normalized['tripPricing'] = <String, dynamic>{};
+    } else if (normalized['tripPricing'] is! Map) {
+      normalized['tripPricing'] = <String, dynamic>{};
+    }
+    
+    // Ensure deliveryZone is a map
+    if (normalized['deliveryZone'] == null) {
+      normalized['deliveryZone'] = <String, dynamic>{};
+    } else if (normalized['deliveryZone'] is! Map) {
+      normalized['deliveryZone'] = <String, dynamic>{};
+    }
+    
+    return normalized;
+  }
+
+  /// Fetch DM document by dmNumber or dmId, or convert from trip data
   Future<Map<String, dynamic>?> fetchDmByNumberOrId({
     required String organizationId,
     int? dmNumber,
     String? dmId,
+    Map<String, dynamic>? tripData,
   }) async {
     try {
       Query queryRef = FirebaseFirestore.instance
@@ -50,11 +171,21 @@ class DmPrintService {
       } else if (dmId != null) {
         queryRef = queryRef.where('dmId', isEqualTo: dmId);
       } else {
+        // If no DM number/ID and trip data provided, convert trip to DM format
+        if (tripData != null) {
+          final converted = convertTripToDmData(tripData);
+          return normalizeDmData(converted);
+        }
         return null;
       }
 
       final snapshot = await queryRef.limit(1).get();
       if (snapshot.docs.isEmpty) {
+        // DM not found in Firestore, but if trip data provided, convert it
+        if (tripData != null) {
+          final converted = convertTripToDmData(tripData);
+          return normalizeDmData(converted);
+        }
         return null;
       }
 
@@ -62,6 +193,11 @@ class DmPrintService {
       final data = doc.data() as Map<String, dynamic>?;
       
       if (data == null) {
+        // If trip data provided as fallback, use it
+        if (tripData != null) {
+          final converted = convertTripToDmData(tripData);
+          return normalizeDmData(converted);
+        }
         return null;
       }
       
@@ -84,8 +220,17 @@ class DmPrintService {
       });
       
       convertedData['id'] = doc.id; // Add document ID
-      return convertedData;
+      return normalizeDmData(convertedData);
     } catch (e) {
+        // If error and trip data provided, try converting trip data
+      if (tripData != null) {
+        try {
+          final converted = convertTripToDmData(tripData);
+          return normalizeDmData(converted);
+        } catch (e2) {
+          throw Exception('Failed to fetch DM and convert trip data: $e2');
+        }
+      }
       throw Exception('Failed to fetch DM: $e');
     }
   }
@@ -220,12 +365,13 @@ class DmPrintService {
       try {
         // Try to load watermark from Firebase Storage if available
         // For now, watermark is optional - custom templates will work without it
-        // TODO: Add watermark URL to DM settings or organization settings if needed
+        // Feature planned: Add watermark URL configuration to DM settings or organization settings
       } catch (e) {
         // Watermark is optional, continue without it
       }
 
-      // Use PDF template generator from core_utils
+      // Use PDF template generator from core_utils. For custom templates
+      // (e.g. Lakshmee), dmData is converted to structured DmPrintData inside.
       final pdfBytes = await pdf_template.generateDmPdf(
         dmData: dmData,
         dmSettings: dmSettings,
@@ -408,68 +554,31 @@ class DmPrintService {
     }
   }
 
-  /// Generate HTML string for DM preview (legacy method - use generateDmPreviewContent instead)
-  /// Fetches DM settings, payment accounts, and images, then generates HTML
-  @Deprecated('Use generateDmPreviewContent instead for custom template support')
-  Future<String> generateDmHtmlString({
-    required String organizationId,
-    required Map<String, dynamic> dmData,
-  }) async {
-    final result = await generateDmPreviewContent(
-      organizationId: organizationId,
-      dmData: dmData,
-    );
-    
-    if (result['type'] == 'html') {
-      return result['content'] as String;
-    } else {
-      // For PDF, convert to HTML with embedded PDF viewer
-      final pdfBytes = result['content'] as Uint8List;
-      final base64Pdf = base64Encode(pdfBytes);
-      return '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-    iframe {
-      width: 100%;
-      height: 100vh;
-      border: none;
-    }
-  </style>
-</head>
-<body>
-  <iframe src="data:application/pdf;base64,$base64Pdf"></iframe>
-</body>
-</html>
-      ''';
-    }
-  }
-
   /// Generate and print/save DM PDF
-  /// Uses print preferences from DM Settings
+  /// Uses print preferences and template type (custom vs universal) from DM Settings
   Future<void> printDm({
     required String organizationId,
     required Map<String, dynamic> dmData,
   }) async {
     try {
-      // Load DM Settings (includes print preferences)
+      // Load DM Settings (includes print preferences and template type)
       final dmSettings = await _dmSettingsRepository.fetchDmSettings(organizationId);
       if (dmSettings == null) {
         throw Exception('DM Settings not found. Please configure DM Settings first.');
       }
 
-      // Load Payment Account based on DM Settings preference
+      // Follow DM Settings template type: custom → PDF, universal → HTML
+      if (dmSettings.templateType == DmTemplateType.custom &&
+          dmSettings.customTemplateId != null) {
+        final pdfBytes = await generatePdfBytes(
+          organizationId: organizationId,
+          dmData: dmData,
+        );
+        await printPdfBytes(pdfBytes: pdfBytes);
+        return;
+      }
+
+      // Universal template: HTML path
       Map<String, dynamic>? paymentAccount;
       Uint8List? qrCodeBytes;
 
@@ -578,26 +687,36 @@ class DmPrintService {
   }
 
   /// Generate and save DM PDF
-  /// Uses print preferences from DM Settings
+  /// Uses print preferences and template type (custom vs universal) from DM Settings
   Future<void> saveDmPdf({
     required String organizationId,
     required Map<String, dynamic> dmData,
     required String fileName,
   }) async {
     try {
-      // Load DM Settings (includes print preferences)
+      // Load DM Settings (includes print preferences and template type)
       final dmSettings = await _dmSettingsRepository.fetchDmSettings(organizationId);
       if (dmSettings == null) {
         throw Exception('DM Settings not found. Please configure DM Settings first.');
       }
 
-      // Load Payment Account based on DM Settings preference
+      // Follow DM Settings template type: custom → PDF, universal → HTML-to-PDF
+      if (dmSettings.templateType == DmTemplateType.custom &&
+          dmSettings.customTemplateId != null) {
+        final pdfBytes = await generatePdfBytes(
+          organizationId: organizationId,
+          dmData: dmData,
+        );
+        await savePdfBytes(pdfBytes: pdfBytes, fileName: fileName);
+        return;
+      }
+
+      // Universal template: HTML path
       Map<String, dynamic>? paymentAccount;
       Uint8List? qrCodeBytes;
 
       final showQrCode = dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
 
-      // Fetch payment accounts
       final accounts = await _paymentAccountsRepository.fetchAccounts(organizationId);
       
       if (accounts.isNotEmpty) {
@@ -634,7 +753,6 @@ class DmPrintService {
           }
         }
 
-        // selectedAccount will always be non-null here since accounts.isNotEmpty
         paymentAccount = {
           'name': selectedAccount.name,
           'accountNumber': selectedAccount.accountNumber,
@@ -644,10 +762,8 @@ class DmPrintService {
         };
       }
 
-      // Load logo image
       final logoBytes = await loadImageBytes(dmSettings.header.logoImageUrl);
 
-      // Generate HTML and convert to PDF
       final htmlString = _generateDmHtml(
         dmData: dmData,
         dmSettings: dmSettings,
@@ -656,10 +772,8 @@ class DmPrintService {
         qrCodeBytes: qrCodeBytes,
       );
 
-      // Convert HTML to PDF bytes using html2pdf.js
       final pdfBytes = await _htmlToPdf(htmlString);
 
-      // Share/save PDF
       await Printing.sharePdf(
         bytes: pdfBytes,
         filename: fileName,
@@ -970,10 +1084,10 @@ class DmPrintService {
       padding-top: 60px;
       min-width: 120px;
     }
-    /* Print-specific styles */
+    /* Print-specific styles - follow DM Settings print orientation */
     @media print {
       @page {
-        size: A4 portrait;
+        size: A4 ${dmSettings.printOrientation == DmPrintOrientation.landscape ? 'landscape' : 'portrait'};
         margin: 15mm;
       }
       * {

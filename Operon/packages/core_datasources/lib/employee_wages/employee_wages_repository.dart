@@ -147,6 +147,21 @@ class EmployeeWagesRepository {
     );
   }
 
+  /// Check if bonus already credited for a month
+  Future<bool> isBonusCreditedForMonth({
+    required String organizationId,
+    required String employeeId,
+    required int year,
+    required int month,
+  }) {
+    return _dataSource.isBonusCreditedForMonth(
+      organizationId: organizationId,
+      employeeId: employeeId,
+      year: year,
+      month: month,
+    );
+  }
+
   /// Stream employee transactions
   Stream<List<Transaction>> watchEmployeeTransactions({
     required String organizationId,
@@ -180,6 +195,20 @@ class EmployeeWagesRepository {
   /// to automatically update the ledger balances
   Future<void> deleteTransaction(String transactionId) {
     return _dataSource.deleteTransaction(transactionId);
+  }
+
+  /// Fetch monthly transaction document from EMPLOYEE_LEDGERS subcollection
+  /// Returns the transactions array from the monthly document, or empty list if not found
+  Future<List<Map<String, dynamic>>> fetchMonthlyTransactions({
+    required String employeeId,
+    required String financialYear,
+    required String yearMonth,
+  }) {
+    return _dataSource.fetchMonthlyTransactions(
+      employeeId: employeeId,
+      financialYear: financialYear,
+      yearMonth: yearMonth,
+    );
   }
 }
 

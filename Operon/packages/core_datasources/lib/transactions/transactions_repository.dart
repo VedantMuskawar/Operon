@@ -58,6 +58,21 @@ class TransactionsRepository {
     );
   }
 
+  /// Get all vendor ledger transactions (purchases and payments) for a vendor
+  Future<List<Transaction>> getVendorLedgerTransactions({
+    required String organizationId,
+    required String vendorId,
+    String? financialYear,
+    int? limit,
+  }) {
+    return _dataSource.getVendorLedgerTransactions(
+      organizationId: organizationId,
+      vendorId: vendorId,
+      financialYear: financialYear,
+      limit: limit,
+    );
+  }
+
   /// Get vendor payment expenses
   Future<List<Transaction>> getVendorExpenses({
     required String organizationId,
@@ -157,16 +172,89 @@ class TransactionsRepository {
     );
   }
 
+  /// Get order-related transactions (advance + trip payment)
+  Future<List<Transaction>> getOrderTransactions({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) {
+    return _dataSource.getOrderTransactions(
+      organizationId: organizationId,
+      financialYear: financialYear,
+      limit: limit,
+    );
+  }
+
+  /// Update verification status of a transaction
+  Future<void> updateVerification({
+    required String transactionId,
+    required bool verified,
+    required String verifiedBy,
+  }) {
+    return _dataSource.updateVerification(
+      transactionId: transactionId,
+      verified: verified,
+      verifiedBy: verifiedBy,
+    );
+  }
+
+  /// Get cash ledger data (order transactions, payments, purchases, expenses)
+  Future<Map<String, List<Transaction>>> getCashLedgerData({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) {
+    return _dataSource.getCashLedgerData(
+      organizationId: organizationId,
+      financialYear: financialYear,
+      limit: limit,
+    );
+  }
+
+  /// Real-time stream of cash ledger data. Emits when transactions change.
+  Stream<Map<String, List<Transaction>>> watchCashLedgerData({
+    required String organizationId,
+    String? financialYear,
+    int? limit,
+  }) {
+    return _dataSource.watchCashLedgerData(
+      organizationId: organizationId,
+      financialYear: financialYear,
+      limit: limit,
+    );
+  }
+
+  /// Get unpaid vendor purchase invoices (optionally verified only)
+  Future<List<Transaction>> fetchUnpaidVendorInvoices({
+    required String organizationId,
+    required String vendorId,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool verifiedOnly = false,
+  }) {
+    return _dataSource.fetchUnpaidVendorInvoices(
+      organizationId: organizationId,
+      vendorId: vendorId,
+      startDate: startDate,
+      endDate: endDate,
+      verifiedOnly: verifiedOnly,
+    );
+  }
+
   /// Get unified financial data (all transactions, purchases, and expenses)
   /// Returns a map with keys: 'transactions', 'purchases', 'expenses'
   Future<Map<String, List<Transaction>>> getUnifiedFinancialData({
     required String organizationId,
     String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
     int? limit,
   }) {
     return _dataSource.getUnifiedFinancialData(
       organizationId: organizationId,
       financialYear: financialYear,
+      startDate: startDate,
+      endDate: endDate,
       limit: limit,
     );
   }

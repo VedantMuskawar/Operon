@@ -402,6 +402,39 @@ class EmployeeWagesDataSource {
     return matchingTransactions.isNotEmpty;
   }
 
+  /// Check if bonus already credited for a month
+  /// Note: This is a client-side filter due to Firestore limitations on range queries
+  Future<bool> isBonusCreditedForMonth({
+    required String organizationId,
+    required String employeeId,
+    required int year,
+    required int month,
+  }) async {
+    final financialYear = _getFinancialYear(DateTime(year, month, 1));
+    final startOfMonth = DateTime(year, month, 1);
+    final endOfMonth = DateTime(year, month + 1, 0, 23, 59, 59);
+
+    final snapshot = await _transactionsRef
+        .where('organizationId', isEqualTo: organizationId)
+        .where('ledgerType', isEqualTo: 'employeeLedger')
+        .where('employeeId', isEqualTo: employeeId)
+        .where('category', isEqualTo: TransactionCategory.bonus.name)
+        .where('financialYear', isEqualTo: financialYear)
+        .orderBy('createdAt', descending: true)
+        .limit(100)
+        .get();
+
+    final matchingTransactions = snapshot.docs.where((doc) {
+      final createdAt = doc.data()['createdAt'] as Timestamp?;
+      if (createdAt == null) return false;
+      final txDate = createdAt.toDate();
+      return txDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
+          txDate.isBefore(endOfMonth.add(const Duration(seconds: 1)));
+    });
+
+    return matchingTransactions.isNotEmpty;
+  }
+
   /// Stream employee transactions
   Stream<List<Transaction>> watchEmployeeTransactions({
     required String organizationId,
@@ -459,6 +492,43 @@ class EmployeeWagesDataSource {
   /// to automatically update the ledger balances
   Future<void> deleteTransaction(String transactionId) async {
     await _transactionsRef.doc(transactionId).delete();
+  }
+
+  /// Get year-month string in format YYYYMM for document IDs
+  /// Format: "202401" for January 2024
+  String _getYearMonth(DateTime date) {
+    return '${date.year}${date.month.toString().padLeft(2, '0')}';
+  }
+
+  /// Fetch monthly transaction document from EMPLOYEE_LEDGERS subcollection
+  /// Returns the transactions array from the monthly document, or empty list if not found
+  Future<List<Map<String, dynamic>>> fetchMonthlyTransactions({
+    required String employeeId,
+    required String financialYear,
+    required String yearMonth,
+  }) async {
+    final ledgerId = '${employeeId}_$financialYear';
+    final monthlyDoc = await _employeeLedgersRef
+        .doc(ledgerId)
+        .collection('TRANSACTIONS')
+        .doc(yearMonth)
+        .get();
+
+    if (!monthlyDoc.exists) {
+      return [];
+    }
+
+    final monthlyData = monthlyDoc.data();
+    final transactions = monthlyData?['transactions'] as List<dynamic>?;
+    
+    if (transactions == null) {
+      return [];
+    }
+
+    return transactions
+        .where((tx) => tx is Map<String, dynamic>)
+        .map((tx) => tx as Map<String, dynamic>)
+        .toList();
   }
 }
 

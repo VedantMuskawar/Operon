@@ -9,8 +9,10 @@ import 'package:dash_web/presentation/blocs/production_batches/production_batche
 import 'package:dash_web/presentation/blocs/production_batches/production_batches_state.dart';
 import 'package:dash_web/presentation/widgets/production_batch_card.dart';
 import 'package:dash_web/presentation/widgets/production_batch_detail_modal.dart';
+import 'package:dash_web/presentation/blocs/weekly_ledger/weekly_ledger_cubit.dart';
 import 'package:dash_web/presentation/widgets/production_batch_form.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
+import 'package:dash_web/presentation/widgets/weekly_ledger_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -31,9 +33,9 @@ class ProductionBatchesPage extends StatelessWidget {
             children: [
               const Text('No organization selected'),
               const SizedBox(height: 16),
-              ElevatedButton(
+              DashButton(
+                label: 'Select Organization',
                 onPressed: () => context.go('/org-selection'),
-                child: const Text('Select Organization'),
               ),
             ],
           ),
@@ -41,18 +43,32 @@ class ProductionBatchesPage extends StatelessWidget {
       );
     }
 
-    return BlocProvider(
-      create: (context) => ProductionBatchesCubit(
-        repository: context.read<ProductionBatchesRepository>(),
-        organizationId: organization.id,
-        wageSettingsRepository: context.read<WageSettingsRepository>(),
-        wageCalculationService: WageCalculationService(
-          employeeWagesDataSource: EmployeeWagesDataSource(),
-          productionBatchesDataSource: ProductionBatchesDataSource(),
-          tripWagesDataSource: TripWagesDataSource(),
-          employeeAttendanceDataSource: EmployeeAttendanceDataSource(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => ProductionBatchesCubit(
+            repository: context.read<ProductionBatchesRepository>(),
+            organizationId: organization.id,
+            wageSettingsRepository: context.read<WageSettingsRepository>(),
+            wageCalculationService: WageCalculationService(
+              employeeWagesDataSource: EmployeeWagesDataSource(),
+              productionBatchesDataSource: ProductionBatchesDataSource(),
+              tripWagesDataSource: TripWagesDataSource(),
+              employeeAttendanceDataSource: EmployeeAttendanceDataSource(),
+            ),
+          )..loadBatches(),
         ),
-      )..loadBatches(),
+        BlocProvider(
+          create: (context) => WeeklyLedgerCubit(
+            productionBatchesRepository: context.read<ProductionBatchesRepository>(),
+            tripWagesRepository: context.read<TripWagesRepository>(),
+            employeesRepository: context.read<EmployeesRepository>(),
+            deliveryMemoRepository: context.read<DeliveryMemoRepository>(),
+            employeeWagesRepository: context.read<EmployeeWagesRepository>(),
+            organizationId: organization.id,
+          ),
+        ),
+      ],
       child: SectionWorkspaceLayout(
         panelTitle: 'Production Wages',
         currentIndex: -1,
@@ -80,7 +96,31 @@ class _ProductionBatchesContent extends StatelessWidget {
       child: BlocBuilder<ProductionBatchesCubit, ProductionBatchesState>(
         builder: (context, state) {
           if (state.status == ViewStatus.loading) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SkeletonLoader(
+                      height: 40,
+                      width: double.infinity,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    const SizedBox(height: 16),
+                    ...List.generate(8, (_) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SkeletonLoader(
+                        height: 56,
+                        width: double.infinity,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            );
           }
 
           if (state.status == ViewStatus.failure && state.message != null) {
@@ -90,10 +130,10 @@ class _ProductionBatchesContent extends StatelessWidget {
                 children: [
                   Text('Error: ${state.message}'),
                   const SizedBox(height: 16),
-                  ElevatedButton(
+                  DashButton(
+                    label: 'Retry',
                     onPressed: () =>
                         context.read<ProductionBatchesCubit>().loadBatches(),
-                    child: const Text('Retry'),
                   ),
                 ],
               ),
@@ -118,7 +158,9 @@ class _ProductionBatchesContent extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                     ),
-                    ElevatedButton.icon(
+                    DashButton(
+                      icon: Icons.add,
+                      label: 'New Batch',
                       onPressed: () {
                         if (organization != null) {
                           final cubit = context.read<ProductionBatchesCubit>();
@@ -139,8 +181,6 @@ class _ProductionBatchesContent extends StatelessWidget {
                           );
                         }
                       },
-                      icon: const Icon(Icons.add),
-                      label: const Text('New Batch'),
                     ),
                   ],
                 ),
@@ -153,42 +193,18 @@ class _ProductionBatchesContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 const _FiltersBar(),
-              const SizedBox(height: 24),
+                const SizedBox(height: 24),
+                const _WeeklyLedgerBlock(),
+                const SizedBox(height: 24),
               if (filteredBatches.isEmpty)
-                SizedBox(
-                  height: 400,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.inventory_2_outlined,
-                          size: 64,
-                          color: Colors.white.withValues(alpha: 0.3),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          state.batches.isEmpty
-                              ? 'No production batches yet'
-                              : 'No batches match your filters',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          state.batches.isEmpty
-                              ? 'Create your first production batch to get started'
-                              : 'Try adjusting your filters',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                EmptyState(
+                  icon: Icons.inventory_2_outlined,
+                  title: state.batches.isEmpty
+                      ? 'No production batches yet'
+                      : 'No batches match your filters',
+                  message: state.batches.isEmpty
+                      ? 'Create your first production batch to get started'
+                      : 'Try adjusting your filters',
                 )
               else
                 ...filteredBatches.map((batch) {
@@ -343,15 +359,14 @@ class _FiltersBar extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               // Date Range (simplified - can be enhanced with date range picker)
-              TextButton.icon(
+              DashButton(
+                icon: Icons.date_range,
+                label: 'Date Range',
                 onPressed: () {
-                  // TODO: Implement date range picker
+                  // Feature planned: Date range picker for filtering batches
+                  DashSnackbar.show(context, message: 'Date range picker coming soon');
                 },
-                icon: const Icon(Icons.date_range, size: 18),
-                label: const Text('Date Range'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                ),
+                variant: DashButtonVariant.text,
               ),
             ],
           ),
@@ -371,5 +386,21 @@ class _FiltersBar extends StatelessWidget {
       case ProductionBatchStatus.processed:
         return 'Processed';
     }
+  }
+}
+
+class _WeeklyLedgerBlock extends StatelessWidget {
+  const _WeeklyLedgerBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    final organization = orgState.organization;
+    if (organization == null) return const SizedBox.shrink();
+    final cubit = context.read<WeeklyLedgerCubit>();
+    return WeeklyLedgerSection(
+      organizationId: organization.id,
+      weeklyLedgerCubit: cubit,
+    );
   }
 }

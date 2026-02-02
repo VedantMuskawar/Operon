@@ -1,5 +1,12 @@
 import * as admin from 'firebase-admin';
-import { SOURCE_KEY, EMPLOYEES_SOURCE_KEY, VENDORS_SOURCE_KEY } from './constants';
+import {
+  SOURCE_KEY,
+  EMPLOYEES_SOURCE_KEY,
+  VENDORS_SOURCE_KEY,
+  DELIVERIES_SOURCE_KEY,
+  PRODUCTIONS_SOURCE_KEY,
+  TRIP_WAGES_ANALYTICS_SOURCE_KEY,
+} from './constants';
 
 const db = admin.firestore();
 
@@ -84,6 +91,69 @@ export async function seedVendorAnalyticsDoc(
           admin.firestore.FieldValue.arrayUnion('VENDORS', 'TRANSACTIONS'),
       'metrics.purchasesByVendorType.type': 'monthly',
       'metrics.purchasesByVendorType.unit': 'currency',
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Seed/initialize a deliveries analytics document with default structure
+ */
+export async function seedDeliveriesAnalyticsDoc(
+  docRef: FirebaseFirestore.DocumentReference,
+  fyLabel: string,
+  organizationId?: string,
+): Promise<void> {
+  await docRef.set(
+    {
+      source: DELIVERIES_SOURCE_KEY,
+      financialYear: fyLabel,
+      ...(organizationId && { organizationId }),
+      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      'metadata.sourceCollections':
+        admin.firestore.FieldValue.arrayUnion('DELIVERY_MEMOS'),
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Seed/initialize a productions analytics document with default structure
+ */
+export async function seedProductionsAnalyticsDoc(
+  docRef: FirebaseFirestore.DocumentReference,
+  fyLabel: string,
+  organizationId?: string,
+): Promise<void> {
+  await docRef.set(
+    {
+      source: PRODUCTIONS_SOURCE_KEY,
+      financialYear: fyLabel,
+      ...(organizationId && { organizationId }),
+      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      'metadata.sourceCollections':
+        admin.firestore.FieldValue.arrayUnion('PRODUCTION_BATCHES'),
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Seed/initialize a trip wages analytics document with default structure
+ */
+export async function seedTripWagesAnalyticsDoc(
+  docRef: FirebaseFirestore.DocumentReference,
+  fyLabel: string,
+  organizationId?: string,
+): Promise<void> {
+  await docRef.set(
+    {
+      source: TRIP_WAGES_ANALYTICS_SOURCE_KEY,
+      financialYear: fyLabel,
+      ...(organizationId && { organizationId }),
+      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      'metadata.sourceCollections':
+        admin.firestore.FieldValue.arrayUnion('TRIP_WAGES', 'TRANSACTIONS'),
     },
     { merge: true },
   );

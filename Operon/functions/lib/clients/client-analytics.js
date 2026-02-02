@@ -33,7 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rebuildClientAnalytics = exports.onClientCreated = void 0;
+exports.onClientCreated = void 0;
+exports.rebuildClientAnalyticsCore = rebuildClientAnalyticsCore;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("../shared/constants");
@@ -68,18 +69,11 @@ exports.onClientCreated = functions.firestore
     }, { merge: true });
 });
 /**
- * Cloud Function: Scheduled function to rebuild client analytics
- * Runs every 24 hours to recalculate analytics for all organizations
+ * Core logic to rebuild client analytics for all organizations.
+ * Called by unified analytics scheduler.
  */
-exports.rebuildClientAnalytics = functions.pubsub
-    .schedule('every 24 hours')
-    .timeZone('UTC')
-    .onRun(async () => {
-    const now = new Date();
-    const { fyLabel, fyStart, fyEnd } = (0, financial_year_1.getFinancialContext)(now);
-    // Get all clients and group by organizationId
+async function rebuildClientAnalyticsCore(fyLabel, fyStart, fyEnd) {
     const clientsSnapshot = await db.collection(constants_1.CLIENTS_COLLECTION).get();
-    // Group clients by organizationId
     const clientsByOrg = {};
     clientsSnapshot.forEach((doc) => {
         var _a;
@@ -91,15 +85,12 @@ exports.rebuildClientAnalytics = functions.pubsub
             clientsByOrg[organizationId].push(doc);
         }
     });
-    // Process analytics for each organization
     const analyticsUpdates = Object.entries(clientsByOrg).map(async ([organizationId, orgClients]) => {
         const analyticsRef = db
             .collection(constants_1.ANALYTICS_COLLECTION)
             .doc(`${constants_1.SOURCE_KEY}_${organizationId}_${fyLabel}`);
         const onboardingCounts = {};
-        // Count total active clients (all clients, irrespective of time period)
         const totalActiveClients = orgClients.length;
-        // Count monthly onboarding for current financial year
         orgClients.forEach((doc) => {
             var _a;
             const createdAt = (0, firestore_helpers_1.getCreationDate)(doc);
@@ -117,5 +108,5 @@ exports.rebuildClientAnalytics = functions.pubsub
     });
     await Promise.all(analyticsUpdates);
     console.log(`[Client Analytics] Rebuilt analytics for ${Object.keys(clientsByOrg).length} organizations`);
-});
+}
 //# sourceMappingURL=client-analytics.js.map

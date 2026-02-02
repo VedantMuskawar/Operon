@@ -6,6 +6,11 @@ class DeliveryMemoRepository {
 
   final DeliveryMemoDataSource _dataSource;
 
+  /// Get a single delivery memo by ID
+  Future<Map<String, dynamic>?> getDeliveryMemo(String dmId) {
+    return _dataSource.getDeliveryMemo(dmId);
+  }
+
   /// Generate DM for a scheduled trip
   Future<String> generateDM({
     required String organizationId,
@@ -41,6 +46,21 @@ class DeliveryMemoRepository {
       status: status,
       startDate: startDate,
       endDate: endDate,
+      limit: limit,
+    );
+  }
+
+  /// Watch delivery memos for a specific client
+  Stream<List<Map<String, dynamic>>> watchDeliveryMemosByClientId({
+    required String organizationId,
+    required String clientId,
+    String? status,
+    int? limit,
+  }) {
+    return _dataSource.watchDeliveryMemosByClientId(
+      organizationId: organizationId,
+      clientId: clientId,
+      status: status,
       limit: limit,
     );
   }

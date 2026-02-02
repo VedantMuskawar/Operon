@@ -8,6 +8,7 @@ import 'package:dash_web/presentation/views/fleet_map_screen.dart';
 import 'package:dash_web/presentation/views/pending_orders_view.dart';
 import 'package:dash_web/presentation/views/schedule_orders_view.dart';
 import 'package:dash_web/presentation/views/home_sections/attendance_view.dart';
+import 'package:dash_web/presentation/views/analytics_dashboard_view.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -29,7 +30,7 @@ class _HomePageState extends State<HomePage> {
     const PendingOrdersView(),
     const ScheduleOrdersView(),
     const FleetMapScreen(),
-    const _AnalyticsPlaceholder(),
+    const AnalyticsDashboardView(),
     const AttendanceView(),
   ];
 
@@ -67,13 +68,9 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 12),
-              ElevatedButton(
+              DashButton(
+                label: 'Choose organization',
                 onPressed: () => context.go('/org-selection'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AuthColors.primary,
-                  foregroundColor: AuthColors.textMain,
-                ),
-                child: const Text('Choose organization'),
               ),
             ],
           ),
@@ -138,6 +135,11 @@ class _HomePageState extends State<HomePage> {
             panelTitle: _sectionTitles[homeState.currentIndex],
             currentIndex: homeState.currentIndex,
             onNavTap: (index) {
+              // Cash Ledger is the 6th nav item (index 5) and opens its own page
+              if (index == 5) {
+                context.go('/cash-ledger');
+                return;
+              }
               context.read<HomeCubit>().switchToSection(index);
             },
             allowedSections: homeState.allowedSections,
@@ -256,6 +258,15 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         description: 'Manage salaries',
         color: AuthColors.success, // Green
         onTap: () => context.go('/employee-wages'),
+      ));
+    }
+    if (isAdmin) {
+      financialTiles.add(_TileData(
+        icon: Icons.calendar_month_outlined,
+        label: 'Monthly Salary & Bonus',
+        description: 'Bulk salary and bonus',
+        color: AuthColors.success, // Green
+        onTap: () => context.go('/monthly-salary-bonus'),
       ));
     }
     financialTiles.add(_TileData(
@@ -511,101 +522,6 @@ class _NotificationSection extends StatelessWidget {
 }
 
 
-
-class _AnalyticsPlaceholder extends StatelessWidget {
-  const _AnalyticsPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: _EmptyStateCard(
-        icon: Icons.dashboard_outlined,
-        title: 'Analytics Dashboard',
-        description: 'View insights and performance metrics',
-        color: AuthColors.legacyAccent,
-        isCentered: true,
-      ),
-    );
-  }
-}
-
-class _EmptyStateCard extends StatelessWidget {
-  const _EmptyStateCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.color,
-    this.isCentered = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String description;
-  final Color color;
-  final bool isCentered;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Container(
-      padding: const EdgeInsets.all(48),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AuthColors.surface.withValues(alpha: 0.6),
-            AuthColors.background.withValues(alpha: 0.8),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 40,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: TextStyle(
-              color: AuthColors.textMainWithOpacity(0.6),
-              fontSize: 16,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-
-    if (isCentered) {
-      return Center(child: content);
-    }
-    return content;
-  }
-}
 
 /// Widget showing delivery progress for today's scheduled trips
 class _DeliveryProgressWidget extends StatelessWidget {

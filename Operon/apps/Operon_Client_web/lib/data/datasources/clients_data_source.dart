@@ -10,8 +10,34 @@ class ClientsDataSource {
   CollectionReference<Map<String, dynamic>> get _clientsRef =>
       _firestore.collection('CLIENTS');
 
-  Future<List<Client>> fetchClients({int limit = 20}) async {
+  /// Fetches clients with optional cursor for pagination.
+  /// Returns clients and the last document snapshot for [startAfterDocument] on next page.
+  Future<({List<Client> clients, DocumentSnapshot<Map<String, dynamic>>? lastDoc})> fetchClients({
+    required String organizationId,
+    int limit = 20,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+  }) async {
+    Query<Map<String, dynamic>> query = _clientsRef
+        .where('organizationId', isEqualTo: organizationId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+    if (startAfterDocument != null) {
+      query = query.startAfterDocument(startAfterDocument);
+    }
+    final snapshot = await query.get();
+    final clients = snapshot.docs
+        .map((doc) => Client.fromJson(doc.data(), doc.id))
+        .toList();
+    final lastDoc = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
+    return (clients: clients, lastDoc: lastDoc);
+  }
+
+  Future<List<Client>> fetchRecentClients({
+    required String organizationId,
+    int limit = 10,
+  }) async {
     final snapshot = await _clientsRef
+        .where('organizationId', isEqualTo: organizationId)
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .get();
@@ -20,20 +46,18 @@ class ClientsDataSource {
         .toList();
   }
 
-  Future<List<Client>> fetchRecentClients({int limit = 10}) async {
-    final snapshot = await _clientsRef
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .get();
-    return snapshot.docs
-        .map((doc) => Client.fromJson(doc.data(), doc.id))
-        .toList();
-  }
-
-  Future<List<Client>> searchClientsByName(String query, {int limit = 20}) async {
-    if (query.trim().isEmpty) return fetchClients(limit: limit);
+  Future<List<Client>> searchClientsByName(
+    String organizationId,
+    String query, {
+    int limit = 20,
+  }) async {
+    if (query.trim().isEmpty) {
+      final result = await fetchClients(organizationId: organizationId, limit: limit);
+      return result.clients;
+    }
     final normalized = query.trim().toLowerCase();
     final snapshot = await _clientsRef
+        .where('organizationId', isEqualTo: organizationId)
         .orderBy('name_lc')
         .startAt([normalized])
         .endAt(['$normalized\uf8ff'])
@@ -44,9 +68,14 @@ class ClientsDataSource {
         .toList();
   }
 
-  Future<List<Client>> searchClientsByPhone(String digits, {int limit = 10}) async {
+  Future<List<Client>> searchClientsByPhone(
+    String organizationId,
+    String digits, {
+    int limit = 10,
+  }) async {
     final normalized = _normalizePhone(digits);
     final snapshot = await _clientsRef
+        .where('organizationId', isEqualTo: organizationId)
         .where('phoneIndex', arrayContains: normalized)
         .limit(limit)
         .get();
@@ -172,9 +201,10 @@ class ClientsDataSource {
     return _clientsRef.doc(clientId).delete();
   }
 
-  Future<Client?> findClientByPhone(String phone) async {
+  Future<Client?> findClientByPhone(String organizationId, String phone) async {
     final normalized = _normalizePhone(phone);
     final snapshot = await _clientsRef
+        .where('organizationId', isEqualTo: organizationId)
         .where('phoneIndex', arrayContains: normalized)
         .limit(1)
         .get();

@@ -1,4 +1,4 @@
-import 'package:core_ui/core_ui.dart' show AuthColors;
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashDialogHeader, DashSnackbar;
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
@@ -70,9 +70,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load employees: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to load employees: $e', isError: true);
       }
     }
   }
@@ -97,9 +95,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load payment accounts: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to load payment accounts: $e', isError: true);
       }
     }
   }
@@ -122,9 +118,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
   Future<void> _submitBonus() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedEmployee == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an employee')),
-      );
+      DashSnackbar.show(context, message: 'Please select an employee', isError: true);
       return;
     }
 
@@ -133,16 +127,12 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (organization == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Organization not found')),
-      );
+      DashSnackbar.show(context, message: 'Organization not found', isError: true);
       return;
     }
 
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not authenticated')),
-      );
+      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
       return;
     }
 
@@ -169,23 +159,13 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Bonus recorded successfully'),
-            backgroundColor: AuthColors.success,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Bonus recorded successfully', isError: false);
         Navigator.of(context).pop();
         widget.onBonusRecorded?.call();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to record bonus: $e'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Failed to record bonus: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -244,37 +224,10 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AuthColors.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.card_giftcard,
-                      color: AuthColors.primary,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Record Bonus',
-                      style: TextStyle(
-                        color: AuthColors.textMain,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: AuthColors.textSub),
-                  ),
-                ],
+              DashDialogHeader(
+                title: 'Record Bonus',
+                icon: Icons.card_giftcard,
+                onClose: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 24),
 
@@ -410,32 +363,13 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
               const SizedBox(height: 24),
 
               // Submit Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submitBonus,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AuthColors.primary,
-                  foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+              SizedBox(
+                width: double.infinity,
+                child: DashButton(
+                  label: 'Record Bonus',
+                  onPressed: _submitBonus,
+                  isLoading: _isLoading,
                 ),
-                child: _isLoading
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.textMain),
-                        ),
-                      )
-                    : const Text(
-                        'Record Bonus',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
               ),
             ],
           ),

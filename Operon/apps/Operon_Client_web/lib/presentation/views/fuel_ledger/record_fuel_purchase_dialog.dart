@@ -1,5 +1,5 @@
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/theme/auth_colors.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashDialogHeader, DashSnackbar;
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/vehicles_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
@@ -65,9 +65,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
     } catch (e) {
       setState(() => _isLoadingVehicles = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load vehicles: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to load vehicles: $e', isError: true);
       }
     }
   }
@@ -103,9 +101,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
       _loadVehicles();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load vendors: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to load vendors: $e', isError: true);
       }
     }
   }
@@ -151,9 +147,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
   Future<void> _submitPurchase() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedVendor == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a vendor')),
-      );
+      DashSnackbar.show(context, message: 'Please select a vendor', isError: true);
       return;
     }
 
@@ -162,16 +156,12 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
     final currentUser = FirebaseAuth.instance.currentUser;
     
     if (organization == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Organization not found')),
-      );
+      DashSnackbar.show(context, message: 'Organization not found', isError: true);
       return;
     }
     
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not authenticated')),
-      );
+      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
       return;
     }
 
@@ -220,12 +210,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
       final transactionId = docRef.id;
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Fuel purchase recorded successfully'),
-            backgroundColor: AuthColors.success,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Fuel purchase recorded successfully', isError: false);
         
         // If link trips now is checked, show link trips dialog
         if (_linkTripsNow) {
@@ -251,12 +236,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to record purchase: $e'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Failed to record purchase: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -281,37 +261,10 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AuthColors.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.local_gas_station,
-                      color: AuthColors.primary,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Record Fuel Purchase',
-                      style: TextStyle(
-                        color: AuthColors.textMain,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
-                  ),
-                ],
+              DashDialogHeader(
+                title: 'Record Fuel Purchase',
+                icon: Icons.local_gas_station,
+                onClose: () => Navigator.of(context).pop(),
               ),
               const SizedBox(height: 24),
               
@@ -463,30 +416,16 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  DashButton(
+                    label: 'Cancel',
                     onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(color: AuthColors.textSub),
-                    ),
+                    variant: DashButtonVariant.text,
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _submitPurchase,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AuthColors.primary,
-                      foregroundColor: AuthColors.textMain,
-                    ),
-                    child: _isLoading
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
-                            ),
-                          )
-                        : const Text('Record Purchase'),
+                  DashButton(
+                    label: 'Record Purchase',
+                    onPressed: _submitPurchase,
+                    isLoading: _isLoading,
                   ),
                 ],
               ),

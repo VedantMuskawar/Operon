@@ -28,9 +28,9 @@ class ProductionBatchTemplatesPage extends StatelessWidget {
             children: [
               const Text('No organization selected'),
               const SizedBox(height: 16),
-              ElevatedButton(
+              DashButton(
+                label: 'Select Organization',
                 onPressed: () => context.go('/org-selection'),
-                child: const Text('Select Organization'),
               ),
             ],
           ),
@@ -216,16 +216,16 @@ class _ProductionBatchTemplatesContent extends StatelessWidget {
                             style: const TextStyle(color: AuthColors.textSub),
                           ),
                           actions: [
-                            TextButton(
+                            DashButton(
+                              label: 'Cancel',
                               onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+                              variant: DashButtonVariant.text,
                             ),
-                            TextButton(
+                            DashButton(
+                              label: 'Delete',
                               onPressed: () => Navigator.pop(context, true),
-                              style: TextButton.styleFrom(
-                                foregroundColor: AuthColors.error,
-                              ),
-                              child: const Text('Delete'),
+                              variant: DashButtonVariant.text,
+                              isDestructive: true,
                             ),
                           ],
                         ),

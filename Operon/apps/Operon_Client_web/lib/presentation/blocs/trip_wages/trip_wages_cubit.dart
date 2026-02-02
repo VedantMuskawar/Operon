@@ -614,23 +614,12 @@ class TripWagesCubit extends Cubit<TripWagesState> {
       final currentUser = FirebaseAuth.instance.currentUser;
       final createdBy = currentUser?.uid ?? 'system';
 
-      // #region agent log
-      debugPrint('[DEBUG] processTripWage: About to call processTripWages service');
-      debugPrint('[DEBUG] processTripWage: tripWageId=${tripWage.tripWageId}, paymentDate=${paymentDate.toIso8601String()}, createdBy=$createdBy');
-      debugPrint('[DEBUG] processTripWage: loadingWages=${tripWage.loadingWages}, unloadingWages=${tripWage.unloadingWages}');
-      debugPrint('[DEBUG] processTripWage: loadingEmployeeIds=${tripWage.loadingEmployeeIds.length}, unloadingEmployeeIds=${tripWage.unloadingEmployeeIds.length}');
-      // #endregion
-
       final transactionIds = await _wageCalculationService.processTripWages(
         tripWage,
         method,
         createdBy,
         paymentDate,
       );
-
-      // #region agent log
-      debugPrint('[DEBUG] processTripWage: Successfully processed, transactionIds=$transactionIds');
-      // #endregion
 
       return transactionIds;
     } catch (e, stackTrace) {

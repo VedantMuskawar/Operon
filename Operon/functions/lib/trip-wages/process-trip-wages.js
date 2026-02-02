@@ -161,8 +161,9 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
         if (status === 'processed') {
             throw new Error('Trip wage has already been processed');
         }
-        // Get scheduled date from DM or use payment date as fallback
+        // Get scheduled date and vehicle number from DM or use payment date as fallback
         let tripDate = parsedPaymentDate;
+        let vehicleNumber;
         try {
             const dmDoc = await db.collection('DELIVERY_MEMOS').doc(dmId).get();
             if (dmDoc.exists) {
@@ -174,6 +175,8 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
                 else if (scheduledDate === null || scheduledDate === void 0 ? void 0 : scheduledDate._seconds) {
                     tripDate = new Date(scheduledDate._seconds * 1000);
                 }
+                // Get vehicle number for ledger metadata
+                vehicleNumber = dmData.vehicleNumber;
             }
         }
         catch (error) {
@@ -227,6 +230,10 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
                         createdAt: admin.firestore.FieldValue.serverTimestamp(),
                         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                     };
+                    // Add vehicle number to metadata if available
+                    if (vehicleNumber) {
+                        transactionData.metadata.vehicleNumber = vehicleNumber;
+                    }
                     firestoreBatch.set(transactionRef, transactionData);
                     transactionIds.push(transactionId);
                 }
@@ -272,6 +279,10 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
                         createdAt: admin.firestore.FieldValue.serverTimestamp(),
                         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                     };
+                    // Add vehicle number to metadata if available
+                    if (vehicleNumber) {
+                        transactionData.metadata.vehicleNumber = vehicleNumber;
+                    }
                     firestoreBatch.set(transactionRef, transactionData);
                     transactionIds.push(transactionId);
                 }

@@ -7,8 +7,10 @@ import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/trip_wages/trip_wages_cubit.dart';
 import 'package:dash_web/presentation/blocs/trip_wages/trip_wages_state.dart';
+import 'package:dash_web/presentation/blocs/weekly_ledger/weekly_ledger_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/widgets/trip_wage_employee_selection_dialog.dart';
+import 'package:dash_web/presentation/widgets/weekly_ledger_section.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -30,9 +32,9 @@ class TripWagesPage extends StatelessWidget {
             children: [
               const Text('No organization selected'),
               const SizedBox(height: 16),
-              ElevatedButton(
+              DashButton(
+                label: 'Select Organization',
                 onPressed: () => context.go('/org-selection'),
-                child: const Text('Select Organization'),
               ),
             ],
           ),
@@ -40,20 +42,34 @@ class TripWagesPage extends StatelessWidget {
       );
     }
 
-    return BlocProvider(
-      create: (context) => TripWagesCubit(
-        repository: context.read<TripWagesRepository>(),
-        deliveryMemoRepository: context.read<DeliveryMemoRepository>(),
-        organizationId: organization.id,
-        employeesRepository: context.read<EmployeesRepository>(),
-        wageSettingsRepository: context.read<WageSettingsRepository>(),
-        wageCalculationService: WageCalculationService(
-          employeeWagesDataSource: EmployeeWagesDataSource(),
-          productionBatchesDataSource: ProductionBatchesDataSource(),
-          tripWagesDataSource: TripWagesDataSource(),
-          employeeAttendanceDataSource: EmployeeAttendanceDataSource(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => TripWagesCubit(
+            repository: context.read<TripWagesRepository>(),
+            deliveryMemoRepository: context.read<DeliveryMemoRepository>(),
+            organizationId: organization.id,
+            employeesRepository: context.read<EmployeesRepository>(),
+            wageSettingsRepository: context.read<WageSettingsRepository>(),
+            wageCalculationService: WageCalculationService(
+              employeeWagesDataSource: EmployeeWagesDataSource(),
+              productionBatchesDataSource: ProductionBatchesDataSource(),
+              tripWagesDataSource: TripWagesDataSource(),
+              employeeAttendanceDataSource: EmployeeAttendanceDataSource(),
+            ),
+          )..loadWageSettings(),
         ),
-      )..loadWageSettings(),
+        BlocProvider(
+          create: (context) => WeeklyLedgerCubit(
+            productionBatchesRepository: context.read<ProductionBatchesRepository>(),
+            tripWagesRepository: context.read<TripWagesRepository>(),
+            employeesRepository: context.read<EmployeesRepository>(),
+            deliveryMemoRepository: context.read<DeliveryMemoRepository>(),
+            employeeWagesRepository: context.read<EmployeeWagesRepository>(),
+            organizationId: organization.id,
+          ),
+        ),
+      ],
       child: SectionWorkspaceLayout(
         panelTitle: 'Trip Wages',
         currentIndex: -1,
@@ -93,14 +109,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AuthColors.legacyAccent,
-              onPrimary: AuthColors.textMain,
-              surface: AuthColors.surface,
-              onSurface: AuthColors.textMain,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -129,12 +138,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
     final wageSettings = state.wageSettings;
     if (wageSettings == null || !wageSettings.enabled) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Wage settings are not enabled'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Wage settings are not enabled', isError: true);
       }
       return;
     }
@@ -146,12 +150,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
 
     if (loadingUnloadingMethods.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No loading/unloading wage method found'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'No loading/unloading wage method found', isError: true);
       }
       return;
     }
@@ -163,12 +162,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
     final items = dm['items'] as List<dynamic>? ?? [];
     if (items.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('DM has no items'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'DM has no items', isError: true);
       }
       return;
     }
@@ -261,30 +255,19 @@ class _TripWagesContentState extends State<_TripWagesContent> {
         await cubit.loadActiveDMsForDate(_selectedDate);
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(hasTripWage ? 'Trip wage updated successfully' : 'Trip wage created successfully'),
-              backgroundColor: AuthColors.success,
-            ),
+          DashSnackbar.show(
+            context,
+            message: hasTripWage ? 'Trip wage updated successfully' : 'Trip wage created successfully',
+            isError: false,
           );
         }
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Trip wage created successfully'),
-              backgroundColor: AuthColors.success,
-            ),
-          );
+          DashSnackbar.show(context, message: 'Trip wage created successfully', isError: false);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to create trip wage: $e'),
-              backgroundColor: AuthColors.error,
-            ),
-          );
+          DashSnackbar.show(context, message: 'Failed to create trip wage: $e', isError: true);
         }
       }
     }
@@ -294,12 +277,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
     // Validate tripWageId before proceeding
     if (tripWageId.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error: Invalid trip wage ID'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Error: Invalid trip wage ID', isError: true);
       }
       return;
     }
@@ -354,17 +332,15 @@ class _TripWagesContentState extends State<_TripWagesContent> {
           ],
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            variant: DashButtonVariant.text,
           ),
-          ElevatedButton(
+          DashButton(
+            label: 'Discard',
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AuthColors.error,
-              foregroundColor: AuthColors.textMain,
-            ),
-            child: const Text('Discard'),
+            isDestructive: true,
           ),
         ],
       ),
@@ -376,21 +352,15 @@ class _TripWagesContentState extends State<_TripWagesContent> {
     try {
       await cubit.deleteTripWage(tripWageId);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Trip wage discarded successfully. Wages and attendance have been reverted.'),
-            backgroundColor: Colors.green,
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Trip wage discarded successfully. Wages and attendance have been reverted.',
+          isError: false,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error discarding trip wage: $e'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Error discarding trip wage: $e', isError: true);
       }
     }
   }
@@ -439,9 +409,9 @@ class _TripWagesContentState extends State<_TripWagesContent> {
               children: [
                 Text('Error: ${state.message}'),
                 const SizedBox(height: 16),
-                ElevatedButton(
+                DashButton(
+                  label: 'Retry',
                   onPressed: () => context.read<TripWagesCubit>().loadActiveDMsForDate(_selectedDate),
-                  child: const Text('Retry'),
                 ),
               ],
             ),
@@ -501,7 +471,8 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                 ],
               ),
               const SizedBox(height: 24),
-              
+              const _WeeklyLedgerBlock(),
+              const SizedBox(height: 24),
               // Main content: DMs and Summary Table
               LayoutBuilder(
                 builder: (context, constraints) {
@@ -556,43 +527,63 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                             )
                           : LayoutBuilder(
                               builder: (context, constraints) {
+                                // Cap displayed cards to avoid browser tab crash on massive days
+                                const maxDisplayedDMs = 50;
+                                final displayedDMs = state.activeDMs.take(maxDisplayedDMs).toList();
+                                final hasMore = state.activeDMs.length > maxDisplayedDMs;
                                 // Calculate number of columns based on available width (2/3 of total)
                                 final availableWidth = constraints.maxWidth;
                                 final crossAxisCount = (availableWidth / 400).floor().clamp(1, 3);
                                 final cardWidth = (availableWidth - (crossAxisCount - 1) * 16) / crossAxisCount;
                                 
                                 return SingleChildScrollView(
-                                  child: Wrap(
-                                    spacing: 16,
-                                    runSpacing: 16,
-                                    children: state.activeDMs.map((dm) {
-                                      final calculatedWage = _calculateWageForDM(dm, cubit);
-                                      final hasTripWage = dm['hasTripWage'] == true;
-                                      final tripWageStatus = dm['tripWageStatus'] as String?;
-                                      final tripWageId = dm['tripWageId'] as String?;
-                                      final tripWage = dm['tripWage'] as TripWage?;
-                                      final loadingEmployeeIds = dm['loadingEmployeeIds'] as List<String>? ?? [];
-                                      final unloadingEmployeeIds = dm['unloadingEmployeeIds'] as List<String>? ?? [];
-                                      
-                                      return SizedBox(
-                                        width: cardWidth,
-                                        child: _DMCard(
-                                          dm: dm,
-                                          calculatedWage: calculatedWage,
-                                          hasTripWage: hasTripWage,
-                                          tripWageStatus: tripWageStatus,
-                                          tripWageId: tripWageId,
-                                          tripWage: tripWage,
-                                          loadingEmployeeIds: loadingEmployeeIds,
-                                          unloadingEmployeeIds: unloadingEmployeeIds,
-                                          availableEmployees: state.loadingEmployees,
-                                          onTap: () => _handleDMCardTap(dm),
-                                          onDiscard: hasTripWage && tripWageId != null
-                                              ? () => _handleDiscardTripWage(context, tripWageId)
-                                              : null,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (hasMore)
+                                        Padding(
+                                          padding: const EdgeInsets.only(bottom: 12),
+                                          child: Text(
+                                            'Showing first $maxDisplayedDMs of ${state.activeDMs.length} delivery memos',
+                                            style: TextStyle(
+                                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                              fontSize: 14,
+                                            ),
+                                          ),
                                         ),
-                                      );
-                                    }).toList(),
+                                      Wrap(
+                                        spacing: 16,
+                                        runSpacing: 16,
+                                        children: displayedDMs.map((dm) {
+                                          final calculatedWage = _calculateWageForDM(dm, cubit);
+                                          final hasTripWage = dm['hasTripWage'] == true;
+                                          final tripWageStatus = dm['tripWageStatus'] as String?;
+                                          final tripWageId = dm['tripWageId'] as String?;
+                                          final tripWage = dm['tripWage'] as TripWage?;
+                                          final loadingEmployeeIds = dm['loadingEmployeeIds'] as List<String>? ?? [];
+                                          final unloadingEmployeeIds = dm['unloadingEmployeeIds'] as List<String>? ?? [];
+                                          
+                                          return SizedBox(
+                                            width: cardWidth,
+                                            child: _DMCard(
+                                              dm: dm,
+                                              calculatedWage: calculatedWage,
+                                              hasTripWage: hasTripWage,
+                                              tripWageStatus: tripWageStatus,
+                                              tripWageId: tripWageId,
+                                              tripWage: tripWage,
+                                              loadingEmployeeIds: loadingEmployeeIds,
+                                              unloadingEmployeeIds: unloadingEmployeeIds,
+                                              availableEmployees: state.loadingEmployees,
+                                              onTap: () => _handleDMCardTap(dm),
+                                              onDiscard: hasTripWage && tripWageId != null
+                                                  ? () => _handleDiscardTripWage(context, tripWageId)
+                                                  : null,
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
                                   ),
                                 );
                               },
@@ -1612,6 +1603,22 @@ class _InfoItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WeeklyLedgerBlock extends StatelessWidget {
+  const _WeeklyLedgerBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    final organization = orgState.organization;
+    if (organization == null) return const SizedBox.shrink();
+    final cubit = context.read<WeeklyLedgerCubit>();
+    return WeeklyLedgerSection(
+      organizationId: organization.id,
+      weeklyLedgerCubit: cubit,
     );
   }
 }

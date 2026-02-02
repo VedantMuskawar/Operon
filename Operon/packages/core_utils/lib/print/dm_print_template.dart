@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:core_models/core_models.dart';
+import 'base_operon_document.dart';
 import 'pdf_builder.dart';
 import 'dm_custom_templates.dart';
 
@@ -110,7 +111,6 @@ Future<Uint8List> generateDmPdf({
                 child: _buildHeader(
                   dmSettings.header,
                   logoBytes: logoBytes,
-                  isPortrait: isPortrait,
                 ),
               ),
               
@@ -205,27 +205,8 @@ Future<Uint8List> generateDmPdf({
               
               pw.SizedBox(height: 12),
               
-              // Footer Section with decorative border
-              if (dmSettings.footer.customText != null &&
-                  dmSettings.footer.customText!.isNotEmpty) ...[
-                pw.Container(
-                  padding: const pw.EdgeInsets.all(10),
-                  decoration: const pw.BoxDecoration(
-                    border: pw.Border(
-                      top: pw.BorderSide(color: PdfColors.grey300, width: 1),
-                    ),
-                  ),
-                  child: pw.Text(
-                    dmSettings.footer.customText!,
-                    style: pw.TextStyle(
-                      fontSize: 10,
-                      color: PdfColors.grey700,
-                      fontStyle: pw.FontStyle.italic,
-                    ),
-                    textAlign: pw.TextAlign.center,
-                  ),
-                ),
-              ],
+              // Footer Section (base helper; empty if no custom text)
+              BaseOperonDocument.buildOperonFooter(dmSettings.footer),
             ],
           ),
         ),
@@ -236,117 +217,34 @@ Future<Uint8List> generateDmPdf({
   return pdf.save();
 }
 
-/// Build header section with logo, company name, address, phone
+/// Build header section with logo and company info (uses base buildCompanyInfo).
 pw.Widget _buildHeader(
   DmHeaderSettings header, {
   Uint8List? logoBytes,
-  required bool isPortrait,
 }) {
-  final headerChildren = <pw.Widget>[];
-
-  // Logo and Company Info
   if (logoBytes != null) {
     try {
       final logoImage = pw.MemoryImage(logoBytes);
-      if (isPortrait) {
-        // Portrait: Logo on left, info on right
-        headerChildren.add(
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Image(
-                logoImage,
-                width: 50,
-                height: 50,
-                fit: pw.BoxFit.contain,
-              ),
-              pw.SizedBox(width: 12),
-              pw.Expanded(
-                child: _buildCompanyInfo(header),
-              ),
-            ],
-          ),
-        );
-      } else {
-        // Landscape: Logo on left, info flows right
-        headerChildren.add(
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Image(
-                logoImage,
-                width: 50,
-                height: 50,
-                fit: pw.BoxFit.contain,
-              ),
-              pw.SizedBox(width: 12),
-              pw.Expanded(
-                child: _buildCompanyInfo(header),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      // If logo fails to load, just show company info
-      headerChildren.add(_buildCompanyInfo(header));
-    }
-  } else {
-    headerChildren.add(_buildCompanyInfo(header));
-  }
-
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: headerChildren,
-  );
-}
-
-pw.Widget _buildCompanyInfo(DmHeaderSettings header) {
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pw.Text(
-        header.name,
-        style: pw.TextStyle(
-          fontSize: 16,
-          fontWeight: pw.FontWeight.bold,
-          color: PdfColors.black,
-        ),
-      ),
-      if (header.address.isNotEmpty) ...[
-        pw.SizedBox(height: 3),
-        pw.Text(
-          header.address,
-          style: const pw.TextStyle(
-            fontSize: 10,
-            color: PdfColors.grey700,
-          ),
-        ),
-      ],
-      pw.SizedBox(height: 3),
-      pw.Row(
+      return pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(
-            'Phone: ${header.phone}',
-            style: const pw.TextStyle(
-              fontSize: 9,
-              color: PdfColors.grey700,
-            ),
+          pw.Image(
+            logoImage,
+            width: 50,
+            height: 50,
+            fit: pw.BoxFit.contain,
           ),
-          if (header.gstNo != null && header.gstNo!.isNotEmpty) ...[
-            pw.SizedBox(width: 12),
-            pw.Text(
-              'GST: ${header.gstNo}',
-              style: const pw.TextStyle(
-                fontSize: 9,
-                color: PdfColors.grey700,
-              ),
-            ),
-          ],
+          pw.SizedBox(width: 12),
+          pw.Expanded(
+            child: BaseOperonDocument.buildCompanyInfo(header),
+          ),
         ],
-      ),
-    ],
-  );
+      );
+    } catch (_) {
+      return BaseOperonDocument.buildCompanyInfo(header);
+    }
+  }
+  return BaseOperonDocument.buildCompanyInfo(header);
 }
 
 /// Build DM info section

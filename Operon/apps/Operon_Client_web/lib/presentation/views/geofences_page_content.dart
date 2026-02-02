@@ -9,8 +9,6 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/geofence_editor_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-
 /// Reusable content for Geofences list; used by full page and Settings side sheet.
 class GeofencesPageContent extends StatelessWidget {
   const GeofencesPageContent({super.key});
@@ -79,84 +77,80 @@ class GeofencesPageContent extends StatelessWidget {
                 );
               }
 
-              // Group by location
+              // Group by location, then flatten to [header, tile, tile, header, tile, ...] for ListView.builder
               final locationGroups = <String, List<core_models.Geofence>>{};
               for (final geofence in state.geofences) {
                 locationGroups.putIfAbsent(geofence.locationId, () => []).add(geofence);
               }
+              final flatItems = <_GeofenceListEntry>[];
+              for (final locationId in locationGroups.keys) {
+                final geofences = locationGroups[locationId]!;
+                flatItems.add(_GeofenceListEntry.header(locationId, geofences));
+                for (final g in geofences) {
+                  flatItems.add(_GeofenceListEntry.tile(g));
+                }
+              }
 
-              return AnimationLimiter(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: locationGroups.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 20),
-                  itemBuilder: (context, index) {
-                    final locationId = locationGroups.keys.elementAt(index);
-                    final geofences = locationGroups[locationId]!;
-                    return AnimationConfiguration.staggeredList(
-                      position: index,
-                      duration: const Duration(milliseconds: 200),
-                      child: SlideAnimation(
-                        verticalOffset: 50.0,
-                        child: FadeInAnimation(
-                          curve: Curves.easeOut,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    'Location: ${geofences.first.locationId}',
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (isAdmin) ...[
-                                    const Spacer(),
-                                    TextButton(
-                                      onPressed: () => _openGeofenceDialog(
-                                        context,
-                                        locationId: locationId,
-                                      ),
-                                      child: const Text('Add geofence'),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              ...geofences.map((geofence) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: _GeofenceTile(
-                                      geofence: geofence,
-                                      canManage: isAdmin,
-                                      onEdit: isAdmin
-                                          ? () => _openGeofenceDialog(
-                                                context,
-                                                geofenceId: geofence.id,
-                                                locationId: geofence.locationId,
-                                              )
-                                          : null,
-                                      onDelete: isAdmin
-                                          ? () => context.read<GeofencesCubit>().deleteGeofence(geofence.id)
-                                          : null,
-                                      onToggleActive: isAdmin
-                                          ? (active) => context.read<GeofencesCubit>().toggleActive(
-                                                geofenceId: geofence.id,
-                                                isActive: active,
-                                              )
-                                          : null,
-                                    ),
-                                  )),
-                            ],
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: flatItems.length,
+                itemBuilder: (context, index) {
+                  final entry = flatItems[index];
+                  if (entry.isHeader) {
+                    final locationId = entry.locationId!;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Location: $locationId',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        ),
+                          if (isAdmin) ...[
+                            const Spacer(),
+                            DashButton(
+                              label: 'Add geofence',
+                              onPressed: () => _openGeofenceDialog(
+                                context,
+                                locationId: locationId,
+                              ),
+                              variant: DashButtonVariant.text,
+                            ),
+                          ],
+                        ],
                       ),
                     );
-                  },
-                ),
+                  }
+                  final geofence = entry.geofence!;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _GeofenceTile(
+                      geofence: geofence,
+                      canManage: isAdmin,
+                      onEdit: isAdmin
+                          ? () => _openGeofenceDialog(
+                                context,
+                                geofenceId: geofence.id,
+                                locationId: geofence.locationId,
+                              )
+                          : null,
+                      onDelete: isAdmin
+                          ? () => context.read<GeofencesCubit>().deleteGeofence(geofence.id)
+                          : null,
+                      onToggleActive: isAdmin
+                          ? (active) => context.read<GeofencesCubit>().toggleActive(
+                                geofenceId: geofence.id,
+                                isActive: active,
+                              )
+                          : null,
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -193,10 +187,10 @@ class GeofencesPageContent extends StatelessWidget {
       final locations = await locationsRepo.fetchLocations(organization.id);
       
       if (locations.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please create a location first before creating a geofence'),
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Please create a location first before creating a geofence',
+          isError: true,
         );
         return;
       }
@@ -248,9 +242,10 @@ class GeofencesPageContent extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(
+            DashButton(
+              label: 'Cancel',
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              variant: DashButtonVariant.text,
             ),
           ],
         ),
@@ -306,6 +301,29 @@ class GeofencesPageContent extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+/// One entry in the flattened geofence list: either a location header or a tile.
+class _GeofenceListEntry {
+  _GeofenceListEntry._({this.locationId, this.geofences, this.geofence})
+      : assert(
+          (locationId != null && geofences != null && geofence == null) ||
+              (locationId == null && geofences == null && geofence != null),
+        );
+
+  final String? locationId;
+  final List<core_models.Geofence>? geofences;
+  final core_models.Geofence? geofence;
+
+  bool get isHeader => locationId != null;
+
+  factory _GeofenceListEntry.header(String locationId, List<core_models.Geofence> geofences) {
+    return _GeofenceListEntry._(locationId: locationId, geofences: geofences);
+  }
+
+  factory _GeofenceListEntry.tile(core_models.Geofence geofence) {
+    return _GeofenceListEntry._(geofence: geofence);
   }
 }
 
@@ -447,19 +465,19 @@ class _GeofenceTile extends StatelessWidget {
                         style: const TextStyle(color: Colors.white70),
                       ),
                       actions: [
-                        TextButton(
+                        DashButton(
+                          label: 'Cancel',
                           onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Cancel'),
+                          variant: DashButtonVariant.text,
                         ),
-                        TextButton(
+                        DashButton(
+                          label: 'Delete',
                           onPressed: () {
                             Navigator.of(ctx).pop();
                             onDelete?.call();
                           },
-                          child: const Text(
-                            'Delete',
-                            style: TextStyle(color: Colors.red),
-                          ),
+                          variant: DashButtonVariant.text,
+                          isDestructive: true,
                         ),
                       ],
                     ),

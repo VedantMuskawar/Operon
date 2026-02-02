@@ -4,6 +4,7 @@ import * as admin from 'firebase-admin';
 admin.initializeApp();
 
 // Export all Cloud Functions
+export * from './analytics';
 export * from './clients/client-analytics';
 export * from './clients/client-whatsapp';
 export * from './transactions';

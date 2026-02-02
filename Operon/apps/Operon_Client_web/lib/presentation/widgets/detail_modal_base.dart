@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:flutter/material.dart';
 
 /// Base modal dialog component for detail views
@@ -96,7 +97,7 @@ class _DetailModalBaseState extends State<DetailModalBase>
                       child: GestureDetector(
                         onTap: widget.barrierDismissible ? _handleClose : null,
                         child: Container(
-                          color: Colors.black.withOpacity(0.7),
+                          color: AuthColors.background.withOpacity(0.7),
                         ),
                       ),
                     ),
@@ -113,11 +114,11 @@ class _DetailModalBaseState extends State<DetailModalBase>
                           vertical: isMobile ? 8 : 0,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0D0D15),
+                          color: AuthColors.background,
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.5),
+                              color: AuthColors.background.withOpacity(0.5),
                               blurRadius: 30,
                               spreadRadius: -10,
                               offset: const Offset(0, 20),

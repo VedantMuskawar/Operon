@@ -1,4 +1,13 @@
 {
+  "hosting": {
+    "target": "lakshmee-site",
+    "public": "apps/marketing/out",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  },
   "firestore": {
     "database": "(default)",
     "location": "asia-south1",

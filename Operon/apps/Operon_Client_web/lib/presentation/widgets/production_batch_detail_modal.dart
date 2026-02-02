@@ -99,8 +99,10 @@ class _ProductionBatchDetailModalState
   Future<void> _handleApprove() async {
     if (widget.batch.batchId.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: Batch ID is missing. Please refresh and try again.')),
+        DashSnackbar.show(
+          context,
+          message: 'Error: Batch ID is missing. Please refresh and try again.',
+          isError: true,
         );
       }
       return;
@@ -111,15 +113,11 @@ class _ProductionBatchDetailModalState
       await context.read<ProductionBatchesCubit>().approveBatch(widget.batch.batchId);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Batch approved successfully')),
-        );
+        DashSnackbar.show(context, message: 'Batch approved successfully', isError: false);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -131,8 +129,10 @@ class _ProductionBatchDetailModalState
   Future<void> _handleProcess() async {
     if (widget.batch.batchId.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: Batch ID is missing. Please refresh and try again.')),
+        DashSnackbar.show(
+          context,
+          message: 'Error: Batch ID is missing. Please refresh and try again.',
+          isError: true,
         );
       }
       return;
@@ -145,14 +145,7 @@ class _ProductionBatchDetailModalState
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AuthColors.legacyAccent,
-              onPrimary: AuthColors.textMain,
-              surface: AuthColors.surface,
-              onSurface: AuthColors.textMain,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -167,18 +160,15 @@ class _ProductionBatchDetailModalState
           .processWages(widget.batch.batchId, paymentDate);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Wages processed successfully. ${transactionIds.length} transaction(s) created.'),
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Wages processed successfully. ${transactionIds.length} transaction(s) created.',
+          isError: false,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -190,8 +180,10 @@ class _ProductionBatchDetailModalState
   Future<void> _handleDelete() async {
     if (widget.batch.batchId.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error: Batch ID is missing. Please refresh and try again.')),
+        DashSnackbar.show(
+          context,
+          message: 'Error: Batch ID is missing. Please refresh and try again.',
+          isError: true,
         );
       }
       return;
@@ -249,17 +241,15 @@ class _ProductionBatchDetailModalState
           ],
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            variant: DashButtonVariant.text,
           ),
-          ElevatedButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AuthColors.error,
-              foregroundColor: AuthColors.textMain,
-            ),
-            child: const Text('Delete'),
+            isDestructive: true,
           ),
         ],
       ),
@@ -272,17 +262,15 @@ class _ProductionBatchDetailModalState
       await context.read<ProductionBatchesCubit>().deleteBatch(widget.batch.batchId);
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Production batch deleted successfully. Wages and attendance have been reverted.'),
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Production batch deleted successfully. Wages and attendance have been reverted.',
+          isError: false,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting batch: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error deleting batch: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -649,42 +637,21 @@ class _ProductionBatchDetailModalState
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        OutlinedButton.icon(
+                        DashButton(
+                          label: 'Delete',
+                          icon: Icons.delete_outline,
                           onPressed: _isLoading ? null : _handleDelete,
-                          icon: const Icon(Icons.delete_outline, size: 18),
-                          label: const Text('Delete'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red, width: 1.5),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 14,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
+                          isDestructive: true,
+                          variant: DashButtonVariant.outlined,
                         ),
                         Row(
                           children: [
-                            OutlinedButton(
+                            DashButton(
+                              label: 'Close',
                               onPressed: _isLoading
                                   ? null
                                   : () => Navigator.of(context).pop(),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white70,
-                                side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Text('Close'),
+                              variant: DashButtonVariant.text,
                             ),
                             // Only show actions for batches that have calculated wages
                             if (widget.batch.status == ProductionBatchStatus.calculated ||
@@ -692,42 +659,17 @@ class _ProductionBatchDetailModalState
                               if (widget.batch.status == ProductionBatchStatus.calculated &&
                                   requiresApproval) ...[
                                 const SizedBox(width: 12),
-                                ElevatedButton.icon(
+                                DashButton(
+                                  label: 'Approve',
+                                  icon: Icons.check_circle_outline,
                                   onPressed: _isLoading ? null : _handleApprove,
-                                  icon: const Icon(Icons.check_circle_outline, size: 18),
-                                  label: const Text('Approve'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF4CAF50),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 14,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
                                 ),
                               ],
                               const SizedBox(width: 12),
-                              ElevatedButton.icon(
+                              DashButton(
+                                label: 'Process Wages',
+                                icon: Icons.account_balance_wallet_outlined,
                                 onPressed: _isLoading ? null : _handleProcess,
-                                icon: const Icon(Icons.account_balance_wallet_outlined,
-                                    size: 18),
-                                label: const Text('Process Wages'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF9C27B0),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 14,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
                               ),
                             ],
                             // If batch is in recorded status (shouldn't happen with new flow, but handle it)

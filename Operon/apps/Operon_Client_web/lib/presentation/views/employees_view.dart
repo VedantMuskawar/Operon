@@ -90,7 +90,31 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
     return BlocBuilder<EmployeesCubit, EmployeesState>(
       builder: (context, state) {
         if (state.status == ViewStatus.loading && state.employees.isEmpty) {
-          return _LoadingState();
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SkeletonLoader(
+                    height: 40,
+                    width: double.infinity,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(8, (_) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SkeletonLoader(
+                      height: 80,
+                      width: double.infinity,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          );
         }
         if (state.status == ViewStatus.failure && state.employees.isEmpty) {
           return _ErrorState(
@@ -320,22 +344,10 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                 ),
                 const SizedBox(width: 12),
                 // Add Employee Button
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Add Employee'),
+                DashButton(
+                  icon: Icons.add,
+                  label: 'Add Employee',
                   onPressed: () => _showEmployeeDialog(context, null),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AuthColors.primary,
-                    foregroundColor: AuthColors.textMain,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
                 ),
               ],
             ),
@@ -418,22 +430,19 @@ void _showDeleteConfirmation(BuildContext context, OrganizationEmployee employee
         style: const TextStyle(color: AuthColors.textSub),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: 'Delete',
           onPressed: () {
             context.read<EmployeesCubit>().deleteEmployee(employee.id);
             Navigator.of(dialogContext).pop();
           },
-          style: TextButton.styleFrom(
-            foregroundColor: AuthColors.error,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-          child: const Text('Delete'),
+          variant: DashButtonVariant.text,
+          isDestructive: true,
         ),
       ],
     ),
@@ -828,24 +837,15 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  DashButton(
+                    label: 'Cancel',
                     onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AuthColors.textSub,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Cancel'),
+                    variant: DashButtonVariant.text,
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    icon: Icon(isEditing ? Icons.check : Icons.add, size: 18),
-                    label: Text(isEditing ? 'Save Changes' : 'Create Employee'),
+                  DashButton(
+                    icon: isEditing ? Icons.check : Icons.add,
+                    label: isEditing ? 'Save Changes' : 'Create Employee',
                     onPressed: () {
                       if (!(_formKey.currentState?.validate() ?? false)) return;
                       
@@ -908,17 +908,6 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       }
                       Navigator.of(context).pop();
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AuthColors.primary,
-                      foregroundColor: AuthColors.textMain,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -1122,29 +1111,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DashCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AuthColors.surface,
-            AuthColors.background,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AuthColors.background.withOpacity(0.5),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
       child: Row(
         children: [
           Container(
@@ -1268,21 +1236,10 @@ class _ErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+            DashButton(
+              icon: Icons.refresh,
+              label: 'Retry',
               onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),
@@ -1350,21 +1307,10 @@ class _EmptyEmployeesState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Add Employee'),
+            DashButton(
+              icon: Icons.add,
+              label: 'Add Employee',
               onPressed: onAddEmployee,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),

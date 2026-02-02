@@ -103,18 +103,37 @@ class UsersPageContent extends StatelessWidget {
           BlocBuilder<UsersCubit, UsersState>(
             builder: (context, state) {
               if (state.status == ViewStatus.loading) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SkeletonLoader(
+                          height: 40,
+                          width: double.infinity,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        const SizedBox(height: 16),
+                        ...List.generate(6, (_) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: SkeletonLoader(
+                            height: 64,
+                            width: double.infinity,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                );
               }
               if (state.users.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No users yet. Tap "Add User" to invite someone.',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
-                      fontSize: 16,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+                return const EmptyState(
+                  icon: Icons.people_outline,
+                  title: 'No users yet',
+                  message: 'Tap "Add User" to invite someone.',
                 );
               }
               return AnimationLimiter(
@@ -363,9 +382,10 @@ class _UserDialogState extends State<_UserDialog> {
                 style: TextStyle(color: Colors.white70),
               ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Close',
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
+            variant: DashButtonVariant.text,
           ),
         ],
       );
@@ -532,11 +552,13 @@ class _UserDialogState extends State<_UserDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: 'Save',
           onPressed: _isSubmitting
               ? null
               : () async {
@@ -581,13 +603,8 @@ class _UserDialogState extends State<_UserDialog> {
                     }
                   }
                 },
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
+          isLoading: _isSubmitting,
+          variant: DashButtonVariant.text,
         ),
       ],
     );

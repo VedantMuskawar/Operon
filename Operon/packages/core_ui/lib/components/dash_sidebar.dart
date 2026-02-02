@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/auth_colors.dart';
+
 class DashSidebarItem {
   DashSidebarItem({
     required this.icon,
@@ -30,7 +32,7 @@ class DashSidebar extends StatelessWidget {
       width: 280,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
       decoration: BoxDecoration(
-        color: const Color(0xFF111126),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(32),
       ),
       child: Column(
@@ -49,12 +51,12 @@ class DashSidebar extends StatelessWidget {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(18),
                     color: item.isActive
-                        ? const Color(0xFF6C63FF).withOpacity(0.16)
+                        ? AuthColors.primaryWithOpacity(0.16)
                         : Colors.transparent,
                   ),
                   child: Row(
                     children: [
-                      Icon(item.icon, color: Colors.white),
+                      Icon(item.icon, color: AuthColors.textMain),
                       const SizedBox(width: 16),
                       Text(item.label, style: Theme.of(context).textTheme.bodyMedium),
                     ],

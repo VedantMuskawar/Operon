@@ -33,27 +33,18 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rebuildVendorAnalytics = void 0;
+exports.rebuildVendorAnalyticsCore = rebuildVendorAnalyticsCore;
 const admin = __importStar(require("firebase-admin"));
-const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("../shared/constants");
-const financial_year_1 = require("../shared/financial-year");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
 const date_helpers_1 = require("../shared/date-helpers");
 const db = (0, firestore_helpers_1.getFirestore)();
 /**
- * Cloud Function: Scheduled function to rebuild vendor analytics
- * Runs every 24 hours to recalculate analytics for all organizations
+ * Core logic to rebuild vendor analytics for all organizations.
+ * Called by unified analytics scheduler.
  */
-exports.rebuildVendorAnalytics = functions.pubsub
-    .schedule('every 24 hours')
-    .timeZone('UTC')
-    .onRun(async () => {
-    const now = new Date();
-    const { fyLabel } = (0, financial_year_1.getFinancialContext)(now);
-    // Get all vendors and group by organizationId
+async function rebuildVendorAnalyticsCore(fyLabel) {
     const vendorsSnapshot = await db.collection(constants_1.VENDORS_COLLECTION).get();
-    // Group vendors by organizationId
     const vendorsByOrg = {};
     vendorsSnapshot.forEach((doc) => {
         var _a;
@@ -65,26 +56,22 @@ exports.rebuildVendorAnalytics = functions.pubsub
             vendorsByOrg[organizationId].push(doc);
         }
     });
-    // Process analytics for each organization
     const analyticsUpdates = Object.entries(vendorsByOrg).map(async ([organizationId, orgVendors]) => {
         const analyticsRef = db
             .collection(constants_1.ANALYTICS_COLLECTION)
             .doc(`${constants_1.VENDORS_SOURCE_KEY}_${organizationId}_${fyLabel}`);
-        // Calculate total payable (sum of currentBalance from all vendors, irrespective of time)
         let totalPayable = 0;
         orgVendors.forEach((doc) => {
             var _a;
             const currentBalance = ((_a = doc.data()) === null || _a === void 0 ? void 0 : _a.currentBalance) || 0;
             totalPayable += currentBalance;
         });
-        // Query all vendor purchase transactions (credit transactions = purchases)
         const purchaseTransactionsSnapshot = await db
             .collection(constants_1.TRANSACTIONS_COLLECTION)
             .where('organizationId', '==', organizationId)
             .where('ledgerType', '==', 'vendorLedger')
             .where('type', '==', 'credit')
             .get();
-        // Build vendor type lookup map from vendor documents
         const vendorTypeMap = {};
         orgVendors.forEach((doc) => {
             var _a;
@@ -94,21 +81,14 @@ exports.rebuildVendorAnalytics = functions.pubsub
                 vendorTypeMap[vendorId] = vendorType;
             }
         });
-        // Group purchases by vendor type and month
         const purchasesByVendorType = {};
         purchaseTransactionsSnapshot.forEach((doc) => {
             const transactionData = doc.data();
             const vendorId = transactionData.vendorId;
             const vendorType = vendorId ? vendorTypeMap[vendorId] : undefined;
             if (!vendorId || !vendorType) {
-                console.warn('[Vendor Analytics] Transaction missing vendorId or vendorType', {
-                    transactionId: doc.id,
-                    vendorId,
-                    vendorType,
-                });
                 return;
             }
-            // Use transactionDate (primary) or paymentDate (fallback) or createdAt
             const transactionDate = transactionData.transactionDate
                 || transactionData.paymentDate
                 || transactionData.createdAt;
@@ -116,21 +96,17 @@ exports.rebuildVendorAnalytics = functions.pubsub
             if (transactionDate) {
                 const dateObj = transactionDate.toDate();
                 const monthKey = (0, date_helpers_1.getYearMonth)(dateObj);
-                // Initialize vendor type if not exists
                 if (!purchasesByVendorType[vendorType]) {
                     purchasesByVendorType[vendorType] = {};
                 }
-                // Add amount to month
                 purchasesByVendorType[vendorType][monthKey] = (purchasesByVendorType[vendorType][monthKey] || 0) + amount;
             }
         });
         await (0, firestore_helpers_1.seedVendorAnalyticsDoc)(analyticsRef, fyLabel, organizationId);
-        // Build update data with nested structure
         const updateData = {
             generatedAt: admin.firestore.FieldValue.serverTimestamp(),
             'metrics.totalPayable': totalPayable,
         };
-        // Set purchases by vendor type - use dot notation for nested structure
         for (const [vendorType, monthlyData] of Object.entries(purchasesByVendorType)) {
             for (const [monthKey, amount] of Object.entries(monthlyData)) {
                 updateData[`metrics.purchasesByVendorType.values.${vendorType}.${monthKey}`] = amount;
@@ -140,5 +116,5 @@ exports.rebuildVendorAnalytics = functions.pubsub
     });
     await Promise.all(analyticsUpdates);
     console.log(`[Vendor Analytics] Rebuilt analytics for ${Object.keys(vendorsByOrg).length} organizations`);
-});
+}
 //# sourceMappingURL=vendor-analytics.js.map

@@ -62,3 +62,6 @@ coverage/
 *.g.dart
 *.freezed.dart
 
+# Next.js
+.next/
+out/

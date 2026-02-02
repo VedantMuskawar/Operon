@@ -145,11 +145,10 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
             _isLoadingTrips = false;
             _scheduledTrips = [];
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error loading scheduled trips: $error'),
-              backgroundColor: AuthColors.error,
-            ),
+          DashSnackbar.show(
+            context,
+            message: 'Error loading scheduled trips: $error',
+            isError: true,
           );
         }
       },
@@ -546,7 +545,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
           
           const SizedBox(height: 24),
           
-          // Scheduled Trips Grid
+          // Scheduled Trips Grid (with expandable location tracking)
           if (_isLoadingTrips)
             const Center(
               child: Padding(
@@ -557,43 +556,81 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               ),
             )
           else if (_scheduledTrips.isEmpty)
-            _EmptyStateCard(
+            EmptyState(
               icon: Icons.schedule_outlined,
               title: 'No Scheduled Trips',
-              description: 'No trips scheduled for ${_getDayAbbr(_selectedDate)}, ${_selectedDate.day} ${_getMonthAbbr(_selectedDate)}. Try selecting a different date.',
-              color: AuthColors.primary,
+              message: 'No trips scheduled for ${_getDayAbbr(_selectedDate)}, ${_selectedDate.day} ${_getMonthAbbr(_selectedDate)}. Try selecting a different date.',
             )
           else
-            AnimationLimiter(
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                ),
-                itemCount: _scheduledTrips.length,
-                itemBuilder: (context, index) {
-                  return AnimationConfiguration.staggeredGrid(
-                    position: index,
-                    duration: const Duration(milliseconds: 200),
-                    columnCount: 5,
-                    child: SlideAnimation(
-                      verticalOffset: 50.0,
-                      child: FadeInAnimation(
-                        curve: Curves.easeOut,
-                        child: ScheduledTripTile(
-                          trip: _scheduledTrips[index],
-                          onTripsUpdated: () {
-                            _currentOrgId = null;
-                            _subscribeToTrips();
-                          },
-                          onTap: () {
-                            // TODO: Navigate to trip detail page
-                          },
-                        ),
-                      ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  const crossAxisCount = 5;
+                  const crossAxisSpacing = 20.0;
+                  const mainAxisSpacing = 20.0;
+                  final contentWidth = constraints.maxWidth;
+                  final tileWidth = (contentWidth - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
+                  final rowCount = (_scheduledTrips.length / crossAxisCount).ceil();
+
+                  return AnimationLimiter(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: rowCount,
+                      itemBuilder: (context, rowIndex) {
+                        final start = rowIndex * crossAxisCount;
+                        final end = (start + crossAxisCount).clamp(0, _scheduledTrips.length);
+                        final rowTrips = _scheduledTrips.sublist(start, end);
+
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: rowIndex < rowCount - 1 ? mainAxisSpacing : 0,
+                          ),
+                          child: AnimationConfiguration.staggeredList(
+                            position: rowIndex,
+                            duration: const Duration(milliseconds: 200),
+                            child: SlideAnimation(
+                              verticalOffset: 50.0,
+                              child: FadeInAnimation(
+                                curve: Curves.easeOut,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: List.generate(crossAxisCount * 2 - 1, (i) {
+                                    if (i.isOdd) {
+                                      return const SizedBox(width: crossAxisSpacing);
+                                    }
+                                    final tileIndex = i ~/ 2;
+                                    if (tileIndex >= rowTrips.length) {
+                                      return SizedBox(width: tileWidth);
+                                    }
+                                    final trip = rowTrips[tileIndex];
+                                    return SizedBox(
+                                      width: tileWidth,
+                                      child: Align(
+                                        alignment: Alignment.topCenter,
+                                        child: ScheduledTripTile(
+                                          trip: trip,
+                                          onTripsUpdated: () {
+                                            _currentOrgId = null;
+                                            _subscribeToTrips();
+                                          },
+                                          onTap: () {
+                                            DashSnackbar.show(
+                                              context,
+                                              message: 'Trip detail view coming soon',
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
@@ -672,61 +709,4 @@ class _VehicleFilterButton extends StatelessWidget {
   }
 }
 
-class _EmptyStateCard extends StatelessWidget {
-  const _EmptyStateCard({
-    required this.icon,
-    required this.title,
-    required this.description,
-    required this.color,
-  });
 
-  final IconData icon;
-  final String title;
-  final String description;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(40),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: color.withValues(alpha: 0.3),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 64,
-              color: color.withValues(alpha: 0.7),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                color: AuthColors.textMain,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              style: TextStyle(
-                color: AuthColors.textSub,
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

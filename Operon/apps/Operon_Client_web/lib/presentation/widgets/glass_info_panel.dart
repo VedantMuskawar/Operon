@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:flutter/material.dart';
 
 /// Glassmorphism panel widget with frosted glass effect.
@@ -71,7 +72,7 @@ class GlassPanel extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: AuthColors.textMain.withOpacity(0.08),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),

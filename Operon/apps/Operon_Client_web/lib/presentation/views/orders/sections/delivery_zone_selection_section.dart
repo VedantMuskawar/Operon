@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashSnackbar;
 import 'package:dash_web/presentation/blocs/create_order/create_order_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -29,7 +30,7 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
               const Text(
                 'Select City & Region',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -42,8 +43,8 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'City',
-                        style: TextStyle(
-                          color: Colors.white70,
+                        style: const TextStyle(
+                          color: AuthColors.textSub,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -51,8 +52,8 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Region',
-                        style: TextStyle(
-                          color: Colors.white70,
+                        style: const TextStyle(
+                          color: AuthColors.textSub,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -259,22 +260,9 @@ class _RegionColumn extends StatelessWidget {
         if (hasCities && selectedCity != null)
           SizedBox(
             width: 220,
-            child: ElevatedButton(
+            child: DashButton(
+              label: 'Add Region',
               onPressed: onAddRegion,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Text(
-                'Add Region',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
             ),
           ),
         if (hasCities && selectedCity != null) const SizedBox(height: 16),
@@ -510,11 +498,13 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
               ),
             ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: 'Save',
           onPressed: widget.cities.isEmpty || _submitting
               ? null
               : () async {
@@ -531,21 +521,14 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                     if (mounted) Navigator.of(context).pop();
                   } catch (err) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(err.toString())),
-                      );
+                      DashSnackbar.show(context, message: err.toString(), isError: true);
                     }
                   } finally {
                     if (mounted) setState(() => _submitting = false);
                   }
                 },
-          child: _submitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
+          isLoading: _submitting,
+          variant: DashButtonVariant.text,
         ),
       ],
     );
@@ -707,18 +690,17 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            TextButton.icon(
+            DashButton(
+              label: 'Edit',
+              icon: Icons.edit,
               onPressed: _products.isEmpty ||
                       _selectedProductId == null ||
                       _submitting
                   ? null
                   : () async {
-                      // Edit functionality - same as save for now
                       final parsed = double.tryParse(_priceController.text.trim());
                       if (parsed == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a valid price')),
-                        );
+                        DashSnackbar.show(context, message: 'Please enter a valid price', isError: true);
                         return;
                       }
                       setState(() => _submitting = true);
@@ -730,63 +712,47 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                         if (mounted) Navigator.of(context).pop();
                       } catch (err) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(err.toString())),
-                          );
+                          DashSnackbar.show(context, message: err.toString(), isError: true);
                         }
                       } finally {
                         if (mounted) setState(() => _submitting = false);
                       }
                     },
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.edit, size: 18),
-              label: const Text('Edit'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.blue,
-              ),
+              isLoading: _submitting,
+              variant: DashButtonVariant.text,
             ),
-            TextButton.icon(
+            DashButton(
+              label: 'Delete',
+              icon: Icons.delete,
               onPressed: _products.isEmpty ||
                       _selectedProductId == null ||
                       _submitting
                   ? null
                   : () async {
-                      // Delete price
                       setState(() => _submitting = true);
                       try {
-                        // Set price to 0 or remove it
                         widget.cubit.addPendingPriceUpdate(
                           productId: _selectedProductId!,
                           unitPrice: 0,
                         );
                         if (mounted) {
                           Navigator.of(context).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Price deleted')),
-                          );
+                          DashSnackbar.show(context, message: 'Price deleted', isError: false);
                         }
                       } catch (err) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(err.toString())),
-                          );
+                          DashSnackbar.show(context, message: err.toString(), isError: true);
                         }
                       } finally {
                         if (mounted) setState(() => _submitting = false);
                       }
                     },
-              icon: const Icon(Icons.delete, size: 18),
-              label: const Text('Delete'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
-              ),
+              variant: DashButtonVariant.text,
+              isDestructive: true,
             ),
-            TextButton.icon(
+            DashButton(
+              label: 'Save',
+              icon: Icons.save,
               onPressed: _products.isEmpty ||
                       _selectedProductId == null ||
                       _submitting
@@ -794,9 +760,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                   : () async {
                       final parsed = double.tryParse(_priceController.text.trim());
                       if (parsed == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a valid price')),
-                        );
+                        DashSnackbar.show(context, message: 'Please enter a valid price', isError: true);
                         return;
                       }
                       setState(() => _submitting = true);
@@ -808,25 +772,14 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                         if (mounted) Navigator.of(context).pop();
                       } catch (err) {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(err.toString())),
-                          );
+                          DashSnackbar.show(context, message: err.toString(), isError: true);
                         }
                       } finally {
                         if (mounted) setState(() => _submitting = false);
                       }
                     },
-              icon: _submitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save, size: 18),
-              label: const Text('Save'),
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.green,
-              ),
+              isLoading: _submitting,
+              variant: DashButtonVariant.text,
             ),
           ],
         ),

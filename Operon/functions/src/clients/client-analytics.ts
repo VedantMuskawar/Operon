@@ -18,6 +18,7 @@ const db = getFirestore();
  * Cloud Function: Triggered when a client is created
  * Updates client analytics for the organization
  */
+
 export const onClientCreated = functions.firestore
   .document(`${CLIENTS_COLLECTION}/{clientId}`)
   .onCreate(async (snapshot) => {
@@ -52,64 +53,51 @@ export const onClientCreated = functions.firestore
   });
 
 /**
- * Cloud Function: Scheduled function to rebuild client analytics
- * Runs every 24 hours to recalculate analytics for all organizations
+ * Core logic to rebuild client analytics for all organizations.
+ * Called by unified analytics scheduler.
  */
-export const rebuildClientAnalytics = functions.pubsub
-  .schedule('every 24 hours')
-  .timeZone('UTC')
-  .onRun(async () => {
-    const now = new Date();
-    const { fyLabel, fyStart, fyEnd } = getFinancialContext(now);
+export async function rebuildClientAnalyticsCore(fyLabel: string, fyStart: Date, fyEnd: Date): Promise<void> {
+  const clientsSnapshot = await db.collection(CLIENTS_COLLECTION).get();
+  const clientsByOrg: Record<string, FirebaseFirestore.DocumentSnapshot[]> = {};
 
-    // Get all clients and group by organizationId
-    const clientsSnapshot = await db.collection(CLIENTS_COLLECTION).get();
-    
-    // Group clients by organizationId
-    const clientsByOrg: Record<string, FirebaseFirestore.DocumentSnapshot[]> = {};
-    
-    clientsSnapshot.forEach((doc) => {
-      const organizationId = doc.data()?.organizationId as string | undefined;
-      if (organizationId) {
-        if (!clientsByOrg[organizationId]) {
-          clientsByOrg[organizationId] = [];
-        }
-        clientsByOrg[organizationId].push(doc);
+  clientsSnapshot.forEach((doc) => {
+    const organizationId = doc.data()?.organizationId as string | undefined;
+    if (organizationId) {
+      if (!clientsByOrg[organizationId]) {
+        clientsByOrg[organizationId] = [];
+      }
+      clientsByOrg[organizationId].push(doc);
+    }
+  });
+
+  const analyticsUpdates = Object.entries(clientsByOrg).map(async ([organizationId, orgClients]) => {
+    const analyticsRef = db
+      .collection(ANALYTICS_COLLECTION)
+      .doc(`${SOURCE_KEY}_${organizationId}_${fyLabel}`);
+
+    const onboardingCounts: Record<string, number> = {};
+    const totalActiveClients = orgClients.length;
+
+    orgClients.forEach((doc) => {
+      const createdAt = getCreationDate(doc);
+      if (createdAt >= fyStart && createdAt < fyEnd) {
+        const { monthKey } = getFinancialContext(createdAt);
+        onboardingCounts[monthKey] = (onboardingCounts[monthKey] ?? 0) + 1;
       }
     });
 
-    // Process analytics for each organization
-    const analyticsUpdates = Object.entries(clientsByOrg).map(async ([organizationId, orgClients]) => {
-      const analyticsRef = db
-        .collection(ANALYTICS_COLLECTION)
-        .doc(`${SOURCE_KEY}_${organizationId}_${fyLabel}`);
-
-      const onboardingCounts: Record<string, number> = {};
-
-      // Count total active clients (all clients, irrespective of time period)
-      const totalActiveClients = orgClients.length;
-
-      // Count monthly onboarding for current financial year
-      orgClients.forEach((doc) => {
-        const createdAt = getCreationDate(doc);
-        if (createdAt >= fyStart && createdAt < fyEnd) {
-          const { monthKey } = getFinancialContext(createdAt);
-          onboardingCounts[monthKey] = (onboardingCounts[monthKey] ?? 0) + 1;
-        }
-      });
-
-      await seedAnalyticsDoc(analyticsRef, fyLabel, organizationId);
-      await analyticsRef.set(
-        {
-          generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          'metrics.totalActiveClients': totalActiveClients,
-          'metrics.userOnboarding.values': onboardingCounts,
-        },
-        { merge: true },
-      );
-    });
-
-    await Promise.all(analyticsUpdates);
-    console.log(`[Client Analytics] Rebuilt analytics for ${Object.keys(clientsByOrg).length} organizations`);
+    await seedAnalyticsDoc(analyticsRef, fyLabel, organizationId);
+    await analyticsRef.set(
+      {
+        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        'metrics.totalActiveClients': totalActiveClients,
+        'metrics.userOnboarding.values': onboardingCounts,
+      },
+      { merge: true },
+    );
   });
+
+  await Promise.all(analyticsUpdates);
+  console.log(`[Client Analytics] Rebuilt analytics for ${Object.keys(clientsByOrg).length} organizations`);
+}
 

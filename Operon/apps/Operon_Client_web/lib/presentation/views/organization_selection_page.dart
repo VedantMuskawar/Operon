@@ -257,40 +257,17 @@ class _OrganizationSelectionPageState
               right: 0,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: OutlinedButton.icon(
+                child: DashButton(
+                  label: 'Logout',
+                  icon: Icons.logout_rounded,
                   onPressed: () async {
-                    // Clear organization context before logout
                     await context.read<OrganizationContextCubit>().clear();
                     context.read<AuthBloc>().add(const AuthReset());
                     if (context.mounted) {
                       context.go('/login');
                     }
                   },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    side: BorderSide(
-                      color: AuthColors.textMainWithOpacity(0.3),
-                      width: 1.5,
-                    ),
-                    backgroundColor: AuthColors.textMainWithOpacity(0.1),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  icon: const Icon(
-                    Icons.logout_rounded,
-                    color: AuthColors.textMain,
-                    size: 18,
-                  ),
-                  label: const Text(
-                    'Logout',
-                    style: TextStyle(
-                      color: AuthColors.textMain,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: 'SF Pro Display',
-                    ),
-                  ),
+                  variant: DashButtonVariant.outlined,
                 ),
               ),
             ),

@@ -41,20 +41,23 @@ class ExpensesCubit extends Cubit<ExpensesState> {
     try {
       final fy = financialYear ?? FinancialYearUtils.getCurrentFinancialYear();
 
-      // Load all expense types in parallel
+      // Load all expense types in parallel (limit 100 per type for safety)
       final vendorExpenses = await _transactionsDataSource.getVendorExpenses(
         organizationId: _organizationId,
         financialYear: fy,
+        limit: 100,
       );
 
       final employeeExpenses = await _transactionsDataSource.getEmployeeExpenses(
         organizationId: _organizationId,
         financialYear: fy,
+        limit: 100,
       );
 
       final generalExpenses = await _transactionsDataSource.getGeneralExpenses(
         organizationId: _organizationId,
         financialYear: fy,
+        limit: 100,
       );
 
       // Load related data

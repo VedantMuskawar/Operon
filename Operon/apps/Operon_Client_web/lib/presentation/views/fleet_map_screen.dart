@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:core_bloc/core_bloc.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors, darkMapStyle;
+import 'package:core_ui/core_ui.dart' show AuthColors, DashSnackbar, darkMapStyle;
 import 'package:dash_web/features/fleet_map/logic/history_player_controller.dart';
 import 'package:dash_web/features/fleet_map/widgets/history_playback_sheet.dart';
 import 'package:dash_web/logic/fleet/fleet_bloc.dart';
@@ -24,30 +24,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 
-// #region agent log
-import 'dart:html' as html;
-void _debugLog(String location, String message, Map<String, dynamic> data, String hypothesisId) {
-  if (kIsWeb) {
-    try {
-      final payload = jsonEncode({
-        'location': location,
-        'message': message,
-        'data': data,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'sessionId': 'debug-session',
-        'runId': 'run1',
-        'hypothesisId': hypothesisId,
-      });
-      html.HttpRequest.request(
-        'http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',
-        method: 'POST',
-        requestHeaders: {'Content-Type': 'application/json'},
-        sendData: payload,
-      ).catchError((_) => html.HttpRequest());
-    } catch (_) {}
-  }
-}
-// #endregion
 
 class FleetMapScreen extends StatefulWidget {
   const FleetMapScreen({super.key});
@@ -529,7 +505,8 @@ class _FleetMapScreenState extends State<FleetMapScreen>
                       elevation: 8,
                       child: SearchPill(
                         onTap: () {
-                          // TODO: Implement search functionality
+                          // Feature planned: Search functionality for vehicles/locations
+                          DashSnackbar.show(context, message: 'Search functionality coming soon');
                         },
                       ),
                     ),
@@ -1153,9 +1130,7 @@ class _DateTimePickerPillState extends State<_DateTimePickerPill> {
     // Don't allow future times
     if (selectedDateTime.isAfter(now)) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cannot select future time')),
-        );
+        DashSnackbar.show(context, message: 'Cannot select future time', isError: true);
       }
       return;
     }

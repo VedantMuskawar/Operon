@@ -11,6 +11,7 @@ import 'package:dash_mobile/presentation/views/home_sections/pending_orders_view
 import 'package:dash_mobile/presentation/views/home_sections/schedule_orders_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/orders_map_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/attendance_view.dart';
+import 'package:dash_mobile/presentation/views/cash_ledger/cash_ledger_section.dart';
 import 'package:dash_mobile/presentation/widgets/caller_id_switch_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -48,7 +49,7 @@ class _HomePageState extends State<HomePage> {
     PendingOrdersView(),
     ScheduleOrdersView(),
     OrdersMapView(),
-    _AnalyticsPlaceholder(),
+    CashLedgerSection(),
     AttendanceView(),
   ];
 
@@ -57,7 +58,7 @@ class _HomePageState extends State<HomePage> {
     '',
     '',
     'Orders Map',
-    '',
+    'Cash Ledger',
     'Attendance',
   ];
 
@@ -176,9 +177,9 @@ class _HomePageState extends State<HomePage> {
                           heroTag: 'nav_map',
                         ),
                         NavBarItem(
-                          icon: Icons.dashboard_rounded,
-                          label: 'Analytics',
-                          heroTag: 'nav_analytics',
+                          icon: Icons.account_balance_wallet_rounded,
+                          label: 'Cash Ledger',
+                          heroTag: 'nav_cash_ledger',
                         ),
                       ],
                       currentIndex: homeState.currentIndex,
@@ -510,39 +511,67 @@ class _HomeProfileDrawer extends StatelessWidget {
 
     return Drawer(
       backgroundColor: AuthColors.surface,
-      child: ProfileView(
-        user: authState.userProfile,
-        organization: organization,
-        fetchUserName: (authState.userProfile?.id != null && organization?.id != null)
-            ? () async {
-                try {
-                  final orgUser = await context.read<UsersRepository>().fetchCurrentUser(
-                    orgId: organization!.id,
-                    userId: authState.userProfile!.id,
-                    phoneNumber: authState.userProfile!.phoneNumber,
-                  );
-                  return orgUser?.name;
-                } catch (_) {
-                  return null;
-                }
-              }
-            : null,
-        onChangeOrg: () {
-          Scaffold.of(context).closeDrawer();
-          Future.microtask(() => context.go('/org-selection'));
-        },
-        onLogout: () {
-          Scaffold.of(context).closeDrawer();
-          context.read<AuthBloc>().add(const AuthReset());
-          Future.microtask(() => context.go('/login'));
-        },
-        onOpenUsers: canManageUsers
-            ? () {
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Row(
+              children: [
+                Image.asset(
+                  'assets/branding/operon_app_icon.png',
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Operon',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AuthColors.textMain,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ProfileView(
+              user: authState.userProfile,
+              organization: organization,
+              fetchUserName: (authState.userProfile?.id != null && organization?.id != null)
+                  ? () async {
+                      try {
+                        final orgUser = await context.read<UsersRepository>().fetchCurrentUser(
+                          orgId: organization!.id,
+                          userId: authState.userProfile!.id,
+                          phoneNumber: authState.userProfile!.phoneNumber,
+                        );
+                        return orgUser?.name;
+                      } catch (_) {
+                        return null;
+                      }
+                    }
+                  : null,
+              onChangeOrg: () {
                 Scaffold.of(context).closeDrawer();
-                Future.microtask(() => context.go('/users'));
-              }
-            : null,
-        trailingSection: const CallerIdSwitchSection(),
+                Future.microtask(() => context.go('/org-selection'));
+              },
+              onLogout: () {
+                Scaffold.of(context).closeDrawer();
+                context.read<AuthBloc>().add(const AuthReset());
+                Future.microtask(() => context.go('/login'));
+              },
+              onOpenUsers: canManageUsers
+                  ? () {
+                      Scaffold.of(context).closeDrawer();
+                      Future.microtask(() => context.go('/users'));
+                    }
+                  : null,
+              trailingSection: const CallerIdSwitchSection(),
+            ),
+          ),
+        ],
       ),
     );
   }

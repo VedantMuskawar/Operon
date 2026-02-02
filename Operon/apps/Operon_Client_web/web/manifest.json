@@ -1,11 +1,11 @@
 {
-    "name": "dash_web",
-    "short_name": "dash_web",
+    "name": "Operon Client Web",
+    "short_name": "Operon Client",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Operon Client Web - Business management platform",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

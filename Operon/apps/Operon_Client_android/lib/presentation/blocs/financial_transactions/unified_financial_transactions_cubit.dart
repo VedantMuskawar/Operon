@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
@@ -16,6 +18,7 @@ class UnifiedFinancialTransactionsCubit
 
   final TransactionsRepository _transactionsRepository;
   final String _organizationId;
+  Timer? _searchDebounce;
 
   String get organizationId => _organizationId;
 
@@ -82,9 +85,12 @@ class UnifiedFinancialTransactionsCubit
     emit(state.copyWith(selectedTab: tab));
   }
 
-  /// Search transactions
+  /// Search transactions (debounced 300ms to avoid UI jank on every keystroke)
   void search(String query) {
-    emit(state.copyWith(searchQuery: query));
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      emit(state.copyWith(searchQuery: query));
+    });
   }
 
   /// Set date range filter
@@ -103,6 +109,12 @@ class UnifiedFinancialTransactionsCubit
       startDate: state.startDate,
       endDate: state.endDate,
     );
+  }
+
+  @override
+  Future<void> close() {
+    _searchDebounce?.cancel();
+    return super.close();
   }
 
   /// Delete a transaction

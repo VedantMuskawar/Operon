@@ -1,5 +1,7 @@
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashSnackbar;
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
+import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/schedule_trip_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,12 +13,16 @@ class PendingOrderTile extends StatefulWidget {
     this.onTripsUpdated,
     this.onDeleted,
     this.onTap,
+    this.isSelected = false,
+    this.onSelectionToggle,
   });
 
   final Map<String, dynamic> order;
   final VoidCallback? onTripsUpdated;
   final VoidCallback? onDeleted;
   final VoidCallback? onTap;
+  final bool isSelected;
+  final VoidCallback? onSelectionToggle;
 
   @override
   State<PendingOrderTile> createState() => _PendingOrderTileState();
@@ -24,12 +30,13 @@ class PendingOrderTile extends StatefulWidget {
 
 class _PendingOrderTileState extends State<PendingOrderTile> {
   bool _isDeleting = false;
+  bool _isHovered = false;
 
   Color _getPriorityBorderColor() {
     final priority = widget.order['priority'] as String? ?? 'normal';
     return priority == 'high' || priority == 'priority'
-        ? const Color(0xFFD4AF37) // Gold
-        : const Color(0xFFC0C0C0); // Silver
+        ? AuthColors.secondary // Gold
+        : AuthColors.textSub; // Silver
   }
 
   String _formatDate(dynamic timestamp) {
@@ -66,13 +73,13 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
 
   Color _getETAColor(int daysDiff) {
     if (daysDiff < 0) {
-      return Colors.red;
+      return AuthColors.error;
     } else if (daysDiff == 0 || daysDiff == 1) {
-      return const Color(0xFF4CAF50);
+      return AuthColors.success;
     } else if (daysDiff <= 3) {
-      return Colors.orange;
+      return AuthColors.warning;
     } else {
-      return Colors.amber;
+      return AuthColors.warning;
     }
   }
 
@@ -133,20 +140,23 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
-        title: const Text('Delete Order', style: TextStyle(color: Colors.white)),
+        backgroundColor: AuthColors.background,
+        title: const Text('Delete Order', style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to delete this order?',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            variant: DashButtonVariant.text,
+            isDestructive: true,
           ),
         ],
       ),
@@ -161,9 +171,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
       widget.onDeleted?.call();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete order: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to delete order: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -177,22 +185,24 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
     final clientName = widget.order['clientName'] as String? ?? 'N/A';
     
     if (clientId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Client information not available')),
-      );
+      DashSnackbar.show(context, message: 'Client information not available', isError: true);
       return;
     }
 
     try {
+      final orgId = context.read<OrganizationContextCubit>().state.organization?.id;
+      if (orgId == null || orgId.isEmpty) {
+        DashSnackbar.show(context, message: 'Organization not selected', isError: true);
+        return;
+      }
       final clientsRepo = context.read<ClientsRepository>();
       final client = await clientsRepo.findClientByPhone(
+        orgId,
         widget.order['clientPhone'] as String? ?? '',
       );
       
       if (client == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Client not found')),
-        );
+        DashSnackbar.show(context, message: 'Client not found', isError: true);
         return;
       }
 
@@ -211,7 +221,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
 
       await showDialog(
         context: context,
-        barrierColor: Colors.black.withValues(alpha: 0.7),
+        barrierColor: AuthColors.background.withOpacity(0.7),
         builder: (context) => ScheduleTripModal(
           order: widget.order,
           clientId: clientId,
@@ -226,9 +236,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to open schedule modal: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to open schedule modal: $e', isError: true);
       }
     }
   }
@@ -293,38 +301,88 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
     final progress = totalTrips > 0 ? totalScheduledTrips / totalTrips : 0.0;
     final progressPercent = (progress * 100).toInt();
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 600),
-      child: Material(
-        color: Colors.transparent,
+    return Material(
+      color: Colors.transparent,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
         child: InkWell(
           onTap: widget.onTap,
           borderRadius: BorderRadius.circular(16),
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF131324),
+              color: widget.isSelected
+                  ? AuthColors.primary.withValues(alpha: 0.1)
+                  : AuthColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: priorityColor.withValues(alpha: 0.6),
-                width: 2,
+                color: widget.isSelected
+                    ? AuthColors.primary
+                    : priorityColor.withValues(alpha: 0.6),
+                width: widget.isSelected ? 2.5 : 2,
               ),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
+                if (_isHovered || widget.isSelected)
+                  BoxShadow(
+                    color: (widget.isSelected ? AuthColors.primary : priorityColor)
+                        .withOpacity(0.3),
+                    blurRadius: _isHovered ? 16 : 12,
+                    spreadRadius: _isHovered ? 2 : 0,
+                    offset: Offset(0, _isHovered ? 6 : 4),
+                  )
+                else
+                  BoxShadow(
+                    color: AuthColors.background.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
               ],
             ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                // Header Row: Client Name, Priority, Trip Counter
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header Row: Selection Checkbox, Client Name, Priority, Trip Counter
                 Row(
                   children: [
+                    // Selection Checkbox
+                    if (widget.onSelectionToggle != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: widget.onSelectionToggle,
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: widget.isSelected
+                                    ? AuthColors.primary
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: widget.isSelected
+                                      ? AuthColors.primary
+                                      : AuthColors.textMainWithOpacity(0.3),
+                                  width: 2,
+                                ),
+                              ),
+                              child: widget.isSelected
+                                  ? const Icon(
+                                      Icons.check,
+                                      size: 16,
+                                      color: AuthColors.textMain,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,7 +393,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                                 child: Text(
                                   clientName,
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: AuthColors.textMain,
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -372,14 +430,14 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                               const Icon(
                                 Icons.location_on_outlined,
                                 size: 14,
-                                color: Colors.white60,
+                                color: AuthColors.textSub,
                               ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
                                   zoneText,
                                   style: const TextStyle(
-                                    color: Colors.white60,
+                                    color: AuthColors.textSub,
                                     fontSize: 12,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -394,14 +452,14 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                                 const Icon(
                                   Icons.phone_outlined,
                                   size: 14,
-                                  color: Colors.white60,
+                                  color: AuthColors.textSub,
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     clientPhone,
                                     style: const TextStyle(
-                                      color: Colors.white60,
+                                      color: AuthColors.textSub,
                                       fontSize: 12,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -418,10 +476,10 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C),
+                        color: AuthColors.surface,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.15),
+                          color: AuthColors.textMain.withValues(alpha: 0.15),
                           width: 1.5,
                         ),
                       ),
@@ -430,7 +488,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                           Text(
                             '$totalScheduledTrips/$totalTrips',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -439,7 +497,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                           Text(
                             'Trips',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: AuthColors.textMain.withValues(alpha: 0.6),
                               fontSize: 10,
                             ),
                           ),
@@ -453,7 +511,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                 
                 // Divider
                 Divider(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: AuthColors.textMain.withValues(alpha: 0.1),
                   height: 1,
                 ),
                 
@@ -465,7 +523,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C).withValues(alpha: 0.6),
+                        color: AuthColors.surface.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -474,13 +532,13 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                           const Icon(
                             Icons.inventory_2_outlined,
                             size: 14,
-                            color: Colors.white70,
+                            color: AuthColors.textSub,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             productName,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -492,16 +550,16 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                        color: AuthColors.success.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                          color: AuthColors.success.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Text(
                         'Qty/Trip: $fixedQuantityPerTrip',
                         style: const TextStyle(
-                          color: Color(0xFF81C784),
+                          color: AuthColors.success,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -512,13 +570,13 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                          color: AuthColors.primary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           'Total: $totalQuantity',
                           style: const TextStyle(
-                            color: Color(0xFF6F4BFF),
+                            color: AuthColors.primary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -543,7 +601,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                                 Text(
                                   'Progress',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
+                                    color: AuthColors.textMain.withValues(alpha: 0.7),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -551,7 +609,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                                 Text(
                                   '$progressPercent%',
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: AuthColors.textMain,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -563,11 +621,11 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
                                 value: progress,
-                                backgroundColor: Colors.white.withValues(alpha: 0.1),
+                                backgroundColor: AuthColors.textMain.withValues(alpha: 0.1),
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   totalScheduledTrips == totalTrips
-                                      ? const Color(0xFF4CAF50)
-                                      : const Color(0xFF6F4BFF),
+                                      ? AuthColors.success
+                                      : AuthColors.primary,
                                 ),
                                 minHeight: 8,
                               ),
@@ -579,12 +637,12 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                                 _StatBadge(
                                   label: 'Scheduled',
                                   value: totalScheduledTrips.toString(),
-                                  color: const Color(0xFF4CAF50),
+                                  color: AuthColors.success,
                                 ),
                                 _StatBadge(
                                   label: 'Pending',
                                   value: estimatedTrips.toString(),
-                                  color: Colors.orange,
+                                  color: AuthColors.warning,
                                 ),
                               ],
                             ),
@@ -607,8 +665,8 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: includeGst
-                            ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
-                            : Colors.orange.withValues(alpha: 0.15),
+                            ? AuthColors.success.withValues(alpha: 0.15)
+                            : AuthColors.warning.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -617,13 +675,13 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                           Icon(
                             Icons.receipt_outlined,
                             size: 12,
-                            color: includeGst ? const Color(0xFF4CAF50) : Colors.orange,
+                            color: includeGst ? AuthColors.success : AuthColors.warning,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'GST: ${includeGst ? 'Included' : 'Excluded'}',
                             style: TextStyle(
-                              color: includeGst ? const Color(0xFF81C784) : Colors.orange,
+                              color: includeGst ? AuthColors.success : AuthColors.warning,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -640,10 +698,10 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F0F1F),
+                      color: AuthColors.background,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textMain.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Row(
@@ -655,7 +713,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                             Text(
                               'Subtotal',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.6),
+                                color: AuthColors.textMain.withValues(alpha: 0.6),
                                 fontSize: 11,
                               ),
                             ),
@@ -663,7 +721,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                             Text(
                               '₹${subtotal.toStringAsFixed(0)}',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AuthColors.textMain,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -677,7 +735,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                               Text(
                                 'GST',
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
+                                  color: AuthColors.textMain.withValues(alpha: 0.6),
                                   fontSize: 11,
                                 ),
                               ),
@@ -685,7 +743,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                               Text(
                                 '₹${totalGst.toStringAsFixed(0)}',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AuthColors.textMain,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -699,7 +757,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                             Text(
                               'Total',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.6),
+                                color: AuthColors.textMain.withValues(alpha: 0.6),
                                 fontSize: 11,
                               ),
                             ),
@@ -707,7 +765,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                             Text(
                               '₹${totalAmount.toStringAsFixed(0)}',
                               style: const TextStyle(
-                                color: Color(0xFF6F4BFF),
+                                color: AuthColors.primary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -730,14 +788,14 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                           Icon(
                             Icons.tag_outlined,
                             size: 12,
-                            color: Colors.white.withValues(alpha: 0.5),
+                            color: AuthColors.textMain.withValues(alpha: 0.5),
                           ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               'ID: ${widget.order['id'] ?? 'N/A'}',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.5),
+                                color: AuthColors.textMain.withValues(alpha: 0.5),
                                 fontSize: 10,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -750,13 +808,13 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                     Icon(
                       Icons.calendar_today_outlined,
                       size: 12,
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: AuthColors.textMain.withValues(alpha: 0.5),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       _formatDate(createdAt),
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: AuthColors.textMain.withValues(alpha: 0.5),
                         fontSize: 10,
                       ),
                     ),
@@ -765,13 +823,13 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                       Icon(
                         Icons.update_outlined,
                         size: 12,
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: AuthColors.textMain.withValues(alpha: 0.5),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         _formatDate(updatedAt),
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
+                          color: AuthColors.textMain.withValues(alpha: 0.5),
                           fontSize: 10,
                         ),
                       ),
@@ -788,7 +846,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                       child: _CompactActionButton(
                         icon: Icons.delete_outline,
                         label: 'Delete',
-                        color: Colors.red,
+                        color: AuthColors.error,
                         onTap: _isDeleting ? null : _deleteOrder,
                         isLoading: _isDeleting,
                       ),
@@ -798,7 +856,7 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                       child: _CompactActionButton(
                         icon: Icons.schedule_outlined,
                         label: 'Schedule',
-                        color: Colors.blue,
+                        color: AuthColors.info,
                         onTap: estimatedTrips > 0 ? _openScheduleModal : null,
                       ),
                     ),
@@ -808,7 +866,6 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -858,7 +915,7 @@ class _StatBadge extends StatelessWidget {
   }
 }
 
-class _CompactActionButton extends StatelessWidget {
+class _CompactActionButton extends StatefulWidget {
   const _CompactActionButton({
     required this.icon,
     required this.label,
@@ -874,46 +931,77 @@ class _CompactActionButton extends StatelessWidget {
   final bool isLoading;
 
   @override
+  State<_CompactActionButton> createState() => _CompactActionButtonState();
+}
+
+class _CompactActionButtonState extends State<_CompactActionButton> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white70,
-                  ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, color: Colors.white, size: 16),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        label,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: widget.onTap == null
+                  ? widget.color.withValues(alpha: 0.5)
+                  : widget.color,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: _isHovered && widget.onTap != null
+                  ? [
+                      BoxShadow(
+                        color: widget.color.withOpacity(0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
+                    ]
+                  : null,
+            ),
+            child: widget.isLoading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AuthColors.textSub,
                     ),
-                  ],
-                ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        widget.icon,
+                        color: widget.onTap == null
+                            ? AuthColors.textSub
+                            : AuthColors.textMain,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          widget.label,
+                          style: TextStyle(
+                            color: widget.onTap == null
+                                ? AuthColors.textSub
+                                : AuthColors.textMain,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );

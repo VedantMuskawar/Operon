@@ -1,5 +1,20 @@
 {
   "projects": {
     "default": "operonappsuite"
-  }
+  },
+  "targets": {
+    "operonappsuite": {
+      "hosting": {
+        "prod-site": [
+          "experiments:enable",
+          "lakshmeebrickfirebase",
+          "webframeworks"
+        ],
+        "lakshmee-site": [
+          "lakshmeebrick"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

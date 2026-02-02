@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Operon Super Admin – organization onboarding and management.">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Operon Super Admin">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Operon Super Admin</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #010104 !important;
+      overflow: hidden;
+    }
+    flutter-view {
+      position: absolute !important;
+      top: 0px !important;
+      left: 5px !important;
+      right: 0px !important;
+      bottom: 0px !important;
+    }
+    #operon-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #010104;
+      z-index: 999999;
+    }
+    #operon-splash img {
+      width: 160px;
+      height: 160px;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <div id="operon-splash">
+    <img src="splash_logo.png" alt="Operon" />
+  </div>
+  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('operon-splash');
+      if (el) el.remove();
+    });
+  </script>
+</body>
+</html>

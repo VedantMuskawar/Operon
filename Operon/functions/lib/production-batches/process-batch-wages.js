@@ -182,6 +182,11 @@ exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALL
         const organizationId = batchData.organizationId;
         const batchDate = ((_a = batchData.batchDate) === null || _a === void 0 ? void 0 : _a.toDate()) || parsedPaymentDate;
         const status = batchData.status;
+        // Get batch details for ledger metadata
+        const productName = batchData.productName;
+        const productId = batchData.productId;
+        const totalBricksProduced = batchData.totalBricksProduced;
+        const totalBricksStacked = batchData.totalBricksStacked;
         if (!totalWages || !wagePerEmployee || employeeIds.length === 0) {
             throw new Error('Batch does not have calculated wages or is invalid');
         }
@@ -230,6 +235,19 @@ exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALL
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 };
+                // Add batch details to metadata if available
+                if (productName) {
+                    transactionData.metadata.productName = productName;
+                }
+                if (productId) {
+                    transactionData.metadata.productId = productId;
+                }
+                if (totalBricksProduced !== undefined) {
+                    transactionData.metadata.totalBricksProduced = totalBricksProduced;
+                }
+                if (totalBricksStacked !== undefined) {
+                    transactionData.metadata.totalBricksStacked = totalBricksStacked;
+                }
                 firestoreBatch.set(transactionRef, transactionData);
                 transactionIds.push(transactionId);
             }

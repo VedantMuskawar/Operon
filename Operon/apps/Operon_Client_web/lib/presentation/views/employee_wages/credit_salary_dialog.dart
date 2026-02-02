@@ -1,4 +1,4 @@
-import 'package:core_ui/core_ui.dart' show AuthColors;
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashSnackbar;
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
@@ -64,9 +64,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load employees: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to load employees: $e', isError: true);
       }
     }
   }
@@ -91,9 +89,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load payment accounts: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to load payment accounts: $e', isError: true);
       }
     }
   }
@@ -150,11 +146,10 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
       );
 
       if (mounted && alreadyCredited) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Salary already credited for this month'),
-            backgroundColor: AuthColors.warning,
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Salary already credited for this month',
+          isError: true,
         );
       }
     } catch (e) {
@@ -179,9 +174,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
   Future<void> _submitSalary() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedEmployee == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an employee')),
-      );
+      DashSnackbar.show(context, message: 'Please select an employee', isError: true);
       return;
     }
 
@@ -190,16 +183,12 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (organization == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Organization not found')),
-      );
+      DashSnackbar.show(context, message: 'Organization not found', isError: true);
       return;
     }
 
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not authenticated')),
-      );
+      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
       return;
     }
 
@@ -228,23 +217,13 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Salary credited successfully'),
-            backgroundColor: AuthColors.success,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Salary credited successfully', isError: false);
         Navigator.of(context).pop();
         widget.onSalaryCredited?.call();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to credit salary: $e'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Failed to credit salary: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -472,32 +451,13 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
               const SizedBox(height: 24),
 
               // Submit Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _submitSalary,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AuthColors.primary,
-                  foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+              SizedBox(
+                width: double.infinity,
+                child: DashButton(
+                  label: 'Credit Salary',
+                  onPressed: _submitSalary,
+                  isLoading: _isLoading,
                 ),
-                child: _isLoading
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.textMain),
-                        ),
-                      )
-                    : const Text(
-                        'Credit Salary',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
               ),
             ],
           ),

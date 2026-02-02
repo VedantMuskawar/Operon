@@ -90,11 +90,12 @@ class NotificationsPageContent extends StatelessWidget {
                           ),
                         ),
                       ),
-                      TextButton(
+                      DashButton(
+                        label: 'Mark all as read',
                         onPressed: () {
                           context.read<NotificationsCubit>().markAllAsRead();
                         },
-                        child: const Text('Mark all as read'),
+                        variant: DashButtonVariant.text,
                       ),
                     ],
                   ),
@@ -106,18 +107,31 @@ class NotificationsPageContent extends StatelessWidget {
           BlocBuilder<NotificationsCubit, NotificationsState>(
             builder: (context, state) {
               if (state.status == ViewStatus.loading) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        ...List.generate(8, (_) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: SkeletonLoader(
+                            height: 80,
+                            width: double.infinity,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                );
               }
               if (state.notifications.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No notifications yet.',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
-                      fontSize: 16,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+                return const EmptyState(
+                  icon: Icons.notifications_none_outlined,
+                  title: 'No notifications yet',
+                  message: 'You\'re all caught up!',
                 );
               }
               return AnimationLimiter(

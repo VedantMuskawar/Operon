@@ -1,5 +1,6 @@
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 
 class ProductionBatchSelector extends StatelessWidget {
@@ -55,10 +56,11 @@ class ProductionBatchSelector extends StatelessWidget {
                 style: TextStyle(color: Colors.white70),
               ),
               const SizedBox(height: 8),
-              TextButton.icon(
+              DashButton(
+                label: 'Select Employees Manually',
+                icon: Icons.person_add,
                 onPressed: onCustomSelected,
-                icon: const Icon(Icons.person_add),
-                label: const Text('Select Employees Manually'),
+                variant: DashButtonVariant.text,
               ),
             ],
           );
@@ -131,13 +133,11 @@ class ProductionBatchSelector extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                TextButton.icon(
+                DashButton(
+                  label: 'Select Employees Manually',
+                  icon: Icons.person_add,
                   onPressed: onCustomSelected,
-                  icon: const Icon(Icons.person_add, size: 18),
-                  label: const Text('Select Employees Manually'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                  ),
+                  variant: DashButtonVariant.text,
                 ),
               ],
             ),

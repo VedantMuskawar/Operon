@@ -25,6 +25,7 @@ import 'package:core_datasources/core_datasources.dart' hide ScheduledTripsRepos
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/data/services/analytics_service.dart';
+import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/data/services/qr_code_service.dart';
 import 'package:dash_mobile/presentation/blocs/app_initialization/app_initialization_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
@@ -170,6 +171,11 @@ class DashMobileApp extends StatelessWidget {
     );
 
     final qrCodeService = QrCodeService();
+    final dmPrintService = DmPrintService(
+      dmSettingsRepository: dmSettingsRepository,
+      paymentAccountsRepository: paymentAccountsRepository,
+      qrCodeService: qrCodeService,
+    );
 
     final router = buildRouter();
     return CallerOverlayBootstrap(
@@ -195,6 +201,7 @@ class DashMobileApp extends StatelessWidget {
         RepositoryProvider.value(value: scheduledTripsRepository),
         RepositoryProvider.value(value: deliveryMemoRepository),
         RepositoryProvider.value(value: qrCodeService),
+        RepositoryProvider.value(value: dmPrintService),
         RepositoryProvider.value(value: transactionsDataSource),
         RepositoryProvider.value(value: paymentAccountsDataSource),
         RepositoryProvider.value(value: expenseSubCategoriesRepository),

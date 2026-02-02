@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dash_web/data/datasources/clients_data_source.dart';
 import 'package:dash_web/domain/entities/client.dart';
 
@@ -7,28 +8,45 @@ class ClientsRepository {
 
   final ClientsDataSource _dataSource;
 
-  Future<List<Client>> fetchClients({int limit = 20}) {
-    return _dataSource.fetchClients(limit: limit);
+  Future<({List<Client> clients, DocumentSnapshot<Map<String, dynamic>>? lastDoc})> fetchClients({
+    required String orgId,
+    int limit = 20,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+  }) {
+    return _dataSource.fetchClients(
+      organizationId: orgId,
+      limit: limit,
+      startAfterDocument: startAfterDocument,
+    );
   }
 
-  Future<List<Client>> fetchRecentClients({int limit = 10}) {
-    return _dataSource.fetchRecentClients(limit: limit);
+  Future<List<Client>> fetchRecentClients({
+    required String orgId,
+    int limit = 10,
+  }) {
+    return _dataSource.fetchRecentClients(
+      organizationId: orgId,
+      limit: limit,
+    );
   }
 
-  Future<List<Client>> searchClients(String query) async {
+  Future<List<Client>> searchClients(String orgId, String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) return [];
 
     final digitsOnly = trimmed.replaceAll(RegExp(r'[^0-9+]'), '');
     if (digitsOnly.length >= 4) {
-      final phoneMatches =
-          await _dataSource.searchClientsByPhone(digitsOnly, limit: 10);
+      final phoneMatches = await _dataSource.searchClientsByPhone(
+        orgId,
+        digitsOnly,
+        limit: 10,
+      );
       if (phoneMatches.isNotEmpty) {
         return phoneMatches;
       }
     }
 
-    return _dataSource.searchClientsByName(trimmed, limit: 20);
+    return _dataSource.searchClientsByName(orgId, trimmed, limit: 20);
   }
 
   Future<void> createClient({
@@ -65,8 +83,8 @@ class ClientsRepository {
     return _dataSource.deleteClient(clientId);
   }
 
-  Future<Client?> findClientByPhone(String phone) {
-    return _dataSource.findClientByPhone(phone);
+  Future<Client?> findClientByPhone(String orgId, String phone) {
+    return _dataSource.findClientByPhone(orgId, phone);
   }
 
   Future<void> addContactToExistingClient({

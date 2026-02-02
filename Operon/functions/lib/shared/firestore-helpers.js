@@ -37,6 +37,9 @@ exports.getCreationDate = getCreationDate;
 exports.seedAnalyticsDoc = seedAnalyticsDoc;
 exports.seedEmployeeAnalyticsDoc = seedEmployeeAnalyticsDoc;
 exports.seedVendorAnalyticsDoc = seedVendorAnalyticsDoc;
+exports.seedDeliveriesAnalyticsDoc = seedDeliveriesAnalyticsDoc;
+exports.seedProductionsAnalyticsDoc = seedProductionsAnalyticsDoc;
+exports.seedTripWagesAnalyticsDoc = seedTripWagesAnalyticsDoc;
 exports.getFirestore = getFirestore;
 const admin = __importStar(require("firebase-admin"));
 const constants_1 = require("./constants");
@@ -69,6 +72,24 @@ async function seedEmployeeAnalyticsDoc(docRef, fyLabel, organizationId) {
  */
 async function seedVendorAnalyticsDoc(docRef, fyLabel, organizationId) {
     await docRef.set(Object.assign(Object.assign({ source: constants_1.VENDORS_SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('VENDORS', 'TRANSACTIONS'), 'metrics.purchasesByVendorType.type': 'monthly', 'metrics.purchasesByVendorType.unit': 'currency' }), { merge: true });
+}
+/**
+ * Seed/initialize a deliveries analytics document with default structure
+ */
+async function seedDeliveriesAnalyticsDoc(docRef, fyLabel, organizationId) {
+    await docRef.set(Object.assign(Object.assign({ source: constants_1.DELIVERIES_SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('DELIVERY_MEMOS') }), { merge: true });
+}
+/**
+ * Seed/initialize a productions analytics document with default structure
+ */
+async function seedProductionsAnalyticsDoc(docRef, fyLabel, organizationId) {
+    await docRef.set(Object.assign(Object.assign({ source: constants_1.PRODUCTIONS_SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('PRODUCTION_BATCHES') }), { merge: true });
+}
+/**
+ * Seed/initialize a trip wages analytics document with default structure
+ */
+async function seedTripWagesAnalyticsDoc(docRef, fyLabel, organizationId) {
+    await docRef.set(Object.assign(Object.assign({ source: constants_1.TRIP_WAGES_ANALYTICS_SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('TRIP_WAGES', 'TRANSACTIONS') }), { merge: true });
 }
 /**
  * Get Firestore database instance

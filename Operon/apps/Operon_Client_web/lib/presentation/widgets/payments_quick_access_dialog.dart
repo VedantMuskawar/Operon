@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_web/presentation/widgets/record_payment_dialog.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:flutter/material.dart';
@@ -16,19 +17,19 @@ class PaymentsQuickAccessDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
+            colors: [AuthColors.surface, AuthColors.background],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: AuthColors.background.withOpacity(0.5),
               blurRadius: 40,
               offset: const Offset(0, 20),
             ),
@@ -44,7 +45,7 @@ class PaymentsQuickAccessDialog extends StatelessWidget {
                   child: Text(
                     'Payments',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
                     ),
@@ -52,7 +53,7 @@ class PaymentsQuickAccessDialog extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: Colors.white70),
+                  icon: Icon(Icons.close, color: AuthColors.textSub),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -63,7 +64,7 @@ class PaymentsQuickAccessDialog extends StatelessWidget {
               icon: Icons.receipt_long_outlined,
               title: 'View Transactions',
               description: 'Browse all payment transactions',
-              color: const Color(0xFF4CAF50),
+              color: AuthColors.success,
               onTap: () {
                 Navigator.of(context).pop();
                 context.go('/transactions');
@@ -74,12 +75,12 @@ class PaymentsQuickAccessDialog extends StatelessWidget {
               icon: Icons.payment_outlined,
               title: 'Record Payment',
               description: 'Record a new client payment',
-              color: const Color(0xFF9C27B0),
+              color: AuthColors.accentPurple,
               onTap: () {
                 Navigator.of(context).pop();
                 showDialog(
                   context: context,
-                  barrierColor: Colors.black.withValues(alpha: 0.7),
+                  barrierColor: AuthColors.background.withOpacity(0.7),
                   builder: (dialogContext) => BlocProvider.value(
                     value: context.read<OrganizationContextCubit>(),
                     child: const RecordPaymentDialog(),
@@ -130,7 +131,7 @@ class _PaymentOptionState extends State<_PaymentOption> {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1B1B2C),
+              color: AuthColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: widget.color.withValues(
@@ -161,8 +162,8 @@ class _PaymentOptionState extends State<_PaymentOption> {
                     children: [
                       Text(
                         widget.title,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AuthColors.textMain,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -171,7 +172,7 @@ class _PaymentOptionState extends State<_PaymentOption> {
                       Text(
                         widget.description,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: AuthColors.textMainWithOpacity(0.6),
                           fontSize: 13,
                         ),
                       ),
@@ -180,7 +181,7 @@ class _PaymentOptionState extends State<_PaymentOption> {
                 ),
                 Icon(
                   Icons.chevron_right,
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: AuthColors.textMainWithOpacity(0.4),
                 ),
               ],
             ),

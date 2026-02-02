@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashSnackbar;
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/domain/entities/payment_account.dart';
@@ -107,7 +108,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
           const Text(
             'Order Summary',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -654,36 +655,14 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
   Widget _buildCreateOrderButton() {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      child: DashButton(
+        label: 'Create Order',
         onPressed: _isCreatingOrder
             ? null
             : () async {
                 await _createOrder();
               },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6F4BFF),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: _isCreatingOrder
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Text(
-                'Create Order',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+        isLoading: _isCreatingOrder,
       ),
     );
   }
@@ -692,12 +671,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
     // Validate client
     final client = widget.client;
     if (client == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Client information is required'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      DashSnackbar.show(context, message: 'Client information is required', isError: true);
       return;
     }
 
@@ -706,22 +680,12 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
     if (_hasAdvancePayment) {
       final amountText = _advanceAmountController.text.trim();
       if (amountText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter advance payment amount'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Please enter advance payment amount', isError: true);
         return;
       }
       advanceAmount = double.tryParse(amountText);
       if (advanceAmount == null || advanceAmount < 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter a valid advance payment amount'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Please enter a valid advance payment amount', isError: true);
         return;
       }
     }
@@ -751,21 +715,15 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
 
       // Success - navigate back
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order created successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Order created successfully', isError: false);
         context.pop(true); // Return true to indicate success
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create order: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Failed to create order: ${e.toString()}',
+          isError: true,
         );
       }
     } finally {

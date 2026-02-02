@@ -4,6 +4,7 @@ import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/create_order_dialog.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -77,16 +78,16 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
+              colors: [AuthColors.surface, AuthColors.background],
             ),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: const Text(
+          child: Text(
             'Please select an organization first',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: AuthColors.textSub),
           ),
         ),
       );
@@ -112,14 +113,14 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
               constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
+                  colors: [AuthColors.surface, AuthColors.background],
                 ),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: AuthColors.textMainWithOpacity(0.1),
                   width: 1.5,
                 ),
                 boxShadow: [
@@ -140,7 +141,7 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
                         child: Text(
                           'Select Customer',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
                           ),
@@ -148,7 +149,7 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close, color: Colors.white70),
+                        icon: Icon(Icons.close, color: AuthColors.textSub),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
@@ -190,19 +191,19 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
         return TextField(
           controller: _searchController,
           autofocus: true,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search, color: Colors.white54),
+            prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: () => _clearSearch(providerContext),
                   )
                 : null,
             hintText: 'Search clients by name or phone',
-            hintStyle: const TextStyle(color: Colors.white38),
+            hintStyle: TextStyle(color: AuthColors.textDisabled),
             filled: true,
-            fillColor: const Color(0xFF1B1B2C),
+            fillColor: AuthColors.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
@@ -231,28 +232,29 @@ class _SearchResultsSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF131324),
+        color: AuthColors.backgroundAlt,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Search Results',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              TextButton(
+              DashButton(
+                label: 'Clear',
                 onPressed: onClear,
-                child: const Text('Clear'),
+                variant: DashButtonVariant.text,
               ),
             ],
           ),
@@ -269,7 +271,7 @@ class _SearchResultsSection extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Text(
                 'No clients found for "${state.searchQuery}".',
-                style: const TextStyle(color: Colors.white60),
+                style: TextStyle(color: AuthColors.textSub),
               ),
             )
           else
@@ -312,7 +314,7 @@ class _RecentClientsSection extends StatelessWidget {
               child: Text(
                 'Recent Clients',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -332,7 +334,7 @@ class _RecentClientsSection extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Text(
               'No clients found. Please create a client first.',
-              style: TextStyle(color: Colors.white60),
+              style: TextStyle(color: AuthColors.textSub),
             ),
           )
           else
@@ -378,9 +380,9 @@ class _ClientTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F0F1F),
+            color: AuthColors.background,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
           ),
           child: Row(
             children: [
@@ -388,12 +390,12 @@ class _ClientTile extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                  color: AuthColors.primaryWithOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.person,
-                  color: Color(0xFF6F4BFF),
+                  color: AuthColors.primary,
                   size: 24,
                 ),
               ),
@@ -404,8 +406,8 @@ class _ClientTile extends StatelessWidget {
                   children: [
                     Text(
                       client.name,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AuthColors.textMain,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -413,17 +415,17 @@ class _ClientTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       phoneLabel,
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: AuthColors.textSub,
                         fontSize: 14,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.chevron_right,
-                color: Colors.white54,
+                color: AuthColors.textSub,
               ),
             ],
           ),

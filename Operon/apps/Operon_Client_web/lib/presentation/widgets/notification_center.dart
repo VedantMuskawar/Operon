@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart' as core_models;
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/notifications_repository.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/notifications/notifications_cubit.dart';
@@ -157,15 +158,13 @@ class _NotificationDropdown extends StatelessWidget {
                       ),
                     ),
                     if (unreadCount > 0)
-                      TextButton(
+                      DashButton(
+                        label: 'Mark all read',
                         onPressed: () {
                           onMarkAllRead();
                           Navigator.of(context).pop();
                         },
-                        child: const Text(
-                          'Mark all read',
-                          style: TextStyle(fontSize: 12),
-                        ),
+                        variant: DashButtonVariant.text,
                       ),
                   ],
                 ),
@@ -202,12 +201,13 @@ class _NotificationDropdown extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   child: SizedBox(
                     width: double.infinity,
-                    child: TextButton(
+                    child: DashButton(
+                      label: 'View all notifications',
                       onPressed: () {
                         Navigator.of(context).pop();
                         onViewAll();
                       },
-                      child: const Text('View all notifications'),
+                      variant: DashButtonVariant.text,
                     ),
                   ),
                 ),

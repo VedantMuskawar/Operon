@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashSnackbar;
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/views/client_detail_page.dart';
@@ -124,15 +125,11 @@ class _ClientDetailPanelState extends State<ClientDetailPanel>
         final repository = context.read<ClientsRepository>();
         await repository.deleteClient(widget.client.id);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Client deleted.')),
-        );
+        DashSnackbar.show(context, message: 'Client deleted.', isError: false);
         _closePanel();
       } catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to delete client: $error')),
-        );
+        DashSnackbar.show(context, message: 'Unable to delete client: $error', isError: true);
       }
     }
   }
@@ -147,14 +144,14 @@ class _ClientDetailPanelState extends State<ClientDetailPanel>
 
   Color _getClientColor() {
     if (widget.client.isCorporate) {
-      return const Color(0xFF6F4BFF);
+      return AuthColors.primary;
     }
     final hash = widget.client.name.hashCode;
     final colors = [
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
+      AuthColors.successVariant,
+      AuthColors.warning,
+      AuthColors.info,
+      AuthColors.error,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -179,7 +176,7 @@ class _ClientDetailPanelState extends State<ClientDetailPanel>
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Container(
-                color: Colors.black.withOpacity(0.5),
+                color: AuthColors.background.withOpacity(0.5),
               ),
             ),
           ),
@@ -195,10 +192,10 @@ class _ClientDetailPanelState extends State<ClientDetailPanel>
             child: Container(
               width: panelWidth,
               decoration: BoxDecoration(
-                color: const Color(0xFF0D0D15),
+                color: AuthColors.background,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: AuthColors.background.withOpacity(0.3),
                     blurRadius: 20,
                     spreadRadius: 5,
                   ),
@@ -220,10 +217,10 @@ class _ClientDetailPanelState extends State<ClientDetailPanel>
                   // Tabs
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF131324),
+                      color: AuthColors.surface,
                       border: Border(
                         bottom: BorderSide(
-                          color: Colors.white.withOpacity(0.1),
+                          color: AuthColors.textMainWithOpacity(0.1),
                         ),
                       ),
                     ),
@@ -261,7 +258,7 @@ class _ClientDetailPanelState extends State<ClientDetailPanel>
                       children: [
                         OverviewSection(clientId: widget.client.id),
                         PendingOrdersSection(clientId: widget.client.id),
-                        AnalyticsSection(clientId: widget.client.id),
+                        AnalyticsSection(clientId: widget.client.id, clientName: widget.client.name),
                       ],
                     ),
                   ),
@@ -303,14 +300,14 @@ class _PanelHeader extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             clientColor.withOpacity(0.3),
-            const Color(0xFF1B1B2C),
+            AuthColors.surface,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border(
           bottom: BorderSide(
-            color: Colors.white.withOpacity(0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
           ),
         ),
       ),
@@ -320,27 +317,27 @@ class _PanelHeader extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white70),
+                icon: Icon(Icons.close, color: AuthColors.textSub),
                 onPressed: onClose,
                 tooltip: 'Close',
               ),
               Expanded(
                 child: Text(
                   client.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
+                    style: TextStyle(
+                      color: AuthColors.textMain,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.edit, color: Colors.white70),
+                icon: Icon(Icons.edit, color: AuthColors.textSub),
                 onPressed: onEdit,
                 tooltip: 'Edit',
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                icon: Icon(Icons.delete_outline, color: AuthColors.textSub),
                 onPressed: onDelete,
                 tooltip: 'Delete',
               ),
@@ -354,13 +351,13 @@ class _PanelHeader extends StatelessWidget {
                 const Icon(
                   Icons.phone_outlined,
                   size: 16,
-                  color: Colors.white70,
+                  color: AuthColors.textSub,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   primaryPhone,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: AuthColors.textSub,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -369,7 +366,7 @@ class _PanelHeader extends StatelessWidget {
                 const Icon(
                   Icons.edit,
                   size: 14,
-                  color: Colors.white54,
+                  color: AuthColors.textDisabled,
                 ),
               ],
             ),
@@ -386,13 +383,13 @@ class _PanelHeader extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
+                    color: AuthColors.textMainWithOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     tag,
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: AuthColors.textSub,
                       fontSize: 11,
                     ),
                   ),
@@ -427,8 +424,8 @@ class _TabButton extends StatelessWidget {
           border: Border(
             bottom: BorderSide(
               color: isSelected
-                  ? const Color(0xFF6F4BFF)
-                  : Colors.transparent,
+                  ? AuthColors.primary
+                  : AuthColors.background,
               width: 2,
             ),
           ),
@@ -437,7 +434,7 @@ class _TabButton extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
+            color: isSelected ? AuthColors.textMain : AuthColors.textSub,
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -471,7 +468,7 @@ class _PrimaryContactDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1B1B2C),
+      backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
       ),
@@ -480,10 +477,10 @@ class _PrimaryContactDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Select Primary Contact',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -498,29 +495,29 @@ class _PrimaryContactDialog extends StatelessWidget {
                   final option = options[index];
                   final isSelected = option.phone == currentPhone;
                   return ListTile(
-                    tileColor: const Color(0xFF131324),
+                    tileColor: AuthColors.surface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                     leading: CircleAvatar(
                       backgroundColor: isSelected
-                          ? const Color(0xFF6F4BFF)
-                          : const Color(0xFF2A2A3D),
+                          ? AuthColors.primary
+                          : AuthColors.background,
                       child: Text(
                         option.label.isNotEmpty ? option.label[0] : '?',
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: AuthColors.textMain),
                       ),
                     ),
                     title: Text(
                       option.label,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: AuthColors.textMain),
                     ),
                     subtitle: Text(
                       option.phone,
-                      style: const TextStyle(color: Colors.white54),
+                      style: TextStyle(color: AuthColors.textDisabled),
                     ),
                     trailing: isSelected
-                        ? const Icon(Icons.check, color: Colors.white70)
+                        ? Icon(Icons.check, color: AuthColors.textSub)
                         : null,
                     onTap: () => Navigator.pop(context, option),
                   );
@@ -542,7 +539,7 @@ class _DeleteClientDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1B1B2C),
+      backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
       ),
@@ -552,10 +549,10 @@ class _DeleteClientDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Delete client',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -563,33 +560,27 @@ class _DeleteClientDialog extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'This will permanently remove $clientName and all related analytics. This action cannot be undone.',
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: AuthColors.textSub,
                 fontSize: 13,
               ),
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFED5A5A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
+              child: DashButton(
+                label: 'Delete client',
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete client'),
+                isDestructive: true,
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: TextButton(
+              child: DashButton(
+                label: 'Cancel',
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                variant: DashButtonVariant.text,
               ),
             ),
           ],

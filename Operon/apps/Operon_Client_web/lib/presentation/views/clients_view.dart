@@ -35,7 +35,6 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
   _ClientSortOption _sortOption = _ClientSortOption.nameAsc;
   _ClientFilterType _filterType = _ClientFilterType.all;
   final ScrollController _scrollController = ScrollController();
-  final bool _isLoadingMore = false;
 
   @override
   void initState() {
@@ -139,7 +138,31 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
     return BlocBuilder<ClientsCubit, ClientsState>(
       builder: (context, state) {
         if (state.status == ViewStatus.loading && state.clients.isEmpty) {
-          return _LoadingState();
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SkeletonLoader(
+                    height: 40,
+                    width: double.infinity,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(8, (_) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SkeletonLoader(
+                      height: 80,
+                      width: double.infinity,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          );
         }
         if (state.status == ViewStatus.failure && state.clients.isEmpty) {
           return _ErrorState(
@@ -395,22 +418,10 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                 ),
                 const SizedBox(width: 12),
                 // Add Client Button
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Add Client'),
+                DashButton(
+                  icon: Icons.add,
+                  label: 'Add Client',
                   onPressed: () => _showClientDialog(context, null),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AuthColors.primary,
-                    foregroundColor: AuthColors.textMain,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 0,
-                  ),
                 ),
               ],
             ),
@@ -426,6 +437,9 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
             else
               _ClientListView(
                 clients: filtered,
+                hasMore: state.hasMore && _query.trim().isEmpty,
+                isLoadingMore: state.isLoadingMore,
+                onLoadMore: () => context.read<ClientsCubit>().loadMoreClients(),
                 onTap: (client) => _openClientDetail(client),
                 onEdit: (client) => _showClientDialog(context, client),
                 onDelete: (client) => _showDeleteConfirmation(context, client),
@@ -476,27 +490,19 @@ void _showDeleteConfirmation(BuildContext context, Client client) {
         style: const TextStyle(color: AuthColors.textSub),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(dialogContext).pop(),
-          style: TextButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: 'Delete',
           onPressed: () {
             context.read<ClientsCubit>().deleteClient(client.id);
             Navigator.of(dialogContext).pop();
           },
-          style: TextButton.styleFrom(
-            foregroundColor: AuthColors.error,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ),
-          child: const Text('Delete'),
+          variant: DashButtonVariant.text,
+          isDestructive: true,
         ),
       ],
     ),
@@ -724,20 +730,10 @@ class _ClientDialogState extends State<_ClientDialog> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          ElevatedButton(
+                          DashButton(
+                            icon: Icons.add,
+                            label: 'Add',
                             onPressed: _addTag,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AuthColors.primary,
-                              foregroundColor: AuthColors.textMain,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Icon(Icons.add, size: 20),
                           ),
                         ],
                       ),
@@ -804,24 +800,15 @@ class _ClientDialogState extends State<_ClientDialog> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  DashButton(
+                    label: 'Cancel',
                     onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Cancel'),
+                    variant: DashButtonVariant.text,
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    icon: Icon(isEditing ? Icons.check : Icons.add, size: 18),
-                    label: Text(isEditing ? 'Save Changes' : 'Create Client'),
+                  DashButton(
+                    icon: isEditing ? Icons.check : Icons.add,
+                    label: isEditing ? 'Save Changes' : 'Create Client',
                     onPressed: () {
                       if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -849,17 +836,6 @@ class _ClientDialogState extends State<_ClientDialog> {
                       }
                       Navigator.of(context).pop();
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6F4BFF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                   ),
                 ],
               ),
@@ -1025,29 +1001,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DashCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AuthColors.surface,
-            AuthColors.background,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AuthColors.background.withOpacity(0.5),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
       child: Row(
         children: [
           Container(
@@ -1082,28 +1037,6 @@ class _StatCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoadingState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 24),
-          Text(
-            'Loading clients...',
-            style: TextStyle(
-              color: AuthColors.textSub,
-              fontSize: 16,
             ),
           ),
         ],
@@ -1160,21 +1093,10 @@ class _ErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+            DashButton(
+              icon: Icons.refresh,
+              label: 'Retry',
               onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),
@@ -1242,21 +1164,10 @@ class _EmptyClientsState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Add Client'),
+            DashButton(
+              icon: Icons.add,
+              label: 'Add Client',
               onPressed: onAddClient,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),
@@ -1310,12 +1221,18 @@ class _EmptySearchState extends StatelessWidget {
 class _ClientListView extends StatelessWidget {
   const _ClientListView({
     required this.clients,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+    this.onLoadMore,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
   final List<Client> clients;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final VoidCallback? onLoadMore;
   final ValueChanged<Client> onTap;
   final ValueChanged<Client> onEdit;
   final ValueChanged<Client> onDelete;
@@ -1344,12 +1261,38 @@ class _ClientListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final itemCount = clients.length + (hasMore ? 1 : 0);
     return AnimationLimiter(
       child: ListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: clients.length,
+        itemCount: itemCount,
         itemBuilder: (context, index) {
+          if (index >= clients.length) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
+              child: Center(
+                child: isLoadingMore
+                    ? const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AuthColors.primary,
+                          ),
+                        ),
+                      )
+                    : DashButton(
+                        label: 'Load more',
+                        icon: Icons.add_circle_outline,
+                        onPressed: onLoadMore,
+                        variant: DashButtonVariant.outlined,
+                      ),
+              ),
+            );
+          }
           final client = clients[index];
           final clientColor = _getClientColor(client);
           final orderCount = client.stats?['orders'] ?? 0;
@@ -1359,14 +1302,9 @@ class _ClientListView extends StatelessWidget {
           if (client.isCorporate) subtitleParts.add('Corporate');
           final subtitle = subtitleParts.join(' • ');
 
-          return AnimationConfiguration.staggeredList(
-            position: index,
-            duration: const Duration(milliseconds: 200),
-            child: SlideAnimation(
-              verticalOffset: 50.0,
-              child: FadeInAnimation(
-                curve: Curves.easeOut,
-                child: Container(
+          // Animate only first 20 items to keep frame rate smooth with large datasets
+          const int _maxAnimatedItems = 20;
+          final content = Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: AuthColors.background,
@@ -1436,10 +1374,21 @@ class _ClientListView extends StatelessWidget {
             ),
             onTap: () => onTap(client),
           ),
+          );
+          if (index < _maxAnimatedItems) {
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 200),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  curve: Curves.easeOut,
+                  child: content,
                 ),
               ),
-            ),
-          );
+            );
+          }
+          return content;
         },
       ),
     );

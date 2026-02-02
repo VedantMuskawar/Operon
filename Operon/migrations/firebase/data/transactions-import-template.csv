@@ -1,0 +1,2 @@
+Document ID,transactionId,organizationId,clientId,clientName,ledgerType,type,category,amount,currency,paymentAccountId,paymentAccountName,paymentAccountType,referenceNumber,tripId,description,metadata,financialYear,balanceBefore,balanceAfter,createdBy,createdAt,updatedAt
+,txn-123,org-id-123,client-456,ABC Construction,clientLedger,debit,clientPayment,5000.00,INR,account-789,Cash Account,cash,REF-12345,trip-101,Payment received,"{""dmNumber"": 12345}",FY2526,10000.00,5000.00,user-123,2026-01-15T10:30:00Z,2026-01-15T10:30:00Z

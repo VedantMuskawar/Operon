@@ -62,6 +62,11 @@ List<int> computeHomeSections(AppAccessRole? appAccessRole) {
   if (appAccessRole.canAccessSection('scheduleOrders')) visible.add(2);
   if (appAccessRole.canAccessSection('ordersMap')) visible.add(3);
   if (appAccessRole.canAccessSection('analyticsDashboard')) visible.add(4);
+  // Cash Ledger: same users who can access analytics or financial transactions
+  if (appAccessRole.canAccessSection('analyticsDashboard') ||
+      appAccessRole.canAccessPage('financialTransactions')) {
+    visible.add(5);
+  }
   return visible;
 }
 
@@ -190,6 +195,11 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                             icon: Icons.dashboard_outlined,
                             label: 'Analytics',
                             heroTag: 'nav_analytics',
+                          ),
+                          NavBarItem(
+                            icon: Icons.account_balance_wallet_outlined,
+                            label: 'Cash Ledger',
+                            heroTag: 'nav_cash_ledger',
                           ),
                         ],
                         currentIndex: widget.currentIndex,
@@ -404,8 +414,10 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                         final orgState = context.read<OrganizationContextCubit>().state;
                         final organization = orgState.organization;
                         if (organization == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please select an organization first')),
+                          DashSnackbar.show(
+                            context,
+                            message: 'Please select an organization first',
+                            isError: true,
                           );
                           return;
                         }
@@ -427,8 +439,10 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                         final orgState = context.read<OrganizationContextCubit>().state;
                         final organization = orgState.organization;
                         if (organization == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please select an organization first')),
+                          DashSnackbar.show(
+                            context,
+                            message: 'Please select an organization first',
+                            isError: true,
                           );
                           return;
                         }
@@ -460,8 +474,10 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                           final orgState = context.read<OrganizationContextCubit>().state;
                           final organization = orgState.organization;
                           if (organization == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please select an organization first')),
+                            DashSnackbar.show(
+                              context,
+                              message: 'Please select an organization first',
+                              isError: true,
                             );
                             return;
                           }
@@ -747,10 +763,10 @@ class _AnimatedSectionSwitcherState extends State<_AnimatedSectionSwitcher>
   @override
   Widget build(BuildContext context) {
     final isMapSection = widget.currentIndex == 3;
+    final isAnalyticsSection = widget.currentIndex == 4;
 
-    // Special-case the map section: avoid scroll-wrapping so map gestures and
-    // scroll-wheel zoom work correctly on web, and allow the map to fill the panel.
-    if (isMapSection) {
+    // Map: avoid scroll-wrapping so map gestures work. Analytics: TabBarView needs bounded height.
+    if (isMapSection || isAnalyticsSection) {
       return LayoutBuilder(
         builder: (context, constraints) {
           return AnimatedBuilder(

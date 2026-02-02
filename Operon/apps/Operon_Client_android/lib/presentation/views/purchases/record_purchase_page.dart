@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/data/repositories/raw_materials_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
@@ -227,7 +228,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
           Text(
             label,
             style: TextStyle(
-              color: isTotal ? Colors.white : Colors.white.withOpacity(0.7),
+              color: isTotal ? AuthColors.textMain : AuthColors.textMain.withOpacity(0.7),
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.normal,
               fontSize: isTotal ? 14 : 12,
             ),
@@ -235,7 +236,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
           Text(
             '₹${amount.toStringAsFixed(2)}',
             style: TextStyle(
-              color: isTotal ? const Color(0xFF6F4BFF) : Colors.white,
+              color: isTotal ? AuthColors.primary : AuthColors.textMain,
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
               fontSize: isTotal ? 16 : 12,
             ),
@@ -318,10 +319,10 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
+              primary: AuthColors.primary,
+              onPrimary: AuthColors.textMain,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
             ),
           ),
           child: child!,
@@ -371,6 +372,12 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
     if (_selectedVendor == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a vendor')),
+      );
+      return;
+    }
+    if (_selectedVendor!.vendorType == VendorType.fuel && _selectedVehicle == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a vehicle')),
       );
       return;
     }
@@ -512,7 +519,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Purchase recorded successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: AuthColors.success,
           ),
         );
         // Navigate back after successful purchase
@@ -527,7 +534,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to record purchase: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }
@@ -545,13 +552,13 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
 
     if (organization == null) {
       return const Scaffold(
-        backgroundColor: Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         body: Center(child: Text('Please select an organization')),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: AuthColors.background,
       appBar: const ModernPageHeader(
         title: 'Record Purchase',
       ),
@@ -571,7 +578,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 const Text(
                   'Vendor Type',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: AuthColors.textSub,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -588,10 +595,10 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       onSelected: (selected) {
                         _onVendorTypeSelected(selected ? type : null);
                       },
-                      selectedColor: const Color(0xFF6F4BFF).withOpacity(0.3),
-                      checkmarkColor: const Color(0xFF6F4BFF),
+                      selectedColor: AuthColors.primary.withOpacity(0.3),
+                      checkmarkColor: AuthColors.primary,
                       labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
+                        color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     );
@@ -604,8 +611,8 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               DropdownButtonFormField<Vendor>(
                 initialValue: _selectedVendor,
                 decoration: _inputDecoration('Vendor'),
-                dropdownColor: const Color(0xFF2B2B3C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: const TextStyle(color: AuthColors.textMain),
                 items: _filteredVendors.map((vendor) {
                   return DropdownMenuItem<Vendor>(
                     value: vendor,
@@ -616,14 +623,14 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                         Text(
                           vendor.name,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           'Balance: ₹${vendor.currentBalance.toStringAsFixed(2)}',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: AuthColors.textMain.withOpacity(0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -644,9 +651,11 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       _assignedMaterials = [];
                     });
                   }
-                  // Load vehicles if fuel vendor
+                  // Load vehicles if fuel vendor; clear additional charges (not used for fuel)
                   if (vendor != null && vendor.vendorType == VendorType.fuel) {
                     _loadVehicles();
+                    _unloadingChargesController.clear();
+                    _updateTotalAmount();
                   } else {
                     setState(() {
                       _vehicles = [];
@@ -668,9 +677,9 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                     children: [
                       Text(
                         _formatDate(_selectedDate),
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                       ),
-                      const Icon(Icons.calendar_today, color: Colors.white54, size: 20),
+                      const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 20),
                     ],
                   ),
                 ),
@@ -680,7 +689,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               // Invoice/Voucher Number (for fuel, this is the voucher number)
               TextFormField(
                 controller: _invoiceNumberController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration(
                   _selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel
                       ? 'Voucher Number'
@@ -693,37 +702,42 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               ),
               const SizedBox(height: 20),
               
-              // Fuel-specific fields
+              // Fuel-specific fields (vehicle option buttons)
               if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
                 _isLoadingVehicles
                     ? const Center(child: Padding(
                         padding: EdgeInsets.all(16.0),
                         child: CircularProgressIndicator(),
                       ))
-                    : DropdownButtonFormField<Vehicle>(
-                        initialValue: _selectedVehicle,
+                    : InputDecorator(
                         decoration: _inputDecoration('Vehicle'),
-                        dropdownColor: const Color(0xFF2B2B3C),
-                        style: const TextStyle(color: Colors.white),
-                        items: _vehicles.map((vehicle) {
-                          return DropdownMenuItem<Vehicle>(
-                            value: vehicle,
-                            child: Text(
-                              vehicle.vehicleNumber,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _vehicles.map((vehicle) {
+                            final isSelected = _selectedVehicle?.id == vehicle.id;
+                            return FilterChip(
+                              label: Text(
+                                vehicle.vehicleNumber,
+                                style: const TextStyle(
+                                  color: AuthColors.textMain,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (vehicle) {
-                          setState(() {
-                            _selectedVehicle = vehicle;
-                          });
-                        },
-                        validator: (value) => value == null ? 'Please select a vehicle' : null,
+                              selected: isSelected,
+                              onSelected: (_) {
+                                setState(() {
+                                  _selectedVehicle = isSelected ? null : vehicle;
+                                });
+                              },
+                              selectedColor: AuthColors.primary,
+                              checkmarkColor: AuthColors.textMain,
+                              side: BorderSide(
+                                color: isSelected ? AuthColors.primary : AuthColors.textMain.withOpacity(0.3),
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
                 const SizedBox(height: 20),
               ],
@@ -733,10 +747,10 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1B1B2C),
+                    color: AuthColors.surface,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
+                      color: AuthColors.textMain.withOpacity(0.1),
                     ),
                   ),
                   child: Column(
@@ -746,14 +760,14 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                         children: [
                           Icon(
                             Icons.inventory_2_outlined,
-                            color: Colors.white70,
+                            color: AuthColors.textSub,
                             size: 20,
                           ),
                           SizedBox(width: 8),
                           Text(
                             'Raw Materials Purchased',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
                             ),
@@ -774,7 +788,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           child: Text(
                             'No materials assigned to this vendor. Assign materials in vendor settings.',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: AuthColors.textMain.withOpacity(0.6),
                               fontSize: 12,
                             ),
                           ),
@@ -786,7 +800,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0D0D15),
+                                color: AuthColors.backgroundAlt,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Column(
@@ -795,7 +809,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                   Text(
                                     material.name,
                                     style: const TextStyle(
-                                      color: Colors.white,
+                                      color: AuthColors.textMain,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -805,20 +819,20 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                       Expanded(
                                         child: TextFormField(
                                           controller: _materialQuantityControllers[material.id],
-                                          style: const TextStyle(color: Colors.white),
+                                          style: const TextStyle(color: AuthColors.textMain),
                                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                           decoration: InputDecoration(
                                             labelText: 'Quantity',
                                             hintText: '0',
                                             filled: true,
-                                            fillColor: const Color(0xFF000000),
-                                            labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                            fillColor: AuthColors.background,
+                                            labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
                                             suffixText: material.unitOfMeasurement,
-                                            suffixStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                                            suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                             border: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(8),
                                               borderSide: BorderSide(
-                                                color: Colors.white.withOpacity(0.1),
+                                                color: AuthColors.textMain.withOpacity(0.1),
                                               ),
                                             ),
                                           ),
@@ -833,20 +847,20 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                       Expanded(
                                         child: TextFormField(
                                           controller: _materialPriceControllers[material.id],
-                                          style: const TextStyle(color: Colors.white),
+                                          style: const TextStyle(color: AuthColors.textMain),
                                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                           decoration: InputDecoration(
                                             labelText: 'Unit Price',
                                             hintText: '0.00',
                                             filled: true,
-                                            fillColor: const Color(0xFF000000),
-                                            labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                            fillColor: AuthColors.background,
+                                            labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
                                             prefixText: '₹',
-                                            prefixStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                                            prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                             border: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(8),
                                               borderSide: BorderSide(
-                                                color: Colors.white.withOpacity(0.1),
+                                                color: AuthColors.textMain.withOpacity(0.1),
                                               ),
                                             ),
                                           ),
@@ -870,14 +884,14 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0D0D15),
+                            color: AuthColors.backgroundAlt,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
                             children: [
                               _buildBreakdownRow('Materials Subtotal', _calculateMaterialTotals()['subtotal']!),
                               _buildBreakdownRow('GST on Materials', _calculateMaterialTotals()['gst']!),
-                              const Divider(color: Colors.white24, height: 16),
+                              Divider(color: AuthColors.textMainWithOpacity(0.24), height: 16),
                               _buildBreakdownRow('Materials Total', _calculateMaterialTotals()['total']!, isTotal: true),
                             ],
                           ),
@@ -889,14 +903,15 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 const SizedBox(height: 20),
               ],
               
-              // Additional Charges Section
+              // Additional Charges Section (hidden for fuel vendors)
+              if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.fuel) ...[
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1B1B2C),
+                  color: AuthColors.surface,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
+                    color: AuthColors.textMain.withOpacity(0.1),
                   ),
                 ),
                 child: Column(
@@ -906,14 +921,14 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       children: [
                         Icon(
                           Icons.local_shipping_outlined,
-                          color: Colors.white70,
+                          color: AuthColors.textSub,
                           size: 20,
                         ),
                         SizedBox(width: 8),
                         Text(
                           'Additional Charges',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
@@ -927,20 +942,20 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           flex: 2,
                           child: TextFormField(
                             controller: _unloadingChargesController,
-                            style: const TextStyle(color: Colors.white),
+                            style: const TextStyle(color: AuthColors.textMain),
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             decoration: InputDecoration(
                               labelText: 'Unloading Charges',
                               hintText: '0.00',
                               filled: true,
-                              fillColor: const Color(0xFF0D0D15),
-                              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                              fillColor: AuthColors.backgroundAlt,
+                              labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
                               prefixText: '₹',
-                              prefixStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                              prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide(
-                                  color: Colors.white.withOpacity(0.1),
+                                  color: AuthColors.textMain.withOpacity(0.1),
                                 ),
                               ),
                             ),
@@ -964,12 +979,12 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                     _updateTotalAmount();
                                   });
                                 },
-                                activeColor: const Color(0xFF6F4BFF),
+                                activeColor: AuthColors.primary,
                               ),
                               const Flexible(
                                 child: Text(
                                   'GST',
-                                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                                  style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -981,20 +996,20 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           Expanded(
                             child: TextFormField(
                               controller: _unloadingGstPercentController,
-                              style: const TextStyle(color: Colors.white),
+                              style: const TextStyle(color: AuthColors.textMain),
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                               decoration: InputDecoration(
                                 labelText: 'GST %',
                                 hintText: '18',
                                 filled: true,
-                                fillColor: const Color(0xFF0D0D15),
-                                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                                fillColor: AuthColors.backgroundAlt,
+                                labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
                                 suffixText: '%',
-                                suffixStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                                suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                   borderSide: BorderSide(
-                                    color: Colors.white.withOpacity(0.1),
+                                    color: AuthColors.textMain.withOpacity(0.1),
                                   ),
                                 ),
                               ),
@@ -1013,7 +1028,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0D0D15),
+                          color: AuthColors.backgroundAlt,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -1021,7 +1036,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                             _buildBreakdownRow('Charges Subtotal', _calculateChargesTotals()['subtotal']!),
                             if (_unloadingHasGst)
                               _buildBreakdownRow('GST on Charges', _calculateChargesTotals()['gst']!),
-                            const Divider(color: Colors.white24, height: 16),
+                            Divider(color: AuthColors.textMainWithOpacity(0.24), height: 16),
                             _buildBreakdownRow('Charges Total', _calculateChargesTotals()['total']!, isTotal: true),
                           ],
                         ),
@@ -1031,6 +1046,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 ),
               ),
               const SizedBox(height: 20),
+              ],
               
               // Final Breakdown Summary
               if (_selectedVendor != null && 
@@ -1040,10 +1056,10 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6F4BFF).withOpacity(0.1),
+                    color: AuthColors.primaryWithOpacity(0.1),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFF6F4BFF).withOpacity(0.3),
+                      color: AuthColors.primaryWithOpacity(0.3),
                     ),
                   ),
                   child: Column(
@@ -1054,7 +1070,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       if ((double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0) ...[
                         _buildBreakdownRow('Charges Total', _calculateChargesTotals()['total']!),
                       ],
-                      const Divider(color: Colors.white24, height: 16),
+                      Divider(color: AuthColors.textMainWithOpacity(0.24), height: 16),
                       _buildBreakdownRow('Grand Total', _calculateGrandTotal(), isTotal: true),
                     ],
                   ),
@@ -1065,7 +1081,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               // Amount
               TextFormField(
                 controller: _amountController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _inputDecoration('Total Amount'),
                 readOnly: _selectedVendor != null && 
@@ -1088,7 +1104,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               // Description (Optional)
               TextFormField(
                 controller: _descriptionController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Description (Optional)'),
                 maxLines: 3,
               ),
@@ -1098,8 +1114,8 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               ElevatedButton(
                 onPressed: _isSubmitting ? null : _submitPurchase,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6F4BFF),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AuthColors.primary,
+                  foregroundColor: AuthColors.textMain,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -1111,7 +1127,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                         width: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                         ),
                       )
                     : const Text(
@@ -1141,31 +1157,31 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide(
-          color: Colors.white.withOpacity(0.1),
+          color: AuthColors.textMain.withOpacity(0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: Color(0xFF6F4BFF),
+          color: AuthColors.primary,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: Colors.red,
+          color: AuthColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: Colors.red,
+          color: AuthColors.error,
           width: 2,
         ),
       ),

@@ -8,6 +8,8 @@ export 'components/dash_sidebar.dart';
 export 'components/dash_card.dart';
 export 'components/dash_button.dart';
 export 'components/dash_form_field.dart';
+export 'components/dash_dialog_header.dart';
+export 'components/dash_dialog.dart';
 export 'components/dash_snackbar.dart';
 export 'components/animated_fade.dart';
 export 'components/animated_slide.dart' show SlideInTransition;
@@ -43,6 +45,6 @@ export 'components/transactions/transaction_date_group_header.dart';
 // Import directly: import 'package:core_ui/components/trip_scheduling/schedule_trip_modal.dart' as shared_modal;
 // Ledger components
 export 'components/ledger_date_range_modal.dart';
-export 'components/ledger_pdf_preview_modal.dart';
+export 'components/operon_pdf_preview_modal.dart';
 // Data table component (exported with prefix to avoid conflict with Flutter's DataTable)
 // Import directly: import 'package:core_ui/components/data_table.dart' as custom_table;

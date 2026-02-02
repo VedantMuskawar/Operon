@@ -243,59 +243,68 @@ class _FinancialTransactionsListViewState
 
     switch (transaction.category) {
       case TransactionCategory.clientPayment:
-        // Use actual client name from metadata, fallback to description if available
-        title = transaction.metadata?['clientName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'Client Payment');
-        if (transaction.referenceNumber != null && transaction.referenceNumber!.isNotEmpty) {
-          subtitle = 'Ref: ${transaction.referenceNumber}';
-        }
+        title = (transaction.clientName?.trim().isNotEmpty == true
+                ? transaction.clientName!.trim()
+                : null) ??
+            transaction.metadata?['clientName']?.toString().trim() ??
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Client Payment');
+        subtitle = _buildSubtitle(
+          transaction.referenceNumber,
+          transaction.paymentAccountName,
+        );
         break;
       case TransactionCategory.vendorPurchase:
-        // Use actual vendor name from metadata
         title = transaction.metadata?['vendorName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'Vendor Purchase');
-        subtitle = transaction.referenceNumber != null && transaction.referenceNumber!.isNotEmpty
-            ? 'Ref: ${transaction.referenceNumber}'
-            : transaction.description;
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Vendor Purchase');
+        subtitle = _buildSubtitle(
+          transaction.referenceNumber,
+          transaction.paymentAccountName,
+        ) ?? transaction.description;
         break;
       case TransactionCategory.vendorPayment:
-        // Use actual vendor name from metadata
         title = transaction.metadata?['vendorName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'Vendor Payment');
-        if (transaction.referenceNumber != null && transaction.referenceNumber!.isNotEmpty) {
-          subtitle = 'Ref: ${transaction.referenceNumber}';
-        }
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Vendor Payment');
+        subtitle = _buildSubtitle(
+          transaction.referenceNumber,
+          transaction.paymentAccountName,
+        );
         break;
       case TransactionCategory.salaryDebit:
-        // Use actual employee name from metadata
         title = transaction.metadata?['employeeName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'Salary Payment');
-        subtitle = 'Salary';
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Salary Payment');
+        subtitle = (transaction.paymentAccountName?.trim().isNotEmpty == true)
+            ? 'Salary · ${transaction.paymentAccountName!.trim()}'
+            : 'Salary';
         break;
       case TransactionCategory.generalExpense:
-        // Use actual subcategory name from metadata
         title = transaction.metadata?['subCategoryName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'General Expense');
-        subtitle = transaction.description;
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'General Expense');
+        subtitle = _buildSubtitle(
+          null,
+          transaction.paymentAccountName,
+        ) ?? transaction.description;
         break;
       default:
-        // For other categories, use description if available, otherwise generic title
-        title = transaction.description?.isNotEmpty == true 
-            ? transaction.description! 
-            : 'Transaction';
-        if (transaction.referenceNumber != null && transaction.referenceNumber!.isNotEmpty) {
-          subtitle = 'Ref: ${transaction.referenceNumber}';
-        }
+        title = (transaction.clientName?.trim().isNotEmpty == true
+                ? transaction.clientName!.trim()
+                : null) ??
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Transaction');
+        subtitle = _buildSubtitle(
+          transaction.referenceNumber,
+          transaction.paymentAccountName,
+        );
     }
 
     return TransactionListTile(
@@ -304,6 +313,19 @@ class _FinancialTransactionsListViewState
       subtitle: subtitle,
       onDelete: () => _showDeleteConfirmation(context, transaction),
     );
+  }
+
+  /// Builds subtitle from reference and payment account. Prefers ref, then
+  /// account, then "Ref · Account" when both present.
+  String? _buildSubtitle(String? ref, String? accountName) {
+    final hasRef = ref != null && ref.trim().isNotEmpty;
+    final hasAccount = accountName != null && accountName.trim().isNotEmpty;
+    if (hasRef && hasAccount) {
+      return 'Ref: ${ref.trim()} · ${accountName.trim()}';
+    }
+    if (hasRef) return 'Ref: ${ref.trim()}';
+    if (hasAccount) return accountName.trim();
+    return null;
   }
 
   // Caching for filtered transactions (similar to Employees page)
@@ -340,16 +362,20 @@ class _FinancialTransactionsListViewState
               final description = tx.description?.toLowerCase() ?? '';
               final reference = tx.referenceNumber?.toLowerCase() ?? '';
               final amount = tx.amount.toString();
-              final clientName = tx.metadata?['clientName']?.toString().toLowerCase() ?? '';
+              final clientName = tx.clientName?.toLowerCase() ??
+                  tx.metadata?['clientName']?.toString().toLowerCase() ??
+                  '';
               final vendorName = tx.metadata?['vendorName']?.toString().toLowerCase() ?? '';
               final employeeName = tx.metadata?['employeeName']?.toString().toLowerCase() ?? '';
-              
+              final accountName = tx.paymentAccountName?.toLowerCase() ?? '';
+
               return description.contains(queryLower) ||
                   reference.contains(queryLower) ||
                   amount.contains(queryLower) ||
                   clientName.contains(queryLower) ||
                   vendorName.contains(queryLower) ||
-                  employeeName.contains(queryLower);
+                  employeeName.contains(queryLower) ||
+                  accountName.contains(queryLower);
             })
             .toList();
 

@@ -15,8 +15,13 @@ export const PRODUCTION_BATCHES_COLLECTION = 'PRODUCTION_BATCHES';
 export const VEHICLE_AVAILABILITY_FORECAST = 'VEHICLE_AVAILABILITY_FORECAST';
 export const EDD_RECALC_QUEUE = 'EDD_RECALC_QUEUE';
 export const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
+export const DELIVERY_MEMOS_COLLECTION = 'DELIVERY_MEMOS';
+export const TRIP_WAGES_COLLECTION = 'TRIP_WAGES';
 export const SOURCE_KEY = 'clients';
 export const TRANSACTIONS_SOURCE_KEY = 'transactions';
 export const EMPLOYEES_SOURCE_KEY = 'employees';
 export const VENDORS_SOURCE_KEY = 'vendors';
+export const DELIVERIES_SOURCE_KEY = 'deliveries';
+export const PRODUCTIONS_SOURCE_KEY = 'productions';
+export const TRIP_WAGES_ANALYTICS_SOURCE_KEY = 'tripWages';
 

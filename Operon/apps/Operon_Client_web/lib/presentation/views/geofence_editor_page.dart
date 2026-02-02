@@ -235,10 +235,10 @@ class _GeofenceEditorPageState extends State<GeofenceEditorPage> {
             },
           ),
           const SizedBox(height: 12),
-          TextButton(
+          DashButton(
+            label: 'Back to Locations & Geofences',
             onPressed: () => context.go('/locations-geofences'),
-            style: TextButton.styleFrom(foregroundColor: AuthColors.primary),
-            child: const Text('Back to Locations & Geofences'),
+            variant: DashButtonVariant.text,
           ),
         ],
       ),
@@ -589,9 +589,10 @@ class _GeofenceEditorPageState extends State<GeofenceEditorPage> {
                   label: 'Finish Drawing',
                   onPressed: () {
                     if (_polygonPoints.length < 3) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Polygon needs at least 3 points')),
+                      DashSnackbar.show(
+                        context,
+                        message: 'Polygon needs at least 3 points',
+                        isError: true,
                       );
                       return;
                     }
@@ -625,23 +626,9 @@ class _GeofenceEditorPageState extends State<GeofenceEditorPage> {
   }
 
   Widget _buildNameField() {
-    return TextField(
+    return DashFormField(
       controller: _nameController,
-      decoration: InputDecoration(
-        labelText: 'Geofence Name',
-        labelStyle: const TextStyle(color: AuthColors.textSub),
-        filled: true,
-        fillColor: AuthColors.background,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.15)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AuthColors.primary, width: 1.5),
-        ),
-      ),
+      label: 'Geofence Name',
       style: const TextStyle(color: AuthColors.textMain),
     );
   }
@@ -731,21 +718,19 @@ class _GeofenceEditorPageState extends State<GeofenceEditorPage> {
   void _save(String organizationId) {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a geofence name')),
-      );
+      DashSnackbar.show(context, message: 'Please enter a geofence name', isError: true);
       return;
     }
     if (_location == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location not found')),
-      );
+      DashSnackbar.show(context, message: 'Location not found', isError: true);
       return;
     }
     if (_selectedType == core_models.GeofenceType.polygon &&
         _polygonPoints.length < 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Polygon needs at least 3 points')),
+      DashSnackbar.show(
+        context,
+        message: 'Polygon needs at least 3 points',
+        isError: true,
       );
       return;
     }

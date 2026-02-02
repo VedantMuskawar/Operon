@@ -1,0 +1,13 @@
+{
+  "name": "operon-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/marketing",
+    "packages/ui"
+  ],
+  "scripts": {
+    "dev:marketing": "npm run dev -w @operon/marketing",
+    "build:marketing": "npm run build -w @operon/marketing",
+    "deploy:marketing": "npm run build:marketing && firebase deploy --only hosting"
+  }
+}

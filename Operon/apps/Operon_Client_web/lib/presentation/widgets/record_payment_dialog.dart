@@ -7,6 +7,7 @@ import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:dash_web/domain/entities/payment_account.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashDialog, DashSnackbar, DashTheme, DialogActionHandler;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,14 +23,13 @@ class RecordPaymentDialog extends StatefulWidget {
   State<RecordPaymentDialog> createState() => _RecordPaymentDialogState();
 }
 
-class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
+class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogActionHandler {
   final _amountController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
   String? _selectedClientId;
   String? _selectedClientName;
   double? _currentBalance;
-  bool _isSubmitting = false;
   PlatformFile? _selectedReceiptPhoto;
   Uint8List? _receiptPhotoBytes;
   
@@ -70,16 +70,14 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
     final organization = orgState.organization;
     
     if (organization == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an organization')),
-      );
+      DashSnackbar.show(context, message: 'Please select an organization', isError: true);
       return;
     }
 
     final clientsRepository = context.read<ClientsRepository>();
     final client = await showDialog<Map<String, dynamic>>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.7),
+      barrierColor: AuthColors.background.withOpacity(0.7),
       builder: (dialogContext) => BlocProvider(
         create: (_) => ClientsCubit(
           repository: clientsRepository,
@@ -146,14 +144,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -181,9 +172,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick image: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to pick image: $e', isError: true);
       }
     }
   }
@@ -229,17 +218,13 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedClientId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a client')),
-      );
+      DashSnackbar.show(context, message: 'Please select a client', isError: true);
       return;
     }
 
     final amount = double.tryParse(_amountController.text.replaceAll(',', ''));
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount')),
-      );
+      DashSnackbar.show(context, message: 'Please enter a valid amount', isError: true);
       return;
     }
 
@@ -247,127 +232,100 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
     if (_accountSplits.isNotEmpty) {
       final totalSplit = _accountSplits.values.fold<double>(0.0, (sum, amt) => sum + amt);
       if ((totalSplit - amount).abs() > 0.01) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Split amounts (${_formatCurrency(totalSplit)}) must equal total amount (${_formatCurrency(amount)})'),
-            backgroundColor: Colors.red,
-          ),
-        );
+          DashSnackbar.show(
+            context,
+            message: 'Split amounts (${_formatCurrency(totalSplit)}) must equal total amount (${_formatCurrency(amount)})',
+            isError: true,
+          );
         return;
       }
     }
 
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not authenticated')),
-      );
+      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
       return;
     }
 
     final orgState = context.read<OrganizationContextCubit>().state;
     final organization = orgState.organization;
     if (organization == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No organization selected')),
-      );
+      DashSnackbar.show(context, message: 'No organization selected', isError: true);
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
+    await runDialogAction(() async {
+      try {
+        final now = DateTime.now();
+        final month = now.month;
+        final year = now.year;
+        final fyStartYear = month >= 4 ? year : year - 1;
+        final fyEndYear = fyStartYear + 1;
+        final startStr = (fyStartYear % 100).toString().padLeft(2, '0');
+        final endStr = (fyEndYear % 100).toString().padLeft(2, '0');
+        final financialYear = 'FY$startStr$endStr';
+
+        final transactionData = {
+          'organizationId': organization.id,
+          'clientId': _selectedClientId,
+          'ledgerType': 'clientLedger',
+          'type': 'debit',
+          'category': 'clientPayment',
+          'amount': amount,
+          'financialYear': financialYear,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'createdBy': currentUser.uid,
+          'transactionDate': Timestamp.fromDate(_selectedDate ?? DateTime.now()),
+          'metadata': {
+            'recordedVia': 'web-app',
+            'photoUploaded': _selectedReceiptPhoto != null,
+            if (_accountSplits.isNotEmpty)
+              'paymentAccounts': _accountSplits.entries.map((e) => {
+                    'accountId': e.key,
+                    'amount': e.value,
+                  }).toList(),
+          },
+        };
+
+        final transactionDocRef = await FirebaseFirestore.instance.collection('TRANSACTIONS').add(transactionData);
+        final transactionId = transactionDocRef.id;
+
+        String? photoUrl;
+        bool photoUploadFailed = false;
+        String? photoUploadError;
+
+        if (_selectedReceiptPhoto != null) {
+          try {
+            photoUrl = await _uploadReceiptPhoto(transactionId);
+            await transactionDocRef.update({
+              'metadata.receiptPhotoUrl': photoUrl,
+              'metadata.receiptPhotoPath': 'payments/${organization.id}/$_selectedClientId/$transactionId/receipt.jpg',
+            });
+          } catch (e) {
+            photoUploadFailed = true;
+            photoUploadError = e.toString();
+          }
+        }
+
+        if (mounted) {
+          if (photoUploadFailed) {
+            DashSnackbar.show(
+              context,
+              message: 'Payment recorded successfully. Photo upload failed: $photoUploadError',
+              isError: false,
+            );
+          } else {
+            DashSnackbar.show(context, message: 'Payment recorded successfully', isError: false);
+          }
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          DashSnackbar.show(context, message: 'Failed to record payment: $e', isError: true);
+        }
+      }
     });
-
-    try {
-      final now = DateTime.now();
-      final month = now.month;
-      final year = now.year;
-      final fyStartYear = month >= 4 ? year : year - 1;
-      final fyEndYear = fyStartYear + 1;
-      final startStr = (fyStartYear % 100).toString().padLeft(2, '0');
-      final endStr = (fyEndYear % 100).toString().padLeft(2, '0');
-      final financialYear = 'FY$startStr$endStr';
-
-      final transactionData = {
-        'organizationId': organization.id,
-        'clientId': _selectedClientId,
-        'ledgerType': 'clientLedger',
-        'type': 'debit',
-        'category': 'clientPayment',
-        'amount': amount,
-        'financialYear': financialYear,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'createdBy': currentUser.uid,
-        'transactionDate': Timestamp.fromDate(_selectedDate ?? DateTime.now()),
-        'metadata': {
-          'recordedVia': 'web-app',
-          'photoUploaded': _selectedReceiptPhoto != null,
-          if (_accountSplits.isNotEmpty)
-            'paymentAccounts': _accountSplits.entries.map((e) => {
-                  'accountId': e.key,
-                  'amount': e.value,
-                }).toList(),
-        },
-      };
-
-      final transactionDocRef = await FirebaseFirestore.instance.collection('TRANSACTIONS').add(transactionData);
-      final transactionId = transactionDocRef.id;
-
-      String? photoUrl;
-      bool photoUploadFailed = false;
-      String? photoUploadError;
-      
-      if (_selectedReceiptPhoto != null) {
-        try {
-          photoUrl = await _uploadReceiptPhoto(transactionId);
-          
-          await transactionDocRef.update({
-            'metadata.receiptPhotoUrl': photoUrl,
-            'metadata.receiptPhotoPath': 'payments/${organization.id}/$_selectedClientId/$transactionId/receipt.jpg',
-          });
-        } catch (e) {
-          photoUploadFailed = true;
-          photoUploadError = e.toString();
-        }
-      }
-
-      if (mounted) {
-        if (photoUploadFailed) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Payment recorded successfully. Photo upload failed: $photoUploadError'),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Payment recorded successfully'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-        
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to record payment: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
   }
 
   @override
@@ -381,91 +339,48 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
+              colors: [AuthColors.surface, AuthColors.background],
             ),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: const Text(
+          child: Text(
             'Please select an organization first',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: AuthColors.textSub),
           ),
         ),
       );
     }
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(24),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 800),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
-              blurRadius: 40,
-              offset: const Offset(0, 20),
-            ),
-          ],
-        ),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Record Payment',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _buildClientSelection(),
-                const SizedBox(height: 20),
-                if (_selectedClientId != null && _currentBalance != null)
-                  _buildCurrentBalance(_currentBalance!),
-                if (_selectedClientId != null && _currentBalance != null)
-                  const SizedBox(height: 20),
-                _buildAmountField(),
-                const SizedBox(height: 20),
-                _buildPaymentAccountsSection(),
-                const SizedBox(height: 20),
-                _buildDateField(),
-                const SizedBox(height: 20),
-                _buildReceiptPhotoSection(),
-                const SizedBox(height: 24),
-                _buildSubmitButton(),
-              ],
-            ),
+    return DashDialog(
+      title: 'Record Payment',
+      onClose: () => Navigator.of(context).pop(),
+      constraints: const BoxConstraints(maxWidth: 600, maxHeight: 800),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildClientSelection(),
+            const SizedBox(height: 20),
+            if (_selectedClientId != null && _currentBalance != null)
+              _buildCurrentBalance(_currentBalance!),
+            if (_selectedClientId != null && _currentBalance != null)
+              const SizedBox(height: 20),
+            _buildAmountField(),
+            const SizedBox(height: 20),
+            _buildPaymentAccountsSection(),
+            const SizedBox(height: 20),
+            _buildDateField(),
+            const SizedBox(height: 20),
+            _buildReceiptPhotoSection(),
+            const SizedBox(height: 24),
+              _buildSubmitButton(),
+            ],
           ),
         ),
       ),
@@ -480,30 +395,30 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: hasClient ? Colors.white24 : Colors.white12,
+            color: hasClient ? AuthColors.textMainWithOpacity(0.24) : AuthColors.textMainWithOpacity(0.12),
           ),
         ),
         child: Row(
           children: [
             Icon(
               Icons.person,
-              color: hasClient ? Colors.white : Colors.white54,
+              color: hasClient ? AuthColors.textMain : AuthColors.textSub,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 _selectedClientName ?? 'Select Client',
                 style: TextStyle(
-                  color: hasClient ? Colors.white : Colors.white54,
+                  color: hasClient ? AuthColors.textMain : AuthColors.textSub,
                   fontSize: 16,
                   fontWeight: hasClient ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white54),
+            Icon(Icons.chevron_right, color: AuthColors.textSub),
           ],
         ),
       ),
@@ -514,32 +429,32 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: balance >= 0 ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+        color: balance >= 0 ? AuthColors.success.withOpacity(0.1) : AuthColors.error.withOpacity(0.1),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: balance >= 0 ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3),
+          color: balance >= 0 ? AuthColors.success.withOpacity(0.3) : AuthColors.error.withOpacity(0.3),
         ),
       ),
       child: Row(
         children: [
           Icon(
             balance >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
-            color: balance >= 0 ? Colors.green : Colors.red,
+            color: balance >= 0 ? AuthColors.success : AuthColors.error,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Current Balance',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _formatCurrency(balance.abs()),
                   style: TextStyle(
-                    color: balance >= 0 ? Colors.green : Colors.red,
+                    color: balance >= 0 ? AuthColors.success : AuthColors.error,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -556,24 +471,24 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
     return TextFormField(
       controller: _amountController,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: const TextStyle(color: Colors.white, fontSize: 18),
+      style: TextStyle(color: AuthColors.textMain, fontSize: 18),
       decoration: InputDecoration(
         labelText: 'Payment Amount',
-        labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: const Icon(Icons.currency_rupee, color: Colors.white54),
+        labelStyle: TextStyle(color: AuthColors.textSub),
+        prefixIcon: Icon(Icons.currency_rupee, color: AuthColors.textSub),
         filled: true,
-        fillColor: const Color(0xFF1B1B2C),
+        fillColor: AuthColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+          borderSide: BorderSide(color: AuthColors.primary, width: 2),
         ),
       ),
       validator: (value) {
@@ -622,9 +537,9 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     'Payment Accounts (Optional)',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                   ),
                   if (hasSplits && totalAmount > 0)
                     Text(
@@ -635,8 +550,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
                               : 'Balanced',
                       style: TextStyle(
                         color: remaining.abs() < 0.01
-                            ? Colors.green
-                            : Colors.orange,
+                            ? AuthColors.success
+                            : AuthColors.warning,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -689,33 +604,33 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, color: Colors.white54),
+            Icon(Icons.calendar_today, color: AuthColors.textSub),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Payment Date',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _selectedDate != null
                         ? '${_selectedDate!.day} ${_getMonthName(_selectedDate!.month)} ${_selectedDate!.year}'
                         : 'Select date',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: AuthColors.textMain, fontSize: 16),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white54),
+            Icon(Icons.chevron_right, color: AuthColors.textSub),
           ],
         ),
       ),
@@ -726,9 +641,9 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Receipt Photo (Optional)',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+          style: TextStyle(color: AuthColors.textSub, fontSize: 14),
         ),
         const SizedBox(height: 12),
         if (_selectedReceiptPhoto != null && _receiptPhotoBytes != null)
@@ -739,7 +654,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
                 ),
                 child: FutureBuilder<Uint8List>(
                   future: Future.value(_receiptPhotoBytes!),
@@ -748,15 +663,15 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
                       return Container(
                         height: 200,
                         width: double.infinity,
-                        color: Colors.grey[800],
+                        color: AuthColors.surface,
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error_outline, color: Colors.white70, size: 48),
+                            Icon(Icons.error_outline, color: AuthColors.textSub, size: 48),
                             SizedBox(height: 8),
                             Text(
                               'Failed to load image',
-                              style: TextStyle(color: Colors.white70),
+                              style: TextStyle(color: AuthColors.textSub),
                             ),
                           ],
                         ),
@@ -766,7 +681,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
                       return const Center(
                         child: Padding(
                           padding: EdgeInsets.all(32.0),
-                          child: CircularProgressIndicator(color: Colors.white70),
+                          child: CircularProgressIndicator(color: AuthColors.textSub),
                         ),
                       );
                     }
@@ -782,15 +697,15 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
                           return Container(
                             height: 200,
                             width: double.infinity,
-                            color: Colors.grey[800],
+                            color: AuthColors.surface,
                             child: const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.error_outline, color: Colors.white70, size: 48),
+                                Icon(Icons.error_outline, color: AuthColors.textSub, size: 48),
                                 SizedBox(height: 8),
                                 Text(
                                   'Failed to load image',
-                                  style: TextStyle(color: Colors.white70),
+                                  style: TextStyle(color: AuthColors.textSub),
                                 ),
                               ],
                             ),
@@ -804,7 +719,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
                             return const Center(
                               child: Padding(
                                 padding: EdgeInsets.all(32.0),
-                                child: CircularProgressIndicator(color: Colors.white70),
+                                child: CircularProgressIndicator(color: AuthColors.textSub),
                               ),
                             );
                           }
@@ -819,9 +734,9 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
                 top: 8,
                 right: 8,
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
+                  icon: Icon(Icons.close, color: AuthColors.textMain),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.black54,
+                    backgroundColor: AuthColors.background.withOpacity(0.54),
                   ),
                   onPressed: _removeReceiptPhoto,
                 ),
@@ -836,18 +751,18 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
               height: 120,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white12),
+                border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
               ),
-              child: const Column(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_photo_alternate, color: Colors.white54, size: 40),
-                  SizedBox(height: 8),
+                  Icon(Icons.add_photo_alternate, color: AuthColors.textSub, size: 40),
+                  const SizedBox(height: 8),
                   Text(
                     'Add Receipt Photo',
-                    style: TextStyle(color: Colors.white54),
+                    style: TextStyle(color: AuthColors.textSub),
                   ),
                 ],
               ),
@@ -861,31 +776,12 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> {
     final isEnabled = _selectedClientId != null &&
         _amountController.text.isNotEmpty &&
         _selectedDate != null &&
-        !_isSubmitting;
+        !isDialogActionLoading;
 
-    return ElevatedButton(
+    return DashButton(
+      label: 'Record Payment',
       onPressed: isEnabled ? _submitPayment : null,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF6F4BFF),
-        disabledBackgroundColor: Colors.grey[800],
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-      child: _isSubmitting
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : const Text(
-              'Record Payment',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+      isLoading: isDialogActionLoading,
     );
   }
 }
@@ -903,14 +799,14 @@ class _ClientSelectionDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
+            colors: [AuthColors.surface, AuthColors.background],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
             width: 1.5,
           ),
         ),
@@ -920,17 +816,17 @@ class _ClientSelectionDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Select Client',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
+                  icon: Icon(Icons.close, color: AuthColors.textSub),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const Divider(height: 1, color: Colors.white12),
+            Divider(height: 1, color: AuthColors.textMainWithOpacity(0.12)),
             const SizedBox(height: 16),
             Expanded(
               child: BlocBuilder<ClientsCubit, ClientsState>(
@@ -942,10 +838,10 @@ class _ClientSelectionDialog extends StatelessWidget {
                   }
 
                   if (clients.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
                         'No clients found',
-                        style: TextStyle(color: Colors.white54),
+                        style: TextStyle(color: AuthColors.textSub),
                       ),
                     );
                   }
@@ -956,15 +852,15 @@ class _ClientSelectionDialog extends StatelessWidget {
                       final client = clients[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: const Color(0xFF6F4BFF),
+                          backgroundColor: AuthColors.primary,
                           child: Text(
                             client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: AuthColors.textMain),
                           ),
                         ),
-                        title: Text(client.name, style: const TextStyle(color: Colors.white)),
+                        title: Text(client.name, style: TextStyle(color: AuthColors.textMain)),
                         subtitle: client.primaryPhone != null
-                            ? Text(client.primaryPhone!, style: const TextStyle(color: Colors.white54))
+                            ? Text(client.primaryPhone!, style: TextStyle(color: AuthColors.textSub))
                             : null,
                         onTap: () => Navigator.of(context).pop({
                           'id': client.id,
@@ -1056,9 +952,9 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF1B1B2C),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white12),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1070,7 +966,7 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
               const SizedBox(width: 8),
               Text(
                 widget.account.name,
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                style: TextStyle(color: AuthColors.textSub, fontSize: 14),
               ),
             ],
           ),
@@ -1081,10 +977,10 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF6F4BFF).withOpacity(0.5),
+          color: AuthColors.primaryWithOpacity(0.5),
           width: 2,
         ),
       ),
@@ -1103,11 +999,11 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
               Expanded(
                 child: Text(
                   widget.account.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: AuthColors.textMain, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                icon: Icon(Icons.close, size: 18, color: AuthColors.textSub),
                 onPressed: widget.onTap,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -1120,24 +1016,24 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
             child: TextFormField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: AuthColors.textMain, fontSize: 14),
               decoration: InputDecoration(
                 labelText: 'Amount',
-                labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
-                prefixIcon: const Icon(Icons.currency_rupee, color: Colors.white54, size: 16),
+                labelStyle: TextStyle(color: AuthColors.textSub, fontSize: 12),
+                prefixIcon: Icon(Icons.currency_rupee, color: AuthColors.textSub, size: 16),
                 filled: true,
-                fillColor: const Color(0xFF252530),
+                fillColor: AuthColors.backgroundAlt,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.white12),
+                  borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+                  borderSide: BorderSide(color: AuthColors.primary, width: 2),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),

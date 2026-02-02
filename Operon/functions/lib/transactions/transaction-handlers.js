@@ -235,7 +235,7 @@ function getLedgerDelta(ledgerType, type, amount) {
  * Returns the balanceBefore and balanceAfter values for the transaction
  */
 async function updateClientLedger(organizationId, clientId, financialYear, transaction, transactionId, snapshot, isCancellation = false) {
-    var _a;
+    var _a, _b;
     const ledgerId = `${clientId}_${financialYear}`;
     const ledgerRef = db.collection(constants_1.CLIENT_LEDGERS_COLLECTION).doc(ledgerId);
     const amount = transaction.amount;
@@ -292,8 +292,9 @@ async function updateClientLedger(organizationId, clientId, financialYear, trans
     if (transaction.referenceNumber) {
         transactionData.referenceNumber = transaction.referenceNumber;
     }
-    if (transaction.orderId) {
-        transactionData.orderId = transaction.orderId;
+    const tripIdVal = (_b = transaction.tripId) !== null && _b !== void 0 ? _b : transaction.orderId;
+    if (tripIdVal) {
+        transactionData.tripId = tripIdVal;
     }
     if (transaction.description) {
         transactionData.description = transaction.description;

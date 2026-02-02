@@ -5,6 +5,7 @@ import 'package:operon_auth_flow/operon_auth_flow.dart';
 import 'package:operon_driver_android/config/app_router.dart';
 import 'package:operon_driver_android/config/app_theme.dart';
 import 'package:operon_driver_android/core/services/background_sync_service.dart';
+import 'package:operon_driver_android/core/services/dm_print_helper.dart';
 import 'package:operon_driver_android/core/services/location_service.dart';
 import 'package:operon_driver_android/presentation/blocs/trip/trip_bloc.dart';
 
@@ -38,12 +39,14 @@ class OperonDriverApp extends StatelessWidget {
       ),
     );
 
+    final dmPrintHelper = DmPrintHelper();
     final router = buildRouter();
 
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider.value(value: authRepository),
         RepositoryProvider.value(value: organizationRepository),
+        RepositoryProvider.value(value: dmPrintHelper),
         RepositoryProvider.value(value: appAccessRolesRepository),
         RepositoryProvider.value(value: scheduledTripsRepository),
         RepositoryProvider.value(value: locationService),

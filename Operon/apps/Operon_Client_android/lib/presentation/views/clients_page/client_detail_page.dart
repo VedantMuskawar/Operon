@@ -5,7 +5,9 @@ import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
+import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/order_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -110,6 +112,13 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                         onTap: () => setState(() => _selectedTabIndex = 1),
                 ),
       ),
+                    Expanded(
+                      child: _TabButton(
+                        label: 'DMs',
+                        isSelected: _selectedTabIndex == 2,
+                        onTap: () => setState(() => _selectedTabIndex = 2),
+                      ),
+                    ),
                     ],
                   ),
                 ),
@@ -122,6 +131,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                 children: [
                   _PendingOrdersSection(clientId: widget.client.id),
                   _AnalyticsSection(clientId: widget.client.id),
+                  _ClientDMsSection(clientId: widget.client.id),
               ],
               ),
           ),
@@ -975,6 +985,165 @@ class _AnalyticsSectionState extends State<_AnalyticsSection> {
                       formatDate: _formatDate,
                     ),
                   ),
+    );
+  }
+}
+
+class _ClientDMsSection extends StatelessWidget {
+  const _ClientDMsSection({required this.clientId});
+
+  final String clientId;
+
+  String _formatDate(dynamic date) {
+    if (date == null) return '—';
+    try {
+      DateTime dateTime;
+      if (date is Timestamp) {
+        dateTime = date.toDate();
+      } else if (date is DateTime) {
+        dateTime = date;
+      } else if (date is Map && date.containsKey('_seconds')) {
+        dateTime = DateTime.fromMillisecondsSinceEpoch(
+          (date['_seconds'] as int) * 1000,
+        );
+      } else {
+        return '—';
+      }
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } catch (_) {
+      return '—';
+    }
+  }
+
+  Future<void> _openPrintDialog(
+    BuildContext context,
+    String organizationId,
+    Map<String, dynamic> dm,
+  ) async {
+    final printService = context.read<DmPrintService>();
+    final dmNumber = dm['dmNumber'] as int? ?? 0;
+    final dmData = await printService.fetchDmByNumberOrId(
+      organizationId: organizationId,
+      dmNumber: dmNumber,
+      dmId: dm['dmId'] as String?,
+      tripData: null,
+    );
+    if (dmData == null || !context.mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => DmPrintDialog(
+        dmPrintService: printService,
+        organizationId: organizationId,
+        dmData: dmData,
+        dmNumber: dmNumber,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final org = context.watch<OrganizationContextCubit>().state.organization;
+    if (org == null) {
+      return Center(
+        child: Text(
+          'Select an organization to view DMs.',
+          style: TextStyle(color: AuthColors.textSub),
+        ),
+      );
+    }
+    final dmRepo = context.read<DeliveryMemoRepository>();
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: dmRepo.watchDeliveryMemosByClientId(
+        organizationId: org.id,
+        clientId: clientId,
+        status: 'active',
+        limit: 100,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator(color: AuthColors.primary));
+        }
+        final list = snapshot.data ?? [];
+        if (list.isEmpty) {
+          return Center(
+            child: Text(
+              'No delivery memos for this client.',
+              style: TextStyle(color: AuthColors.textSub),
+            ),
+          );
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          itemCount: list.length,
+          itemBuilder: (context, index) {
+            final dm = list[index];
+            final dmNumber = dm['dmNumber'] as int?;
+            final clientName = dm['clientName'] as String? ?? '—';
+            final vehicleNumber = dm['vehicleNumber'] as String? ?? '—';
+            final scheduledDate = dm['scheduledDate'];
+            final tripPricing = dm['tripPricing'] as Map<String, dynamic>?;
+            final total = tripPricing != null
+                ? (tripPricing['total'] as num?)?.toDouble() ?? 0.0
+                : 0.0;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              color: const Color(0xFF1B1B2C),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                title: Row(
+                  children: [
+                    Text(
+                      dmNumber != null ? 'DM-$dmNumber' : 'DM',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.print_outlined),
+                      onPressed: () => _openPrintDialog(context, org.id, dm),
+                      tooltip: 'Print DM',
+                      style: IconButton.styleFrom(foregroundColor: AuthColors.textSub),
+                    ),
+                  ],
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(
+                      clientName,
+                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
+                    ),
+                    Text(
+                      '${_formatDate(scheduledDate)} · $vehicleNumber',
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 12),
+                    ),
+                    if (total > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '₹${total.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: AuthColors.successVariant,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

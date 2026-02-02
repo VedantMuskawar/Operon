@@ -26,46 +26,46 @@ class FleetStatusFilterBar extends StatelessWidget {
   /// Callback when filter selection changes.
   final ValueChanged<FleetStatusFilter> onFilterChanged;
 
+  static const _filters = [
+    (FleetStatusFilter.all, 'All'),
+    (FleetStatusFilter.moving, 'Moving'),
+    (FleetStatusFilter.idling, 'Idling'),
+    (FleetStatusFilter.offline, 'Offline'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 48,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListView(
+      child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        children: [
-          _FilterChip(
-            label: 'All',
-            count: stats.total,
-            isSelected: selectedFilter == FleetStatusFilter.all,
-            onTap: () => onFilterChanged(FleetStatusFilter.all),
-            backgroundColor: AuthColors.textSub,
-          ),
-          const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Moving',
-            count: stats.moving,
-            isSelected: selectedFilter == FleetStatusFilter.moving,
-            onTap: () => onFilterChanged(FleetStatusFilter.moving),
-            backgroundColor: AuthColors.success,
-          ),
-          const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Idling',
-            count: stats.idling,
-            isSelected: selectedFilter == FleetStatusFilter.idling,
-            onTap: () => onFilterChanged(FleetStatusFilter.idling),
-            backgroundColor: AuthColors.warning,
-          ),
-          const SizedBox(width: 8),
-          _FilterChip(
-            label: 'Offline',
-            count: stats.offline,
-            isSelected: selectedFilter == FleetStatusFilter.offline,
-            onTap: () => onFilterChanged(FleetStatusFilter.offline),
-            backgroundColor: AuthColors.textDisabled,
-          ),
-        ],
+        itemCount: _filters.length,
+        itemBuilder: (context, index) {
+          final (filter, label) = _filters[index];
+          final count = switch (filter) {
+            FleetStatusFilter.all => stats.total,
+            FleetStatusFilter.moving => stats.moving,
+            FleetStatusFilter.idling => stats.idling,
+            FleetStatusFilter.offline => stats.offline,
+          };
+          final backgroundColor = switch (filter) {
+            FleetStatusFilter.all => AuthColors.textSub,
+            FleetStatusFilter.moving => AuthColors.success,
+            FleetStatusFilter.idling => AuthColors.warning,
+            FleetStatusFilter.offline => AuthColors.textDisabled,
+          };
+          return Padding(
+            padding: EdgeInsets.only(right: index < _filters.length - 1 ? 8 : 0),
+            child: _FilterChip(
+              label: label,
+              count: count,
+              isSelected: selectedFilter == filter,
+              onTap: () => onFilterChanged(filter),
+              backgroundColor: backgroundColor,
+            ),
+          );
+        },
       ),
     );
   }

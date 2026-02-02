@@ -1,8 +1,7 @@
 /**
- * SCH_ORDERS Export Script - From Legacy Project
+ * SCH_ORDERS Export Script - From Legacy Database
  * 
- * Exports SCH_ORDERS from the Legacy (Pave) Firebase project to Excel.
- * Period range: April 1, 2025 to December 31, 2025 (1/4/25 - 31/12/25)
+ * Exports complete SCH_ORDERS collection from Legacy (Pave) Firebase project to Excel.
  */
 
 import 'dotenv/config';
@@ -17,11 +16,9 @@ const XLSX = require('xlsx');
 interface ExportConfig {
   legacyServiceAccount: string;
   legacyProjectId?: string;
-  legacyOrgId?: string;
+  collectionName: string;
   outputPath: string;
 }
-
-const FALLBACK_LEGACY_ORG = 'K4Q6vPOuTcLPtlcEwdw0'; // Filter data from old database
 
 function resolveConfig(): ExportConfig {
   const resolvePath = (value?: string) => {
@@ -42,14 +39,17 @@ function resolveConfig(): ExportConfig {
     );
   }
 
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
   const outputPath =
     resolvePath(process.env.OUTPUT_PATH) ??
-    path.join(process.cwd(), 'data/sch-orders-export.xlsx');
+    path.join(process.cwd(), 'data', `sch-orders-export-${timestamp}.xlsx`);
+
+  const collectionName = process.env.COLLECTION_NAME || 'SCH_ORDERS';
 
   return {
     legacyServiceAccount,
     legacyProjectId: process.env.LEGACY_PROJECT_ID,
-    legacyOrgId: process.env.LEGACY_ORG_ID ?? FALLBACK_LEGACY_ORG,
+    collectionName,
     outputPath,
   };
 }
@@ -59,80 +59,35 @@ function readServiceAccount(pathname: string) {
 }
 
 function initApp(config: ExportConfig): admin.app.App {
+  const serviceAccount = readServiceAccount(config.legacyServiceAccount);
+  
   return admin.initializeApp(
     {
-      credential: admin.credential.cert(
-        readServiceAccount(config.legacyServiceAccount),
-      ),
-      projectId: config.legacyProjectId,
+      credential: admin.credential.cert(serviceAccount),
+      projectId: config.legacyProjectId || serviceAccount.project_id,
     },
     'legacy',
   );
 }
 
-/**
- * Convert Firestore Timestamp to Excel date
- */
-function timestampToDate(timestamp: admin.firestore.Timestamp | null | undefined): Date | null {
-  if (!timestamp) return null;
+function timestampToDate(timestamp: admin.firestore.Timestamp | null | undefined): string {
+  if (!timestamp) return '';
   if (timestamp instanceof admin.firestore.Timestamp) {
-    return timestamp.toDate();
+    return timestamp.toDate().toISOString();
   }
-  // Handle serialized timestamp format
   if (typeof timestamp === 'object' && timestamp !== null && '_seconds' in timestamp) {
-    return new Date((timestamp as any)._seconds * 1000);
+    return new Date((timestamp as any)._seconds * 1000).toISOString();
   }
-  return null;
+  return '';
 }
 
-/**
- * Convert any date value to milliseconds for comparison
- */
-function dateToMillis(dateValue: any): number | null {
-  if (!dateValue) return null;
-  
-  // Firestore Timestamp
-  if (dateValue instanceof admin.firestore.Timestamp) {
-    return dateValue.toMillis();
-  }
-  
-  // Serialized timestamp format {_seconds, _nanoseconds}
-  if (typeof dateValue === 'object' && dateValue !== null && '_seconds' in dateValue) {
-    return (dateValue as any)._seconds * 1000 + ((dateValue as any)._nanoseconds || 0) / 1000000;
-  }
-  
-  // Date object
-  if (dateValue instanceof Date) {
-    return dateValue.getTime();
-  }
-  
-  // String date
-  if (typeof dateValue === 'string') {
-    const date = new Date(dateValue);
-    if (!isNaN(date.getTime())) {
-      return date.getTime();
-    }
-  }
-  
-  // Number (milliseconds or seconds)
-  if (typeof dateValue === 'number') {
-    // If it's less than year 2000 in milliseconds, assume it's seconds
-    if (dateValue < 946684800000) {
-      return dateValue * 1000;
-    }
-    return dateValue;
-  }
-  
-  return null;
-}
-
-/**
- * Convert any value to string for Excel
- */
 function valueToString(value: any): string {
   if (value === null || value === undefined) return '';
   if (value instanceof admin.firestore.Timestamp) {
-    return value.toDate().toISOString();
+    return timestampToDate(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
   }
   if (Array.isArray(value)) {
     return JSON.stringify(value);
@@ -143,37 +98,35 @@ function valueToString(value: any): string {
   return String(value);
 }
 
+function flattenDocument(docId: string, data: any): Record<string, any> {
+  const row: Record<string, any> = {
+    'Document ID': docId,
+  };
+
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith('_')) continue;
+    row[key] = valueToString(value);
+  }
+
+  return row;
+}
+
 async function exportSchOrders() {
   const config = resolveConfig();
   const legacy = initApp(config);
   const legacyDb = legacy.firestore();
 
-  // Date range: April 1, 2025 to December 31, 2025
-  const startDate = admin.firestore.Timestamp.fromDate(
-    new Date('2025-04-01T00:00:00.000Z'),
-  );
-  const endDate = admin.firestore.Timestamp.fromDate(
-    new Date('2025-12-31T23:59:59.999Z'),
-  );
-
-  console.log('=== Exporting SCH_ORDERS from Legacy Project ===');
-  console.log('Period range: April 1, 2025 to December 31, 2025');
-  console.log('Start date:', startDate.toDate().toISOString());
-  console.log('End date:', endDate.toDate().toISOString());
-  if (config.legacyOrgId) {
-    console.log('Legacy Org ID:', config.legacyOrgId);
-  }
+  console.log('=== Exporting SCH_ORDERS from Legacy Database ===');
+  console.log('Collection:', config.collectionName);
   console.log('Output file:', config.outputPath);
   console.log('');
 
-  // Fetch all SCH_ORDERS
-  console.log('Fetching SCH_ORDERS from Legacy project...');
   let allOrders: admin.firestore.QueryDocumentSnapshot[] = [];
   let lastDoc: admin.firestore.QueryDocumentSnapshot | null = null;
   let batchCount = 0;
 
   while (true) {
-    let query: admin.firestore.Query = legacyDb.collection('SCH_ORDERS');
+    let query: admin.firestore.Query = legacyDb.collection(config.collectionName);
     
     if (lastDoc) {
       query = query.startAfter(lastDoc);
@@ -189,114 +142,31 @@ async function exportSchOrders() {
     
     console.log(`Fetched batch ${batchCount}: ${snapshot.size} orders (total: ${allOrders.length})`);
     
-    if (snapshot.size < 1000) break; // Last batch
+    if (snapshot.size < 1000) break;
   }
 
   console.log(`\nTotal SCH_ORDERS fetched: ${allOrders.length}`);
 
-  // Filter by date range in memory (using deliveryDate field)
-  const startMillis = startDate.toMillis();
-  const endMillis = endDate.toMillis();
-  const filteredOrders = allOrders.filter((doc) => {
-    const data = doc.data();
-    const deliveryDate = data.deliveryDate;
-    const dateMillis = dateToMillis(deliveryDate);
-    
-    if (dateMillis === null) {
-      // If no deliveryDate, include it anyway (user can filter manually)
-      return true;
-    }
-    
-    return dateMillis >= startMillis && dateMillis <= endMillis;
-  });
-
-  console.log(`After date filtering: ${filteredOrders.length} SCH_ORDERS`);
-
-  if (filteredOrders.length === 0) {
-    console.log('No SCH_ORDERS found matching the date range');
+  if (allOrders.length === 0) {
+    console.log('No SCH_ORDERS found in collection:', config.collectionName);
     return;
   }
 
-  // Convert to Excel rows - include all fields from sample document
-  console.log('Converting to Excel format...');
-  const rows = filteredOrders.map((doc) => {
-    const data = doc.data();
-    
-    // Handle items array
-    let items = data.items || [];
-    if (!Array.isArray(items)) {
-      items = [items];
-    }
-    
-    // Build row with all fields from sample document
-    const row: Record<string, any> = {
-      'Document ID': doc.id,
-      'Address': data.address || '',
-      'Client ID': data.clientID || data.clientId || '',
-      'Client Name': data.clientName || '',
-      'Client Phone Number': data.clientPhoneNumber || '',
-      'Def Order ID': data.defOrderID || '',
-      'Delivered Time': data.deliveredTime ? (timestampToDate(data.deliveredTime)?.toISOString() || valueToString(data.deliveredTime)) : '',
-      'Delivery Date': data.deliveryDate ? (timestampToDate(data.deliveryDate)?.toISOString() || valueToString(data.deliveryDate)) : '',
-      'Delivery Image': data.deliveryImg || '',
-      'Delivery Image Ref': data.deliveryImgRef || '',
-      'Delivery Status': data.deliveryStatus !== undefined ? (data.deliveryStatus ? 'true' : 'false') : '',
-      'Dispatch Start': data.dispatchStart ? (timestampToDate(data.dispatchStart)?.toISOString() || valueToString(data.dispatchStart)) : '',
-      'Dispatch End': data.dispatchEnd ? (timestampToDate(data.dispatchEnd)?.toISOString() || valueToString(data.dispatchEnd)) : '',
-      'Dispatch Status': data.dispatchStatus !== undefined ? (data.dispatchStatus ? 'true' : 'false') : '',
-      'Dispatched Time': data.dispatchedTime ? (timestampToDate(data.dispatchedTime)?.toISOString() || valueToString(data.dispatchedTime)) : '',
-      'Driver MID': data.driverMID || '',
-      'Driver Name': data.driverName || '',
-      'Driver Phone Number': data.driverPhoneNumber || '',
-      'Org ID': data.orgID || data.organizationId || '',
-      'Org Name': data.orgName || '',
-      'Pay Schedule': data.paySchedule || '',
-      'Payment Status': data.paymentStatus !== undefined ? (data.paymentStatus ? 'true' : 'false') : '',
-      'Product Name': data.productName || '',
-      'Product Quantity': data.productQuant || data.productQuant || 0,
-      'Product Unit Price': data.productUnitPrice || 0,
-      'Region ID': data.regionID || data.regionId || '',
-      'Region Name': data.regionName || '',
-      'To Account': data.toAccount || '',
-      'User ID': data.userID || data.userId || '',
-      'Vehicle ID': data.vehicleID || data.vehicleId || '',
-      'Vehicle Number': data.vehicleNumber || '',
-      'Items': JSON.stringify(items),
-    };
-    
-    // Calculate totals if we have quantity and unit price
-    if (row['Product Quantity'] && row['Product Unit Price']) {
-      row['Subtotal'] = (row['Product Quantity'] as number) * (row['Product Unit Price'] as number);
-      row['Total Amount'] = row['Subtotal'];
-    }
-    
-    // Add any additional fields that aren't in the standard schema
-    for (const [key, value] of Object.entries(data)) {
-      if (!row.hasOwnProperty(key) && !key.startsWith('_')) {
-        row[key] = valueToString(value);
-      }
-    }
-    
-    return row;
-  });
+  const rows = allOrders.map((doc) => flattenDocument(doc.id, doc.data()));
 
-  // Create workbook and worksheet
   const worksheet = XLSX.utils.json_to_sheet(rows);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'SCH_ORDERS');
 
-  // Ensure output directory exists
   const outputDir = path.dirname(config.outputPath);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  // Write to file
-  console.log(`Writing to ${config.outputPath}...`);
   XLSX.writeFile(workbook, config.outputPath);
 
   console.log(`\n=== Export Complete ===`);
-  console.log(`Total SCH_ORDERS exported: ${filteredOrders.length}`);
+  console.log(`Total SCH_ORDERS exported: ${allOrders.length}`);
   console.log(`Output file: ${config.outputPath}`);
 }
 
@@ -304,4 +174,3 @@ exportSchOrders().catch((error) => {
   console.error('Export failed:', error);
   process.exitCode = 1;
 });
-

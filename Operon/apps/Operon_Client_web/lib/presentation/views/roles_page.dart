@@ -146,19 +146,37 @@ class RolesPageContent extends StatelessWidget {
               BlocBuilder<JobRolesCubit, JobRolesState>(
                 builder: (context, state) {
                   if (state.status == ViewStatus.loading) {
-                    return const Center(child: CircularProgressIndicator());
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SkeletonLoader(
+                              height: 40,
+                              width: double.infinity,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            const SizedBox(height: 16),
+                            ...List.generate(6, (_) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: SkeletonLoader(
+                                height: 64,
+                                width: double.infinity,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            )),
+                          ],
+                        ),
+                      ),
+                    );
                   }
                   if (state.jobRoles.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 40),
-                      child: Text(
-                        'No job roles yet. Tap "Add Job Role" to create one.',
-                        style: TextStyle(
-                          color: AuthColors.textSub,
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+                    return const EmptyState(
+                      icon: Icons.work_outline,
+                      title: 'No job roles yet',
+                      message: 'Tap "Add Job Role" to create one.',
                     );
                   }
                   return AnimationLimiter(
@@ -618,9 +636,10 @@ class _RoleDialogState extends State<_RoleDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          variant: DashButtonVariant.text,
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',

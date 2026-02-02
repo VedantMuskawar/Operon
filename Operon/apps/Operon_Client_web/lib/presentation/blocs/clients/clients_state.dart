@@ -11,6 +11,8 @@ class ClientsState extends BaseState {
     this.isSearchLoading = false,
     this.analytics,
     this.isAnalyticsLoading = false,
+    this.hasMore = false,
+    this.isLoadingMore = false,
     this.message,
   }) : super(message: message);
 
@@ -22,6 +24,8 @@ class ClientsState extends BaseState {
   final bool isSearchLoading;
   final ClientsAnalytics? analytics;
   final bool isAnalyticsLoading;
+  final bool hasMore;
+  final bool isLoadingMore;
   @override
   final String? message;
 
@@ -36,6 +40,8 @@ class ClientsState extends BaseState {
     bool? isSearchLoading,
     ClientsAnalytics? analytics,
     bool? isAnalyticsLoading,
+    bool? hasMore,
+    bool? isLoadingMore,
     String? message,
   }) {
     return ClientsState(
@@ -48,6 +54,8 @@ class ClientsState extends BaseState {
       isSearchLoading: isSearchLoading ?? this.isSearchLoading,
       analytics: analytics ?? this.analytics,
       isAnalyticsLoading: isAnalyticsLoading ?? this.isAnalyticsLoading,
+      hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       message: message ?? this.message,
     );
   }

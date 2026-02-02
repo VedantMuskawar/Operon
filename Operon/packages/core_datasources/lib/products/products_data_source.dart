@@ -12,7 +12,7 @@ class ProductsDataSource {
   }
 
   Future<List<OrganizationProduct>> fetchProducts(String orgId) async {
-    final snapshot = await _productsRef(orgId).orderBy('name').get();
+    final snapshot = await _productsRef(orgId).orderBy('name').limit(500).get();
     return snapshot.docs
         .map((doc) => OrganizationProduct.fromJson(doc.data(), doc.id))
         .toList();

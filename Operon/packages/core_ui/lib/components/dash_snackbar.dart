@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/auth_colors.dart';
+
 class DashSnackbar {
   static void show(
     BuildContext context, {
@@ -8,8 +10,11 @@ class DashSnackbar {
   }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: isError ? Colors.redAccent : const Color(0xFF1F1F35),
-        content: Text(message),
+        backgroundColor: isError ? AuthColors.error : AuthColors.surface,
+        content: Text(
+          message,
+          style: const TextStyle(color: AuthColors.textMain),
+        ),
       ),
     );
   }

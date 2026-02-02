@@ -1,5 +1,5 @@
 import 'package:core_datasources/core_datasources.dart';
-import 'package:core_ui/theme/auth_colors.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashDialogHeader, DashSnackbar;
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -123,9 +123,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
 
   Future<void> _linkTrips() async {
     if (_selectedDmIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one trip')),
-      );
+      DashSnackbar.show(context, message: 'Please select at least one trip', isError: true);
       return;
     }
 
@@ -177,23 +175,13 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
           });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Trips linked successfully'),
-            backgroundColor: AuthColors.success,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Trips linked successfully', isError: false);
         Navigator.of(context).pop();
         widget.onTripsLinked?.call();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to link trips: $e'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
+        DashSnackbar.show(context, message: 'Failed to link trips: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -215,59 +203,33 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AuthColors.primary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
+              child: DashDialogHeader(
+                title: 'Link Trips to Voucher',
+                icon: Icons.link,
+                onClose: () => Navigator.of(context).pop(),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text(
+                      'Voucher: ${widget.voucherNumber}',
+                      style: TextStyle(
+                        color: AuthColors.textSub,
+                        fontSize: 12,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.link,
-                      color: AuthColors.primary,
-                      size: 20,
+                    Text(
+                      'Vehicle: ${widget.vehicleNumber}',
+                      style: TextStyle(
+                        color: AuthColors.textSub,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Link Trips to Voucher',
-                          style: TextStyle(
-                            color: AuthColors.textMain,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Voucher: ${widget.voucherNumber}',
-                          style: TextStyle(
-                            color: AuthColors.textSub,
-                            fontSize: 12,
-                          ),
-                        ),
-                        Text(
-                          'Vehicle: ${widget.vehicleNumber}',
-                          style: TextStyle(
-                            color: AuthColors.textSub,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             
@@ -288,9 +250,9 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                     textAlign: TextAlign.center,
                                   ),
                                 const SizedBox(height: 16),
-                                ElevatedButton(
+                                DashButton(
+                                  label: 'Retry',
                                   onPressed: _loadAvailableTrips,
-                                  child: const Text('Retry'),
                                 ),
                               ],
                             ),
@@ -508,39 +470,23 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton(
+                      DashButton(
+                        label: 'Skip',
                         onPressed: _isLinking ? null : () => Navigator.of(context).pop(),
-                        child: Text(
-                          'Skip',
-                          style: TextStyle(color: AuthColors.textSub),
-                        ),
+                        variant: DashButtonVariant.text,
                       ),
                       const SizedBox(width: 12),
                       if (_selectedDmIds.isEmpty)
-                        TextButton(
+                        DashButton(
+                          label: 'Continue Without Linking',
                           onPressed: _isLinking ? null : () => Navigator.of(context).pop(),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AuthColors.primary,
-                          ),
-                          child: const Text('Continue Without Linking'),
+                          variant: DashButtonVariant.text,
                         )
                       else
-                        ElevatedButton(
-                          onPressed: _isLinking ? null : _linkTrips,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AuthColors.primary,
-                            foregroundColor: AuthColors.textMain,
-                          ),
-                          child: _isLinking
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
-                                  ),
-                                )
-                              : Text('Link ${_selectedDmIds.length} Trip${_selectedDmIds.length > 1 ? 's' : ''}'),
+                        DashButton(
+                          label: 'Link ${_selectedDmIds.length} Trip${_selectedDmIds.length > 1 ? 's' : ''}',
+                          onPressed: _linkTrips,
+                          isLoading: _isLinking,
                         ),
                     ],
                   ),

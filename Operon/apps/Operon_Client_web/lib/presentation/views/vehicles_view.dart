@@ -56,21 +56,37 @@ class VehiclesPageContent extends StatelessWidget {
           BlocBuilder<VehiclesCubit, VehiclesState>(
             builder: (context, state) {
               if (state.status == ViewStatus.loading) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (state.vehicles.isEmpty) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Text(
-                      'No vehicles yet. Tap "Add Vehicle" to get started.',
-                      style: TextStyle(
-                        color: AuthColors.textSub,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SkeletonLoader(
+                          height: 40,
+                          width: double.infinity,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        const SizedBox(height: 16),
+                        ...List.generate(8, (_) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: SkeletonLoader(
+                            height: 56,
+                            width: double.infinity,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        )),
+                      ],
                     ),
                   ),
+                );
+              }
+              if (state.vehicles.isEmpty) {
+                return EmptyState(
+                  icon: Icons.directions_car_outlined,
+                  title: 'No vehicles yet',
+                  message: 'Tap "Add Vehicle" to get started',
                 );
               }
               return AnimationLimiter(
@@ -737,9 +753,10 @@ class _VehicleDialogState extends State<_VehicleDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          variant: DashButtonVariant.text,
         ),
         DashButton(
           label: widget.vehicle != null ? 'Save Changes' : 'Create Vehicle',
@@ -1108,22 +1125,16 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
               ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: _selectedEmployee == null ? 'Unassign' : 'Assign',
           onPressed: _isSubmitting ? null : _submit,
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(
-                  _selectedEmployee == null ? 'Unassign' : 'Assign',
-                  style: const TextStyle(color: Color(0xFF6F4BFF)),
-                ),
+          isLoading: _isSubmitting,
+          variant: DashButtonVariant.text,
         ),
       ],
     );
@@ -1223,14 +1234,7 @@ class _CompactDocumentFields extends StatelessWidget {
                 lastDate: DateTime(now.year + 10),
                 builder: (context, child) {
                   return Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.dark(
-                        primary: Color(0xFF6F4BFF),
-                        onPrimary: Colors.white,
-                        surface: Color(0xFF1B1B2C),
-                        onSurface: Colors.white,
-                      ),
-                    ),
+                    data: DashTheme.light(),
                     child: child!,
                   );
                 },

@@ -31,9 +31,9 @@ class ProductionWagesPage extends StatelessWidget {
             children: [
               const Text('No organization selected'),
               const SizedBox(height: 16),
-              ElevatedButton(
+              DashButton(
+                label: 'Select Organization',
                 onPressed: () => context.go('/org-selection'),
-                child: const Text('Select Organization'),
               ),
             ],
           ),
@@ -80,6 +80,107 @@ class ProductionWagesPageContent extends StatelessWidget {
   }
 }
 
+String _getProductionWagesTabEmptyTitle(WorkflowTab tab) {
+  switch (tab) {
+    case WorkflowTab.all:
+      return 'No production batches yet';
+    case WorkflowTab.needsAction:
+      return 'No batches need action';
+    case WorkflowTab.recorded:
+      return 'No recorded batches';
+    case WorkflowTab.calculated:
+      return 'No calculated batches';
+    case WorkflowTab.approved:
+      return 'No approved batches';
+    case WorkflowTab.processed:
+      return 'No processed batches';
+  }
+}
+
+String _getProductionWagesTabEmptyMessage(WorkflowTab tab) {
+  switch (tab) {
+    case WorkflowTab.all:
+      return 'Create your first production batch to get started';
+    case WorkflowTab.needsAction:
+      return 'All batches are up to date';
+    case WorkflowTab.recorded:
+      return 'Recorded batches will appear here';
+    case WorkflowTab.calculated:
+      return 'Calculated batches will appear here';
+    case WorkflowTab.approved:
+      return 'Approved batches will appear here';
+    case WorkflowTab.processed:
+      return 'Processed batches will appear here';
+  }
+}
+
+Widget _buildEmptyState(
+  BuildContext context,
+  ProductionBatchesState state,
+  dynamic organization,
+) {
+  final hasFilters = state.searchQuery != null ||
+      state.startDate != null ||
+      state.endDate != null ||
+      state.startDate2 != null ||
+      state.endDate2 != null ||
+      state.selectedTab != WorkflowTab.all;
+
+  final title = state.batches.isEmpty
+      ? 'No production batches yet'
+      : hasFilters
+          ? 'No batches match your filters'
+          : _getProductionWagesTabEmptyTitle(state.selectedTab);
+  final message = state.batches.isEmpty
+      ? 'Create your first production batch to get started'
+      : hasFilters
+          ? 'Try adjusting your filters or clearing them'
+          : _getProductionWagesTabEmptyMessage(state.selectedTab);
+
+  Widget? action;
+  if (hasFilters) {
+    action = DashButton(
+      icon: Icons.clear_all,
+      label: 'Clear Filters',
+      onPressed: () => context.read<ProductionBatchesCubit>().clearAllFilters(),
+    );
+  } else if (state.batches.isEmpty) {
+    action = DashButton(
+      icon: Icons.add,
+      label: 'Create First Batch',
+      onPressed: () {
+        if (organization != null) {
+          final cubit = context.read<ProductionBatchesCubit>();
+          final employeesRepo = context.read<EmployeesRepository>();
+          final productsRepo = context.read<ProductsRepository>();
+          final wageSettingsRepo = context.read<WageSettingsRepository>();
+          showDialog(
+            context: context,
+            builder: (dialogContext) => BlocProvider.value(
+              value: cubit,
+              child: ProductionBatchForm(
+                organizationId: organization.id,
+                employeesRepository: employeesRepo,
+                productsRepository: productsRepo,
+                wageSettingsRepository: wageSettingsRepo,
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  return Center(
+    child: EmptyState(
+      icon: Icons.inventory_2_outlined,
+      title: title,
+      message: message,
+      action: action,
+    ),
+  );
+}
+
 class _ProductionWagesContent extends StatelessWidget {
   const _ProductionWagesContent();
 
@@ -101,10 +202,10 @@ class _ProductionWagesContent extends StatelessWidget {
               children: [
                 Text('Error: ${state.message}'),
                 const SizedBox(height: 16),
-                ElevatedButton(
+                DashButton(
+                  label: 'Retry',
                   onPressed: () =>
                       context.read<ProductionBatchesCubit>().loadBatches(),
-                  child: const Text('Retry'),
                 ),
               ],
             ),
@@ -131,11 +232,7 @@ class _ProductionWagesContent extends StatelessWidget {
               // Batches List
               Expanded(
                 child: filteredBatches.isEmpty
-                    ? _EmptyState(
-                        state: state,
-                        organization: organization,
-                        context: context,
-                      )
+                    ? _buildEmptyState(context, state, organization)
                     : LayoutBuilder(
                         builder: (context, constraints) {
                           // Use 2 columns if screen width >= 1024px, otherwise 1 column
@@ -215,7 +312,7 @@ class _StatisticsCards extends StatelessWidget {
                 icon: Icons.calculate_outlined,
                 label: 'Pending Calculations',
                 value: state.pendingCalculations.toString(),
-                color: Colors.orange,
+                color: AuthColors.warning,
               ),
             ),
             const SizedBox(width: 16),
@@ -242,7 +339,7 @@ class _StatisticsCards extends StatelessWidget {
                 icon: Icons.account_balance_wallet_outlined,
                 label: 'Total Wages Processed',
                 value: '₹${state.totalWagesProcessed.toStringAsFixed(0)}',
-                color: Colors.purple,
+                color: AuthColors.accentPurple,
               ),
             ),
           ],
@@ -267,15 +364,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DashCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AuthColors.textMainWithOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AuthColors.textMainWithOpacity(0.1),
-        ),
-      ),
       child: Row(
         children: [
           Container(
@@ -444,133 +534,6 @@ class _TabButton extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.state,
-    required this.organization,
-    required this.context,
-  });
-
-  final ProductionBatchesState state;
-  final dynamic organization;
-  final BuildContext context;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasFilters = state.searchQuery != null ||
-        state.startDate != null ||
-        state.endDate != null ||
-        state.startDate2 != null ||
-        state.endDate2 != null ||
-        state.selectedTab != WorkflowTab.all;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.inventory_2_outlined,
-            size: 64,
-            color: AuthColors.textMainWithOpacity(0.3),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            state.batches.isEmpty
-                ? 'No production batches yet'
-                : hasFilters
-                    ? 'No batches match your filters'
-                    : _getTabEmptyMessage(state.selectedTab),
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            state.batches.isEmpty
-                ? 'Create your first production batch to get started'
-                : hasFilters
-                    ? 'Try adjusting your filters or clearing them'
-                    : _getTabEmptySubMessage(state.selectedTab),
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 24),
-          if (hasFilters)
-            ElevatedButton.icon(
-              onPressed: () {
-                context.read<ProductionBatchesCubit>().clearAllFilters();
-              },
-              icon: const Icon(Icons.clear_all),
-              label: const Text('Clear Filters'),
-            )
-          else if (state.batches.isEmpty)
-            ElevatedButton.icon(
-              onPressed: () {
-                if (organization != null) {
-                  final cubit = context.read<ProductionBatchesCubit>();
-                  final employeesRepo = context.read<EmployeesRepository>();
-                  final productsRepo = context.read<ProductsRepository>();
-                  final wageSettingsRepo = context.read<WageSettingsRepository>();
-                  showDialog(
-                    context: context,
-                    builder: (dialogContext) => BlocProvider.value(
-                      value: cubit,
-                      child: ProductionBatchForm(
-                        organizationId: organization.id,
-                        employeesRepository: employeesRepo,
-                        productsRepository: productsRepo,
-                        wageSettingsRepository: wageSettingsRepo,
-                      ),
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.add),
-              label: const Text('Create First Batch'),
-            ),
-        ],
-      ),
-    );
-  }
-
-  String _getTabEmptyMessage(WorkflowTab tab) {
-    switch (tab) {
-      case WorkflowTab.all:
-        return 'No production batches yet';
-      case WorkflowTab.needsAction:
-        return 'No batches need action';
-      case WorkflowTab.recorded:
-        return 'No recorded batches';
-      case WorkflowTab.calculated:
-        return 'No calculated batches';
-      case WorkflowTab.approved:
-        return 'No approved batches';
-      case WorkflowTab.processed:
-        return 'No processed batches';
-    }
-  }
-
-  String _getTabEmptySubMessage(WorkflowTab tab) {
-    switch (tab) {
-      case WorkflowTab.all:
-        return 'Create your first production batch to get started';
-      case WorkflowTab.needsAction:
-        return 'All batches are up to date';
-      case WorkflowTab.recorded:
-        return 'Recorded batches will appear here';
-      case WorkflowTab.calculated:
-        return 'Calculated batches will appear here';
-      case WorkflowTab.approved:
-        return 'Approved batches will appear here';
-      case WorkflowTab.processed:
-        return 'Processed batches will appear here';
-    }
-  }
-}
-
 class _FiltersBar extends StatelessWidget {
   const _FiltersBar();
 
@@ -593,14 +556,7 @@ class _FiltersBar extends StatelessWidget {
       initialDateRange: initialRange,
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AuthColors.primary,
-              onPrimary: AuthColors.textMain,
-              surface: AuthColors.surface,
-              onSurface: AuthColors.textMain,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -640,22 +596,13 @@ class _FiltersBar extends StatelessWidget {
           child: Row(
             children: [
               // First Date Range
-              OutlinedButton.icon(
+              DashButton(
+                icon: Icons.date_range,
+                label: state.startDate != null && state.endDate != null
+                    ? '${state.startDate!.day}/${state.startDate!.month}/${state.startDate!.year} - ${state.endDate!.day}/${state.endDate!.month}/${state.endDate!.year}'
+                    : 'Date Range',
                 onPressed: () => _showDateRangePicker(context, isSecond: false),
-                icon: const Icon(Icons.date_range, size: 18),
-                label: Text(
-                  state.startDate != null && state.endDate != null
-                      ? '${state.startDate!.day}/${state.startDate!.month}/${state.startDate!.year} - ${state.endDate!.day}/${state.endDate!.month}/${state.endDate!.year}'
-                      : 'Date Range',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  side: BorderSide(
-                    color: state.startDate != null && state.endDate != null
-                        ? AuthColors.primary
-                        : Colors.white.withValues(alpha: 0.2),
-                  ),
-                ),
+                variant: DashButtonVariant.outlined,
               ),
               if (state.startDate != null && state.endDate != null) ...[
                 const SizedBox(width: 8),
@@ -670,22 +617,13 @@ class _FiltersBar extends StatelessWidget {
               ],
               const SizedBox(width: 16),
               // Second Date Range
-              OutlinedButton.icon(
+              DashButton(
+                icon: Icons.date_range,
+                label: state.startDate2 != null && state.endDate2 != null
+                    ? '${state.startDate2!.day}/${state.startDate2!.month}/${state.startDate2!.year} - ${state.endDate2!.day}/${state.endDate2!.month}/${state.endDate2!.year}'
+                    : 'Date Range 2',
                 onPressed: () => _showDateRangePicker(context, isSecond: true),
-                icon: const Icon(Icons.date_range, size: 18),
-                label: Text(
-                  state.startDate2 != null && state.endDate2 != null
-                      ? '${state.startDate2!.day}/${state.startDate2!.month}/${state.startDate2!.year} - ${state.endDate2!.day}/${state.endDate2!.month}/${state.endDate2!.year}'
-                      : 'Date Range 2',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white70,
-                  side: BorderSide(
-                    color: state.startDate2 != null && state.endDate2 != null
-                        ? AuthColors.primary
-                        : Colors.white.withValues(alpha: 0.2),
-                  ),
-                ),
+                variant: DashButtonVariant.outlined,
               ),
               if (state.startDate2 != null && state.endDate2 != null) ...[
                 const SizedBox(width: 8),
@@ -747,7 +685,9 @@ class _FiltersBar extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               // New Batch Button
-              ElevatedButton.icon(
+              DashButton(
+                icon: Icons.add,
+                label: 'New Batch',
                 onPressed: () {
                   if (organization != null) {
                     final cubit = context.read<ProductionBatchesCubit>();
@@ -768,20 +708,16 @@ class _FiltersBar extends StatelessWidget {
                     );
                   }
                 },
-                icon: const Icon(Icons.add),
-                label: const Text('New Batch'),
               ),
               if (hasActiveFilters) ...[
                 const SizedBox(width: 8),
-                TextButton.icon(
+                DashButton(
+                  icon: Icons.clear_all,
+                  label: 'Clear All',
                   onPressed: () {
                     context.read<ProductionBatchesCubit>().clearAllFilters();
                   },
-                  icon: const Icon(Icons.clear_all, size: 18),
-                  label: const Text('Clear All'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                  ),
+                  variant: DashButtonVariant.text,
                 ),
               ],
             ],

@@ -56,17 +56,22 @@ class VehicleSelectorBar extends StatelessWidget {
       child: Container(
         height: 48,
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _VehicleButton(
-            label: 'Show All',
-            isSelected: selectedVehicleId == null,
-            onTap: onShowAll,
-            backgroundColor: AuthColors.textSub,
-          ),
-          const SizedBox(width: 8),
-          ...drivers.map((driver) {
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: 1 + drivers.length,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _VehicleButton(
+                  label: 'Show All',
+                  isSelected: selectedVehicleId == null,
+                  onTap: onShowAll,
+                  backgroundColor: AuthColors.textSub,
+                ),
+              );
+            }
+            final driver = drivers[index - 1];
             final vehicleName = _getVehicleDisplayName(driver);
             final isSelected = selectedVehicleId == driver.uid;
             return Padding(
@@ -80,8 +85,7 @@ class VehicleSelectorBar extends StatelessWidget {
                     : AuthColors.success,
               ),
             );
-          }),
-        ],
+          },
         ),
       ),
     );

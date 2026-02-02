@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:flutter/material.dart';
 
 class ProductionBatchCard extends StatelessWidget {
@@ -14,13 +15,13 @@ class ProductionBatchCard extends StatelessWidget {
   Color _getStatusColor(ProductionBatchStatus status) {
     switch (status) {
       case ProductionBatchStatus.recorded:
-        return Colors.grey;
+        return AuthColors.textSub;
       case ProductionBatchStatus.calculated:
-        return const Color(0xFF2196F3);
+        return AuthColors.info;
       case ProductionBatchStatus.approved:
-        return const Color(0xFF4CAF50);
+        return AuthColors.success;
       case ProductionBatchStatus.processed:
-        return const Color(0xFF9C27B0);
+        return AuthColors.accentPurple;
     }
   }
 
@@ -59,17 +60,17 @@ class ProductionBatchCard extends StatelessWidget {
     final employeeNames = batch.employeeNames ?? [];
 
     return Material(
-      color: Colors.transparent,
+      color: AuthColors.surface.withOpacity(0),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: AuthColors.textMainWithOpacity(0.05),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AuthColors.textMainWithOpacity(0.1),
             ),
             boxShadow: [
               BoxShadow(
@@ -122,7 +123,7 @@ class ProductionBatchCard extends StatelessWidget {
                   Text(
                     '${batch.batchDate.day}/${batch.batchDate.month}/${batch.batchDate.year}',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: AuthColors.textMainWithOpacity(0.7),
                       fontSize: 14,
                     ),
                   ),
@@ -159,13 +160,13 @@ class ProductionBatchCard extends StatelessWidget {
                   Icon(
                     Icons.people_outline,
                     size: 18,
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: AuthColors.textMainWithOpacity(0.7),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     '$employeeCount employee${employeeCount != 1 ? 's' : ''}',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: AuthColors.textMainWithOpacity(0.7),
                       fontSize: 14,
                     ),
                   ),
@@ -178,7 +179,7 @@ class ProductionBatchCard extends StatelessWidget {
                                 ? ' +${employeeNames.length - 3} more'
                                 : ''),
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: AuthColors.textMainWithOpacity(0.6),
                           fontSize: 12,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -193,7 +194,7 @@ class ProductionBatchCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: AuthColors.textMainWithOpacity(0.05),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -201,7 +202,7 @@ class ProductionBatchCard extends StatelessWidget {
                       Icon(
                         Icons.account_balance_wallet_outlined,
                         size: 18,
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: AuthColors.textMainWithOpacity(0.7),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -211,7 +212,7 @@ class ProductionBatchCard extends StatelessWidget {
                             Text(
                               'Total: ₹${batch.totalWages!.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AuthColors.textMain,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -219,7 +220,7 @@ class ProductionBatchCard extends StatelessWidget {
                             Text(
                               'Per Employee: ₹${batch.wagePerEmployee!.toStringAsFixed(2)}',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: AuthColors.textMainWithOpacity(0.7),
                                 fontSize: 12,
                               ),
                             ),
@@ -238,13 +239,13 @@ class ProductionBatchCard extends StatelessWidget {
                     Icon(
                       Icons.category_outlined,
                       size: 16,
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: AuthColors.textMainWithOpacity(0.6),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       batch.productName!,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: AuthColors.textMainWithOpacity(0.6),
                         fontSize: 12,
                       ),
                     ),
@@ -304,20 +305,20 @@ class _WorkflowProgress extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: step.completed
-                            ? const Color(0xFF6F4BFF)
-                            : Colors.white.withValues(alpha: 0.1),
+                            ? AuthColors.primary
+                            : AuthColors.textMainWithOpacity(0.1),
                         border: Border.all(
                           color: step.completed
-                              ? const Color(0xFF6F4BFF)
-                              : Colors.white.withValues(alpha: 0.3),
+                              ? AuthColors.primary
+                              : AuthColors.textMainWithOpacity(0.3),
                           width: 2,
                         ),
                       ),
                       child: step.completed
-                          ? const Icon(
+                          ? Icon(
                               Icons.check,
                               size: 14,
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                             )
                           : null,
                     ),
@@ -326,8 +327,8 @@ class _WorkflowProgress extends StatelessWidget {
                       step.label,
                       style: TextStyle(
                         color: step.completed
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.5),
+                            ? AuthColors.textMain
+                            : AuthColors.textMainWithOpacity(0.5),
                         fontSize: 10,
                         fontWeight: step.completed ? FontWeight.w600 : FontWeight.normal,
                       ),
@@ -343,8 +344,8 @@ class _WorkflowProgress extends StatelessWidget {
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
                       color: step.completed
-                          ? const Color(0xFF6F4BFF)
-                          : Colors.white.withValues(alpha: 0.1),
+                          ? AuthColors.primary
+                          : AuthColors.textMainWithOpacity(0.1),
                       borderRadius: BorderRadius.circular(1),
                     ),
                   ),
@@ -383,7 +384,7 @@ class _InfoItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: AuthColors.textMainWithOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -391,7 +392,7 @@ class _InfoItem extends StatelessWidget {
           Icon(
             icon,
             size: 18,
-            color: Colors.white.withValues(alpha: 0.7),
+            color: AuthColors.textMainWithOpacity(0.7),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -401,14 +402,14 @@ class _InfoItem extends StatelessWidget {
                 Text(
                   label,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: AuthColors.textMainWithOpacity(0.6),
                     fontSize: 11,
                   ),
                 ),
                 Text(
                   value,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AuthColors.textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),

@@ -6,6 +6,7 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/views/orders/sections/delivery_zone_selection_section.dart';
 import 'package:dash_web/presentation/views/orders/sections/order_summary_section.dart';
 import 'package:dash_web/presentation/views/orders/sections/product_selection_section.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -53,16 +54,16 @@ class _CreateOrderDialogState extends State<CreateOrderDialog> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
+              colors: [AuthColors.surface, AuthColors.background],
             ),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: const Text(
+          child: Text(
             'Please select an organization first',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: AuthColors.textSub),
           ),
         ),
       );
@@ -84,19 +85,19 @@ class _CreateOrderDialogState extends State<CreateOrderDialog> {
           constraints: const BoxConstraints(maxWidth: 900, maxHeight: 800),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF1F1F33), Color(0xFF1A1A28)],
+              colors: [AuthColors.surface, AuthColors.background],
             ),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AuthColors.textMainWithOpacity(0.1),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
+                color: AuthColors.background.withOpacity(0.5),
                 blurRadius: 40,
                 offset: const Offset(0, 20),
               ),
@@ -112,7 +113,7 @@ class _CreateOrderDialogState extends State<CreateOrderDialog> {
                     child: Text(
                       'Create Order',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -120,7 +121,7 @@ class _CreateOrderDialogState extends State<CreateOrderDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: Icon(Icons.close, color: AuthColors.textSub),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -186,7 +187,7 @@ class _PageIndicator extends StatelessWidget {
             width: isActive ? 18 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF6F4BFF) : Colors.white24,
+              color: isActive ? AuthColors.primary : AuthColors.textMainWithOpacity(0.24),
               borderRadius: BorderRadius.circular(999),
             ),
           );

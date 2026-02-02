@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../theme/auth_colors.dart';
+
+enum DashButtonVariant { primary, outlined, text }
+
 class DashButton extends StatelessWidget {
   const DashButton({
     super.key,
@@ -7,12 +11,16 @@ class DashButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.isLoading = false,
+    this.variant = DashButtonVariant.primary,
+    this.isDestructive = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool isLoading;
+  final DashButtonVariant variant;
+  final bool isDestructive;
 
   @override
   Widget build(BuildContext context) {
@@ -34,12 +42,45 @@ class DashButton extends StatelessWidget {
             ],
           );
 
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(18),
+    );
+    const minSize = Size(0, 52);
+
+    if (variant == DashButtonVariant.text) {
+      return TextButton(
+        onPressed: isLoading ? null : onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: minSize,
+          shape: shape,
+          foregroundColor: isDestructive ? AuthColors.error : null,
+        ),
+        child: child,
+      );
+    }
+
+    if (variant == DashButtonVariant.outlined) {
+      return OutlinedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          minimumSize: minSize,
+          shape: shape,
+          foregroundColor: isDestructive ? AuthColors.error : null,
+          side: isDestructive
+              ? const BorderSide(color: AuthColors.error)
+              : null,
+        ),
+        child: child,
+      );
+    }
+
     return FilledButton(
       onPressed: isLoading ? null : onPressed,
       style: FilledButton.styleFrom(
-        // Allow parent constraints to dictate width; only enforce height.
-        minimumSize: const Size(0, 52),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        minimumSize: minSize,
+        shape: shape,
+        backgroundColor: isDestructive ? AuthColors.error : null,
+        foregroundColor: isDestructive ? AuthColors.textMain : null,
       ),
       child: child,
     );

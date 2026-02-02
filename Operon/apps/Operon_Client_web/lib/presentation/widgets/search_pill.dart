@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:flutter/material.dart';
 
 /// Floating search pill widget for Fleet Map.
@@ -34,11 +35,11 @@ class SearchPill extends StatelessWidget {
           width: effectiveWidth,
           height: 48,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.15),
+                color: AuthColors.textMain.withOpacity(0.1),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
                 spreadRadius: 0,
@@ -51,15 +52,15 @@ class SearchPill extends StatelessWidget {
               children: [
                 Icon(
                   Icons.search,
-                  color: Colors.grey[600],
+                  color: AuthColors.textSub,
                   size: 20,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     hintText,
-                    style: TextStyle(
-                      color: Colors.grey[600],
+                    style: const TextStyle(
+                      color: AuthColors.textSub,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),

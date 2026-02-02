@@ -320,13 +320,15 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
           style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Remove',
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove', style: TextStyle(color: AuthColors.error)),
+            isDestructive: true,
           ),
         ],
       ),

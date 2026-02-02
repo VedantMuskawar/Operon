@@ -294,16 +294,16 @@ class WageSettingsPageContent extends StatelessWidget {
           style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text('Delete'),
+            variant: DashButtonVariant.text,
+            isDestructive: true,
           ),
         ],
       ),
@@ -657,23 +657,16 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: _isSubmitting
-              ? null
-              : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+        DashButton(
+          label: 'Cancel',
+          onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
-          onPressed: _isSubmitting
-              ? null
-              : () => _handleSubmit(context, isEditing),
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(isEditing ? 'Save' : 'Create'),
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
+          onPressed: _isSubmitting ? null : () => _handleSubmit(context, isEditing),
+          isLoading: _isSubmitting,
+          variant: DashButtonVariant.text,
         ),
       ],
     );
@@ -919,11 +912,10 @@ class _WageMethodDialogState extends State<_WageMethodDialog> {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Error: ${e.toString()}',
+          isError: true,
         );
       }
     } finally {
@@ -1037,11 +1029,13 @@ class _QuantityWageDialogState extends State<_QuantityWageDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Add',
           onPressed: () {
             if (_formKey.currentState?.validate() ?? false) {
               final quantity = _quantityController.text.trim();
@@ -1049,7 +1043,7 @@ class _QuantityWageDialogState extends State<_QuantityWageDialog> {
               widget.onSave(quantity, wage);
             }
           },
-          child: Text(isEditing ? 'Save' : 'Add'),
+          variant: DashButtonVariant.text,
         ),
       ],
     );

@@ -1,7 +1,7 @@
 /**
- * CLIENTS Export Script - From Target Project
+ * CLIENTS Export Script - From Legacy Database
  * 
- * Exports all CLIENTS from the Target (Operon) Firebase project to Excel.
+ * Exports complete CLIENTS collection from Legacy (Pave) Firebase project to Excel.
  */
 
 import 'dotenv/config';
@@ -14,8 +14,9 @@ const require = createRequire(import.meta.url);
 const XLSX = require('xlsx');
 
 interface ExportConfig {
-  newServiceAccount: string;
-  newProjectId?: string;
+  legacyServiceAccount: string;
+  legacyProjectId?: string;
+  collectionName: string;
   outputPath: string;
 }
 
@@ -25,26 +26,31 @@ function resolveConfig(): ExportConfig {
     return path.isAbsolute(value) ? value : path.join(process.cwd(), value);
   };
 
-  const newServiceAccount =
-    resolvePath(process.env.NEW_SERVICE_ACCOUNT) ??
-    path.join(process.cwd(), 'creds/new-service-account.json');
+  const legacyServiceAccount =
+    resolvePath(process.env.LEGACY_SERVICE_ACCOUNT) ??
+    path.join(process.cwd(), 'creds/legacy-service-account.json');
 
-  if (!fs.existsSync(newServiceAccount)) {
+  if (!fs.existsSync(legacyServiceAccount)) {
     throw new Error(
-      `Service account file not found: ${newServiceAccount}\n\n` +
+      `Service account file not found: ${legacyServiceAccount}\n\n` +
         'Please download service account JSON file from Google Cloud Console and place it in:\n' +
-        `  - ${path.join(process.cwd(), 'creds/new-service-account.json')}\n\n` +
-        'Or set NEW_SERVICE_ACCOUNT environment variable with full path.',
+        `  - ${path.join(process.cwd(), 'creds/legacy-service-account.json')}\n\n` +
+        'Or set LEGACY_SERVICE_ACCOUNT environment variable with full path.',
     );
   }
 
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
   const outputPath =
     resolvePath(process.env.OUTPUT_PATH) ??
-    path.join(process.cwd(), 'data/clients-export.xlsx');
+    path.join(process.cwd(), 'data', `clients-export-${timestamp}.xlsx`);
+
+  // Try different collection name variations
+  const collectionName = process.env.COLLECTION_NAME || 'CLIENTS';
 
   return {
-    newServiceAccount,
-    newProjectId: process.env.NEW_PROJECT_ID,
+    legacyServiceAccount,
+    legacyProjectId: process.env.LEGACY_PROJECT_ID,
+    collectionName,
     outputPath,
   };
 }
@@ -54,32 +60,35 @@ function readServiceAccount(pathname: string) {
 }
 
 function initApp(config: ExportConfig): admin.app.App {
+  const serviceAccount = readServiceAccount(config.legacyServiceAccount);
+  
   return admin.initializeApp(
     {
-      credential: admin.credential.cert(
-        readServiceAccount(config.newServiceAccount),
-      ),
-      projectId: config.newProjectId,
+      credential: admin.credential.cert(serviceAccount),
+      projectId: config.legacyProjectId || serviceAccount.project_id,
     },
-    'target',
+    'legacy',
   );
 }
 
-/**
- * Convert Firestore Timestamp to Excel date
- */
-function timestampToDate(timestamp: admin.firestore.Timestamp | null | undefined): Date | null {
-  if (!timestamp) return null;
-  return timestamp.toDate();
+function timestampToDate(timestamp: admin.firestore.Timestamp | null | undefined): string {
+  if (!timestamp) return '';
+  if (timestamp instanceof admin.firestore.Timestamp) {
+    return timestamp.toDate().toISOString();
+  }
+  if (typeof timestamp === 'object' && timestamp !== null && '_seconds' in timestamp) {
+    return new Date((timestamp as any)._seconds * 1000).toISOString();
+  }
+  return '';
 }
 
-/**
- * Convert any value to string for Excel
- */
 function valueToString(value: any): string {
   if (value === null || value === undefined) return '';
   if (value instanceof admin.firestore.Timestamp) {
-    return value.toDate().toISOString();
+    return timestampToDate(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
   }
   if (Array.isArray(value)) {
     return JSON.stringify(value);
@@ -90,26 +99,40 @@ function valueToString(value: any): string {
   return String(value);
 }
 
+function flattenDocument(docId: string, data: any): Record<string, any> {
+  const row: Record<string, any> = {
+    'Document ID': docId,
+  };
+
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith('_')) continue;
+    row[key] = valueToString(value);
+  }
+
+  return row;
+}
+
 async function exportClients() {
   const config = resolveConfig();
-  const target = initApp(config);
-  const targetDb = target.firestore();
+  const legacy = initApp(config);
+  const legacyDb = legacy.firestore();
 
-  console.log('=== Exporting CLIENTS from Target Project ===');
+  console.log('=== Exporting CLIENTS from Legacy Database ===');
+  console.log('Collection:', config.collectionName);
   console.log('Output file:', config.outputPath);
   console.log('');
 
-  // Fetch all clients
-  console.log('Fetching clients from Target project...');
   let allClients: admin.firestore.QueryDocumentSnapshot[] = [];
   let lastDoc: admin.firestore.QueryDocumentSnapshot | null = null;
   let batchCount = 0;
 
   while (true) {
-    let query: admin.firestore.Query = targetDb.collection('CLIENTS');
+    let query: admin.firestore.Query = legacyDb.collection(config.collectionName);
+    
     if (lastDoc) {
       query = query.startAfter(lastDoc);
     }
+    
     const snapshot = await query.limit(1000).get();
     
     if (snapshot.empty) break;
@@ -120,57 +143,31 @@ async function exportClients() {
     
     console.log(`Fetched batch ${batchCount}: ${snapshot.size} clients (total: ${allClients.length})`);
     
-    if (snapshot.size < 1000) break; // Last batch
+    if (snapshot.size < 1000) break;
   }
 
-  console.log(`\nTotal clients fetched: ${allClients.length}`);
+  console.log(`\nTotal CLIENTS fetched: ${allClients.length}`);
 
   if (allClients.length === 0) {
-    console.log('No clients found to export');
+    console.log('No CLIENTS found in collection:', config.collectionName);
     return;
   }
 
-  // Convert to Excel rows
-  console.log('Converting to Excel format...');
-  const rows = allClients.map((doc) => {
-    const data = doc.data();
-    return {
-      'Document ID': doc.id,
-      'Client ID': data.clientId || '',
-      'Name': data.name || '',
-      'Name (Lowercase)': data.name_lc || '',
-      'Organization ID': data.organizationId || '',
-      'Primary Phone': data.primaryPhone || '',
-      'Primary Phone Normalized': data.primaryPhoneNormalized || '',
-      'Phones': JSON.stringify(data.phones || []),
-      'Phone Index': JSON.stringify(data.phoneIndex || []),
-      'Tags': JSON.stringify(data.tags || []),
-      'Contacts': JSON.stringify(data.contacts || []),
-      'Status': data.status || '',
-      'Orders Count': data.stats?.orders || 0,
-      'Lifetime Amount': data.stats?.lifetimeAmount || 0,
-      'Created At': data.createdAt ? timestampToDate(data.createdAt)?.toISOString() || '' : '',
-      'Updated At': data.updatedAt ? timestampToDate(data.updatedAt)?.toISOString() || '' : '',
-    };
-  });
+  const rows = allClients.map((doc) => flattenDocument(doc.id, doc.data()));
 
-  // Create workbook and worksheet
   const worksheet = XLSX.utils.json_to_sheet(rows);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'CLIENTS');
 
-  // Ensure output directory exists
   const outputDir = path.dirname(config.outputPath);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  // Write to file
-  console.log(`Writing to ${config.outputPath}...`);
   XLSX.writeFile(workbook, config.outputPath);
 
   console.log(`\n=== Export Complete ===`);
-  console.log(`Total clients exported: ${allClients.length}`);
+  console.log(`Total CLIENTS exported: ${allClients.length}`);
   console.log(`Output file: ${config.outputPath}`);
 }
 
@@ -178,6 +175,3 @@ exportClients().catch((error) => {
   console.error('Export failed:', error);
   process.exitCode = 1;
 });
-
-
-

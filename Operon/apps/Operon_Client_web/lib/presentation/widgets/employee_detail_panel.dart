@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar;
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/domain/entities/wage_type.dart';
@@ -83,15 +84,11 @@ class _EmployeeDetailPanelState extends State<EmployeeDetailPanel>
         final repository = context.read<EmployeesRepository>();
         await repository.deleteEmployee(widget.employee.id);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Employee deleted.')),
-        );
+        DashSnackbar.show(context, message: 'Employee deleted.', isError: false);
         _closePanel();
       } catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to delete employee: $error')),
-        );
+        DashSnackbar.show(context, message: 'Unable to delete employee: $error', isError: true);
       }
     }
   }
@@ -104,14 +101,14 @@ class _EmployeeDetailPanelState extends State<EmployeeDetailPanel>
   }
 
   Color _getRoleColor(String? roleTitle) {
-    if (roleTitle == null || roleTitle.isEmpty) return const Color(0xFF6F4BFF);
+    if (roleTitle == null || roleTitle.isEmpty) return AuthColors.primary;
     final hash = roleTitle.hashCode;
     final colors = [
-      const Color(0xFF6F4BFF),
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
+      AuthColors.primary,
+      AuthColors.successVariant,
+      AuthColors.warning,
+      AuthColors.info,
+      AuthColors.error,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -165,7 +162,7 @@ class _EmployeeDetailPanelState extends State<EmployeeDetailPanel>
             child: FadeTransition(
               opacity: _fadeAnimation,
               child: Container(
-                color: Colors.black.withOpacity(0.5),
+                color: AuthColors.background.withOpacity(0.5),
               ),
             ),
           ),
@@ -181,10 +178,10 @@ class _EmployeeDetailPanelState extends State<EmployeeDetailPanel>
             child: Container(
               width: panelWidth,
               decoration: BoxDecoration(
-                color: const Color(0xFF0D0D15),
+                color: AuthColors.background,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: AuthColors.background.withOpacity(0.3),
                     blurRadius: 20,
                     spreadRadius: 5,
                   ),
@@ -205,10 +202,10 @@ class _EmployeeDetailPanelState extends State<EmployeeDetailPanel>
                   // Tabs
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF131324),
+                      color: AuthColors.surface,
                       border: Border(
                         bottom: BorderSide(
-                          color: Colors.white.withOpacity(0.1),
+                          color: AuthColors.textMainWithOpacity(0.1),
                         ),
                       ),
                     ),
@@ -284,14 +281,14 @@ class _PanelHeader extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             roleColor.withOpacity(0.3),
-            const Color(0xFF1B1B2C),
+            AuthColors.surface,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border(
           bottom: BorderSide(
-            color: Colors.white.withOpacity(0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
           ),
         ),
       ),
@@ -301,7 +298,7 @@ class _PanelHeader extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white70),
+                icon: const Icon(Icons.close, color: AuthColors.textSub),
                 onPressed: onClose,
                 tooltip: 'Close',
               ),
@@ -323,7 +320,7 @@ class _PanelHeader extends StatelessWidget {
                   child: Text(
                     getInitials(employee.name),
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontWeight: FontWeight.w700,
                       fontSize: 18,
                     ),
@@ -338,7 +335,7 @@ class _PanelHeader extends StatelessWidget {
                     Text(
                       employee.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -370,12 +367,12 @@ class _PanelHeader extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.edit, color: Colors.white70),
+                icon: const Icon(Icons.edit, color: AuthColors.textSub),
                 onPressed: onEdit,
                 tooltip: 'Edit',
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                icon: const Icon(Icons.delete_outline, color: AuthColors.textSub),
                 onPressed: onDelete,
                 tooltip: 'Delete',
               ),
@@ -408,8 +405,8 @@ class _TabButton extends StatelessWidget {
           border: Border(
             bottom: BorderSide(
               color: isSelected
-                  ? const Color(0xFF6F4BFF)
-                  : Colors.transparent,
+                  ? AuthColors.primary
+                  : AuthColors.background,
               width: 2,
             ),
           ),
@@ -418,7 +415,7 @@ class _TabButton extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
+            color: isSelected ? AuthColors.textMain : AuthColors.textSub,
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -468,19 +465,19 @@ class _OverviewSection extends StatelessWidget {
               gradient: LinearGradient(
                 colors: isPositive
                     ? [
-                        const Color(0xFF4CAF50).withOpacity(0.2),
-                        const Color(0xFF4CAF50).withOpacity(0.05),
+                        AuthColors.success.withOpacity(0.2),
+                        AuthColors.success.withOpacity(0.05),
                       ]
                     : [
-                        const Color(0xFFEF5350).withOpacity(0.2),
-                        const Color(0xFFEF5350).withOpacity(0.05),
+                        AuthColors.error.withOpacity(0.2),
+                        AuthColors.error.withOpacity(0.05),
                       ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: (isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350))
+                color: (isPositive ? AuthColors.success : AuthColors.error)
                     .withOpacity(0.3),
                 width: 1,
               ),
@@ -491,7 +488,7 @@ class _OverviewSection extends StatelessWidget {
                 const Text(
                   'Current Balance',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: AuthColors.textSub,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -500,7 +497,7 @@ class _OverviewSection extends StatelessWidget {
                 Text(
                   _formatCurrency(employee.currentBalance),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
@@ -511,13 +508,13 @@ class _OverviewSection extends StatelessWidget {
                     Icon(
                       isPositive ? Icons.trending_up : Icons.trending_down,
                       size: 16,
-                      color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                      color: isPositive ? AuthColors.success : AuthColors.error,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())} from opening',
                       style: TextStyle(
-                        color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                        color: isPositive ? AuthColors.success : AuthColors.error,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -527,7 +524,7 @@ class _OverviewSection extends StatelessWidget {
                       Text(
                         '(${isPositive ? '+' : ''}${percentChange.abs().toStringAsFixed(1)}%)',
                         style: TextStyle(
-                          color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                          color: isPositive ? AuthColors.success : AuthColors.error,
                           fontSize: 11,
                         ),
                       ),
@@ -546,7 +543,7 @@ class _OverviewSection extends StatelessWidget {
                 child: _SummaryCard(
                   label: 'Opening Balance',
                   value: _formatCurrency(employee.openingBalance),
-                  color: const Color(0xFF2196F3),
+                  color: AuthColors.info,
                 ),
               ),
               const SizedBox(width: 12),
@@ -554,7 +551,7 @@ class _OverviewSection extends StatelessWidget {
                 child: _SummaryCard(
                   label: 'Net Change',
                   value: '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())}',
-                  color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                  color: isPositive ? AuthColors.success : AuthColors.error,
                 ),
               ),
             ],
@@ -565,10 +562,10 @@ class _OverviewSection extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF131324),
+              color: AuthColors.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: AuthColors.textMainWithOpacity(0.1),
                 width: 1,
               ),
             ),
@@ -578,7 +575,7 @@ class _OverviewSection extends StatelessWidget {
                 const Text(
                   'Wage Information',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -589,7 +586,7 @@ class _OverviewSection extends StatelessWidget {
                     Icon(
                       Icons.account_balance_wallet_outlined,
                       size: 20,
-                      color: Colors.white.withOpacity(0.7),
+                      color: AuthColors.textMainWithOpacity(0.7),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -599,7 +596,7 @@ class _OverviewSection extends StatelessWidget {
                           Text(
                             getWageTypeDisplayName(employee.wage.type),
                             style: const TextStyle(
-                              color: Colors.white70,
+                              color: AuthColors.textSub,
                               fontSize: 12,
                             ),
                           ),
@@ -609,7 +606,7 @@ class _OverviewSection extends StatelessWidget {
                                 ? '₹${(employee.wage.baseAmount ?? employee.wage.rate ?? 0).toStringAsFixed(2)}'
                                 : 'Not set',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
@@ -629,10 +626,10 @@ class _OverviewSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF131324),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: AuthColors.textMainWithOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -642,7 +639,7 @@ class _OverviewSection extends StatelessWidget {
                   const Text(
                     'Job Roles',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -661,12 +658,12 @@ class _OverviewSection extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: isPrimary
                               ? roleColor.withOpacity(0.2)
-                              : Colors.white.withOpacity(0.08),
+                              : AuthColors.textMainWithOpacity(0.08),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: isPrimary
                                 ? roleColor.withOpacity(0.3)
-                                : Colors.white.withOpacity(0.1),
+                                : AuthColors.textMainWithOpacity(0.1),
                           ),
                         ),
                         child: Row(
@@ -675,7 +672,7 @@ class _OverviewSection extends StatelessWidget {
                             Text(
                               jobRole.jobRoleTitle,
                               style: TextStyle(
-                                color: isPrimary ? roleColor : Colors.white70,
+                                color: isPrimary ? roleColor : AuthColors.textSub,
                                 fontSize: 12,
                                 fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
                               ),
@@ -715,23 +712,15 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
+    return DashCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
             style: const TextStyle(
-              color: Colors.white70,
+              color: AuthColors.textSub,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -767,13 +756,13 @@ class _TransactionsSection extends StatelessWidget {
             Icon(
               Icons.receipt_long_outlined,
               size: 64,
-              color: Colors.white.withOpacity(0.3),
+              color: AuthColors.textMainWithOpacity(0.3),
             ),
             const SizedBox(height: 16),
             const Text(
               'Transactions',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
@@ -782,7 +771,7 @@ class _TransactionsSection extends StatelessWidget {
             Text(
               'Transaction history will be available here',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: AuthColors.textMainWithOpacity(0.6),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -802,7 +791,7 @@ class _DeleteEmployeeDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1B1B2C),
+      backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
       ),
@@ -815,7 +804,7 @@ class _DeleteEmployeeDialog extends StatelessWidget {
             const Text(
               'Delete employee',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -824,32 +813,26 @@ class _DeleteEmployeeDialog extends StatelessWidget {
             Text(
               'This will permanently remove $employeeName and all related data. This action cannot be undone.',
               style: const TextStyle(
-                color: Colors.white70,
+                color: AuthColors.textSub,
                 fontSize: 13,
               ),
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFED5A5A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
+              child: DashButton(
+                label: 'Delete employee',
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete employee'),
+                isDestructive: true,
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: TextButton(
+              child: DashButton(
+                label: 'Cancel',
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                variant: DashButtonVariant.text,
               ),
             ),
           ],

@@ -7,6 +7,9 @@ import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/domain/entities/payment_account.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_web/data/repositories/dm_settings_repository.dart';
+import 'package:dash_web/data/services/dm_print_service.dart';
+import 'package:dash_web/presentation/widgets/fuel_ledger_pdf_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -111,9 +114,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           (_paymentAccounts.isNotEmpty ? _paymentAccounts.first : null);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error loading data: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -138,14 +139,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AuthColors.legacyAccent,
-              onPrimary: AuthColors.textMain,
-              surface: AuthColors.surface,
-              onSurface: AuthColors.textMain,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -170,18 +164,20 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       List<Transaction> invoices;
       
       if (_invoiceSelectionMode == 'dateRange') {
-        // For date range mode, filter by date
+        // For date range mode, filter by date; only verified purchases can be paid
         invoices = await transactionsDataSource.fetchUnpaidVendorInvoices(
           organizationId: organizationId,
           vendorId: _selectedVendor!.id,
           startDate: _invoiceDateRangeStart,
           endDate: _invoiceDateRangeEnd,
+          verifiedOnly: true,
         );
       } else {
-        // For manual selection mode, fetch all unpaid invoices (we'll filter by invoice number range in memory)
+        // For manual selection mode, fetch all unpaid invoices; only verified purchases can be paid
         invoices = await transactionsDataSource.fetchUnpaidVendorInvoices(
           organizationId: organizationId,
           vendorId: _selectedVendor!.id,
+          verifiedOnly: true,
         );
       }
 
@@ -192,7 +188,10 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         
         if (fromNumber.isNotEmpty || toNumber.isNotEmpty) {
           invoices = invoices.where((invoice) {
-            final invoiceNumber = invoice.referenceNumber ?? invoice.metadata?['invoiceNumber'] ?? '';
+            final invoiceNumber = invoice.referenceNumber ??
+                invoice.metadata?['invoiceNumber']?.toString() ??
+                invoice.metadata?['voucherNumber']?.toString() ??
+                '';
             if (invoiceNumber.isEmpty) return false;
             
             final invoiceNumUpper = invoiceNumber.toUpperCase();
@@ -224,9 +223,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading invoices: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error loading invoices: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -259,25 +256,19 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
 
     final amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid amount')),
-      );
+      DashSnackbar.show(context, message: 'Enter a valid amount', isError: true);
       return;
     }
 
     if (_selectedPaymentAccount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a payment account')),
-      );
+      DashSnackbar.show(context, message: 'Select a payment account', isError: true);
       return;
     }
 
     final orgState = context.read<OrganizationContextCubit>().state;
     final organizationId = orgState.organization?.id;
     if (organizationId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No organization selected')),
-      );
+      DashSnackbar.show(context, message: 'No organization selected', isError: true);
       return;
     }
 
@@ -289,9 +280,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       switch (_selectedType) {
         case ExpenseFormType.vendorPayment:
           if (_selectedVendor == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Select a vendor')),
-            );
+            DashSnackbar.show(context, message: 'Select a vendor', isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
@@ -314,9 +303,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           break;
         case ExpenseFormType.salaryDebit:
           if (_selectedEmployee == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Select an employee')),
-            );
+            DashSnackbar.show(context, message: 'Select an employee', isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
@@ -335,16 +322,12 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           break;
         case ExpenseFormType.generalExpense:
           if (_selectedSubCategory == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Select a sub-category')),
-            );
+            DashSnackbar.show(context, message: 'Select a sub-category', isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
           if (_descriptionController.text.trim().isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Enter a description')),
-            );
+            DashSnackbar.show(context, message: 'Enter a description', isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
@@ -362,19 +345,35 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Expense created successfully')),
-        );
+        DashSnackbar.show(context, message: 'Expense created successfully', isError: false);
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating expense: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error creating expense: $e', isError: true);
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  void _openFuelLedgerPdfDialog() {
+    if (_selectedVendor == null) return;
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final organizationId = orgState.organization?.id;
+    if (organizationId == null) {
+      DashSnackbar.show(context, message: 'No organization selected', isError: true);
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (context) => FuelLedgerPdfDialog(
+        vendor: _selectedVendor!,
+        organizationId: organizationId,
+        transactionsRepository: context.read<TransactionsRepository>(),
+        dmSettingsRepository: context.read<DmSettingsRepository>(),
+        dmPrintService: context.read<DmPrintService>(),
+      ),
+    );
   }
 
   @override
@@ -386,7 +385,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       backgroundColor: AuthColors.surface,
       title: const Text(
         'Record Expense',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -414,6 +413,15 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       // Dynamic fields based on type
                       if (_selectedType == ExpenseFormType.vendorPayment) ...[
                         _buildVendorSelector(),
+                        if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
+                          const SizedBox(height: 16),
+                          DashButton(
+                            label: 'Fuel Ledger PDF',
+                            icon: Icons.picture_as_pdf,
+                            onPressed: _openFuelLedgerPdfDialog,
+                            variant: DashButtonVariant.outlined,
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         _buildInvoiceSelectionSection(),
                       ] else if (_selectedType == ExpenseFormType.salaryDebit) ...[
@@ -423,11 +431,11 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       ],
                       const SizedBox(height: 24),
                       // Amount
-                      TextFormField(
+                      DashFormField(
                         controller: _amountController,
-                        style: const TextStyle(color: AuthColors.textMain),
-                        decoration: _inputDecoration('Amount *'),
+                        label: 'Amount *',
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: const TextStyle(color: AuthColors.textMain),
                         inputFormatters: [
                           FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                         ],
@@ -470,15 +478,13 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       ),
                       const SizedBox(height: 16),
                       // Description
-                      TextFormField(
+                      DashFormField(
                         controller: _descriptionController,
-                        style: const TextStyle(color: AuthColors.textMain),
-                        decoration: _inputDecoration(
-                          _selectedType == ExpenseFormType.generalExpense
-                              ? 'Description *'
-                              : 'Description',
-                        ),
+                        label: _selectedType == ExpenseFormType.generalExpense
+                            ? 'Description *'
+                            : 'Description',
                         maxLines: 3,
+                        style: const TextStyle(color: AuthColors.textMain),
                         validator: (value) {
                           if (_selectedType == ExpenseFormType.generalExpense &&
                               (value == null || value.trim().isEmpty)) {
@@ -489,10 +495,10 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       ),
                       const SizedBox(height: 16),
                       // Reference Number
-                      TextFormField(
+                      DashFormField(
                         controller: _referenceNumberController,
+                        label: 'Reference Number',
                         style: const TextStyle(color: AuthColors.textMain),
-                        decoration: _inputDecoration('Reference Number'),
                       ),
                     ],
                   ),
@@ -500,26 +506,15 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
               ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          variant: DashButtonVariant.text,
         ),
-        ElevatedButton(
+        DashButton(
+          label: 'Save',
           onPressed: _isSubmitting ? null : _save,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AuthColors.legacyAccent,
-            foregroundColor: AuthColors.textMain,
-          ),
-          child: _isSubmitting
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
-                  ),
-                )
-              : const Text('Save'),
+          isLoading: _isSubmitting,
         ),
       ],
     );
@@ -528,7 +523,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
   Widget _buildTypeSelector() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -578,24 +573,24 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withValues(alpha: 0.2)
+              ? AuthColors.primaryWithOpacity(0.2)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? AuthColors.legacyAccent
+                ? AuthColors.primary
                 : Colors.transparent,
             width: 1.5,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFF6F4BFF) : Colors.white54, size: 20),
+            Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub, size: 20),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white54,
+                color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -617,7 +612,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         const Text(
           'Invoice Selection',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -628,7 +623,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           children: [
             Expanded(
               child: RadioListTile<String>(
-                title: const Text('Pay Selected Invoices', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                title: Text('Pay Selected Invoices', style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
                 value: 'manualSelection',
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
@@ -642,14 +637,14 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                     _availableInvoices.clear();
                   });
                 },
-                activeColor: const Color(0xFF6F4BFF),
+                activeColor: AuthColors.primary,
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
             ),
             Expanded(
               child: RadioListTile<String>(
-                title: const Text('Pay by Date Range', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                title: Text('Pay by Date Range', style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
                 value: 'dateRange',
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
@@ -659,7 +654,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                   });
                   _loadUnpaidInvoices();
                 },
-                activeColor: const Color(0xFF6F4BFF),
+                activeColor: AuthColors.primary,
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -681,14 +676,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       lastDate: DateTime.now(),
                       builder: (context, child) {
                         return Theme(
-                          data: ThemeData.dark().copyWith(
-                            colorScheme: const ColorScheme.dark(
-                              primary: Color(0xFF6F4BFF),
-                              onPrimary: Colors.white,
-                              surface: Color(0xFF1B1B2C),
-                              onSurface: Colors.white,
-                            ),
-                          ),
+                          data: DashTheme.light(),
                           child: child!,
                         );
                       },
@@ -703,13 +691,13 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C),
+                      color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Colors.white54, size: 18),
+                        Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           _invoiceDateRangeStart == null
@@ -717,8 +705,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                               : _formatDate(_invoiceDateRangeStart!),
                           style: TextStyle(
                             color: _invoiceDateRangeStart == null
-                                ? Colors.white54
-                                : Colors.white,
+                                ? AuthColors.textSub
+                                : AuthColors.textMain,
                             fontSize: 14,
                           ),
                         ),
@@ -738,14 +726,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       lastDate: DateTime.now(),
                       builder: (context, child) {
                         return Theme(
-                          data: ThemeData.dark().copyWith(
-                            colorScheme: const ColorScheme.dark(
-                              primary: Color(0xFF6F4BFF),
-                              onPrimary: Colors.white,
-                              surface: Color(0xFF1B1B2C),
-                              onSurface: Colors.white,
-                            ),
-                          ),
+                          data: DashTheme.light(),
                           child: child!,
                         );
                       },
@@ -760,13 +741,13 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C),
+                      color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Colors.white54, size: 18),
+                        Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           _invoiceDateRangeEnd == null
@@ -774,8 +755,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                               : _formatDate(_invoiceDateRangeEnd!),
                           style: TextStyle(
                             color: _invoiceDateRangeEnd == null
-                                ? Colors.white54
-                                : Colors.white,
+                                ? AuthColors.textSub
+                                : AuthColors.textMain,
                             fontSize: 14,
                           ),
                         ),
@@ -793,27 +774,28 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           Row(
             children: [
               Expanded(
-                child: TextFormField(
+                child: DashFormField(
                   controller: _fromInvoiceNumberController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('From Invoice Number'),
+                  label: 'From Invoice Number',
+                  style: TextStyle(color: AuthColors.textMain),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextFormField(
+                child: DashFormField(
                   controller: _toInvoiceNumberController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: _inputDecoration('To Invoice Number'),
+                  label: 'To Invoice Number',
+                  style: TextStyle(color: AuthColors.textMain),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          TextButton.icon(
+          DashButton(
+            label: 'Search Invoices',
+            icon: Icons.search,
             onPressed: _loadUnpaidInvoices,
-            icon: const Icon(Icons.search, size: 18, color: Color(0xFF6F4BFF)),
-            label: const Text('Search Invoices', style: TextStyle(color: Color(0xFF6F4BFF))),
+            variant: DashButtonVariant.outlined,
           ),
           const SizedBox(height: 16),
         ],
@@ -828,7 +810,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             padding: EdgeInsets.all(16.0),
             child: Text(
               'Select date range to view invoices',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
             ),
           )
         else if (_availableInvoices.isEmpty)
@@ -838,24 +820,24 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
               _invoiceSelectionMode == 'manualSelection' && _fromInvoiceNumberController.text.trim().isEmpty && _toInvoiceNumberController.text.trim().isEmpty
                   ? 'Enter invoice number range and click Search'
                   : 'No unpaid invoices found',
-              style: const TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
             ),
           )
         else
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1B1B2C),
+              color: AuthColors.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Found ${_availableInvoices.length} invoice${_availableInvoices.length == 1 ? '' : 's'}',
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: AuthColors.textSub,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -874,11 +856,11 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                             children: [
                               Text(
                                 invoiceNumber,
-                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                                style: TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w500),
                               ),
                               Text(
                                 '${_formatDate(invoice.createdAt ?? DateTime.now())} | ₹${remainingAmount.toStringAsFixed(2)}',
-                                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                style: TextStyle(color: AuthColors.textSub, fontSize: 11),
                               ),
                             ],
                           ),
@@ -892,7 +874,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       '... and ${_availableInvoices.length - 5} more',
-                      style: const TextStyle(color: Colors.white54, fontSize: 12, fontStyle: FontStyle.italic),
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 12, fontStyle: FontStyle.italic),
                     ),
                   ),
               ],
@@ -904,21 +886,21 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6F4BFF).withOpacity(0.1),
+              color: AuthColors.primaryWithOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF6F4BFF).withOpacity(0.3)),
+              border: Border.all(color: AuthColors.primaryWithOpacity(0.3)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Total Amount:',
-                  style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 Text(
                   '₹${_amountController.text.isEmpty ? "0.00" : _amountController.text}',
-                  style: const TextStyle(
-                    color: Color(0xFF6F4BFF),
+                  style: TextStyle(
+                    color: AuthColors.primary,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -938,7 +920,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         const Text(
           'Vendor *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -946,8 +928,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         const SizedBox(height: 8),
         DropdownButtonFormField<Vendor>(
           initialValue: _selectedVendor,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.surface,
+          style: TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select vendor'),
           items: _vendors.map((vendor) {
             return DropdownMenuItem(
@@ -978,7 +960,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         const Text(
           'Employee *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -986,8 +968,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         const SizedBox(height: 8),
         DropdownButtonFormField<OrganizationEmployee>(
           initialValue: _selectedEmployee,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.surface,
+          style: TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select employee'),
           items: _employees.map((employee) {
             return DropdownMenuItem(
@@ -1013,7 +995,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         const Text(
           'Sub-Category *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -1021,8 +1003,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         const SizedBox(height: 8),
         DropdownButtonFormField<ExpenseSubCategory>(
           initialValue: _selectedSubCategory,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.surface,
+          style: TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select sub-category'),
           items: _subCategories.where((sc) => sc.isActive).map((subCategory) {
             return DropdownMenuItem(
@@ -1061,7 +1043,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         const Text(
           'Payment Account *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -1114,25 +1096,25 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withValues(alpha: 0.2)
-              : const Color(0xFF1B1B2C),
+              ? AuthColors.primaryWithOpacity(0.2)
+              : AuthColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? AuthColors.legacyAccent
-                : Colors.white.withOpacity(0.1),
+                ? AuthColors.primary
+                : AuthColors.textMainWithOpacity(0.1),
             width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFF6F4BFF) : Colors.white54, size: 18),
+            Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub, size: 18),
             const SizedBox(width: 8),
             Text(
               account.name,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
+                color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -1142,13 +1124,13 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6F4BFF).withOpacity(0.2),
+                  color: AuthColors.primaryWithOpacity(0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text(
+                child: Text(
                   'Primary',
                   style: TextStyle(
-                    color: Color(0xFF6F4BFF),
+                    color: AuthColors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1165,8 +1147,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

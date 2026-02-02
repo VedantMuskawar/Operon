@@ -5,30 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-// #region agent log
-import 'dart:html' as html;
-void _debugLog(String location, String message, Map<String, dynamic> data, String hypothesisId) {
-  if (kIsWeb) {
-    try {
-      final payload = jsonEncode({
-        'location': location,
-        'message': message,
-        'data': data,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'sessionId': 'debug-session',
-        'runId': 'run1',
-        'hypothesisId': hypothesisId,
-      });
-      html.HttpRequest.request(
-        'http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',
-        method: 'POST',
-        requestHeaders: {'Content-Type': 'application/json'},
-        sendData: payload,
-      ).catchError((_) => html.HttpRequest());
-    } catch (_) {}
-  }
-}
-// #endregion
 
 /// State for a single marker's animation.
 class _MarkerState {

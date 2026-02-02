@@ -145,24 +145,52 @@ class _DriverProfileDrawer extends StatelessWidget {
 
     return Drawer(
       backgroundColor: AuthColors.surface,
-      child: ProfileView(
-        user: authState.userProfile,
-        organization: orgState.organization,
-        onChangeOrg: () async {
-          Navigator.of(context).pop(); // close drawer
-          await context.read<OrganizationContextCubit>().clear();
-          if (!context.mounted) return;
-          context.go('/org-selection');
-        },
-        onLogout: () async {
-          Navigator.of(context).pop(); // close drawer
-          await context.read<OrganizationContextCubit>().clear();
-          if (!context.mounted) return;
-          context.read<AuthBloc>().add(const AuthReset());
-          context.go('/login');
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Row(
+              children: [
+                Image.asset(
+                  'assets/branding/operon_driver_app_icon.png',
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Operon Driver',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AuthColors.textMain,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ProfileView(
+              user: authState.userProfile,
+              organization: orgState.organization,
+              onChangeOrg: () async {
+                Navigator.of(context).pop(); // close drawer
+                await context.read<OrganizationContextCubit>().clear();
+                if (!context.mounted) return;
+                context.go('/org-selection');
+              },
+              onLogout: () async {
+                Navigator.of(context).pop(); // close drawer
+                await context.read<OrganizationContextCubit>().clear();
+                if (!context.mounted) return;
+                context.read<AuthBloc>().add(const AuthReset());
+                context.go('/login');
+              },
         // Driver app doesn’t expose admin pages (users/permissions) right now.
-        onOpenUsers: null,
+              onOpenUsers: null,
+            ),
+          ),
+        ],
       ),
     );
   }

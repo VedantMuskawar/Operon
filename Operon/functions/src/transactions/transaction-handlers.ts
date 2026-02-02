@@ -318,8 +318,9 @@ async function updateClientLedger(
   if (transaction.referenceNumber) {
     transactionData.referenceNumber = transaction.referenceNumber;
   }
-  if (transaction.orderId) {
-    transactionData.orderId = transaction.orderId;
+  const tripIdVal = transaction.tripId ?? transaction.orderId;
+  if (tripIdVal) {
+    transactionData.tripId = tripIdVal;
   }
   if (transaction.description) {
     transactionData.description = transaction.description;

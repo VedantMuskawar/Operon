@@ -1,7 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_web/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
+import 'package:dash_web/presentation/widgets/zones/zones_city_card.dart';
+import 'package:dash_web/presentation/widgets/zones/zones_region_card.dart';
+import 'package:dash_web/presentation/widgets/zones/zones_stat_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -110,9 +115,12 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                       ? constraints.maxHeight
                       : (MediaQuery.of(context).size.height * 0.7);
                   const columnSpacing = 20.0;
-                  final contentHeight = (availableHeight > 400 
-                      ? availableHeight - 200.0 
+                  final contentHeight = (availableHeight > 400
+                      ? availableHeight - 200.0
                       : 600.0);
+                  // Ensure minHeight <= maxHeight and we never exceed available space.
+                  final maxRowHeight = math.min(contentHeight, availableHeight);
+                  final minRowHeight = math.min(400.0, maxRowHeight);
 
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -134,8 +142,8 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                           // Three Column Layout
                           ConstrainedBox(
                             constraints: BoxConstraints(
-                              minHeight: 400,
-                              maxHeight: contentHeight,
+                              minHeight: minRowHeight,
+                              maxHeight: maxRowHeight,
                             ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,7 +276,7 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
   ) async {
     await showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -286,7 +294,7 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white12,
+                      color: AuthColors.textMainWithOpacity(0.12),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -294,7 +302,7 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                 Text(
                   city.name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
@@ -302,9 +310,9 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                 const SizedBox(height: 4),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.edit, color: Colors.white),
+                  leading: const Icon(Icons.edit, color: AuthColors.textMain),
                   title: const Text('Rename city',
-                      style: TextStyle(color: Colors.white)),
+                      style: TextStyle(color: AuthColors.textMain)),
                   onTap: () {
                     Navigator.of(context).pop();
                     _openRenameCityDialog(context, city);
@@ -313,9 +321,9 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading:
-                      const Icon(Icons.delete_outline, color: Colors.redAccent),
+                      const Icon(Icons.delete_outline, color: AuthColors.error),
                   title: const Text('Delete city',
-                      style: TextStyle(color: Colors.redAccent)),
+                      style: TextStyle(color: AuthColors.error)),
                   onTap: () {
                     Navigator.of(context).pop();
                     _confirmDeleteCity(context, city);
@@ -340,25 +348,27 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
       builder: (_) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF11111B),
-            title: const Text('Rename City', style: TextStyle(color: Colors.white)),
+            backgroundColor: AuthColors.surface,
+            title: const Text('Rename City', style: TextStyle(color: AuthColors.textMain)),
             content: TextField(
               controller: controller,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: const InputDecoration(
                 labelText: 'City name',
                 filled: true,
-                fillColor: Color(0xFF1B1B2C),
-                labelStyle: TextStyle(color: Colors.white70),
+                fillColor: AuthColors.surface,
+                labelStyle: TextStyle(color: AuthColors.textSub),
                 border: OutlineInputBorder(borderSide: BorderSide.none),
               ),
             ),
             actions: [
-              TextButton(
+              DashButton(
+                label: 'Cancel',
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                variant: DashButtonVariant.text,
               ),
-              TextButton(
+              DashButton(
+                label: 'Save',
                 onPressed: submitting
                     ? null
                     : () async {
@@ -385,13 +395,8 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
                           if (mounted) setState(() => submitting = false);
                         }
                       },
-                child: submitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Save', style: TextStyle(color: Color(0xFF6F4BFF))),
+                isLoading: submitting,
+                variant: DashButtonVariant.text,
               ),
             ],
           );
@@ -407,23 +412,23 @@ class _ZonesPageContentState extends State<ZonesPageContent> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
-        title: const Text('Delete City', style: TextStyle(color: Colors.white)),
+        backgroundColor: AuthColors.surface,
+        title: const Text('Delete City', style: TextStyle(color: AuthColors.textMain)),
         content: Text(
           'Deleting "${city.name}" will remove all regions and prices in this city. This cannot be undone.',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.redAccent),
-            ),
+            variant: DashButtonVariant.text,
+            isDestructive: true,
           ),
         ],
       ),
@@ -478,12 +483,12 @@ class _CitySelectionColumn extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                color: AuthColors.primary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.location_city,
-                color: Color(0xFF6F4BFF),
+                color: AuthColors.primary,
                 size: 18,
               ),
             ),
@@ -492,7 +497,7 @@ class _CitySelectionColumn extends StatelessWidget {
               child: Text(
                 'Cities',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
                   letterSpacing: -0.5,
@@ -504,7 +509,7 @@ class _CitySelectionColumn extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: AuthColors.textMain.withValues(alpha: 0.1),
                   ),
                 ),
                 child: Material(
@@ -517,12 +522,12 @@ class _CitySelectionColumn extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.add, size: 16, color: Color(0xFF6F4BFF)),
+                          Icon(Icons.add, size: 16, color: AuthColors.primary),
                           SizedBox(width: 6),
                           Text(
                             'Add City',
                             style: TextStyle(
-                              color: Color(0xFF6F4BFF),
+                              color: AuthColors.primary,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -555,7 +560,7 @@ class _CitySelectionColumn extends StatelessWidget {
                           verticalOffset: 50.0,
                           child: FadeInAnimation(
                             curve: Curves.easeOut,
-                            child: _CityCard(
+                            child: ZonesCityCard(
                               city: city,
                               isSelected: isSelected,
                               regionCount: regionCount,
@@ -613,12 +618,12 @@ class _RegionSelectionColumn extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF5AD8A4).withValues(alpha: 0.2),
+                color: AuthColors.successVariant.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.location_on,
-                color: Color(0xFF5AD8A4),
+                color: AuthColors.successVariant,
                 size: 18,
               ),
             ),
@@ -627,7 +632,7 @@ class _RegionSelectionColumn extends StatelessWidget {
               child: Text(
                 'Regions',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
                   letterSpacing: -0.5,
@@ -639,7 +644,7 @@ class _RegionSelectionColumn extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: AuthColors.textMain.withValues(alpha: 0.1),
                   ),
                 ),
                 child: Material(
@@ -652,12 +657,12 @@ class _RegionSelectionColumn extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.add, size: 16, color: Color(0xFF5AD8A4)),
+                          Icon(Icons.add, size: 16, color: AuthColors.successVariant),
                           SizedBox(width: 6),
                           Text(
                             'Add Region',
                             style: TextStyle(
-                              color: Color(0xFF5AD8A4),
+                              color: AuthColors.successVariant,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -690,7 +695,7 @@ class _RegionSelectionColumn extends StatelessWidget {
                           verticalOffset: 50.0,
                           child: FadeInAnimation(
                             curve: Curves.easeOut,
-                            child: _RegionCard(
+                            child: ZonesRegionCard(
                               zone: zone,
                               isSelected: isSelected,
                               priceCount: priceCount,
@@ -823,17 +828,17 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF1F1F33),
-                Color(0xFF1A1A28),
+                AuthColors.surface,
+                AuthColors.background,
               ],
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AuthColors.textMain.withValues(alpha: 0.1),
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: AuthColors.background.withOpacity(0.3),
                 blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
@@ -848,12 +853,12 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF9800).withOpacity(0.2),
+                      color: AuthColors.warning.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.price_check_outlined,
-                      color: Color(0xFFFF9800),
+                      color: AuthColors.warning,
                       size: 20,
                     ),
                   ),
@@ -865,7 +870,7 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                         const Text(
                           'Unit Prices',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontWeight: FontWeight.w700,
                             fontSize: 18,
                             letterSpacing: -0.5,
@@ -875,7 +880,7 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                         Text(
                           '${widget.zone.region}, ${widget.zone.cityName}',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color: AuthColors.textMain.withValues(alpha: 0.6),
                             fontSize: 13,
                           ),
                         ),
@@ -890,13 +895,13 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                     ),
                     decoration: BoxDecoration(
                       color: widget.zone.isActive
-                          ? const Color(0xFF5AD8A4).withValues(alpha: 0.2)
-                          : Colors.white.withValues(alpha: 0.1),
+                          ? AuthColors.successVariant.withValues(alpha: 0.2)
+                          : AuthColors.textMainWithOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: widget.zone.isActive
-                            ? const Color(0xFF5AD8A4).withValues(alpha: 0.3)
-                            : Colors.white.withValues(alpha: 0.1),
+                            ? AuthColors.successVariant.withValues(alpha: 0.3)
+                            : AuthColors.textMainWithOpacity(0.1),
                       ),
                     ),
                     child: Row(
@@ -906,16 +911,16 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                           widget.zone.isActive ? Icons.check_circle : Icons.pause_circle,
                           size: 14,
                           color: widget.zone.isActive
-                              ? const Color(0xFF5AD8A4)
-                              : Colors.white.withValues(alpha: 0.6),
+                              ? AuthColors.successVariant
+                              : AuthColors.textMainWithOpacity(0.6),
                         ),
                         const SizedBox(width: 6),
                         Text(
                           widget.zone.isActive ? 'Active' : 'Inactive',
                           style: TextStyle(
                             color: widget.zone.isActive
-                                ? const Color(0xFF5AD8A4)
-                                : Colors.white.withValues(alpha: 0.6),
+                                ? AuthColors.successVariant
+                                : AuthColors.textMainWithOpacity(0.6),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -927,10 +932,10 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                   // Actions
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C).withValues(alpha: 0.8),
+                      color: AuthColors.surface.withValues(alpha: 0.8),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textMain.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Row(
@@ -939,7 +944,7 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                         if (widget.canEditRegion)
                           IconButton(
                             icon: const Icon(Icons.edit, size: 18),
-                            color: Colors.white70,
+                            color: AuthColors.textSub,
                             onPressed: widget.onEditRegion,
                             tooltip: 'Edit Region',
                             padding: const EdgeInsets.all(8),
@@ -950,11 +955,11 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                             Container(
                               width: 1,
                               height: 24,
-                              color: Colors.white.withValues(alpha: 0.1),
+                              color: AuthColors.textMain.withValues(alpha: 0.1),
                             ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline, size: 18),
-                            color: Colors.redAccent,
+                            color: AuthColors.error,
                             onPressed: () async {
                               await context.read<DeliveryZonesCubit>().deleteZone(widget.zone.id);
                             },
@@ -974,10 +979,10 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.3),
+                  color: AuthColors.background.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
                 child: Row(
@@ -985,14 +990,14 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                     Icon(
                       Icons.info_outline,
                       size: 16,
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: AuthColors.textMain.withValues(alpha: 0.7),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         '$priceCount ${priceCount == 1 ? 'product price' : 'product prices'} configured',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: AuthColors.textMain.withValues(alpha: 0.8),
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1006,10 +1011,10 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: AuthColors.textMain.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: AuthColors.textMain.withValues(alpha: 0.1),
                     ),
                   ),
                   child: Row(
@@ -1017,14 +1022,14 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                       Icon(
                         Icons.info_outline,
                         size: 20,
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: AuthColors.textMain.withValues(alpha: 0.6),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'No products available to configure prices.',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: AuthColors.textMain.withValues(alpha: 0.7),
                             fontSize: 14,
                           ),
                         ),
@@ -1035,24 +1040,24 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
               else ...[
                 DropdownButtonFormField<String>(
                   initialValue: effectiveProductId,
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
+                  dropdownColor: AuthColors.surface,
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: InputDecoration(
                     labelText: 'Product',
-                    prefixIcon: const Icon(Icons.inventory_2_outlined, color: Colors.white54, size: 20),
+                    prefixIcon: const Icon(Icons.inventory_2_outlined, color: AuthColors.textSub, size: 20),
                     filled: true,
-                    fillColor: const Color(0xFF1B1B2C),
-                    labelStyle: const TextStyle(color: Colors.white70),
+                    fillColor: AuthColors.surface,
+                    labelStyle: const TextStyle(color: AuthColors.textSub),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textMain.withValues(alpha: 0.1),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: Color(0xFF6F4BFF),
+                        color: AuthColors.primary,
                         width: 2,
                       ),
                     ),
@@ -1078,37 +1083,37 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _priceController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: 'Unit Price',
-                    prefixIcon: const Icon(Icons.currency_rupee, color: Colors.white54, size: 20),
+                    prefixIcon: const Icon(Icons.currency_rupee, color: AuthColors.textSub, size: 20),
                     prefixText: '₹ ',
                     prefixStyle: const TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
                     filled: true,
-                    fillColor: const Color(0xFF1B1B2C),
-                    labelStyle: const TextStyle(color: Colors.white70),
+                    fillColor: AuthColors.surface,
+                    labelStyle: const TextStyle(color: AuthColors.textSub),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textMain.withValues(alpha: 0.1),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: Color(0xFF6F4BFF),
+                        color: AuthColors.primary,
                         width: 2,
                       ),
                     ),
                     disabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: AuthColors.textMain.withValues(alpha: 0.05),
                       ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
@@ -1121,18 +1126,9 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    icon: _submitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Icon(Icons.save, size: 18),
-                    label: Text(_submitting ? 'Saving...' : 'Save Price'),
+                  child: DashButton(
+                    label: 'Save Price',
+                    icon: Icons.save,
                     onPressed: !canEditPrice ||
                             products.isEmpty ||
                             _selectedProductId == null ||
@@ -1174,18 +1170,7 @@ class _UnitPriceRowState extends State<_UnitPriceRow> {
                               if (mounted) setState(() => _submitting = false);
                             }
                           },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6F4BFF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
+                    isLoading: _submitting,
                   ),
                 ),
               ],
@@ -1226,17 +1211,17 @@ class _AddCityDialogState extends State<_AddCityDialog> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF11111B),
-              Color(0xFF0D0D15),
+              AuthColors.surface,
+              AuthColors.background,
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: AuthColors.background.withOpacity(0.5),
               blurRadius: 30,
               spreadRadius: -10,
               offset: const Offset(0, 20),
@@ -1254,8 +1239,8 @@ class _AddCityDialogState extends State<_AddCityDialog> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF1B1C2C),
-                    Color(0xFF161622),
+                    AuthColors.surface,
+                    AuthColors.background,
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1264,7 +1249,7 @@ class _AddCityDialogState extends State<_AddCityDialog> {
                 ),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -1274,12 +1259,12 @@ class _AddCityDialogState extends State<_AddCityDialog> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                      color: AuthColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.add_location_alt,
-                      color: Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                       size: 20,
                     ),
                   ),
@@ -1288,14 +1273,14 @@ class _AddCityDialogState extends State<_AddCityDialog> {
                     child: Text(
                       'Add City',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close',
                   ),
@@ -1311,36 +1296,36 @@ class _AddCityDialogState extends State<_AddCityDialog> {
                 child: TextFormField(
                   controller: _controller,
                   autofocus: true,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: InputDecoration(
                     labelText: 'City name',
-                    prefixIcon: const Icon(Icons.location_city, color: Colors.white54, size: 20),
+                    prefixIcon: const Icon(Icons.location_city, color: AuthColors.textSub, size: 20),
                     filled: true,
-                    fillColor: const Color(0xFF1B1B2C),
-                    labelStyle: const TextStyle(color: Colors.white70),
+                    fillColor: AuthColors.surface,
+                    labelStyle: const TextStyle(color: AuthColors.textSub),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AuthColors.textMain.withValues(alpha: 0.1),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: Color(0xFF6F4BFF),
+                        color: AuthColors.primary,
                         width: 2,
                       ),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: Colors.redAccent,
+                        color: AuthColors.error,
                       ),
                     ),
                     focusedErrorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: Colors.redAccent,
+                        color: AuthColors.error,
                         width: 2,
                       ),
                     ),
@@ -1361,40 +1346,22 @@ class _AddCityDialogState extends State<_AddCityDialog> {
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  DashButton(
+                    label: 'Cancel',
                     onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Cancel'),
+                    variant: DashButtonVariant.text,
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    icon: _submitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Icon(Icons.check, size: 18),
-                    label: Text(_submitting ? 'Adding...' : 'Add City'),
+                  DashButton(
+                    label: 'Add City',
+                    icon: Icons.check,
                     onPressed: _submitting
                         ? null
                         : () async {
@@ -1417,17 +1384,7 @@ class _AddCityDialogState extends State<_AddCityDialog> {
                               if (mounted) setState(() => _submitting = false);
                             }
                           },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6F4BFF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    isLoading: _submitting,
                   ),
                 ],
               ),
@@ -1484,17 +1441,17 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF11111B),
-              Color(0xFF0D0D15),
+              AuthColors.surface,
+              AuthColors.background,
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: AuthColors.background.withOpacity(0.5),
               blurRadius: 30,
               spreadRadius: -10,
               offset: const Offset(0, 20),
@@ -1512,8 +1469,8 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF1B1C2C),
-                    Color(0xFF161622),
+                    AuthColors.surface,
+                    AuthColors.background,
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -1522,7 +1479,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                 ),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -1532,12 +1489,12 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF5AD8A4).withValues(alpha: 0.2),
+                      color: AuthColors.successVariant.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
                       Icons.add_location_alt,
-                      color: Color(0xFF5AD8A4),
+                      color: AuthColors.successVariant,
                       size: 20,
                     ),
                   ),
@@ -1546,14 +1503,14 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                     child: Text(
                       'Add Region',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close',
                   ),
@@ -1568,23 +1525,23 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                   ? Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: AuthColors.textMain.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: AuthColors.textMain.withValues(alpha: 0.1),
                         ),
                       ),
                       child: Row(
                         children: [
                           Icon(
                             Icons.info_outline,
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: AuthColors.textMain.withValues(alpha: 0.7),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Text(
                               'Please add a city first.',
-                              style: TextStyle(color: Colors.white70),
+                              style: TextStyle(color: AuthColors.textSub),
                             ),
                           ),
                         ],
@@ -1598,37 +1555,37 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                         children: [
                           DropdownButtonFormField<String>(
                             initialValue: _selectedCity,
-                            dropdownColor: const Color(0xFF1B1B2C),
-                            style: const TextStyle(color: Colors.white),
+                            dropdownColor: AuthColors.surface,
+                            style: const TextStyle(color: AuthColors.textMain),
                             decoration: InputDecoration(
                               labelText: 'City',
-                              prefixIcon: const Icon(Icons.location_city, color: Colors.white54, size: 20),
+                              prefixIcon: const Icon(Icons.location_city, color: AuthColors.textSub, size: 20),
                               filled: true,
-                              fillColor: const Color(0xFF1B1B2C),
-                              labelStyle: const TextStyle(color: Colors.white70),
+                              fillColor: AuthColors.surface,
+                              labelStyle: const TextStyle(color: AuthColors.textSub),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.1),
+                                  color: AuthColors.textMain.withValues(alpha: 0.1),
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Color(0xFF5AD8A4),
+                                  color: AuthColors.successVariant,
                                   width: 2,
                                 ),
                               ),
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: AuthColors.error,
                                 ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: AuthColors.error,
                                   width: 2,
                                 ),
                               ),
@@ -1653,36 +1610,36 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                           TextFormField(
                             controller: _regionController,
                             autofocus: true,
-                            style: const TextStyle(color: Colors.white),
+                            style: const TextStyle(color: AuthColors.textMain),
                             decoration: InputDecoration(
                               labelText: 'Region / Address',
-                              prefixIcon: const Icon(Icons.location_on, color: Colors.white54, size: 20),
+                              prefixIcon: const Icon(Icons.location_on, color: AuthColors.textSub, size: 20),
                               filled: true,
-                              fillColor: const Color(0xFF1B1B2C),
-                              labelStyle: const TextStyle(color: Colors.white70),
+                              fillColor: AuthColors.surface,
+                              labelStyle: const TextStyle(color: AuthColors.textSub),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.1),
+                                  color: AuthColors.textMain.withValues(alpha: 0.1),
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Color(0xFF5AD8A4),
+                                  color: AuthColors.successVariant,
                                   width: 2,
                                 ),
                               ),
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: AuthColors.error,
                                 ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: AuthColors.error,
                                   width: 2,
                                 ),
                               ),
@@ -1698,37 +1655,37 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                           TextFormField(
                             controller: _roundtripKmController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            style: const TextStyle(color: Colors.white),
+                            style: const TextStyle(color: AuthColors.textMain),
                             decoration: InputDecoration(
                               labelText: 'Round Trip Distance (KM)',
                               hintText: 'e.g., 25.5',
-                              prefixIcon: const Icon(Icons.straighten, color: Colors.white54, size: 20),
+                              prefixIcon: const Icon(Icons.straighten, color: AuthColors.textSub, size: 20),
                               filled: true,
-                              fillColor: const Color(0xFF1B1B2C),
-                              labelStyle: const TextStyle(color: Colors.white70),
+                              fillColor: AuthColors.surface,
+                              labelStyle: const TextStyle(color: AuthColors.textSub),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.1),
+                                  color: AuthColors.textMain.withValues(alpha: 0.1),
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Color(0xFF5AD8A4),
+                                  color: AuthColors.successVariant,
                                   width: 2,
                                 ),
                               ),
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: AuthColors.error,
                                 ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                  color: Colors.redAccent,
+                                  color: AuthColors.error,
                                   width: 2,
                                 ),
                               ),
@@ -1759,40 +1716,22 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  DashButton(
+                    label: 'Cancel',
                     onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text('Cancel'),
+                    variant: DashButtonVariant.text,
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    icon: _submitting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Icon(Icons.check, size: 18),
-                    label: Text(_submitting ? 'Adding...' : 'Add Region'),
+                  DashButton(
+                    icon: Icons.check,
+                    label: _submitting ? 'Adding...' : 'Add Region',
                     onPressed: widget.cities.isEmpty || _submitting
                         ? null
                         : () async {
@@ -1819,17 +1758,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                               if (mounted) setState(() => _submitting = false);
                             }
                           },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF5AD8A4),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    isLoading: _submitting,
                   ),
                 ],
               ),
@@ -1917,33 +1846,33 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
         final canEditPrice = widget.pricePermission.canEdit;
 
         return AlertDialog(
-          backgroundColor: const Color(0xFF11111B),
+          backgroundColor: AuthColors.surface,
           insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.zone.region, style: const TextStyle(color: Colors.white)),
-              Text(widget.zone.city, style: const TextStyle(color: Colors.white54)),
+              Text(widget.zone.region, style: const TextStyle(color: AuthColors.textMain)),
+              Text(widget.zone.city, style: const TextStyle(color: AuthColors.textSub)),
             ],
           ),
           content: SingleChildScrollView(
             child: products.isEmpty
                 ? const Text(
                     'No products available to configure prices.',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: AuthColors.textSub),
                   )
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       DropdownButtonFormField<String>(
                         initialValue: _selectedProductId,
-                        dropdownColor: const Color(0xFF1B1B2C),
-                        style: const TextStyle(color: Colors.white),
+                        dropdownColor: AuthColors.surface,
+                        style: const TextStyle(color: AuthColors.textMain),
                         decoration: const InputDecoration(
                           labelText: 'Product',
                           filled: true,
-                          fillColor: Color(0xFF1B1B2C),
-                          labelStyle: TextStyle(color: Colors.white70),
+                          fillColor: AuthColors.surface,
+                          labelStyle: TextStyle(color: AuthColors.textSub),
                           border: OutlineInputBorder(borderSide: BorderSide.none),
                         ),
                         items: products
@@ -1959,14 +1888,14 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                       const SizedBox(height: 12),
                       TextField(
                         controller: _priceController,
-                        style: const TextStyle(color: Colors.white),
+                        style: const TextStyle(color: AuthColors.textMain),
                         keyboardType:
                             const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
                           labelText: 'Unit Price',
-                          labelStyle: const TextStyle(color: Colors.white70),
+                          labelStyle: const TextStyle(color: AuthColors.textSub),
                           filled: true,
-                          fillColor: const Color(0xFF1B1B2C),
+                          fillColor: AuthColors.surface,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
@@ -1978,26 +1907,28 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                   ),
           ),
           actions: [
-            TextButton(
+            DashButton(
+              label: 'Edit Region',
               onPressed: widget.canEditRegion ? widget.onEditRegion : null,
-              child: const Text('Edit Region', style: TextStyle(color: Colors.white70)),
+              variant: DashButtonVariant.text,
             ),
             if (widget.canDeleteRegion)
-              TextButton(
+              DashButton(
+                label: 'Delete Region',
                 onPressed: () async {
                   await context.read<DeliveryZonesCubit>().deleteZone(widget.zone.id);
                   if (mounted) Navigator.of(context).pop();
                 },
-                child: const Text(
-                  'Delete Region',
-                  style: TextStyle(color: Colors.redAccent),
-                ),
+                variant: DashButtonVariant.text,
+                isDestructive: true,
               ),
-            TextButton(
+            DashButton(
+              label: 'Close',
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close', style: TextStyle(color: Colors.white70)),
+              variant: DashButtonVariant.text,
             ),
-            TextButton(
+            DashButton(
+              label: 'Save Price',
               onPressed: !canEditPrice ||
                       products.isEmpty ||
                       _selectedProductId == null ||
@@ -2038,13 +1969,8 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                         if (mounted) setState(() => _submitting = false);
                       }
                     },
-              child: _submitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Save Price', style: TextStyle(color: Color(0xFF6F4BFF))),
+              isLoading: _submitting,
+              variant: DashButtonVariant.text,
             ),
           ],
         );
@@ -2078,38 +2004,38 @@ class _ZonesStatsHeader extends StatelessWidget {
             ? Row(
                 children: [
                   Expanded(
-                    child: _StatCard(
+                    child: ZonesStatCard(
                       icon: Icons.location_city,
                       label: 'Total Cities',
                       value: totalCities.toString(),
-                      color: const Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: _StatCard(
+                    child: ZonesStatCard(
                       icon: Icons.location_on,
                       label: 'Total Regions',
                       value: totalRegions.toString(),
-                      color: const Color(0xFF5AD8A4),
+                      color: AuthColors.successVariant,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: _StatCard(
+                    child: ZonesStatCard(
                       icon: Icons.check_circle,
                       label: 'Active Zones',
                       value: activeZones.toString(),
-                      color: const Color(0xFFFF9800),
+                      color: AuthColors.warning,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: _StatCard(
+                    child: ZonesStatCard(
                       icon: Icons.map,
                       label: 'Cities with Regions',
                       value: citiesWithRegions.toString(),
-                      color: const Color(0xFF2196F3),
+                      color: AuthColors.info,
                     ),
                   ),
                 ],
@@ -2118,504 +2044,33 @@ class _ZonesStatsHeader extends StatelessWidget {
                 spacing: 16,
                 runSpacing: 16,
                 children: [
-                  _StatCard(
+                  ZonesStatCard(
                     icon: Icons.location_city,
                     label: 'Total Cities',
                     value: totalCities.toString(),
-                    color: const Color(0xFF6F4BFF),
+                    color: AuthColors.primary,
                   ),
-                  _StatCard(
+                  ZonesStatCard(
                     icon: Icons.location_on,
                     label: 'Total Regions',
                     value: totalRegions.toString(),
-                    color: const Color(0xFF5AD8A4),
+                    color: AuthColors.successVariant,
                   ),
-                  _StatCard(
+                  ZonesStatCard(
                     icon: Icons.check_circle,
                     label: 'Active Zones',
                     value: activeZones.toString(),
-                    color: const Color(0xFFFF9800),
+                    color: AuthColors.warning,
                   ),
-                  _StatCard(
+                  ZonesStatCard(
                     icon: Icons.map,
                     label: 'Cities with Regions',
                     value: citiesWithRegions.toString(),
-                    color: const Color(0xFF2196F3),
+                    color: AuthColors.info,
                   ),
                 ],
               );
       },
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1F1F33),
-            Color(0xFF1A1A28),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CityCard extends StatefulWidget {
-  const _CityCard({
-    required this.city,
-    required this.isSelected,
-    required this.regionCount,
-    required this.onTap,
-    this.onLongPress,
-  });
-
-  final DeliveryCity city;
-  final bool isSelected;
-  final int regionCount;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
-
-  @override
-  State<_CityCard> createState() => _CityCardState();
-}
-
-class _CityCardState extends State<_CityCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => _controller.forward(),
-      onExit: (_) => _controller.reverse(),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        onLongPress: widget.onLongPress,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: 1.0 + (_controller.value * 0.02),
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF1F1F33),
-                      Color(0xFF1A1A28),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: widget.isSelected
-                        ? const Color(0xFF6F4BFF)
-                        : Colors.white.withValues(alpha: 0.1),
-                    width: widget.isSelected ? 2 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                    if (widget.isSelected)
-                      BoxShadow(
-                        color: const Color(0xFF6F4BFF).withValues(alpha: 0.3),
-                        blurRadius: 15,
-                        spreadRadius: -3,
-                      ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.location_city,
-                        color: Color(0xFF6F4BFF),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.city.name,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: widget.isSelected ? 16 : 15,
-                              letterSpacing: -0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.location_on,
-                                size: 12,
-                                color: Colors.white.withValues(alpha: 0.6),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${widget.regionCount} ${widget.regionCount == 1 ? 'region' : 'regions'}',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (widget.isSelected)
-                      const Icon(
-                        Icons.check_circle,
-                        color: Color(0xFF6F4BFF),
-                        size: 20,
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class _RegionCard extends StatefulWidget {
-  const _RegionCard({
-    required this.zone,
-    required this.isSelected,
-    required this.priceCount,
-    required this.onTap,
-    this.onEdit,
-  });
-
-  final DeliveryZone zone;
-  final bool isSelected;
-  final int priceCount;
-  final VoidCallback onTap;
-  final VoidCallback? onEdit;
-
-  @override
-  State<_RegionCard> createState() => _RegionCardState();
-}
-
-class _RegionCardState extends State<_RegionCard> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => _controller.forward(),
-      onExit: (_) => _controller.reverse(),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: 1.0 + (_controller.value * 0.02),
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF1F1F33),
-                      Color(0xFF1A1A28),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: widget.isSelected
-                        ? const Color(0xFF5AD8A4)
-                        : Colors.white.withValues(alpha: 0.1),
-                    width: widget.isSelected ? 2 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                    if (widget.isSelected)
-                      BoxShadow(
-                        color: const Color(0xFF5AD8A4).withValues(alpha: 0.3),
-                        blurRadius: 15,
-                        spreadRadius: -3,
-                      ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF5AD8A4).withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.location_on,
-                            color: Color(0xFF5AD8A4),
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.zone.region,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: widget.isSelected ? 16 : 15,
-                                  letterSpacing: -0.3,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                widget.zone.cityName,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              if (widget.zone.roundtripKm != null) ...[
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.straighten,
-                                      size: 12,
-                                      color: Colors.white.withValues(alpha: 0.5),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${widget.zone.roundtripKm!.toStringAsFixed(1)} km',
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.5),
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        // Status Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: widget.zone.isActive
-                                ? const Color(0xFF5AD8A4).withValues(alpha: 0.2)
-                                : Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: widget.zone.isActive
-                                  ? const Color(0xFF5AD8A4).withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.1),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                widget.zone.isActive ? Icons.check_circle : Icons.pause_circle,
-                                size: 12,
-                                color: widget.zone.isActive
-                                    ? const Color(0xFF5AD8A4)
-                                    : Colors.white.withValues(alpha: 0.6),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                widget.zone.isActive ? 'Active' : 'Inactive',
-                                style: TextStyle(
-                                  color: widget.zone.isActive
-                                      ? const Color(0xFF5AD8A4)
-                                      : Colors.white.withValues(alpha: 0.6),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (widget.isSelected && widget.onEdit != null)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: IconButton(
-                              icon: const Icon(Icons.edit, size: 18),
-                              color: Colors.white70,
-                              onPressed: widget.onEdit,
-                              tooltip: 'Edit Region',
-                              padding: const EdgeInsets.all(4),
-                              constraints: const BoxConstraints(),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Price Count Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.attach_money,
-                            size: 12,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${widget.priceCount} ${widget.priceCount == 1 ? 'price' : 'prices'}',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
     );
   }
 }
@@ -2639,13 +2094,13 @@ class _EmptyCitiesState extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-              const Color(0xFF161622).withValues(alpha: 0.8),
+              AuthColors.surface.withValues(alpha: 0.6),
+              AuthColors.background.withOpacity(0.8),
             ],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
         ),
         child: Column(
@@ -2655,20 +2110,20 @@ class _EmptyCitiesState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withValues(alpha: 0.15),
+                color: AuthColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.location_city,
                 size: 32,
-                color: Color(0xFF6F4BFF),
+                color: AuthColors.primary,
               ),
             ),
             const SizedBox(height: 20),
             const Text(
               'No cities yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -2679,28 +2134,17 @@ class _EmptyCitiesState extends StatelessWidget {
                   ? 'Start by adding your first delivery city'
                   : 'Admins can add cities to get started',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textMain.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
             ),
             if (canCreate) ...[
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add City'),
+              DashButton(
+                icon: Icons.add,
+                label: 'Add City',
                 onPressed: onAddCity,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6F4BFF),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
               ),
             ],
           ],
@@ -2725,13 +2169,13 @@ class _EmptyRegionsState extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-              const Color(0xFF161622).withValues(alpha: 0.8),
+              AuthColors.surface.withValues(alpha: 0.6),
+              AuthColors.background.withOpacity(0.8),
             ],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
         ),
         child: Column(
@@ -2741,20 +2185,20 @@ class _EmptyRegionsState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFF5AD8A4).withValues(alpha: 0.15),
+                color: AuthColors.successVariant.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.location_on,
                 size: 32,
-                color: Color(0xFF5AD8A4),
+                color: AuthColors.successVariant,
               ),
             ),
             const SizedBox(height: 20),
             const Text(
               'No regions yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -2765,28 +2209,17 @@ class _EmptyRegionsState extends StatelessWidget {
                   ? 'Add your first region for this city'
                   : 'You do not have permission to add regions',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textMain.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
             ),
             if (onAddRegion != null) ...[
               const SizedBox(height: 24),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Region'),
+              DashButton(
+                icon: Icons.add,
+                label: 'Add Region',
                 onPressed: onAddRegion,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5AD8A4),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
               ),
             ],
           ],
@@ -2807,10 +2240,10 @@ class _EmptyRegionState extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C).withValues(alpha: 0.5),
+          color: AuthColors.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
         ),
         child: Column(
@@ -2819,13 +2252,13 @@ class _EmptyRegionState extends StatelessWidget {
             Icon(
               Icons.location_off,
               size: 48,
-              color: Colors.white.withValues(alpha: 0.3),
+              color: AuthColors.textMain.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textMain.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -2848,10 +2281,10 @@ class _EmptyPriceState extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C).withValues(alpha: 0.5),
+          color: AuthColors.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
         ),
         child: Column(
@@ -2860,13 +2293,13 @@ class _EmptyPriceState extends StatelessWidget {
             Icon(
               Icons.price_check_outlined,
               size: 48,
-              color: Colors.white.withValues(alpha: 0.3),
+              color: AuthColors.textMain.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textMain.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -2936,10 +2369,10 @@ class _ZoneDialogState extends State<_ZoneDialog> {
         : (widget.cityPermission.canCreate && widget.regionPermission.canCreate);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Zone' : 'Add Zone',
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: Form(
         key: _formKey,
@@ -2948,7 +2381,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
           children: [
             TextFormField(
               controller: _cityController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('City'),
               enabled: canEditCityField,
               validator: (value) =>
@@ -2959,7 +2392,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _regionController,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('Region'),
               enabled: canEditRegionField,
               validator: (value) =>
@@ -2971,7 +2404,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
             TextFormField(
               controller: _roundtripKmController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('Round Trip Distance (KM)'),
               enabled: canEditRegionField,
               validator: (value) {
@@ -2993,7 +2426,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                   : null,
               title: const Text(
                 'Active',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
               ),
             ),
             if (!canSubmit)
@@ -3001,18 +2434,20 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
                   'You do not have permission to save changes for this zone.',
-                  style: TextStyle(color: Colors.redAccent, fontSize: 12),
+                  style: TextStyle(color: AuthColors.error, fontSize: 12),
                 ),
               ),
           ],
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: 'Save',
           onPressed: canSubmit
               ? () async {
                   if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -3068,7 +2503,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                   }
                 }
               : null,
-          child: const Text('Save', style: TextStyle(color: Color(0xFF6F4BFF))),
+          variant: DashButtonVariant.text,
         ),
       ],
     );
@@ -3078,8 +2513,8 @@ class _ZoneDialogState extends State<_ZoneDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

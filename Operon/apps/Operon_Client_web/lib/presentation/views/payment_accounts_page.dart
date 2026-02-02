@@ -142,24 +142,37 @@ class PaymentAccountsPageContent extends StatelessWidget {
           BlocBuilder<PaymentAccountsCubit, PaymentAccountsState>(
             builder: (context, state) {
               if (state.status == ViewStatus.loading) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SkeletonLoader(
+                          height: 40,
+                          width: double.infinity,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        const SizedBox(height: 16),
+                        ...List.generate(6, (_) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: SkeletonLoader(
+                            height: 64,
+                            width: double.infinity,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        )),
+                      ],
+                    ),
                   ),
                 );
               }
               if (state.accounts.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Text(
-                    'No payment accounts yet. Tap "Add Payment Account" to create one.',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 16,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
+                return const EmptyState(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'No payment accounts yet',
+                  message: 'Tap "Add Payment Account" to create one.',
                 );
               }
               return AnimationLimiter(
@@ -804,9 +817,10 @@ class _AccountDialogState extends State<_AccountDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          variant: DashButtonVariant.text,
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',

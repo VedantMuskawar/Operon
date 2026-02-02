@@ -20,6 +20,20 @@ class DeliveryMemoDataSource {
   static const String _scheduleTripsCollection = 'SCHEDULE_TRIPS';
   static const String _deliveryMemosCollection = 'DELIVERY_MEMOS';
 
+  /// Get a single delivery memo by ID (document ID or dmId)
+  Future<Map<String, dynamic>?> getDeliveryMemo(String dmId) async {
+    try {
+      final doc = await _firestore
+          .collection(_deliveryMemosCollection)
+          .doc(dmId)
+          .get();
+      if (!doc.exists) return null;
+      return {'dmId': doc.id, ...?doc.data()};
+    } catch (e) {
+      throw Exception('Failed to get delivery memo: $e');
+    }
+  }
+
   /// Check if a DM already exists for a given scheduleTripId
   Future<bool> dmExistsForScheduleTripId(String scheduleTripId) async {
     final tripSnap = await _firestore
@@ -217,6 +231,53 @@ class DeliveryMemoDataSource {
     } catch (e, stackTrace) {
       developer.log('Exception in watchDeliveryMemos: $e', name: 'DeliveryMemoDataSource', error: e, stackTrace: stackTrace);
       throw Exception('Failed to fetch delivery memos: $e');
+    }
+  }
+
+  /// Watch delivery memos for a specific client (by organizationId and clientId).
+  /// Requires Firestore composite index on (organizationId, clientId, scheduledDate).
+  Stream<List<Map<String, dynamic>>> watchDeliveryMemosByClientId({
+    required String organizationId,
+    required String clientId,
+    String? status,
+    int? limit,
+  }) {
+    try {
+      Query<Map<String, dynamic>> query = _firestore
+          .collection(_deliveryMemosCollection)
+          .where('organizationId', isEqualTo: organizationId)
+          .where('clientId', isEqualTo: clientId);
+
+      if (status != null) {
+        query = query.where('status', isEqualTo: status);
+      }
+
+      query = query.orderBy('scheduledDate', descending: true);
+
+      if (limit != null && limit > 0) {
+        query = query.limit(limit);
+      }
+
+      return query.snapshots().map((snapshot) {
+        final memos = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return <String, dynamic>{
+            'dmId': doc.id,
+            ...data,
+          };
+        }).toList();
+        memos.sort((a, b) {
+          final dmNumberA = a['dmNumber'] as int? ?? 0;
+          final dmNumberB = b['dmNumber'] as int? ?? 0;
+          return dmNumberB.compareTo(dmNumberA);
+        });
+        return memos;
+      }).handleError((error) {
+        throw error;
+      });
+    } catch (e, stackTrace) {
+      developer.log('Exception in watchDeliveryMemosByClientId: $e', name: 'DeliveryMemoDataSource', error: e, stackTrace: stackTrace);
+      throw Exception('Failed to fetch delivery memos by client: $e');
     }
   }
 

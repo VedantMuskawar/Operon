@@ -2,9 +2,12 @@ import 'dart:io';
 
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:operon_driver_android/core/services/dm_print_helper.dart';
 import 'package:operon_driver_android/core/services/storage_service.dart';
 import 'package:operon_driver_android/core/utils/trip_status_utils.dart';
+import 'package:operon_driver_android/presentation/widgets/driver_dm_print_sheet.dart';
 import 'package:operon_driver_android/presentation/widgets/slide_action_button.dart';
 
 /// Morphing UI component that changes based on trip status.
@@ -260,15 +263,55 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
     }
   }
 
+  Future<void> _openPrintDm(BuildContext context) async {
+    final orgId = widget.organizationId;
+    if (orgId == null) return;
+    final helper = context.read<DmPrintHelper>();
+    final dmNumber = (widget.trip['dmNumber'] as num?)?.toInt();
+    if (dmNumber == null) return;
+    final dmData = await helper.fetchDmByNumberOrId(
+      organizationId: orgId,
+      dmNumber: dmNumber,
+      dmId: widget.trip['dmId'] as String?,
+      tripData: widget.trip,
+    );
+    if (dmData == null || !context.mounted) return;
+    showDriverDmPrintSheet(
+      context: context,
+      organizationId: orgId,
+      dmData: dmData,
+      dmNumber: dmNumber,
+      dmPrintHelper: helper,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dmNumber = (widget.trip['dmNumber'] as num?)?.toInt();
+    final hasDM = dmNumber != null && widget.organizationId != null;
+
     return Padding(
       padding: const EdgeInsets.all(0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Status-based content (no handle bar for inline usage)
+          if (hasDM) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _openPrintDm(context),
+                icon: const Icon(Icons.print_outlined, size: 18),
+                label: const Text('Print DM'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.blue,
+                  side: const BorderSide(color: Colors.blue),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           _buildContent(),
         ],
       ),

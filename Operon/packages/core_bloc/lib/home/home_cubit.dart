@@ -82,6 +82,7 @@ class HomeCubit extends Cubit<HomeState> {
     final visible = <int>[0]; // Overview is always visible
 
     if (appAccessRole == null) {
+      visible.add(5); // Cash Ledger: page access for all
       return visible;
     }
 
@@ -102,8 +103,12 @@ class HomeCubit extends Cubit<HomeState> {
     if (_canAccessSection(appAccessRole, 'analyticsDashboard')) {
       visible.add(4);
     }
-    // Attendance is accessible if user can access employees page
+    // Attendance (section 5 on Android) is accessible if user can access employees page
     if (_canAccessPage(appAccessRole, 'employees')) {
+      visible.add(5);
+    }
+    // Cash Ledger (section 5 on web as 6th nav item): page access for all; Verify/Unverify remain admin-only in UI
+    if (!visible.contains(5)) {
       visible.add(5);
     }
 

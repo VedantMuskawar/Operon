@@ -24,6 +24,8 @@ class AuthColors {
   static const Color textDisabled = Color(0xFF6B6B6B); // Disabled text
 
   // Accent colors
+  /// Legacy accent – use [primary] or [secondary] for new code. Kept for compatibility.
+  static const Color legacyAccent = primary;
   static const Color unselectedTile = Color(0xFFF7ABAB); // Light pink for unselected org tiles
   static const Color error = Color(0xFFFF5252); // Error red
   static const Color success = Color(0xFF4CAF50); // Success green

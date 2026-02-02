@@ -129,21 +129,39 @@ class RawMaterialsPageContent extends StatelessWidget {
         BlocBuilder<RawMaterialsCubit, RawMaterialsState>(
           builder: (context, state) {
             if (state.status == ViewStatus.loading) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SkeletonLoader(
+                        height: 40,
+                        width: double.infinity,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      const SizedBox(height: 16),
+                      ...List.generate(8, (_) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: SkeletonLoader(
+                          height: 64,
+                          width: double.infinity,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
+              );
             }
             if (state.materials.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Text(
-                  canCreate
-                      ? 'No raw materials yet. Tap "Add Raw Material".'
-                      : 'No raw materials to display.',
-                  style: const TextStyle(
-                    color: AuthColors.textSub,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+              return EmptyState(
+                icon: Icons.inventory_2_outlined,
+                title: 'No raw materials yet',
+                message: canCreate
+                    ? 'Tap "Add Raw Material" to get started.'
+                    : 'No raw materials to display.',
               );
             }
             return AnimationLimiter(
@@ -526,9 +544,10 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          variant: DashButtonVariant.text,
         ),
         DashButton(
           label: isEditing ? 'Save' : 'Create',

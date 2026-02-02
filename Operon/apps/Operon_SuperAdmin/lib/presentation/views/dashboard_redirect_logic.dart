@@ -5,6 +5,7 @@ import 'package:dash_superadmin/domain/entities/organization_summary.dart';
 import 'package:dash_superadmin/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_superadmin/presentation/blocs/organization_list/organization_list_bloc.dart';
 import 'package:dash_superadmin/presentation/widgets/create_organization_dialog.dart';
+import 'package:dash_superadmin/presentation/widgets/superadmin_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -36,8 +37,15 @@ class DashboardRedirectPage extends StatelessWidget {
   }
 }
 
-class _DashboardView extends StatelessWidget {
+class _DashboardView extends StatefulWidget {
   const _DashboardView();
+
+  @override
+  State<_DashboardView> createState() => _DashboardViewState();
+}
+
+class _DashboardViewState extends State<_DashboardView> {
+  int _currentIndex = 0;
 
   Future<void> _openDialog(BuildContext context) async {
     await showDialog<bool>(
@@ -48,42 +56,48 @@ class _DashboardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: BlocListener<OrganizationListBloc, OrganizationListState>(
-            listenWhen: (previous, current) =>
-                previous.commandStatus != current.commandStatus &&
-                current.message != null,
-            listener: (context, state) {
-              if (state.message == null) return;
-              DashSnackbar.show(
-                context,
-                message: state.message!,
-                isError: state.commandStatus == ViewStatus.failure,
-              );
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _Header(
-                  displayName: authState.userProfile?.displayName ?? 'SuperAdmin',
-                ),
-                const SizedBox(height: 24),
-                const _MetricHighlights(),
-                const SizedBox(height: 24),
-                _AddOrgTile(onTap: () => _openDialog(context)),
-                const SizedBox(height: 24),
-                const Expanded(
-                  child: _OrganizationList(),
-                ),
-              ],
-            ),
-          ),
+    return BlocListener<OrganizationListBloc, OrganizationListState>(
+      listenWhen: (previous, current) =>
+          previous.commandStatus != current.commandStatus &&
+          current.message != null,
+      listener: (context, state) {
+        if (state.message == null) return;
+        DashSnackbar.show(
+          context,
+          message: state.message!,
+          isError: state.commandStatus == ViewStatus.failure,
+        );
+      },
+      child: SuperAdminWorkspaceLayout(
+        currentIndex: _currentIndex,
+        onNavTap: (index) => setState(() => _currentIndex = index),
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [
+            _OverviewSection(onCreateOrg: () => _openDialog(context)),
+            const _OrganizationsSection(),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _OverviewSection extends StatelessWidget {
+  const _OverviewSection({required this.onCreateOrg});
+
+  final VoidCallback onCreateOrg;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _MetricHighlights(),
+          const SizedBox(height: 24),
+          _AddOrgTile(onTap: onCreateOrg),
+        ],
       ),
     );
   }
@@ -92,45 +106,63 @@ class _DashboardView extends StatelessWidget {
 class _MetricHighlights extends StatelessWidget {
   const _MetricHighlights();
 
+  static int _countCreatedSince(
+    List<OrganizationSummary> organizations,
+    DateTime since,
+  ) {
+    return organizations
+        .where((o) => o.createdAt != null && !o.createdAt!.isBefore(since))
+        .length;
+  }
+
   @override
   Widget build(BuildContext context) {
-    const cards = [
-      _HighlightCardData(
-        title: 'Active Orgs',
-        value: '312',
-        trendLabel: '+18 new this week',
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6C63FF), Color(0xFF9686FF)],
-        ),
-        icon: Icons.apartment_rounded,
-      ),
-      _HighlightCardData(
-        title: 'Pending Approvals',
-        value: '48',
-        trendLabel: '6 awaiting review',
-        gradient: const LinearGradient(
-          colors: [Color(0xFF00BFA6), Color(0xFF1E88E5)],
-        ),
-        icon: Icons.verified_user_rounded,
-      ),
-      _HighlightCardData(
-        title: 'Avg. Onboarding',
-        value: '14m',
-        trendLabel: '2m faster vs last week',
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
-        ),
-        icon: Icons.timer_rounded,
-      ),
-    ];
+    return BlocBuilder<OrganizationListBloc, OrganizationListState>(
+      builder: (context, state) {
+        final isLoading = state.status == ViewStatus.loading;
+        final orgs = state.organizations;
+        final now = DateTime.now();
+        final weekAgo = now.subtract(const Duration(days: 7));
+        final monthAgo = now.subtract(const Duration(days: 30));
+        final total = orgs.length;
+        final newThisWeek = _countCreatedSince(orgs, weekAgo);
+        final newThisMonth = _countCreatedSince(orgs, monthAgo);
 
-    return Row(
-      children: [
-        for (final data in cards) ...[
-          Expanded(child: _HighlightCard(data: data)),
-          if (data != cards.last) const SizedBox(width: 16),
-        ],
-      ],
+        final cards = [
+          _HighlightCardData(
+            title: 'Organizations',
+            value: isLoading && total == 0 ? '—' : '$total',
+            trendLabel: isLoading && total == 0
+                ? 'Loading…'
+                : (newThisWeek > 0 ? '+$newThisWeek new this week' : 'All organizations'),
+            accentColor: AuthColors.primary,
+            icon: Icons.apartment_rounded,
+          ),
+          _HighlightCardData(
+            title: 'New this week',
+            value: isLoading && total == 0 ? '—' : '$newThisWeek',
+            trendLabel: 'Created in last 7 days',
+            accentColor: AuthColors.info,
+            icon: Icons.verified_user_rounded,
+          ),
+          _HighlightCardData(
+            title: 'New this month',
+            value: isLoading && total == 0 ? '—' : '$newThisMonth',
+            trendLabel: 'Created in last 30 days',
+            accentColor: AuthColors.warning,
+            icon: Icons.timer_rounded,
+          ),
+        ];
+
+        return Row(
+          children: [
+            for (final data in cards) ...[
+              Expanded(child: _HighlightCard(data: data)),
+              if (data != cards.last) const SizedBox(width: 16),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -140,14 +172,14 @@ class _HighlightCardData {
     required this.title,
     required this.value,
     required this.trendLabel,
-    required this.gradient,
+    required this.accentColor,
     required this.icon,
   });
 
   final String title;
   final String value;
   final String trendLabel;
-  final Gradient gradient;
+  final Color accentColor;
   final IconData icon;
 }
 
@@ -162,12 +194,15 @@ class _HighlightCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: data.gradient,
-        boxShadow: const [
+        color: AuthColors.surface,
+        border: Border(
+          left: BorderSide(color: data.accentColor, width: 4),
+        ),
+        boxShadow: [
           BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.2),
+            color: AuthColors.background.withValues(alpha: 0.2),
             blurRadius: 24,
-            offset: Offset(0, 16),
+            offset: const Offset(0, 16),
           ),
         ],
       ),
@@ -176,14 +211,13 @@ class _HighlightCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(data.icon, color: AuthColors.textMain),
+              Icon(data.icon, color: data.accentColor),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: const Color.fromRGBO(255, 255, 255, 0.2),
+                  color: AuthColors.textMainWithOpacity(0.2),
                 ),
                 child: const Text(
                   'Live',
@@ -202,7 +236,7 @@ class _HighlightCard extends StatelessWidget {
             style: Theme.of(context)
                 .textTheme
                 .bodyMedium
-                ?.copyWith(color: const Color.fromRGBO(255, 255, 255, 0.85)),
+                ?.copyWith(color: AuthColors.textMainWithOpacity(0.9)),
           ),
           const SizedBox(height: 6),
           Text(
@@ -218,89 +252,7 @@ class _HighlightCard extends StatelessWidget {
             style: Theme.of(context)
                 .textTheme
                 .bodySmall
-                ?.copyWith(color: const Color.fromRGBO(255, 255, 255, 0.9)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.displayName});
-
-  final String displayName;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(32),
-        gradient: const LinearGradient(
-          colors: [
-            AuthColors.surface,
-            AuthColors.background,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(
-          color: const Color.fromRGBO(255, 255, 255, 0.06),
-        ),
-      ),
-          child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AuthColors.legacyAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Dash SuperAdmin',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: AuthColors.textSub,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Control Center',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 40,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Signed in as $displayName',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: Colors.white60,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          SizedBox(
-            width: 180,
-            child: DashButton(
-              label: 'Sign out',
-              icon: Icons.logout_sharp,
-              onPressed: () =>
-                  context.read<AuthBloc>().add(const AuthReset()),
-            ),
+                ?.copyWith(color: AuthColors.textMainWithOpacity(0.95)),
           ),
         ],
       ),
@@ -326,12 +278,12 @@ class _AddOrgTile extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: Border.all(color: const Color.fromRGBO(255, 255, 255, 0.05)),
-          boxShadow: const [
+          border: Border.all(color: AuthColors.textMainWithOpacity(0.05)),
+          boxShadow: [
             BoxShadow(
-              color: Color.fromRGBO(0, 0, 0, 0.25),
+              color: AuthColors.background.withValues(alpha: 0.25),
               blurRadius: 30,
-              offset: Offset(0, 18),
+              offset: const Offset(0, 18),
             ),
           ],
         ),
@@ -342,11 +294,12 @@ class _AddOrgTile extends StatelessWidget {
               height: 72,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFF6C63FF), Color(0xFF3DD598)],
+                gradient: const LinearGradient(
+                  colors: [AuthColors.primary, AuthColors.successVariant],
                 ),
               ),
-              child: const Icon(Icons.add_business, color: AuthColors.textMain, size: 30),
+              child: const Icon(
+                  Icons.add_business, color: AuthColors.textMain, size: 30),
             ),
             const SizedBox(width: 28),
             Expanded(
@@ -374,11 +327,12 @@ class _AddOrgTile extends StatelessWidget {
             Container(
               width: 48,
               height: 48,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color.fromRGBO(255, 255, 255, 0.1),
+                color: AuthColors.textMainWithOpacity(0.1),
               ),
-              child: const Icon(Icons.arrow_forward_rounded, color: AuthColors.textMain),
+              child: const Icon(
+                  Icons.arrow_forward_rounded, color: AuthColors.textMain),
             ),
           ],
         ),
@@ -387,16 +341,16 @@ class _AddOrgTile extends StatelessWidget {
   }
 }
 
-class _OrganizationList extends StatefulWidget {
-  const _OrganizationList();
+class _OrganizationsSection extends StatefulWidget {
+  const _OrganizationsSection();
 
   @override
-  State<_OrganizationList> createState() => _OrganizationListState();
+  State<_OrganizationsSection> createState() => _OrganizationsSectionState();
 }
 
 enum _OrgSortMode { newest, alpha }
 
-class _OrganizationListState extends State<_OrganizationList> {
+class _OrganizationsSectionState extends State<_OrganizationsSection> {
   final _searchController = TextEditingController();
   String _query = '';
   _OrgSortMode _sortMode = _OrgSortMode.newest;
@@ -456,7 +410,8 @@ class _OrganizationListState extends State<_OrganizationList> {
     OrganizationSummary organization,
   ) async {
     final nameController = TextEditingController(text: organization.name);
-    final industryController = TextEditingController(text: organization.industry);
+    final industryController =
+        TextEditingController(text: organization.industry);
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -496,7 +451,7 @@ class _OrganizationListState extends State<_OrganizationList> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Example: Logistics, Healthcare, SaaS',
+                'e.g. Logistics, Healthcare, SaaS',
                 style: Theme.of(context)
                     .textTheme
                     .bodySmall
@@ -549,11 +504,11 @@ class _OrganizationListState extends State<_OrganizationList> {
                   child: TextField(
                     controller: _searchController,
                     onChanged: _onQueryChanged,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Search organization or industry',
-                      prefixIcon: Icon(Icons.search_rounded),
+                      prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
-                      fillColor: Color.fromRGBO(255, 255, 255, 0.04),
+                      fillColor: AuthColors.textMainWithOpacity(0.04),
                     ),
                   ),
                 ),
@@ -567,7 +522,7 @@ class _OrganizationListState extends State<_OrganizationList> {
                   borderRadius: BorderRadius.circular(16),
                   selectedColor: AuthColors.textMain,
                   color: AuthColors.textSub,
-                  fillColor: const Color.fromRGBO(255, 255, 255, 0.1),
+                  fillColor: AuthColors.textMainWithOpacity(0.1),
                   children: const [
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
@@ -607,10 +562,14 @@ class _OrganizationListState extends State<_OrganizationList> {
                   }).toList()
                     ..sort((a, b) {
                       if (_sortMode == _OrgSortMode.alpha) {
-                        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+                        return a.name
+                            .toLowerCase()
+                            .compareTo(b.name.toLowerCase());
                       }
-                      final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                      final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                      final aTime = a.createdAt ??
+                          DateTime.fromMillisecondsSinceEpoch(0);
+                      final bTime = b.createdAt ??
+                          DateTime.fromMillisecondsSinceEpoch(0);
                       return bTime.compareTo(aTime);
                     });
 
@@ -618,10 +577,10 @@ class _OrganizationListState extends State<_OrganizationList> {
                     return Center(
                       child: Text(
                         'No organizations match your filters.',
-                        style:
-                            Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: AuthColors.textSub,
-                                ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyLarge
+                            ?.copyWith(color: AuthColors.textSub),
                       ),
                     );
                   }
@@ -636,7 +595,7 @@ class _OrganizationListState extends State<_OrganizationList> {
 
                       return Container(
                         margin: EdgeInsets.only(
-                          bottom: index == state.organizations.length - 1 ? 0 : 16,
+                          bottom: index == filtered.length - 1 ? 0 : 16,
                         ),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
@@ -644,9 +603,9 @@ class _OrganizationListState extends State<_OrganizationList> {
                         ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20),
-                          color: const Color.fromRGBO(255, 255, 255, 0.03),
+                          color: AuthColors.textMainWithOpacity(0.03),
                           border: Border.all(
-                            color: const Color.fromRGBO(255, 255, 255, 0.05),
+                            color: AuthColors.textMainWithOpacity(0.05),
                           ),
                         ),
                         child: Row(
@@ -657,14 +616,21 @@ class _OrganizationListState extends State<_OrganizationList> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(16),
                                 gradient: const LinearGradient(
-                                  colors: [AuthColors.legacyAccent, AuthColors.successVariant],
+                                  colors: [
+                                    AuthColors.legacyAccent,
+                                    AuthColors.successVariant,
+                                  ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
                               ),
                               alignment: Alignment.center,
                               child: Text(
-                                org.name.characters.take(2).toString().toUpperCase(),
+                                org.name
+                                    .characters
+                                    .take(2)
+                                    .toString()
+                                    .toUpperCase(),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 18,
@@ -684,7 +650,8 @@ class _OrganizationListState extends State<_OrganizationList> {
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleMedium
-                                              ?.copyWith(fontWeight: FontWeight.w700),
+                                              ?.copyWith(
+                                                  fontWeight: FontWeight.w700),
                                         ),
                                       ),
                                       Container(
@@ -693,8 +660,9 @@ class _OrganizationListState extends State<_OrganizationList> {
                                           vertical: 4,
                                         ),
                                         decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(12),
-                                          color: const Color.fromRGBO(255, 255, 255, 0.08),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          color: AuthColors.textMainWithOpacity(0.08),
                                         ),
                                         child: Text(
                                           org.orgCode,
@@ -721,7 +689,8 @@ class _OrganizationListState extends State<_OrganizationList> {
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodySmall
-                                          ?.copyWith(color: AuthColors.textDisabled),
+                                          ?.copyWith(
+                                              color: AuthColors.textDisabled),
                                     ),
                                   ],
                                 ],
@@ -733,13 +702,16 @@ class _OrganizationListState extends State<_OrganizationList> {
                               children: [
                                 IconButton(
                                   tooltip: 'Edit organization',
-                                  onPressed: () => _showEditDialog(context, org),
+                                  onPressed: () =>
+                                      _showEditDialog(context, org),
                                   icon: const Icon(Icons.edit_rounded),
                                 ),
                                 IconButton(
                                   tooltip: 'Delete organization',
-                                  onPressed: () => _confirmDelete(context, org),
-                                  icon: const Icon(Icons.delete_outline_rounded),
+                                  onPressed: () =>
+                                      _confirmDelete(context, org),
+                                  icon:
+                                      const Icon(Icons.delete_outline_rounded),
                                 ),
                               ],
                             ),

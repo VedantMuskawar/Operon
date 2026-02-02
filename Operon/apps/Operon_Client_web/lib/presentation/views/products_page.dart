@@ -69,21 +69,41 @@ class ProductsPageContent extends StatelessWidget {
         BlocBuilder<ProductsCubit, ProductsState>(
           builder: (context, state) {
             if (state.status == ViewStatus.loading) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SkeletonLoader(
+                        height: 40,
+                        width: double.infinity,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      const SizedBox(height: 16),
+                      ...List.generate(8, (_) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: SkeletonLoader(
+                          height: 56,
+                          width: double.infinity,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      )),
+                    ],
+                  ),
+                ),
+              );
             }
             if (state.products.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.only(top: 40),
-                child: Text(
-                  canCreate
-                      ? 'No products yet. Tap "Add Product".'
-                      : 'No products to display.',
-                  style: const TextStyle(
-                    color: AuthColors.textSub,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+              return EmptyState(
+                icon: Icons.inventory_2_outlined,
+                title: canCreate
+                    ? 'No products yet'
+                    : 'No products to display',
+                message: canCreate
+                    ? 'Tap "Add Product" to create your first product'
+                    : null,
               );
             }
             return AnimationLimiter(
@@ -442,11 +462,13 @@ class _ProductDialogState extends State<_ProductDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
           onPressed: (isEditing ? canEdit : canCreate)
               ? () {
                   if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -492,7 +514,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                   Navigator.of(context).pop();
                 }
               : null,
-          child: Text(isEditing ? 'Save' : 'Create'),
+          variant: DashButtonVariant.text,
         ),
       ],
     );

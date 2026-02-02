@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashSnackbar;
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/views/client_detail_page.dart';
@@ -77,14 +78,10 @@ class _ClientDetailModalState extends State<ClientDetailModal> {
         setState(() {
           _primaryPhone = selected.phone;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Primary number updated.')),
-        );
+        DashSnackbar.show(context, message: 'Primary number updated.', isError: false);
       } catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to update number: $error')),
-        );
+        DashSnackbar.show(context, message: 'Unable to update number: $error', isError: true);
       }
     }
   }
@@ -102,15 +99,11 @@ class _ClientDetailModalState extends State<ClientDetailModal> {
         final repository = context.read<ClientsRepository>();
         await repository.deleteClient(widget.client.id);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Client deleted.')),
-        );
+        DashSnackbar.show(context, message: 'Client deleted.', isError: false);
         Navigator.of(context).pop();
       } catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to delete client: $error')),
-        );
+        DashSnackbar.show(context, message: 'Unable to delete client: $error', isError: true);
       }
     }
   }
@@ -168,10 +161,10 @@ class _ClientDetailModalState extends State<ClientDetailModal> {
           // Tabs
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF131324),
+              color: AuthColors.backgroundAlt,
               border: Border(
                 bottom: BorderSide(
-                  color: Colors.white.withOpacity(0.1),
+                  color: AuthColors.textMainWithOpacity(0.1),
                 ),
               ),
             ),
@@ -540,7 +533,7 @@ class _DeleteClientDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1B1B2C),
+      backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
       ),
@@ -553,7 +546,7 @@ class _DeleteClientDialog extends StatelessWidget {
             const Text(
               'Delete client',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -562,32 +555,26 @@ class _DeleteClientDialog extends StatelessWidget {
             Text(
               'This will permanently remove $clientName and all related analytics. This action cannot be undone.',
               style: const TextStyle(
-                color: Colors.white70,
+                color: AuthColors.textSub,
                 fontSize: 13,
               ),
             ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFED5A5A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
+              child: DashButton(
+                label: 'Delete client',
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete client'),
+                isDestructive: true,
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: TextButton(
+              child: DashButton(
+                label: 'Cancel',
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                variant: DashButtonVariant.text,
               ),
             ),
           ],

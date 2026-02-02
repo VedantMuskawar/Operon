@@ -65,44 +65,32 @@ class _HistorySearchPanelState extends State<HistorySearchPanel> {
     if (_searchByDmNumber) {
       final dmNumberText = _dmNumberController.text.trim();
       if (dmNumberText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a DM number')),
-        );
+        DashSnackbar.show(context, message: 'Please enter a DM number', isError: true);
         return;
       }
       final dmNumber = int.tryParse(dmNumberText);
       if (dmNumber == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid DM number')),
-        );
+        DashSnackbar.show(context, message: 'Invalid DM number', isError: true);
         return;
       }
       widget.onSearchByDmNumber(dmNumber);
     } else {
       if (_selectedDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a date')),
-        );
+        DashSnackbar.show(context, message: 'Please select a date', isError: true);
         return;
       }
       if (_selectedVehicleNumber == null || _selectedVehicleNumber!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a vehicle')),
-        );
+        DashSnackbar.show(context, message: 'Please select a vehicle', isError: true);
         return;
       }
       final slotText = _slotController.text.trim();
       if (slotText.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a slot number')),
-        );
+        DashSnackbar.show(context, message: 'Please enter a slot number', isError: true);
         return;
       }
       final slot = int.tryParse(slotText);
       if (slot == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid slot number')),
-        );
+        DashSnackbar.show(context, message: 'Invalid slot number', isError: true);
         return;
       }
       widget.onSearchByTripId(_selectedDate!, _selectedVehicleNumber!, slot);

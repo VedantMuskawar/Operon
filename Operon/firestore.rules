@@ -1,8 +1,126 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    // Tighten to only this when custom claim superadmin is set after login.
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.superadmin == true;
+    }
+    // For future org-scoping when custom claims orgId/orgIds are set.
+    function hasOrgAccess(orgId) {
+      return isSignedIn() && (
+        request.auth.token.orgId == orgId
+        || orgId in request.auth.token.get('orgIds', [])
+      );
+    }
+
+    // ---------- USERS ----------
+    match /USERS/{userId} {
+      allow read: if isSignedIn();
+      // Until superadmin claim exists, use isSignedIn() so SuperAdmin app can create/update users.
+      allow create, update, delete: if isSuperAdmin() || isSignedIn();
+    }
+    match /USERS/{userId}/ORGANIZATIONS/{orgId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSuperAdmin() || isSignedIn();
+    }
+
+    // ---------- ORGANIZATIONS ----------
+    match /ORGANIZATIONS/{orgId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSuperAdmin() || isSignedIn();
+    }
+    match /ORGANIZATIONS/{orgId}/{subcollection}/{docId} {
+      allow read, write: if isSignedIn();
+    }
+    match /ORGANIZATIONS/{orgId}/RAW_MATERIALS/{materialId}/STOCK_HISTORY/{entryId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ---------- Top-level org-scoped ----------
+    match /CLIENTS/{clientId} {
+      allow read, write: if isSignedIn();
+    }
+    match /VENDORS/{vendorId} {
+      allow read, write: if isSignedIn();
+    }
+    match /EMPLOYEES/{employeeId} {
+      allow read, write: if isSignedIn();
+    }
+    match /PENDING_ORDERS/{orderId} {
+      allow read, write: if isSignedIn();
+    }
+    match /SCHEDULE_TRIPS/{tripId} {
+      allow read, write: if isSignedIn();
+    }
+    match /DELIVERY_MEMOS/{dmId} {
+      allow read, write: if isSignedIn();
+    }
+    match /TRIP_WAGES/{wageId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ---------- TRANSACTIONS (verified immutable) ----------
+    match /TRANSACTIONS/{transactionId} {
+      allow read, create: if isSignedIn();
+      allow update, delete: if isSignedIn()
+        && (!('verified' in resource.data) || resource.data.verified == false);
+    }
+
+    // ---------- Ledgers (read-only for clients; writes by Cloud Functions only) ----------
+    match /CLIENT_LEDGERS/{ledgerId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /CLIENT_LEDGERS/{ledgerId}/TRANSACTIONS/{monthDocId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /EMPLOYEE_LEDGERS/{ledgerId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /EMPLOYEE_LEDGERS/{ledgerId}/Attendance/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /EMPLOYEE_LEDGERS/{ledgerId}/TRANSACTIONS/{monthDocId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /VENDOR_LEDGERS/{ledgerId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /VENDOR_LEDGERS/{ledgerId}/TRANSACTIONS/{monthDocId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /ORGANIZATION_LEDGERS/{ledgerId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /ORGANIZATION_LEDGERS/{ledgerId}/TRANSACTIONS/{monthDocId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
+    // ---------- Driver runtime: trips ----------
+    match /trips/{tripId} {
+      allow read, update, delete: if isSignedIn() && resource.data.get('driverId', '') == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.get('driverId', '') == request.auth.uid;
+    }
+
+    // ---------- Analytics (read-only for clients) ----------
+    match /ANALYTICS/{docId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
     }
   }
 }

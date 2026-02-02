@@ -1,6 +1,8 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/delivery_memo_repository.dart';
+import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -57,20 +59,33 @@ class ScheduledTripTile extends StatelessWidget {
     }
   }
 
-  Color _getBackgroundColor() {
-    final orderStatus = trip['orderStatus'] as String? ?? 'pending';
-    switch (orderStatus.toLowerCase()) {
-      case 'pending':
-        return AuthColors.error.withOpacity(0.2); // #bb0000 for pending
-      case 'dispatched':
-        return AuthColors.warning.withOpacity(0.2); // Dark orange background
-      case 'delivered':
-        return AuthColors.info.withOpacity(0.2); // Dark blue background
-      case 'returned':
-        return AuthColors.success.withOpacity(0.2); // Dark green background
-      default:
-        return AuthColors.surface;
+  Future<void> _openPrintDialog(BuildContext context) async {
+    final org = context.read<OrganizationContextCubit>().state.organization;
+    if (org == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select an organization first')),
+      );
+      return;
     }
+    final printService = context.read<DmPrintService>();
+    final dmNumber = (trip['dmNumber'] as num?)?.toInt();
+    if (dmNumber == null) return;
+    final dmData = await printService.fetchDmByNumberOrId(
+      organizationId: org.id,
+      dmNumber: dmNumber,
+      dmId: trip['dmId'] as String?,
+      tripData: trip,
+    );
+    if (dmData == null || !context.mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => DmPrintDialog(
+        dmPrintService: printService,
+        organizationId: org.id,
+        dmData: dmData,
+        dmNumber: dmNumber,
+      ),
+    );
   }
 
   Future<void> _generateDM(BuildContext context) async {
@@ -461,9 +476,7 @@ class ScheduledTripTile extends StatelessWidget {
                     icon: Icons.receipt_long,
                     label: 'DM-$dmNumber',
                     color: Colors.blue.withOpacity(0.3),
-                    onTap: () {
-                      // For now, no functionality on DM button
-                    },
+                    onTap: () => _openPrintDialog(context),
                   )
                 else if (orderStatus.toLowerCase() != 'dispatched' && 
                          orderStatus.toLowerCase() != 'delivered' &&

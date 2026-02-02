@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/repositories/delivery_memo_repository.dart';
+import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/presentation/blocs/delivery_memos/delivery_memos_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/standard_chip.dart';
@@ -59,7 +62,7 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
 
     if (organization == null) {
       return Scaffold(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         appBar: const ModernPageHeader(
           title: 'DM',
         ),
@@ -72,7 +75,7 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
                     padding: EdgeInsets.all(16),
                     child: Text(
                       'Please select an organization',
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(color: AuthColors.textSub),
                     ),
                   ),
                 ),
@@ -104,7 +107,7 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
           }
         },
         child: Scaffold(
-          backgroundColor: const Color(0xFF000000),
+          backgroundColor: AuthColors.background,
           appBar: const ModernPageHeader(
             title: 'DM',
           ),
@@ -147,23 +150,24 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
       builder: (context, state) {
         return TextField(
           controller: _searchController,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search, color: Colors.white54),
+            hintText: 'Search by DM#, client, or vehicle…',
+            hintStyle: const TextStyle(color: AuthColors.textSub, fontSize: 14),
+            prefixIcon: const Icon(Icons.search_rounded, color: AuthColors.textSub, size: 20),
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: const Icon(Icons.close_rounded, color: AuthColors.textSub, size: 20),
                     onPressed: _clearSearch,
                   )
                 : null,
-            hintText: 'Search by DM number, client name, or vehicle',
-            hintStyle: const TextStyle(color: Colors.white38),
             filled: true,
-            fillColor: const Color(0xFF1B1B2C),
+            fillColor: AuthColors.surface,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
         );
       },
@@ -173,35 +177,29 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
   Widget _buildFilters() {
     return BlocBuilder<DeliveryMemosCubit, DeliveryMemosState>(
       builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status Filter
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  StandardChip(
-                    label: 'All',
-                    isSelected: state.statusFilter == null,
-                    onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter(null),
-                  ),
-                  const SizedBox(width: 8),
-                  StandardChip(
-                    label: 'Active',
-                    isSelected: state.statusFilter == 'active',
-                    onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter('active'),
-                  ),
-                  const SizedBox(width: 8),
-                  StandardChip(
-                    label: 'Cancelled',
-                    isSelected: state.statusFilter == 'cancelled',
-                    onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter('cancelled'),
-                  ),
-                ],
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              StandardChip(
+                label: 'All',
+                isSelected: state.statusFilter == null,
+                onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter(null),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              StandardChip(
+                label: 'Active',
+                isSelected: state.statusFilter == 'active',
+                onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter('active'),
+              ),
+              const SizedBox(width: 8),
+              StandardChip(
+                label: 'Cancelled',
+                isSelected: state.statusFilter == 'cancelled',
+                onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter('cancelled'),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -211,7 +209,9 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
     return BlocBuilder<DeliveryMemosCubit, DeliveryMemosState>(
       builder: (context, state) {
         if (state.status == ViewStatus.loading) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: AuthColors.primary),
+          );
         }
 
         final filteredMemos = state.filteredDeliveryMemos;
@@ -222,7 +222,7 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
               state.searchQuery.isNotEmpty
                   ? 'No delivery memos found for "${state.searchQuery}"'
                   : 'No delivery memos found',
-              style: const TextStyle(color: Colors.white60),
+              style: const TextStyle(color: AuthColors.textSub),
             ),
           );
         }
@@ -260,8 +260,37 @@ class _DeliveryMemoTile extends StatelessWidget {
 
   final Map<String, dynamic> dm;
 
+  Future<void> _openPrintDialog(BuildContext context) async {
+    final org = context.read<OrganizationContextCubit>().state.organization;
+    if (org == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select an organization first')),
+      );
+      return;
+    }
+    final printService = context.read<DmPrintService>();
+    final dmNumber = dm['dmNumber'] as int? ?? 0;
+    final dmData = await printService.fetchDmByNumberOrId(
+      organizationId: org.id,
+      dmNumber: dmNumber,
+      dmId: dm['dmId'] as String?,
+      tripData: null,
+    );
+    if (dmData == null || !context.mounted) return;
+    if (!context.mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => DmPrintDialog(
+        dmPrintService: printService,
+        organizationId: org.id,
+        dmData: dmData,
+        dmNumber: dmNumber,
+      ),
+    );
+  }
+
   String _formatDate(dynamic date) {
-    if (date == null) return '-';
+    if (date == null) return '—';
     try {
       DateTime dateTime;
       if (date is Timestamp) {
@@ -269,156 +298,209 @@ class _DeliveryMemoTile extends StatelessWidget {
       } else if (date is DateTime) {
         dateTime = date;
       } else {
-        return '-';
+        return '—';
       }
-      
       final now = DateTime.now();
-      final difference = now.difference(dateTime);
-      
-      if (difference.inDays == 0) {
-        // Today - show time only
-        final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
-        final minute = dateTime.minute.toString().padLeft(2, '0');
-        final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-        return '$hour:$minute $period';
-      } else if (difference.inDays == 1) {
-        // Yesterday
-        final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
-        final minute = dateTime.minute.toString().padLeft(2, '0');
-        final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-        return 'Yesterday, $hour:$minute $period';
-      } else if (difference.inDays < 7) {
-        // This week - show day name
-        final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        final dayName = weekdays[dateTime.weekday - 1];
-        final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
-        final minute = dateTime.minute.toString().padLeft(2, '0');
-        final period = dateTime.hour >= 12 ? 'PM' : 'AM';
-        return '$dayName, $hour:$minute $period';
-      } else {
-        // Older - show date
-        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        final month = months[dateTime.month - 1];
-        return '${dateTime.day} $month ${dateTime.year}';
+      final d = now.difference(dateTime);
+      if (d.inDays == 0) {
+        final h = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
+        final m = dateTime.minute.toString().padLeft(2, '0');
+        final p = dateTime.hour >= 12 ? 'PM' : 'AM';
+        return '$h:$m $p';
       }
-    } catch (e) {
-      return '-';
+      if (d.inDays == 1) {
+        final h = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
+        final m = dateTime.minute.toString().padLeft(2, '0');
+        final p = dateTime.hour >= 12 ? 'PM' : 'AM';
+        return 'Yesterday, $h:$m $p';
+      }
+      if (d.inDays < 7) {
+        const w = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        final day = w[dateTime.weekday - 1];
+        final h = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
+        final m = dateTime.minute.toString().padLeft(2, '0');
+        final p = dateTime.hour >= 12 ? 'PM' : 'AM';
+        return '$day, $h:$m $p';
+      }
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}';
+    } catch (_) {
+      return '—';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final dmId = dm['dmId'] as String? ?? '-';
+    final dmId = dm['dmId'] as String? ?? '—';
     final dmNumber = dm['dmNumber'] as int?;
-    final clientName = dm['clientName'] as String? ?? '-';
-    final vehicleNumber = dm['vehicleNumber'] as String? ?? '-';
+    final clientName = dm['clientName'] as String? ?? '—';
+    final vehicleNumber = dm['vehicleNumber'] as String? ?? '—';
     final status = (dm['status'] as String? ?? 'active').toLowerCase();
     final scheduledDate = dm['scheduledDate'];
     final tripPricing = dm['tripPricing'] as Map<String, dynamic>?;
     final total = tripPricing != null
         ? (tripPricing['total'] as num?)?.toDouble() ?? 0.0
         : 0.0;
+    final items = dm['items'] as List<dynamic>? ?? [];
+    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
+    final fixedQty = (firstItem?['fixedQuantityPerTrip'] ?? firstItem?['quantity']) as num?;
+    final unitPrice = (firstItem?['unitPrice'] as num?)?.toDouble();
+    final deliveryZone = dm['deliveryZone'] as Map<String, dynamic>?;
+    final region = deliveryZone?['region'] as String? ?? '';
+    final city = deliveryZone?['city_name'] as String? ?? deliveryZone?['city'] as String? ?? '';
+    final regionCity = [region, city].where((s) => s.isNotEmpty).join(', ');
 
     final isCancelled = status == 'cancelled';
-    final statusColor = isCancelled ? Colors.red : Colors.green;
+    final statusColor = isCancelled ? AuthColors.error : AuthColors.successVariant;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF13131E),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isCancelled ? Colors.red.withOpacity(0.3) : Colors.white12,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isCancelled
+                ? AuthColors.error.withOpacity(0.25)
+                : AuthColors.textMainWithOpacity(0.1),
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          dmNumber != null ? 'DM-$dmNumber' : dmId,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
+          Container(
+            width: 4,
+            decoration: BoxDecoration(
+              color: statusColor,
+              borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Text(
+                              dmNumber != null ? 'DM-$dmNumber' : dmId,
+                              style: const TextStyle(
+                                color: AuthColors.textMain,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: statusColor.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                isCancelled ? 'Cancelled' : 'Active',
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: statusColor.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            status.toUpperCase(),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.print_outlined),
+                        onPressed: () => _openPrintDialog(context),
+                        tooltip: 'Print DM',
+                        style: IconButton.styleFrom(
+                          foregroundColor: AuthColors.textSub,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    clientName,
+                    style: const TextStyle(
+                      color: AuthColors.textSub,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      if (fixedQty != null)
+                        _InfoChip(
+                          icon: Icons.inventory_2_outlined,
+                          label: 'Qty: $fixedQty',
+                        ),
+                      if (unitPrice != null && unitPrice > 0)
+                        _InfoChip(
+                          icon: Icons.attach_money,
+                          label: '₹${unitPrice.toStringAsFixed(2)}/unit',
+                        ),
+                      _InfoChip(
+                        icon: Icons.calendar_today_outlined,
+                        label: _formatDate(scheduledDate),
+                      ),
+                      if (regionCity.isNotEmpty)
+                        _InfoChip(
+                          icon: Icons.location_on_outlined,
+                          label: regionCity,
+                        ),
+                      _InfoChip(
+                        icon: Icons.local_shipping_outlined,
+                        label: vehicleNumber,
+                      ),
+                    ],
+                  ),
+                  if (total > 0) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AuthColors.successVariant.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Total',
                             style: TextStyle(
-                              color: statusColor,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                              color: AuthColors.textSub,
+                              fontSize: 13,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      clientName,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
+                          Text(
+                            '₹${total.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: AuthColors.successVariant,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _InfoChip(
-                icon: Icons.local_shipping,
-                label: vehicleNumber,
-              ),
-              const SizedBox(width: 8),
-              _InfoChip(
-                icon: Icons.calendar_today,
-                label: _formatDate(scheduledDate),
-              ),
-            ],
-          ),
-          if (total > 0) ...[
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Total:',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  '₹${total.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
             ),
-          ],
+          ),
         ],
+        ),
       ),
     );
   }
@@ -438,13 +520,13 @@ class _InfoChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: Colors.white54),
+        Icon(icon, size: 16, color: AuthColors.textSub),
         const SizedBox(width: 4),
         Flexible(
           child: Text(
             label,
             style: const TextStyle(
-              color: Colors.white70,
+              color: AuthColors.textSub,
               fontSize: 12,
             ),
             overflow: TextOverflow.ellipsis,

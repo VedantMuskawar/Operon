@@ -26,6 +26,7 @@ class DeliveryZonesDataSource {
       final snapshot = await _zonesCollection(orgId)
           .orderBy('city_name')
           .orderBy('region')
+          .limit(500)
           .get();
       return snapshot.docs
           .map((doc) {
@@ -36,7 +37,7 @@ class DeliveryZonesDataSource {
     } catch (e) {
       // If index error, try without orderBy
       if (e.toString().contains('index')) {
-        final snapshot = await _zonesCollection(orgId).get();
+        final snapshot = await _zonesCollection(orgId).limit(500).get();
         final zones = snapshot.docs
             .map((doc) {
               final zone = DeliveryZone.fromMap(doc.data(), doc.id);
@@ -56,7 +57,7 @@ class DeliveryZonesDataSource {
   }
 
   Future<List<DeliveryCity>> fetchCities(String orgId) async {
-    final snapshot = await _citiesCollection(orgId).orderBy('name').get();
+    final snapshot = await _citiesCollection(orgId).orderBy('name').limit(500).get();
     return snapshot.docs
         .map((doc) => DeliveryCity.fromMap(doc.data(), doc.id))
         .toList();

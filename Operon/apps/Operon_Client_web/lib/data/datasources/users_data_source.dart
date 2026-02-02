@@ -19,8 +19,10 @@ class UsersDataSource {
   }
 
   Future<List<OrganizationUser>> fetchOrgUsers(String orgId) async {
-    final snapshot =
-        await _orgUsersCollection(orgId).orderBy('user_name').get();
+    final snapshot = await _orgUsersCollection(orgId)
+        .orderBy('user_name')
+        .limit(500)
+        .get();
     return snapshot.docs
         .map(
           (doc) => OrganizationUser.fromMap(doc.data(), doc.id, orgId),

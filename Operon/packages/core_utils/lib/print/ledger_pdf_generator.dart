@@ -2,10 +2,8 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:core_models/core_models.dart';
+import 'base_operon_document.dart';
 import 'pdf_builder.dart';
-
-/// Professional Navy Blue color for FinTech theme
-const PdfColor _navyBlue = PdfColor.fromInt(0xFF1E3A5F);
 
 /// Calculate opening balance for a date range
 /// 
@@ -72,8 +70,12 @@ class LedgerRowData {
   final String remarks;
 }
 
-/// Generate a ledger PDF for Client, Employee, or Vendor
-/// Modern FinTech/SaaS design with clean hierarchy and high contrast
+/// Generate a ledger PDF for Client, Employee, or Vendor.
+/// Modern FinTech/SaaS design with clean hierarchy and high contrast.
+///
+/// Note: [pdf](https://pub.dev/packages/pdf) [Document.save] is asynchronous,
+/// so the build runs on the current isolate. For very large ledgers, consider
+/// showing a loading indicator while this completes.
 Future<Uint8List> generateLedgerPdf({
   required LedgerType ledgerType,
   required String entityName,
@@ -85,14 +87,12 @@ Future<Uint8List> generateLedgerPdf({
   Uint8List? logoBytes,
 }) async {
   final pdf = pw.Document();
-  final pageFormat = PdfPageFormat.a4; // A4 Portrait
+  final pageFormat = PdfPageFormat.a4;
 
-  // Determine column headers based on ledger type
   final List<String> headers = _getHeadersForLedgerType(ledgerType);
-
-  // Calculate totals
   final totalDebit = transactions.fold<double>(0, (sum, row) => sum + row.debit);
-  final totalCredit = transactions.fold<double>(0, (sum, row) => sum + row.credit);
+  final totalCredit =
+      transactions.fold<double>(0, (sum, row) => sum + row.credit);
   final closingBalance = openingBalance + totalCredit - totalDebit;
   final netBalance = totalCredit - totalDebit;
 
@@ -102,25 +102,21 @@ Future<Uint8List> generateLedgerPdf({
       margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 35),
       build: (pw.Context context) {
         return [
-          // Modern Header with Navy Blue top border
-          _buildModernHeader(companyHeader, logoBytes),
+          BaseOperonDocument.buildOperonHeader(
+            companyHeader,
+            logoBytes,
+            documentTitle: 'LEDGER STATEMENT',
+          ),
           pw.SizedBox(height: 20),
-
-          // Title Section
           _buildLedgerTitle(entityName, startDate, endDate),
           pw.SizedBox(height: 18),
-
-          // Modern Table (no vertical lines, horizontal dividers only)
           _buildModernTable(
             headers: headers,
             openingBalance: openingBalance,
             transactions: transactions,
             startDate: startDate,
           ),
-          
           pw.SizedBox(height: 16),
-          
-          // Summary Dashboard (3-column grid)
           _buildSummaryDashboard(
             openingBalance: openingBalance,
             totalDebit: totalDebit,
@@ -148,149 +144,6 @@ List<String> _getHeadersForLedgerType(LedgerType ledgerType) {
     default:
       return ['Date', 'Reference', 'Debit', 'Credit', 'Balance', 'Type', 'Remarks'];
   }
-}
-
-/// Build modern header with Navy Blue top border
-pw.Widget _buildModernHeader(DmHeaderSettings header, Uint8List? logoBytes) {
-  return pw.Container(
-    decoration: pw.BoxDecoration(
-      border: pw.Border(
-        top: pw.BorderSide(color: _navyBlue, width: 2),
-      ),
-    ),
-    child: pw.Padding(
-      padding: const pw.EdgeInsets.only(top: 16, bottom: 16),
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          // Left: Logo and Company Info
-          pw.Expanded(
-            child: pw.Row(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                if (logoBytes != null) ...[
-                  pw.Container(
-                    width: 60,
-                    height: 60,
-                    decoration: pw.BoxDecoration(
-                      color: PdfColors.white,
-                      border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-                    ),
-                    child: (() {
-                      try {
-                        final logoImage = pw.MemoryImage(logoBytes);
-                        return pw.Padding(
-                          padding: const pw.EdgeInsets.all(6),
-                          child: pw.Image(logoImage, fit: pw.BoxFit.contain),
-                        );
-                      } catch (e) {
-                        return pw.SizedBox.shrink();
-                      }
-                    })(),
-                  ),
-                  pw.SizedBox(width: 16),
-                ],
-                pw.Expanded(
-                  child: _buildCompanyInfo(header),
-                ),
-              ],
-            ),
-          ),
-          // Right: LEDGER STATEMENT anchor
-          pw.Container(
-            alignment: pw.Alignment.centerRight,
-            child: pw.Text(
-              'LEDGER STATEMENT',
-              style: pw.TextStyle(
-                fontSize: 12,
-                fontWeight: pw.FontWeight.bold,
-                color: PdfColors.grey500,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-/// Build company info section
-pw.Widget _buildCompanyInfo(DmHeaderSettings header) {
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pw.Text(
-        header.name,
-        style: pw.TextStyle(
-          fontSize: 18,
-          fontWeight: pw.FontWeight.bold,
-          color: PdfColors.black,
-          letterSpacing: 0.3,
-        ),
-      ),
-      pw.SizedBox(height: 6),
-      if (header.address.isNotEmpty) ...[
-        pw.Text(
-          header.address,
-          style: const pw.TextStyle(
-            fontSize: 10,
-            color: PdfColors.grey700,
-            height: 1.3,
-          ),
-        ),
-        pw.SizedBox(height: 4),
-      ],
-      pw.Wrap(
-        spacing: 14,
-        runSpacing: 3,
-        children: [
-          pw.Row(
-            mainAxisSize: pw.MainAxisSize.min,
-            children: [
-              pw.Text(
-                'Phone: ',
-                style: pw.TextStyle(
-                  fontSize: 9,
-                  color: PdfColors.grey600,
-                  fontWeight: pw.FontWeight.normal,
-                ),
-              ),
-              pw.Text(
-                header.phone,
-                style: const pw.TextStyle(
-                  fontSize: 9,
-                  color: PdfColors.grey800,
-                ),
-              ),
-            ],
-          ),
-          if (header.gstNo != null && header.gstNo!.isNotEmpty)
-            pw.Row(
-              mainAxisSize: pw.MainAxisSize.min,
-              children: [
-                pw.Text(
-                  'GST: ',
-                  style: pw.TextStyle(
-                    fontSize: 9,
-                    color: PdfColors.grey600,
-                    fontWeight: pw.FontWeight.normal,
-                  ),
-                ),
-                pw.Text(
-                  header.gstNo!,
-                  style: const pw.TextStyle(
-                    fontSize: 9,
-                    color: PdfColors.grey800,
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-    ],
-  );
 }
 
 /// Build ledger title section

@@ -52,79 +52,63 @@ export const onEmployeeCreated = functions.firestore
   });
 
 /**
- * Cloud Function: Scheduled function to rebuild employee analytics
- * Runs every 24 hours to recalculate analytics for all organizations
+ * Core logic to rebuild employee analytics for all organizations.
+ * Called by unified analytics scheduler.
  */
-export const rebuildEmployeeAnalytics = functions.pubsub
-  .schedule('every 24 hours')
-  .timeZone('UTC')
-  .onRun(async () => {
-    const now = new Date();
-    const { fyLabel } = getFinancialContext(now);
+export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<void> {
+  const employeesSnapshot = await db.collection(EMPLOYEES_COLLECTION).get();
+  const employeesByOrg: Record<string, FirebaseFirestore.DocumentSnapshot[]> = {};
 
-    // Get all employees and group by organizationId
-    const employeesSnapshot = await db.collection(EMPLOYEES_COLLECTION).get();
-    
-    // Group employees by organizationId
-    const employeesByOrg: Record<string, FirebaseFirestore.DocumentSnapshot[]> = {};
-    
-    employeesSnapshot.forEach((doc) => {
-      const organizationId = doc.data()?.organizationId as string | undefined;
-      if (organizationId) {
-        if (!employeesByOrg[organizationId]) {
-          employeesByOrg[organizationId] = [];
-        }
-        employeesByOrg[organizationId].push(doc);
+  employeesSnapshot.forEach((doc) => {
+    const organizationId = doc.data()?.organizationId as string | undefined;
+    if (organizationId) {
+      if (!employeesByOrg[organizationId]) {
+        employeesByOrg[organizationId] = [];
+      }
+      employeesByOrg[organizationId].push(doc);
+    }
+  });
+
+  const analyticsUpdates = Object.entries(employeesByOrg).map(async ([organizationId, orgEmployees]) => {
+    const analyticsRef = db
+      .collection(ANALYTICS_COLLECTION)
+      .doc(`${EMPLOYEES_SOURCE_KEY}_${organizationId}_${fyLabel}`);
+
+    const totalActiveEmployees = orgEmployees.length;
+
+    const wageCreditsSnapshot = await db
+      .collection(TRANSACTIONS_COLLECTION)
+      .where('organizationId', '==', organizationId)
+      .where('ledgerType', '==', 'employeeLedger')
+      .where('type', '==', 'credit')
+      .where('category', '==', 'wageCredit')
+      .get();
+
+    const wagesByMonth: Record<string, number> = {};
+    wageCreditsSnapshot.forEach((doc) => {
+      const transactionData = doc.data();
+      const transactionDate = transactionData.transactionDate as admin.firestore.Timestamp | undefined
+        || transactionData.paymentDate as admin.firestore.Timestamp | undefined
+        || transactionData.createdAt as admin.firestore.Timestamp | undefined;
+      const amount = (transactionData.amount as number) || 0;
+      if (transactionDate) {
+        const dateObj = transactionDate.toDate();
+        const monthKey = getYearMonth(dateObj);
+        wagesByMonth[monthKey] = (wagesByMonth[monthKey] || 0) + amount;
       }
     });
 
-    // Process analytics for each organization
-    const analyticsUpdates = Object.entries(employeesByOrg).map(async ([organizationId, orgEmployees]) => {
-      const analyticsRef = db
-        .collection(ANALYTICS_COLLECTION)
-        .doc(`${EMPLOYEES_SOURCE_KEY}_${organizationId}_${fyLabel}`);
-
-      // Count total active employees (all employees, irrespective of time period)
-      const totalActiveEmployees = orgEmployees.length;
-
-      // Query all wage credit transactions for this organization
-      const wageCreditsSnapshot = await db
-        .collection(TRANSACTIONS_COLLECTION)
-        .where('organizationId', '==', organizationId)
-        .where('ledgerType', '==', 'employeeLedger')
-        .where('type', '==', 'credit')
-        .where('category', '==', 'wageCredit')
-        .get();
-
-      // Group wages by month
-      const wagesByMonth: Record<string, number> = {};
-      
-      wageCreditsSnapshot.forEach((doc) => {
-        const transactionData = doc.data();
-        // Use transactionDate (primary) or paymentDate (fallback) or createdAt
-        const transactionDate = transactionData.transactionDate as admin.firestore.Timestamp | undefined
-          || transactionData.paymentDate as admin.firestore.Timestamp | undefined
-          || transactionData.createdAt as admin.firestore.Timestamp | undefined;
-        const amount = (transactionData.amount as number) || 0;
-        
-        if (transactionDate) {
-          const dateObj = transactionDate.toDate();
-          const monthKey = getYearMonth(dateObj);
-          wagesByMonth[monthKey] = (wagesByMonth[monthKey] || 0) + amount;
-        }
-      });
-
-      await seedEmployeeAnalyticsDoc(analyticsRef, fyLabel, organizationId);
-      await analyticsRef.set(
-        {
-          generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          'metrics.totalActiveEmployees': totalActiveEmployees,
-          'metrics.wagesCreditMonthly.values': wagesByMonth,
-        },
-        { merge: true },
-      );
-    });
-
-    await Promise.all(analyticsUpdates);
-    console.log(`[Employee Analytics] Rebuilt analytics for ${Object.keys(employeesByOrg).length} organizations`);
+    await seedEmployeeAnalyticsDoc(analyticsRef, fyLabel, organizationId);
+    await analyticsRef.set(
+      {
+        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        'metrics.totalActiveEmployees': totalActiveEmployees,
+        'metrics.wagesCreditMonthly.values': wagesByMonth,
+      },
+      { merge: true },
+    );
   });
+
+  await Promise.all(analyticsUpdates);
+  console.log(`[Employee Analytics] Rebuilt analytics for ${Object.keys(employeesByOrg).length} organizations`);
+}

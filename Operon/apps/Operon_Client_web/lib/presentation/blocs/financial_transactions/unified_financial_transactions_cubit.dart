@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
@@ -22,6 +24,7 @@ class UnifiedFinancialTransactionsCubit
   final TransactionsRepository _transactionsRepository;
   final VendorsRepository _vendorsRepository;
   final String _organizationId;
+  Timer? _searchDebounce;
 
   String get organizationId => _organizationId;
 
@@ -36,26 +39,24 @@ class UnifiedFinancialTransactionsCubit
       final start = startDate ?? DateTime(today.year, today.month, today.day);
       final end = endDate ?? DateTime(today.year, today.month, today.day, 23, 59, 59);
 
-      // Load all data in parallel
+      // Load all data in parallel (date filtering is done server-side)
       final data = await _transactionsRepository.getUnifiedFinancialData(
         organizationId: _organizationId,
         financialYear: fy,
+        startDate: start,
+        endDate: end,
+        limit: 50,
       );
 
-      var transactions = data['transactions'] ?? [];
-      var purchases = data['purchases'] ?? [];
-      var expenses = data['expenses'] ?? [];
-
-      // Always apply date filter
-      final filteredTransactions = _filterByDateRange(transactions, start, end);
-      final filteredPurchases = _filterByDateRange(purchases, start, end);
-      final filteredExpenses = _filterByDateRange(expenses, start, end);
+      final transactions = data['transactions'] ?? [];
+      final purchases = data['purchases'] ?? [];
+      final expenses = data['expenses'] ?? [];
 
       // Enrich transactions with vendor names
       final enriched = await _enrichWithVendorNames(
-        filteredTransactions,
-        filteredPurchases,
-        filteredExpenses,
+        transactions,
+        purchases,
+        expenses,
       );
 
       emit(state.copyWith(
@@ -75,32 +76,17 @@ class UnifiedFinancialTransactionsCubit
     }
   }
 
-  /// Filter transactions by date range
-  List<Transaction> _filterByDateRange(
-    List<Transaction> transactions,
-    DateTime startDate,
-    DateTime endDate,
-  ) {
-    return transactions.where((tx) {
-      final txDate = tx.createdAt ?? DateTime(1970);
-      // Compare only date part (ignore time)
-      final txDateOnly = DateTime(txDate.year, txDate.month, txDate.day);
-      final startDateOnly = DateTime(startDate.year, startDate.month, startDate.day);
-      final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
-
-      return (txDateOnly.isAtSameMomentAs(startDateOnly) || txDateOnly.isAfter(startDateOnly)) &&
-             (txDateOnly.isAtSameMomentAs(endDateOnly) || txDateOnly.isBefore(endDateOnly));
-    }).toList();
-  }
-
   /// Select tab (transactions, purchases, expenses)
   void selectTab(TransactionTabType tab) {
     emit(state.copyWith(selectedTab: tab));
   }
 
-  /// Search transactions
+  /// Search transactions (debounced 300ms to avoid UI jank on every keystroke)
   void search(String query) {
-    emit(state.copyWith(searchQuery: query));
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      emit(state.copyWith(searchQuery: query));
+    });
   }
 
   /// Set date range filter
@@ -199,6 +185,12 @@ class UnifiedFinancialTransactionsCubit
         'expenses': expenses,
       };
     }
+  }
+
+  @override
+  Future<void> close() {
+    _searchDebounce?.cancel();
+    return super.close();
   }
 
   /// Delete a transaction

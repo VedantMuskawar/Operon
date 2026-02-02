@@ -51,12 +51,36 @@ class _DesktopDashboard extends StatelessWidget {
                       onTap: () {},
                     ),
                   ],
-                  logo: const Row(
-                    children: [
-                      Icon(Icons.blur_on_rounded, size: 28, color: Colors.white),
-                      SizedBox(width: 12),
-                      Text('Dash UI', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                    ],
+                  logo: SizedBox(
+                    width: 232,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/branding/operon_app_icon.png',
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.image_not_supported_outlined,
+                            size: 36,
+                            color: AuthColors.textMain,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            'Operon',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AuthColors.textMain,
+                                ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -7,6 +7,7 @@ import 'package:dash_web/presentation/views/orders/sections/delivery_zone_select
 import 'package:dash_web/presentation/views/orders/sections/order_summary_section.dart';
 import 'package:dash_web/presentation/views/orders/sections/product_selection_section.dart';
 import 'package:dash_web/presentation/widgets/page_workspace_layout.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -62,7 +63,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
         child: const Center(
           child: Text(
             'Please select an organization first',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: AuthColors.textSub),
           ),
         ),
       );
@@ -146,7 +147,7 @@ class _PageIndicator extends StatelessWidget {
             width: isActive ? 18 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF6F4BFF) : Colors.white24,
+              color: isActive ? AuthColors.primary : AuthColors.textMainWithOpacity(0.24),
               borderRadius: BorderRadius.circular(999),
             ),
           );

@@ -15,8 +15,9 @@ import 'package:dash_web/presentation/views/unified_login_page.dart';
 import 'package:dash_web/presentation/views/splash_screen.dart';
 import 'package:dash_web/presentation/views/access_control_page.dart';
 import 'package:dash_web/presentation/views/payment_accounts_page.dart';
-import 'package:dash_web/presentation/views/products_page.dart';
-import 'package:dash_web/presentation/views/raw_materials_page.dart';
+// Deferred imports for code splitting
+import 'package:dash_web/presentation/views/products_page.dart' deferred as products;
+import 'package:dash_web/presentation/views/raw_materials_page.dart' deferred as raw_materials;
 import 'package:dash_web/presentation/views/roles_page.dart';
 import 'package:dash_web/presentation/views/users_view.dart';
 import 'package:dash_web/presentation/views/employees_view.dart';
@@ -43,13 +44,16 @@ import 'package:dash_web/presentation/views/record_payment_page.dart';
 import 'package:dash_web/presentation/views/fuel_ledger_page.dart';
 import 'package:dash_web/presentation/views/employee_wages_page.dart';
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_cubit.dart';
+import 'package:dash_web/presentation/views/monthly_salary_bonus_page.dart';
 import 'package:dash_web/presentation/views/attendance_page.dart';
-import 'package:dash_web/presentation/views/unified_financial_transactions_view.dart';
-import 'package:dash_web/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart';
+import 'package:dash_web/presentation/views/unified_financial_transactions_view.dart' deferred as financial_transactions;
+import 'package:dash_web/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart' deferred as financial_transactions_cubit;
+import 'package:dash_web/presentation/views/cash_ledger_view.dart' deferred as cash_ledger;
+import 'package:dash_web/presentation/blocs/cash_ledger/cash_ledger_cubit.dart' deferred as cash_ledger_cubit;
 import 'package:dash_web/presentation/views/wage_settings_page.dart';
-import 'package:dash_web/presentation/views/production_batches_page.dart';
-import 'package:dash_web/presentation/views/production_wages_page.dart';
-import 'package:dash_web/presentation/views/trip_wages_page.dart';
+import 'package:dash_web/presentation/views/production_batches_page.dart' deferred as production_batches;
+import 'package:dash_web/presentation/views/production_wages_page.dart' deferred as production_wages;
+import 'package:dash_web/presentation/views/trip_wages_page.dart' deferred as trip_wages;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -320,30 +324,36 @@ GoRouter buildRouter() {
         path: '/products',
         name: 'products',
         pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          final appAccessRole = orgState.appAccessRole;
-          if (organization == null || appAccessRole == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          final productsRepository = context.read<ProductsRepository>();
-
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: BlocProvider(
-              create: (_) => ProductsCubit(
-                repository: productsRepository,
-                orgId: organization.id,
-                canCreate: appAccessRole.canCreate('products'),
-                canEdit: appAccessRole.canEdit('products'),
-                canDelete: appAccessRole.canDelete('products'),
-              )..load(),
-              child: const ProductsPage(),
+            child: FutureBuilder<void>(
+              future: products.loadLibrary(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final orgState = context.read<OrganizationContextCubit>().state;
+                final organization = orgState.organization;
+                final appAccessRole = orgState.appAccessRole;
+                if (organization == null || appAccessRole == null) {
+                  return const OrganizationSelectionPage();
+                }
+                final productsRepository = context.read<ProductsRepository>();
+
+                return BlocProvider(
+                  create: (_) => ProductsCubit(
+                    repository: productsRepository,
+                    orgId: organization.id,
+                    canCreate: appAccessRole.canCreate('products'),
+                    canEdit: appAccessRole.canEdit('products'),
+                    canDelete: appAccessRole.canDelete('products'),
+                  )..load(),
+                  child: products.ProductsPage(),
+                );
+              },
             ),
           );
         },
@@ -352,30 +362,36 @@ GoRouter buildRouter() {
         path: '/raw-materials',
         name: 'raw-materials',
         pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          final appAccessRole = orgState.appAccessRole;
-          if (organization == null || appAccessRole == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          final rawMaterialsRepository = context.read<RawMaterialsRepository>();
-
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: BlocProvider(
-              create: (_) => RawMaterialsCubit(
-                repository: rawMaterialsRepository,
-                orgId: organization.id,
-                canCreate: appAccessRole.canCreate('rawMaterials'),
-                canEdit: appAccessRole.canEdit('rawMaterials'),
-                canDelete: appAccessRole.canDelete('rawMaterials'),
-              )..loadRawMaterials(),
-              child: const RawMaterialsPage(),
+            child: FutureBuilder<void>(
+              future: raw_materials.loadLibrary(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final orgState = context.read<OrganizationContextCubit>().state;
+                final organization = orgState.organization;
+                final appAccessRole = orgState.appAccessRole;
+                if (organization == null || appAccessRole == null) {
+                  return const OrganizationSelectionPage();
+                }
+                final rawMaterialsRepository = context.read<RawMaterialsRepository>();
+
+                return BlocProvider(
+                  create: (_) => RawMaterialsCubit(
+                    repository: rawMaterialsRepository,
+                    orgId: organization.id,
+                    canCreate: appAccessRole.canCreate('rawMaterials'),
+                    canEdit: appAccessRole.canEdit('rawMaterials'),
+                    canDelete: appAccessRole.canDelete('rawMaterials'),
+                  )..loadRawMaterials(),
+                  child: raw_materials.RawMaterialsPage(),
+                );
+              },
             ),
           );
         },
@@ -663,6 +679,40 @@ GoRouter buildRouter() {
         },
       ),
       GoRoute(
+        path: '/monthly-salary-bonus',
+        name: 'monthly-salary-bonus',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          if (orgState.appAccessRole?.isAdmin != true) {
+            return '/home';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              routePath: state.uri.path,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const MonthlySalaryBonusPage(),
+          );
+        },
+      ),
+      GoRoute(
         path: '/employee-wages',
         name: 'employee-wages',
         redirect: (context, state) {
@@ -793,27 +843,85 @@ GoRouter buildRouter() {
           return null;
         },
         pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          final transactionsRepository = context.read<TransactionsRepository>();
-          final vendorsRepository = context.read<VendorsRepository>();
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: BlocProvider(
-              create: (_) => UnifiedFinancialTransactionsCubit(
-                transactionsRepository: transactionsRepository,
-                vendorsRepository: vendorsRepository,
-                organizationId: organization.id,
-              ),
-              child: const UnifiedFinancialTransactionsView(),
+            child: FutureBuilder<void>(
+              future: Future.wait([
+                financial_transactions.loadLibrary(),
+                financial_transactions_cubit.loadLibrary(),
+              ]),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final orgState = context.read<OrganizationContextCubit>().state;
+                final organization = orgState.organization;
+                if (organization == null) {
+                  return const OrganizationSelectionPage();
+                }
+                final transactionsRepository = context.read<TransactionsRepository>();
+                final vendorsRepository = context.read<VendorsRepository>();
+                return BlocProvider(
+                  create: (_) => financial_transactions_cubit.UnifiedFinancialTransactionsCubit(
+                    transactionsRepository: transactionsRepository,
+                    vendorsRepository: vendorsRepository,
+                    organizationId: organization.id,
+                  ),
+                  child: financial_transactions.UnifiedFinancialTransactionsView(),
+                );
+              },
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/cash-ledger',
+        name: 'cash-ledger',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) {
+            return '/login';
+          }
+          if (!orgState.hasSelection) {
+            return '/org-selection';
+          }
+          return null;
+        },
+        pageBuilder: (context, state) {
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: FutureBuilder<void>(
+              future: Future.wait([
+                cash_ledger.loadLibrary(),
+                cash_ledger_cubit.loadLibrary(),
+              ]),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final orgState = context.read<OrganizationContextCubit>().state;
+                final organization = orgState.organization;
+                if (organization == null) {
+                  return const OrganizationSelectionPage();
+                }
+                final transactionsRepository = context.read<TransactionsRepository>();
+                final vendorsRepository = context.read<VendorsRepository>();
+                return BlocProvider(
+                  create: (_) => cash_ledger_cubit.CashLedgerCubit(
+                    transactionsRepository: transactionsRepository,
+                    vendorsRepository: vendorsRepository,
+                    organizationId: organization.id,
+                  ),
+                  child: cash_ledger.CashLedgerView(),
+                );
+              },
             ),
           );
         },
@@ -868,19 +976,25 @@ GoRouter buildRouter() {
           return null;
         },
         pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: const ProductionBatchesPage(),
+            child: FutureBuilder<void>(
+              future: production_batches.loadLibrary(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final orgState = context.read<OrganizationContextCubit>().state;
+                final organization = orgState.organization;
+                if (organization == null) {
+                  return const OrganizationSelectionPage();
+                }
+                return production_batches.ProductionBatchesPage();
+              },
+            ),
           );
         },
       ),
@@ -899,19 +1013,25 @@ GoRouter buildRouter() {
           return null;
         },
         pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: const ProductionWagesPage(),
+            child: FutureBuilder<void>(
+              future: production_wages.loadLibrary(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final orgState = context.read<OrganizationContextCubit>().state;
+                final organization = orgState.organization;
+                if (organization == null) {
+                  return const OrganizationSelectionPage();
+                }
+                return production_wages.ProductionWagesPage();
+              },
+            ),
           );
         },
       ),
@@ -930,19 +1050,25 @@ GoRouter buildRouter() {
           return null;
         },
         pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              routePath: state.uri.path,
-              child: const OrganizationSelectionPage(),
-            );
-          }
           return _buildTransitionPage(
             key: state.pageKey,
             routePath: state.uri.path,
-            child: const TripWagesPage(),
+            child: FutureBuilder<void>(
+              future: trip_wages.loadLibrary(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                final orgState = context.read<OrganizationContextCubit>().state;
+                final organization = orgState.organization;
+                if (organization == null) {
+                  return const OrganizationSelectionPage();
+                }
+                return trip_wages.TripWagesPage();
+              },
+            ),
           );
         },
       ),
@@ -1095,7 +1221,8 @@ CustomTransitionPage<dynamic> _buildTransitionPage({
           (routePath.startsWith('/clients') && !routePath.startsWith('/clients/detail')) ||
           routePath.startsWith('/access-control') ||
           routePath.startsWith('/fuel-ledger') ||
-          routePath.startsWith('/employee-wages'));
+          routePath.startsWith('/employee-wages') ||
+          routePath.startsWith('/monthly-salary-bonus'));
   
   final isAuthRoute = routePath != null &&
       (routePath.startsWith('/login') ||

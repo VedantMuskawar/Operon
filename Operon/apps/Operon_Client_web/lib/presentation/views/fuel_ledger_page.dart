@@ -293,9 +293,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
     
     final vehicleNumber = metadata['vehicleNumber'] as String?;
     if (vehicleNumber == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vehicle number not found')),
-      );
+      DashSnackbar.show(context, message: 'Vehicle number not found', isError: true);
       return;
     }
 
@@ -315,11 +313,10 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
   void _showDeleteConfirmationDialog(Transaction purchase) {
     // Validate transaction ID
     if (purchase.id.isEmpty || purchase.id.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cannot delete purchase: Invalid transaction ID'),
-          backgroundColor: AuthColors.error,
-        ),
+      DashSnackbar.show(
+        context,
+        message: 'Cannot delete purchase: Invalid transaction ID',
+        isError: true,
       );
       return;
     }
@@ -337,25 +334,25 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
           style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () async {
               if (purchase.id.isEmpty || purchase.id.trim().isEmpty) {
                 Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Cannot delete purchase: Invalid transaction ID'),
-                    backgroundColor: AuthColors.error,
-                  ),
+                DashSnackbar.show(
+                  context,
+                  message: 'Cannot delete purchase: Invalid transaction ID',
+                  isError: true,
                 );
                 return;
               }
 
               try {
-                // Delete the transaction from Firestore
                 await FirebaseFirestore.instance
                     .collection('TRANSACTIONS')
                     .doc(purchase.id.trim())
@@ -363,29 +360,24 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
 
                 if (dialogContext.mounted) {
                   Navigator.of(dialogContext).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Fuel purchase deleted successfully'),
-                      backgroundColor: AuthColors.success,
-                    ),
+                  DashSnackbar.show(
+                    context,
+                    message: 'Fuel purchase deleted successfully',
+                    isError: false,
                   );
                 }
               } catch (e) {
                 if (dialogContext.mounted) {
                   Navigator.of(dialogContext).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to delete purchase: $e'),
-                      backgroundColor: AuthColors.error,
-                    ),
+                  DashSnackbar.show(
+                    context,
+                    message: 'Failed to delete purchase: $e',
+                    isError: true,
                   );
                 }
               }
             },
-            style: TextButton.styleFrom(
-              foregroundColor: AuthColors.error,
-            ),
-            child: const Text('Delete'),
+            isDestructive: true,
           ),
         ],
       ),
@@ -597,9 +589,9 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                   ),
                   const SizedBox(width: 12),
                   // Add Purchase Button
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.add, size: 20),
-                    label: const Text('Record Purchase'),
+                  DashButton(
+                    label: 'Record Purchase',
+                    icon: Icons.add,
                     onPressed: () {
                       showDialog(
                         context: context,
@@ -610,18 +602,6 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                         ),
                       );
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AuthColors.primary,
-                      foregroundColor: AuthColors.textMain,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
                   ),
                 ],
               ),
@@ -783,29 +763,8 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DashCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AuthColors.surface,
-            AuthColors.backgroundAlt,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AuthColors.textMainWithOpacity(0.1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AuthColors.background.withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
       child: Row(
         children: [
           Container(
@@ -918,21 +877,10 @@ class _ErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+            DashButton(
+              label: 'Retry',
+              icon: Icons.refresh,
               onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AuthColors.primary,
-                foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),
@@ -1000,21 +948,10 @@ class _EmptyPurchasesState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Record Purchase'),
+            DashButton(
+              label: 'Record Purchase',
+              icon: Icons.add,
               onPressed: onRecordPurchase,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AuthColors.primary,
-                foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
             ),
           ],
         ),

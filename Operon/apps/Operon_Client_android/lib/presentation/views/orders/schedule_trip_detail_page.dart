@@ -8,8 +8,10 @@ import 'package:dash_mobile/data/services/storage_service.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:core_models/core_models.dart';
+import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/delivery_photo_dialog.dart';
+import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/return_payment_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -37,6 +39,34 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     _trip = Map<String, dynamic>.from(widget.trip);
   }
 
+  Future<void> _openPrintDialog(BuildContext context) async {
+    final org = context.read<OrganizationContextCubit>().state.organization;
+    if (org == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select an organization first')),
+      );
+      return;
+    }
+    final printService = context.read<DmPrintService>();
+    final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
+    if (dmNumber == null) return;
+    final dmData = await printService.fetchDmByNumberOrId(
+      organizationId: org.id,
+      dmNumber: dmNumber,
+      dmId: _trip['dmId'] as String?,
+      tripData: _trip,
+    );
+    if (dmData == null || !context.mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (_) => DmPrintDialog(
+        dmPrintService: printService,
+        organizationId: org.id,
+        dmData: dmData,
+        dmNumber: dmNumber,
+      ),
+    );
+  }
 
   Future<void> _showInitialReadingDialog(BuildContext context) async {
     final readingController = TextEditingController();
@@ -301,402 +331,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
   }
 
-  Future<void> _undoDelivery_UNUSED(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AuthColors.surface,
-        title: const Text('Undo Delivery', style: TextStyle(color: AuthColors.textMain)),
-        content: const Text(
-          'Are you sure you want to undo delivery? This will revert the trip status back to dispatched.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Undo', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    final tripId = _trip['id'] as String?;
-    if (tripId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Trip ID not found')),
-        );
-      }
-      return;
-    }
-
-    try {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reverting delivery...')),
-      );
-
-      // Update trip status back to dispatched (remove delivery fields)
-      final repository = context.read<ScheduledTripsRepository>();
-      await repository.updateTripStatus(
-        tripId: tripId,
-        tripStatus: 'dispatched',
-        source: 'client',
-      );
-
-      // Update local state
-      setState(() {
-        _trip['orderStatus'] = 'dispatched';
-        _trip['tripStatus'] = 'dispatched';
-        _trip.remove('deliveryPhotoUrl');
-        _trip.remove('deliveredAt');
-        _trip.remove('deliveredBy');
-        _trip.remove('deliveredByRole');
-      });
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delivery reverted successfully')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to undo delivery: $e')),
-      );
-    }
-  }
-
-  // DEPRECATED: This method is no longer used. Use _markAsReturned instead.
-  // Kept for reference but should not be called.
-  @Deprecated('Use _markAsReturned instead. This method incorrectly creates credit transactions for pay_later on return.')
-  Future<void> _showReturnDialog_UNUSED(BuildContext context) async {
-    final readingController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    final result = await showDialog<double>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AuthColors.surface,
-        title: const Text(
-          'Return Trip',
-          style: TextStyle(color: AuthColors.textMain),
-        ),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Please enter the last odometer reading',
-                style: TextStyle(color: AuthColors.textSub),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: readingController,
-                keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Last Odometer Reading',
-                  labelStyle: const TextStyle(color: AuthColors.textSub),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.orange),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter odometer reading';
-                  }
-                  final reading = double.tryParse(value);
-                  if (reading == null || reading < 0) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                final reading = double.tryParse(readingController.text);
-                if (reading != null) {
-                  Navigator.of(context).pop(reading);
-                }
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.orange,
-            ),
-            child: const Text('Submit'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      // DEPRECATED: This calls the old _returnTrip method which incorrectly creates credit transactions
-      // Use _markAsReturned instead (called from the active return flow)
-      await _returnTrip(context, result);
-    }
-  }
-
-  // DEPRECATED: This method is no longer used. Use _markAsReturned instead.
-  // This method incorrectly creates credit transactions for pay_later trips on return.
-  // Credit transactions should be created at DM generation (dispatch), not on return.
-  @Deprecated('Use _markAsReturned instead. Credit transactions should be created at dispatch via DM generation.')
-  Future<void> _returnTrip(BuildContext context, double finalReading) async {
-    final tripId = _trip['id'] as String?;
-    if (tripId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Trip ID not found')),
-        );
-      }
-      return;
-    }
-
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User not found')),
-        );
-      }
-      return;
-    }
-
-    final orgContext = context.read<OrganizationContextCubit>().state;
-    final organization = orgContext.organization;
-    if (organization == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Organization not found')),
-        );
-      }
-      return;
-    }
-
-    final userRole = orgContext.appAccessRole?.name ?? 'unknown';
-    final clientId = _trip['clientId'] as String? ?? '';
-    final paymentType = _trip['paymentType'] as String? ?? '';
-    final orderId = _trip['orderId'] as String? ?? '';
-    final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
-
-    try {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Returning trip...')),
-      );
-
-      final repository = context.read<ScheduledTripsRepository>();
-      await repository.updateTripStatus(
-        tripId: tripId,
-        tripStatus: 'returned',
-        completedAt: DateTime.now(),
-        source: 'client',
-      );
-
-      // DEPRECATED: Credit transactions should NOT be created here.
-      // Order Credit transaction should already exist from DM generation (dispatch).
-      // This code should never execute in the active flow, but kept for reference.
-      // Removing the credit transaction creation logic to prevent duplicate transactions.
-      // For pay_later: Credit was created at dispatch via DM generation.
-      // For pay_on_delivery: Credit was created at dispatch via DM generation.
-
-      // Update local state
-      setState(() {
-        _trip['orderStatus'] = 'returned';
-        _trip['tripStatus'] = 'returned';
-        _trip['finalReading'] = finalReading;
-        _trip['returnedAt'] = DateTime.now();
-        _trip['returnedBy'] = currentUser.uid;
-        _trip['returnedByRole'] = userRole;
-      });
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trip returned successfully')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to return trip: $e')),
-      );
-    }
-  }
-
-  Future<void> _undoReturn_UNUSED(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AuthColors.surface,
-        title: const Text('Undo Return', style: TextStyle(color: AuthColors.textMain)),
-        content: const Text(
-          'Are you sure you want to undo return? This will revert the trip status back to delivered.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Undo', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    final tripId = _trip['id'] as String?;
-    if (tripId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Trip ID not found')),
-        );
-      }
-      return;
-    }
-
-    try {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reverting return...')),
-      );
-
-      // Update trip status back to delivered (remove return fields)
-      final repository = context.read<ScheduledTripsRepository>();
-      await repository.updateTripStatus(
-        tripId: tripId,
-        tripStatus: 'delivered',
-        source: 'client',
-      );
-
-      // Update local state
-      setState(() {
-        _trip['orderStatus'] = 'delivered';
-        _trip['tripStatus'] = 'delivered';
-        _trip.remove('finalReading');
-        _trip.remove('returnedAt');
-        _trip.remove('returnedBy');
-        _trip.remove('returnedByRole');
-        _trip.remove('paymentDetails');
-      });
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Return reverted successfully')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to undo return: $e')),
-      );
-    }
-  }
-
-  Future<void> _undoDispatch_UNUSED(BuildContext context) async {
-    final tripId = _trip['id'] as String?;
-    if (tripId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Trip ID not found')),
-        );
-      }
-      return;
-    }
-
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AuthColors.surface,
-        title: const Text(
-          'Undo Dispatch',
-          style: TextStyle(color: AuthColors.textMain),
-        ),
-        content: const Text(
-          'Are you sure you want to undo dispatch? This will revert all dispatch changes including initial reading, dispatch timestamp, and dispatcher information.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.orange,
-            ),
-            child: const Text('Undo Dispatch'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Undoing dispatch...')),
-      );
-
-      final repository = context.read<ScheduledTripsRepository>();
-      await repository.updateTripStatus(
-        tripId: tripId,
-        tripStatus: 'scheduled',
-      );
-
-      // Update local state
-      setState(() {
-        _trip['tripStatus'] = 'scheduled';
-        _trip['orderStatus'] = 'scheduled';
-        _trip.remove('initialReading');
-        _trip.remove('dispatchedAt');
-        _trip.remove('dispatchedBy');
-        _trip.remove('dispatchedByRole');
-      });
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Dispatch undone successfully'),
-          backgroundColor: Color(0xFF4CAF50),
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to undo dispatch: $e')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
-    final tripId = _trip['id'] as String? ?? 'N/A';
     final tripStatus = (_trip['orderStatus'] ?? _trip['tripStatus'] ?? 'pending')
         .toString()
         .toLowerCase();
@@ -1099,7 +736,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                                   child: Text(
                 'Status',
                                     style: TextStyle(
-                  color: Colors.white70,
+                      color: Colors.white70,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -1114,6 +751,21 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                           ),
           ],
         ),
+        if (hasDM) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _openPrintDialog(context),
+              icon: const Icon(Icons.print_outlined, size: 18),
+              label: const Text('Print DM'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.blue.withOpacity(0.8),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        ],
                             const SizedBox(height: 12),
         const Divider(color: Colors.white24, height: 1),
         const SizedBox(height: 12),
@@ -1723,7 +1375,6 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
     final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Order Payment';
     final clientId = _trip['clientId'] as String? ?? '';
-    final orderId = _trip['orderId'] as String? ?? '';
 
     final List<String> transactionIds =
         (_trip['returnTransactions'] as List<dynamic>?)
@@ -1747,7 +1398,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           amount: amount,
           paymentAccountId: payment['paymentAccountId'] as String?,
           paymentAccountType: payment['paymentAccountType'] as String?,
-          orderId: orderId,
+          tripId: tripId,
           description: 'Trip Payment - $dmText',
           metadata: {
             'tripId': tripId,
@@ -2383,7 +2034,6 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
       final transactionsRepo = context.read<TransactionsRepository>();
       final financialYear = FinancialYearUtils.getFinancialYear(DateTime.now());
       final clientId = widget.trip['clientId'] as String? ?? '';
-      final orderId = widget.trip['orderId'] as String? ?? '';
       final dmNumber = (widget.trip['dmNumber'] as num?)?.toInt();
       final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Order Payment';
 
@@ -2402,7 +2052,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
           financialYear: financialYear,
           paymentAccountId: account.id,
           paymentAccountType: account.type.name,
-          orderId: orderId,
+          tripId: tripId,
           description: 'Trip Payment - $dmText',
           metadata: {
             'tripId': tripId,

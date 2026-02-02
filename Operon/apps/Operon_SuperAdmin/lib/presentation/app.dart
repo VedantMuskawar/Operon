@@ -37,7 +37,7 @@ class DashSuperAdminApp extends StatelessWidget {
           userChecker: userChecker,
         )..add(const AuthStatusRequested()),
         child: MaterialApp.router(
-          title: 'Dash SuperAdmin',
+          title: 'Operon Super Admin',
           routerConfig: buildRouter(),
           theme: buildDashTheme(),
           debugShowCheckedModeBanner: false,

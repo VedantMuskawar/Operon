@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:flutter/material.dart';
 
@@ -338,15 +339,14 @@ class _TripWageEmployeeSelectionDialogState extends State<TripWageEmployeeSelect
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  DashButton(
+                    label: 'Cancel',
                     onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
-                    ),
+                    variant: DashButtonVariant.text,
                   ),
                   const SizedBox(width: 12),
-                  ElevatedButton(
+                  DashButton(
+                    label: 'Save',
                     onPressed: (_loadingEmployeeIds.isEmpty && _unloadingEmployeeIds.isEmpty)
                         ? null
                         : () {
@@ -356,15 +356,6 @@ class _TripWageEmployeeSelectionDialogState extends State<TripWageEmployeeSelect
                               'sameEmployees': _sameEmployees,
                             });
                           },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary,
-                      foregroundColor: theme.colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Save'),
                   ),
                 ],
               ),

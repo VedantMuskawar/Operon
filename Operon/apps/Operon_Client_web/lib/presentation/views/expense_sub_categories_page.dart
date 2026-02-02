@@ -92,14 +92,16 @@ class _ExpenseSubCategoriesPageContentState
           style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AuthColors.error),
-            child: const Text('Delete'),
+            variant: DashButtonVariant.text,
+            isDestructive: true,
           ),
         ],
       ),
@@ -546,11 +548,13 @@ class _ExpenseSubCategoryFormDialogState
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
           onPressed: () {
             if (!(_formKey.currentState?.validate() ?? false)) return;
             final subCategory = ExpenseSubCategory(
@@ -571,7 +575,7 @@ class _ExpenseSubCategoryFormDialogState
             );
             Navigator.of(context).pop(subCategory);
           },
-          child: Text(isEditing ? 'Save' : 'Create'),
+          variant: DashButtonVariant.text,
         ),
       ],
     );

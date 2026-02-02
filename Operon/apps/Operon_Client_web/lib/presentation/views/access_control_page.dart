@@ -384,16 +384,16 @@ class _RoleManagementPanel extends StatelessWidget {
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.redAccent,
-            ),
-            child: const Text('Delete'),
+            variant: DashButtonVariant.text,
+            isDestructive: true,
           ),
         ],
       ),
@@ -1289,11 +1289,13 @@ class _RoleDialogState extends State<_RoleDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
-        TextButton(
+        DashButton(
+          label: isEditing ? 'Save' : 'Create',
           onPressed: _isSubmitting
               ? null
               : () async {
@@ -1339,13 +1341,8 @@ class _RoleDialogState extends State<_RoleDialog> {
                     }
                   }
                 },
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(isEditing ? 'Save' : 'Create'),
+          isLoading: _isSubmitting,
+          variant: DashButtonVariant.text,
         ),
       ],
     );

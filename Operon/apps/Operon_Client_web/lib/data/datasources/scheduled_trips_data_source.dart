@@ -40,6 +40,7 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
         .where('organizationId', isEqualTo: organizationId)
         .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
         .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
+        .limit(500)
         .snapshots()
         .map((snapshot) {
       final allTrips = snapshot.docs.map((doc) {

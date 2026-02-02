@@ -84,14 +84,7 @@ class _UnifiedFinancialTransactionsViewState
       lastDate: state.endDate ?? DateTime.now(),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AuthColors.primary,
-              onPrimary: AuthColors.textMain,
-              surface: AuthColors.surface,
-              onSurface: AuthColors.textMain,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -116,14 +109,7 @@ class _UnifiedFinancialTransactionsViewState
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AuthColors.primary,
-              onPrimary: AuthColors.textMain,
-              surface: AuthColors.surface,
-              onSurface: AuthColors.textMain,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -143,19 +129,14 @@ class _UnifiedFinancialTransactionsViewState
         UnifiedFinancialTransactionsState>(
       listener: (context, state) {
         if (state.status == ViewStatus.failure && state.message != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message!),
-              backgroundColor: AuthColors.error,
-            ),
-          );
+          DashSnackbar.show(context, message: state.message!, isError: true);
         }
       },
       child: SectionWorkspaceLayout(
         panelTitle: 'Financial Transactions',
         currentIndex: -1,
         onNavTap: (index) => context.go('/home?section=$index'),
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,8 +147,8 @@ class _UnifiedFinancialTransactionsViewState
               // Filter Bar (Date Range + Search + Tab Selector)
               _buildFilterBar(),
               const SizedBox(height: 24),
-              // Transaction List/Grid
-              _buildTransactionList(),
+              // Transaction list (virtualized) - takes remaining space
+              Expanded(child: _buildTransactionList()),
             ],
           ),
         ),
@@ -331,15 +312,11 @@ class _UnifiedFinancialTransactionsViewState
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
               ),
-              child: TextButton.icon(
+              child: DashButton(
+                icon: Icons.refresh,
+                label: 'Refresh',
                 onPressed: () => context.read<UnifiedFinancialTransactionsCubit>().refresh(),
-                icon: const Icon(Icons.refresh, color: AuthColors.textSub, size: 16),
-                label: const Text('Refresh', style: TextStyle(color: AuthColors.textSub, fontSize: 12)),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
+                variant: DashButtonVariant.text,
               ),
             ),
             const SizedBox(width: 12),
@@ -365,17 +342,40 @@ class _UnifiedFinancialTransactionsViewState
             final description = tx.description?.toLowerCase() ?? '';
             final reference = tx.referenceNumber?.toLowerCase() ?? '';
             final amount = tx.amount.toString();
+            final clientName = tx.clientName?.toLowerCase() ?? '';
+            final accountName = tx.paymentAccountName?.toLowerCase() ?? '';
             return description.contains(query) ||
                 reference.contains(query) ||
-                amount.contains(query);
+                amount.contains(query) ||
+                clientName.contains(query) ||
+                accountName.contains(query);
           }).toList();
         }
 
         if (isLoading && transactions.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(40),
-              child: CircularProgressIndicator(),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SkeletonLoader(
+                    height: 40,
+                    width: double.infinity,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(8, (_) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SkeletonLoader(
+                      height: 56,
+                      width: double.infinity,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  )),
+                ],
+              ),
             ),
           );
         }
@@ -406,15 +406,16 @@ class _UnifiedFinancialTransactionsViewState
           );
         }
 
-        return _buildTransactionTable(transactions);
+        return AnimatedFade(
+          duration: const Duration(milliseconds: 350),
+          child: _buildVirtualizedTransactionTable(context, transactions),
+        );
       },
     );
   }
 
-  Widget _buildTransactionTable(List<Transaction> transactions) {
-    // Build columns - Date column must be first
-    final columns = <custom_table.DataTableColumn<Transaction>>[
-      // 1st Column: Date (compact width for date/time display)
+  List<custom_table.DataTableColumn<Transaction>> _transactionColumns() {
+    return [
       custom_table.DataTableColumn<Transaction>(
         label: 'Date',
         icon: Icons.calendar_today,
@@ -433,7 +434,6 @@ class _UnifiedFinancialTransactionsViewState
           );
         },
       ),
-      // 2nd Column: Name (flexible to take remaining space)
       custom_table.DataTableColumn<Transaction>(
         label: 'Name',
         icon: Icons.person,
@@ -455,7 +455,6 @@ class _UnifiedFinancialTransactionsViewState
           );
         },
       ),
-      // 3rd Column: Reference (flexible width for reference numbers)
       custom_table.DataTableColumn<Transaction>(
         label: 'Reference',
         icon: Icons.receipt,
@@ -476,7 +475,26 @@ class _UnifiedFinancialTransactionsViewState
           );
         },
       ),
-      // 4th Column: Amount (flexible width for currency values)
+      custom_table.DataTableColumn<Transaction>(
+        label: 'Account',
+        icon: Icons.account_balance_wallet_outlined,
+        flex: 2,
+        alignment: Alignment.center,
+        cellBuilder: (context, transaction, index) {
+          final name = transaction.paymentAccountName ?? '-';
+          return Text(
+            name,
+            style: const TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 13,
+              fontFamily: 'SF Pro Display',
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          );
+        },
+      ),
       custom_table.DataTableColumn<Transaction>(
         label: 'Amount',
         icon: Icons.currency_rupee,
@@ -499,7 +517,6 @@ class _UnifiedFinancialTransactionsViewState
           );
         },
       ),
-      // 5th Column: Balance (flexible width for currency values)
       custom_table.DataTableColumn<Transaction>(
         label: 'Balance',
         icon: Icons.account_balance_wallet,
@@ -531,56 +548,114 @@ class _UnifiedFinancialTransactionsViewState
         },
       ),
     ];
+  }
 
-    return custom_table.DataTable<Transaction>(
-      columns: columns,
-      rows: transactions,
-      rowActions: [
-        custom_table.DataTableRowAction<Transaction>(
-          icon: Icons.delete_outline,
-          tooltip: 'Delete',
-          color: AuthColors.error,
-          onTap: (transaction, index) {
-            _showDeleteConfirmation(context, transaction);
-          },
+  Widget _buildVirtualizedTransactionTable(
+    BuildContext context,
+    List<Transaction> transactions,
+  ) {
+    final columns = _transactionColumns();
+    final rowActions = [
+      custom_table.DataTableRowAction<Transaction>(
+        icon: Icons.delete_outline,
+        tooltip: 'Delete',
+        color: AuthColors.error,
+        onTap: (transaction, index) {
+          _showDeleteConfirmation(context, transaction);
+        },
+      ),
+    ];
+    return Container(
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AuthColors.textMainWithOpacity(0.1),
+          width: 1,
         ),
-      ],
-      emptyStateMessage: 'No transactions found',
-      emptyStateIcon: Icons.receipt_long_outlined,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TransactionTableHeader(
+            columns: columns,
+            rowActions: rowActions,
+          ),
+          Divider(
+            height: 1,
+            color: AuthColors.textMainWithOpacity(0.12),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: transactions.length,
+              itemBuilder: (context, index) {
+                final transaction = transactions[index];
+                final isEven = index % 2 == 0;
+                final bgColor = isEven
+                    ? Colors.transparent
+                    : AuthColors.textMainWithOpacity(0.03);
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (index > 0)
+                      Divider(
+                        height: 1,
+                        color: AuthColors.textMainWithOpacity(0.12),
+                      ),
+                    _TransactionRow(
+                      transaction: transaction,
+                      rowIndex: index,
+                      columns: columns,
+                      rowActions: rowActions,
+                      backgroundColor: bgColor,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   String _getTransactionTitle(Transaction transaction) {
     switch (transaction.category) {
       case TransactionCategory.clientPayment:
-        return transaction.metadata?['clientName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'Client Payment');
+        return (transaction.clientName?.trim().isNotEmpty == true
+                ? transaction.clientName!.trim()
+                : null) ??
+            transaction.metadata?['clientName']?.toString().trim() ??
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Client Payment');
       case TransactionCategory.vendorPurchase:
         return transaction.metadata?['vendorName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'Vendor Purchase');
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Vendor Purchase');
       case TransactionCategory.vendorPayment:
         return transaction.metadata?['vendorName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'Vendor Payment');
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Vendor Payment');
       case TransactionCategory.salaryDebit:
         return transaction.metadata?['employeeName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'Salary Payment');
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Salary Payment');
       case TransactionCategory.generalExpense:
         return transaction.metadata?['subCategoryName']?.toString().trim() ??
-                (transaction.description?.isNotEmpty == true 
-                    ? transaction.description! 
-                    : 'General Expense');
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'General Expense');
       default:
-        return transaction.description?.isNotEmpty == true 
-            ? transaction.description! 
-            : 'Transaction';
+        return (transaction.clientName?.trim().isNotEmpty == true
+                ? transaction.clientName!.trim()
+                : null) ??
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Transaction');
     }
   }
 
@@ -591,11 +666,10 @@ class _UnifiedFinancialTransactionsViewState
   ) {
     // Validate transaction ID before showing dialog
     if (transaction.id.isEmpty || transaction.id.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Cannot delete transaction: Invalid transaction ID'),
-          backgroundColor: AuthColors.error,
-        ),
+      DashSnackbar.show(
+        context,
+        message: 'Cannot delete transaction: Invalid transaction ID',
+        isError: true,
       );
       return;
     }
@@ -613,19 +687,20 @@ class _UnifiedFinancialTransactionsViewState
           style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () {
               if (transaction.id.isEmpty || transaction.id.trim().isEmpty) {
                 Navigator.of(dialogContext).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Cannot delete transaction: Invalid transaction ID'),
-                    backgroundColor: AuthColors.error,
-                  ),
+                DashSnackbar.show(
+                  context,
+                  message: 'Cannot delete transaction: Invalid transaction ID',
+                  isError: true,
                 );
                 return;
               }
@@ -634,12 +709,164 @@ class _UnifiedFinancialTransactionsViewState
                   .deleteTransaction(transaction.id);
               Navigator.of(dialogContext).pop();
             },
-            style: TextButton.styleFrom(
-              foregroundColor: AuthColors.error,
-            ),
-            child: const Text('Delete'),
+            variant: DashButtonVariant.text,
+            isDestructive: true,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TransactionTableHeader extends StatelessWidget {
+  const _TransactionTableHeader({
+    required this.columns,
+    required this.rowActions,
+  });
+
+  final List<custom_table.DataTableColumn<Transaction>> columns;
+  final List<custom_table.DataTableRowAction<Transaction>> rowActions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AuthColors.textMainWithOpacity(0.15),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
+      ),
+      child: Row(
+        children: [
+          ...columns.map((column) {
+            final flex = column.flex ?? 1;
+            return Expanded(
+              flex: flex,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (column.icon != null) ...[
+                      Icon(
+                        column.icon,
+                        size: 16,
+                        color: AuthColors.textMain,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      column.label,
+                      style: const TextStyle(
+                        color: AuthColors.textMain,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'SF Pro Display',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          SizedBox(
+            width: (rowActions.length * 52).toDouble(),
+            child: const Center(
+              child: Text(
+                'Actions',
+                style: TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TransactionRow extends StatelessWidget {
+  const _TransactionRow({
+    required this.transaction,
+    required this.rowIndex,
+    required this.columns,
+    required this.rowActions,
+    required this.backgroundColor,
+  });
+
+  final Transaction transaction;
+  final int rowIndex;
+  final List<custom_table.DataTableColumn<Transaction>> columns;
+  final List<custom_table.DataTableRowAction<Transaction>> rowActions;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: backgroundColor,
+        child: Row(
+          children: [
+            ...columns.map((column) {
+              final flex = column.flex ?? 1;
+              Widget cell;
+              if (column.cellBuilder != null) {
+                cell = column.cellBuilder!(context, transaction, rowIndex);
+              } else {
+                cell = Text(
+                  transaction.toString(),
+                  style: const TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 13,
+                    fontFamily: 'SF Pro Display',
+                  ),
+                  textAlign: TextAlign.center,
+                );
+              }
+              cell = Align(
+                alignment: column.alignment,
+                child: cell,
+              );
+              return Expanded(
+                flex: flex,
+                child: cell,
+              );
+            }),
+            SizedBox(
+              width: (rowActions.length * 52).toDouble(),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: rowActions.map((action) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: IconButton(
+                      icon: Icon(
+                        action.icon,
+                        size: 24,
+                        color: action.color ?? AuthColors.textSub,
+                      ),
+                      onPressed: () => action.onTap(transaction, rowIndex),
+                      tooltip: action.tooltip,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(44, 44),
+                        padding: const EdgeInsets.all(10),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

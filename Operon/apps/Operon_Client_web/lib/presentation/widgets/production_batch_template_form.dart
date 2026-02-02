@@ -71,9 +71,7 @@ class _ProductionBatchTemplateFormState
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load employees: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to load employees: $e', isError: true);
         setState(() => _isLoadingEmployees = false);
       }
     }
@@ -83,17 +81,13 @@ class _ProductionBatchTemplateFormState
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedEmployeeIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one employee')),
-      );
+      DashSnackbar.show(context, message: 'Please select at least one employee', isError: true);
       return;
     }
 
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not authenticated')),
-      );
+      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
       return;
     }
 
@@ -135,19 +129,17 @@ class _ProductionBatchTemplateFormState
 
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.template != null
-                ? 'Batch template updated successfully'
-                : 'Batch template created successfully'),
-          ),
+        DashSnackbar.show(
+          context,
+          message: widget.template != null
+              ? 'Batch template updated successfully'
+              : 'Batch template created successfully',
+          isError: false,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -321,11 +313,12 @@ class _ProductionBatchTemplateFormState
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
+                  DashButton(
+                    label: 'Cancel',
                     onPressed: _isLoading
                         ? null
                         : () => Navigator.of(context).pop(),
-                    child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+                    variant: DashButtonVariant.text,
                   ),
                   const SizedBox(width: 12),
                   FilledButton(

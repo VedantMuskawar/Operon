@@ -143,8 +143,9 @@ export const processTripWages = onCall(
         throw new Error('Trip wage has already been processed');
       }
 
-      // Get scheduled date from DM or use payment date as fallback
+      // Get scheduled date and vehicle number from DM or use payment date as fallback
       let tripDate = parsedPaymentDate;
+      let vehicleNumber: string | undefined;
       try {
         const dmDoc = await db.collection('DELIVERY_MEMOS').doc(dmId).get();
         if (dmDoc.exists) {
@@ -155,6 +156,8 @@ export const processTripWages = onCall(
           } else if (scheduledDate?._seconds) {
             tripDate = new Date((scheduledDate as any)._seconds * 1000);
           }
+          // Get vehicle number for ledger metadata
+          vehicleNumber = dmData.vehicleNumber as string | undefined;
         }
       } catch (error) {
         logError('TripWages', 'processTripWages', 'Error fetching DM date, using payment date', error instanceof Error ? error : new Error(String(error)));
@@ -192,7 +195,7 @@ export const processTripWages = onCall(
             const transactionRef = db.collection(TRANSACTIONS_COLLECTION).doc();
             const transactionId = transactionRef.id;
 
-            const transactionData = {
+            const transactionData: any = {
               transactionId,
               organizationId,
               employeeId,
@@ -214,6 +217,11 @@ export const processTripWages = onCall(
               createdAt: admin.firestore.FieldValue.serverTimestamp(),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             };
+            
+            // Add vehicle number to metadata if available
+            if (vehicleNumber) {
+              transactionData.metadata.vehicleNumber = vehicleNumber;
+            }
 
             firestoreBatch.set(transactionRef, transactionData);
             transactionIds.push(transactionId);
@@ -244,7 +252,7 @@ export const processTripWages = onCall(
             const transactionRef = db.collection(TRANSACTIONS_COLLECTION).doc();
             const transactionId = transactionRef.id;
 
-            const transactionData = {
+            const transactionData: any = {
               transactionId,
               organizationId,
               employeeId,
@@ -266,6 +274,11 @@ export const processTripWages = onCall(
               createdAt: admin.firestore.FieldValue.serverTimestamp(),
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             };
+            
+            // Add vehicle number to metadata if available
+            if (vehicleNumber) {
+              transactionData.metadata.vehicleNumber = vehicleNumber;
+            }
 
             firestoreBatch.set(transactionRef, transactionData);
             transactionIds.push(transactionId);

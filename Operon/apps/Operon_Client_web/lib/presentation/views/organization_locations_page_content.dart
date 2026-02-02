@@ -270,19 +270,19 @@ class _LocationTile extends StatelessWidget {
                         style: const TextStyle(color: Colors.white70),
                       ),
                       actions: [
-                        TextButton(
+                        DashButton(
+                          label: 'Cancel',
                           onPressed: () => Navigator.of(ctx).pop(),
-                          child: const Text('Cancel'),
+                          variant: DashButtonVariant.text,
                         ),
-                        TextButton(
+                        DashButton(
+                          label: 'Delete',
                           onPressed: () {
                             Navigator.of(ctx).pop();
                             onDelete?.call();
                           },
-                          child: const Text(
-                            'Delete',
-                            style: TextStyle(color: Colors.red),
-                          ),
+                          variant: DashButtonVariant.text,
+                          isDestructive: true,
                         ),
                       ],
                     ),
@@ -473,9 +473,10 @@ class _LocationDialogState extends State<_LocationDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        DashButton(
+          label: 'Cancel',
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          variant: DashButtonVariant.text,
         ),
         DashButton(
           label: isEdit ? 'Update' : 'Create',
@@ -491,9 +492,7 @@ class _LocationDialogState extends State<_LocationDialog> {
     }
 
     if (_latitude == null || _longitude == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a location on the map')),
-      );
+      DashSnackbar.show(context, message: 'Please select a location on the map', isError: true);
       return;
     }
 

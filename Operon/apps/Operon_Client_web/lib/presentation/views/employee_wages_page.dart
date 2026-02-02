@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/components/data_table.dart' as custom_table;
-import 'package:core_ui/core_ui.dart' show AuthColors;
+import 'package:core_ui/core_ui.dart' show AnimatedFade, AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar, SkeletonLoader;
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_state.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
@@ -209,20 +209,18 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
       await context.read<EmployeeWagesCubit>().deleteTransaction(transactionId);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Transaction deleted successfully'),
-            backgroundColor: AuthColors.success,
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Transaction deleted successfully',
+          isError: false,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete transaction: $e'),
-            backgroundColor: AuthColors.error,
-          ),
+        DashSnackbar.show(
+          context,
+          message: 'Failed to delete transaction: $e',
+          isError: true,
         );
       }
     }
@@ -252,27 +250,19 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
           style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'Cancel',
             onPressed: () => Navigator.of(dialogContext).pop(),
-            style: TextButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Delete',
             onPressed: () {
               _deleteTransaction(transaction.id);
               Navigator.of(dialogContext).pop();
             },
-            style: TextButton.styleFrom(
-              foregroundColor: AuthColors.error,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: const Text('Delete'),
+            variant: DashButtonVariant.text,
+            isDestructive: true,
           ),
         ],
       ),
@@ -320,7 +310,31 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
       child: BlocBuilder<EmployeeWagesCubit, EmployeeWagesState>(
         builder: (context, state) {
           if (state.status == ViewStatus.loading && state.transactions.isEmpty) {
-            return _LoadingState();
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SkeletonLoader(
+                      height: 40,
+                      width: double.infinity,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    const SizedBox(height: 16),
+                    ...List.generate(8, (_) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SkeletonLoader(
+                        height: 56,
+                        width: double.infinity,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            );
           }
           if (state.status == ViewStatus.failure && state.transactions.isEmpty) {
             return _ErrorState(
@@ -389,30 +403,16 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.payments, size: 20),
-                        label: const Text('Credit Salary'),
+                      DashButton(
+                        label: 'Credit Salary',
+                        icon: Icons.payments,
                         onPressed: openCreditSalary,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AuthColors.primary,
-                          foregroundColor: AuthColors.textMain,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
                       ),
                       const SizedBox(height: 8),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.card_giftcard, size: 20),
-                        label: const Text('Record Bonus'),
+                      DashButton(
+                        label: 'Record Bonus',
+                        icon: Icons.card_giftcard,
                         onPressed: openRecordBonus,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AuthColors.accentPurple,
-                          foregroundColor: AuthColors.textMain,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
                       ),
                     ],
                   ),
@@ -516,27 +516,30 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
               else if (filtered.isEmpty)
                 _EmptyTransactionsState(onCreditSalary: openCreditSalary)
               else
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _WagesDataTable(
-                      transactions: displayList,
-                      formatCurrency: _formatCurrency,
-                      formatDate: _formatDate,
-                      employeeNames: _employeeNames,
-                      onDelete: (tx) => _showDeleteConfirmation(context, tx),
-                    ),
-                    if (usePagination) ...[
-                      const SizedBox(height: 16),
-                      _PaginationControls(
-                        currentPage: _currentPage,
-                        totalPages: _getTotalPages(filtered.length),
-                        totalItems: filtered.length,
-                        itemsPerPage: _itemsPerPage,
-                        onPageChanged: (page) => setState(() => _currentPage = page),
+                AnimatedFade(
+                  duration: const Duration(milliseconds: 350),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _WagesDataTable(
+                        transactions: displayList,
+                        formatCurrency: _formatCurrency,
+                        formatDate: _formatDate,
+                        employeeNames: _employeeNames,
+                        onDelete: (tx) => _showDeleteConfirmation(context, tx),
                       ),
+                      if (usePagination) ...[
+                        const SizedBox(height: 16),
+                        _PaginationControls(
+                          currentPage: _currentPage,
+                          totalPages: _getTotalPages(filtered.length),
+                          totalItems: filtered.length,
+                          itemsPerPage: _itemsPerPage,
+                          onPageChanged: (page) => setState(() => _currentPage = page),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
             ],
           );
@@ -687,20 +690,15 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DashCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-      ),
       child: Row(
         children: [
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: color.withValues(alpha:0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -729,25 +727,6 @@ class _StatCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoadingState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 24),
-          Text(
-            'Loading employee wages...',
-            style: const TextStyle(color: AuthColors.textSub, fontSize: 16),
           ),
         ],
       ),
@@ -786,16 +765,10 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(message, style: const TextStyle(color: AuthColors.textSub, fontSize: 14), textAlign: TextAlign.center),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+            DashButton(
+              label: 'Retry',
+              icon: Icons.refresh,
               onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AuthColors.primary,
-                foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
             ),
           ],
         ),
@@ -843,16 +816,10 @@ class _EmptyTransactionsState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.payments, size: 20),
-              label: const Text('Credit Salary'),
+            DashButton(
+              label: 'Credit Salary',
+              icon: Icons.payments,
               onPressed: onCreditSalary,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AuthColors.primary,
-                foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
             ),
           ],
         ),

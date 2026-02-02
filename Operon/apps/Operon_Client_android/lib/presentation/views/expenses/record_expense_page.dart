@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
@@ -13,6 +14,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/presentation/widgets/fuel_ledger_pdf_dialog.dart';
+import 'package:dash_mobile/data/repositories/dm_settings_repository.dart';
+import 'package:dash_mobile/data/services/dm_print_service.dart';
 
 enum ExpenseFormType {
   vendorPayment,
@@ -158,10 +162,10 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
+              primary: AuthColors.primary,
+              onPrimary: AuthColors.textMain,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
             ),
           ),
           child: child!,
@@ -184,18 +188,56 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
       final organizationId = orgState.organization?.id;
       if (organizationId == null) return;
 
-      final transactionsDataSource = TransactionsDataSource();
-      final invoices = await transactionsDataSource.fetchUnpaidVendorInvoices(
-        organizationId: organizationId,
-        vendorId: _selectedVendor!.id,
-        startDate: _invoiceDateRangeStart,
-        endDate: _invoiceDateRangeEnd,
-      );
+      final transactionsDataSource = context.read<TransactionsDataSource>();
+      List<Transaction> invoices;
+      if (_invoiceSelectionMode == 'dateRange') {
+        invoices = await transactionsDataSource.fetchUnpaidVendorInvoices(
+          organizationId: organizationId,
+          vendorId: _selectedVendor!.id,
+          startDate: _invoiceDateRangeStart,
+          endDate: _invoiceDateRangeEnd,
+          verifiedOnly: true,
+        );
+      } else {
+        // Manual selection: fetch all unpaid, then filter by voucher range
+        invoices = await transactionsDataSource.fetchUnpaidVendorInvoices(
+          organizationId: organizationId,
+          vendorId: _selectedVendor!.id,
+          verifiedOnly: true,
+        );
+      }
+
+      // Filter by invoice/voucher number range when in manual selection and range is specified
+      if (_invoiceSelectionMode == 'manualSelection') {
+        final fromNumber = _fromInvoiceNumberController.text.trim();
+        final toNumber = _toInvoiceNumberController.text.trim();
+        if (fromNumber.isNotEmpty || toNumber.isNotEmpty) {
+          invoices = invoices.where((invoice) {
+            final invoiceNumber = invoice.referenceNumber ??
+                invoice.metadata?['invoiceNumber']?.toString() ??
+                invoice.metadata?['voucherNumber']?.toString() ??
+                '';
+            if (invoiceNumber.isEmpty) return false;
+            final fromUpper = fromNumber.toUpperCase();
+            final toUpper = toNumber.toUpperCase();
+            final invUpper = invoiceNumber.toUpperCase();
+            bool matches = true;
+            if (fromNumber.isNotEmpty) {
+              matches = matches && invUpper.compareTo(fromUpper) >= 0;
+            }
+            if (toNumber.isNotEmpty) {
+              matches = matches && invUpper.compareTo(toUpper) <= 0;
+            }
+            return matches;
+          }).toList();
+        }
+      }
 
       setState(() {
         _availableInvoices = invoices;
         if (_invoiceSelectionMode == 'dateRange') {
-          // Auto-select all invoices in date range mode
+          _selectedInvoiceIds = invoices.map((inv) => inv.id).toSet();
+        } else if (_invoiceSelectionMode == 'manualSelection') {
           _selectedInvoiceIds = invoices.map((inv) => inv.id).toSet();
         }
         _updatePaymentAmount();
@@ -407,10 +449,32 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     }
   }
 
+  void _openFuelLedgerPdfDialog() {
+    if (_selectedVendor == null) return;
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final organizationId = orgState.organization?.id;
+    if (organizationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No organization selected')),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (context) => FuelLedgerPdfDialog(
+        vendor: _selectedVendor!,
+        organizationId: organizationId,
+        transactionsRepository: context.read<TransactionsRepository>(),
+        dmSettingsRepository: context.read<DmSettingsRepository>(),
+        dmPrintService: context.read<DmPrintService>(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: AuthColors.background,
       appBar: const ModernPageHeader(
         title: 'Record Expense',
       ),
@@ -431,7 +495,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     const Text(
                       'Expense Type',
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: AuthColors.textSub,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -442,6 +506,18 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     // Dynamic fields based on type
                     if (_selectedType == ExpenseFormType.vendorPayment) ...[
                       _buildVendorSelector(),
+                      if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: () => _openFuelLedgerPdfDialog(),
+                          icon: const Icon(Icons.picture_as_pdf, size: 20),
+                          label: const Text('Fuel Ledger PDF'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AuthColors.primary,
+                            side: const BorderSide(color: AuthColors.primary),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       _buildInvoiceSelectionSection(),
                     ] else if (_selectedType == ExpenseFormType.salaryDebit) ...[
@@ -453,7 +529,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     // Amount
                     TextFormField(
                       controller: _amountController,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('Amount *'),
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
@@ -480,17 +556,17 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                       child: Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1B1B2C),
+                          color: AuthColors.surface,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
                             const Icon(Icons.calendar_today,
-                                color: Colors.white54, size: 20),
+                                color: AuthColors.textSub, size: 20),
                             const SizedBox(width: 12),
                             Text(
                               _formatDate(_selectedDate),
-                              style: const TextStyle(color: Colors.white),
+                              style: const TextStyle(color: AuthColors.textMain),
                             ),
                           ],
                         ),
@@ -500,7 +576,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     // Description
                     TextFormField(
                       controller: _descriptionController,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration(
                         _selectedType == ExpenseFormType.generalExpense
                             ? 'Description *'
@@ -519,7 +595,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     // Reference Number
                     TextFormField(
                       controller: _referenceNumberController,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: AuthColors.textMain),
                       decoration: _inputDecoration('Reference Number'),
                     ),
                     const SizedBox(height: 32),
@@ -529,8 +605,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                       child: ElevatedButton(
                         onPressed: _isSubmitting ? null : _save,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6F4BFF),
-                          foregroundColor: Colors.white,
+                          backgroundColor: AuthColors.primary,
+                          foregroundColor: AuthColors.textMain,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -542,7 +618,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                                 width: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                                 ),
                               )
                             : const Text(
@@ -572,7 +648,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   Widget _buildTypeSelector() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -622,24 +698,24 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withOpacity(0.2)
+              ? AuthColors.primaryWithOpacity(0.2)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
+                ? AuthColors.primary
                 : Colors.transparent,
             width: 1.5,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFF6F4BFF) : Colors.white54, size: 20),
+            Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub, size: 20),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white54,
+                color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -661,7 +737,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         const Text(
           'Invoice Selection',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -672,7 +748,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           children: [
             Expanded(
               child: RadioListTile<String>(
-                title: const Text('Pay Selected Invoices', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                title: const Text('Pay Selected Invoices', style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
                 value: 'manualSelection',
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
@@ -686,14 +762,14 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     _availableInvoices.clear();
                   });
                 },
-                activeColor: const Color(0xFF6F4BFF),
+                activeColor: AuthColors.primary,
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
             ),
             Expanded(
               child: RadioListTile<String>(
-                title: const Text('Pay by Date Range', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                title: const Text('Pay by Date Range', style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
                 value: 'dateRange',
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
@@ -703,7 +779,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   });
                   _loadUnpaidInvoices();
                 },
-                activeColor: const Color(0xFF6F4BFF),
+                activeColor: AuthColors.primary,
                 dense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -727,10 +803,10 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                         return Theme(
                           data: Theme.of(context).copyWith(
                             colorScheme: const ColorScheme.dark(
-                              primary: Color(0xFF6F4BFF),
-                              onPrimary: Colors.white,
-                              surface: Color(0xFF1B1B2C),
-                              onSurface: Colors.white,
+                              primary: AuthColors.primary,
+                              onPrimary: AuthColors.textMain,
+                              surface: AuthColors.surface,
+                              onSurface: AuthColors.textMain,
                             ),
                           ),
                           child: child!,
@@ -747,13 +823,13 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C),
+                      color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Colors.white54, size: 18),
+                        const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           _invoiceDateRangeStart == null
@@ -761,8 +837,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                               : _formatDate(_invoiceDateRangeStart!),
                           style: TextStyle(
                             color: _invoiceDateRangeStart == null
-                                ? Colors.white54
-                                : Colors.white,
+                                ? AuthColors.textSub
+                                : AuthColors.textMain,
                             fontSize: 14,
                           ),
                         ),
@@ -784,10 +860,10 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                         return Theme(
                           data: Theme.of(context).copyWith(
                             colorScheme: const ColorScheme.dark(
-                              primary: Color(0xFF6F4BFF),
-                              onPrimary: Colors.white,
-                              surface: Color(0xFF1B1B2C),
-                              onSurface: Colors.white,
+                              primary: AuthColors.primary,
+                              onPrimary: AuthColors.textMain,
+                              surface: AuthColors.surface,
+                              onSurface: AuthColors.textMain,
                             ),
                           ),
                           child: child!,
@@ -804,13 +880,13 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C),
+                      color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Colors.white54, size: 18),
+                        const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           _invoiceDateRangeEnd == null
@@ -818,8 +894,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                               : _formatDate(_invoiceDateRangeEnd!),
                           style: TextStyle(
                             color: _invoiceDateRangeEnd == null
-                                ? Colors.white54
-                                : Colors.white,
+                                ? AuthColors.textSub
+                                : AuthColors.textMain,
                             fontSize: 14,
                           ),
                         ),
@@ -839,7 +915,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               Expanded(
                 child: TextFormField(
                   controller: _fromInvoiceNumberController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('From Invoice Number'),
                   onChanged: (_) {
                     // Debounce or trigger search on field change
@@ -855,7 +931,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               Expanded(
                 child: TextFormField(
                   controller: _toInvoiceNumberController,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('To Invoice Number'),
                   onChanged: (_) {
                     // Debounce or trigger search on field change
@@ -872,8 +948,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           const SizedBox(height: 12),
           TextButton.icon(
             onPressed: _loadUnpaidInvoices,
-            icon: const Icon(Icons.search, size: 18, color: Color(0xFF6F4BFF)),
-            label: const Text('Search Invoices', style: TextStyle(color: Color(0xFF6F4BFF))),
+            icon: const Icon(Icons.search, size: 18, color: AuthColors.primary),
+            label: const Text('Search Invoices', style: TextStyle(color: AuthColors.primary)),
           ),
           const SizedBox(height: 16),
         ],
@@ -888,7 +964,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             padding: EdgeInsets.all(16.0),
             child: Text(
               'Select date range to view invoices',
-              style: TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
             ),
           )
         else if (_availableInvoices.isEmpty)
@@ -898,16 +974,16 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               _invoiceSelectionMode == 'manualSelection' && _fromInvoiceNumberController.text.trim().isEmpty && _toInvoiceNumberController.text.trim().isEmpty
                   ? 'Enter invoice number range and click Search'
                   : 'No unpaid invoices found',
-              style: const TextStyle(color: Colors.white54, fontSize: 14),
+              style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
             ),
           )
         else
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1B1B2C),
+              color: AuthColors.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -915,7 +991,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                 Text(
                   'Found ${_availableInvoices.length} invoice${_availableInvoices.length == 1 ? '' : 's'}',
                   style: const TextStyle(
-                    color: Colors.white70,
+                    color: AuthColors.textSub,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -934,11 +1010,11 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                             children: [
                               Text(
                                 invoiceNumber,
-                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                                style: const TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w500),
                               ),
                               Text(
                                 '${_formatDate(invoice.createdAt ?? DateTime.now())} | ₹${remainingAmount.toStringAsFixed(2)}',
-                                style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                style: const TextStyle(color: AuthColors.textSub, fontSize: 11),
                               ),
                             ],
                           ),
@@ -952,7 +1028,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       '... and ${_availableInvoices.length - 5} more',
-                      style: const TextStyle(color: Colors.white54, fontSize: 12, fontStyle: FontStyle.italic),
+                      style: const TextStyle(color: AuthColors.textSub, fontSize: 12, fontStyle: FontStyle.italic),
                     ),
                   ),
               ],
@@ -964,21 +1040,21 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6F4BFF).withOpacity(0.1),
+              color: AuthColors.primaryWithOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF6F4BFF).withOpacity(0.3)),
+              border: Border.all(color: AuthColors.primaryWithOpacity(0.3)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Total Amount:',
-                  style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 Text(
                   '₹${_amountController.text.isEmpty ? "0.00" : _amountController.text}',
                   style: const TextStyle(
-                    color: Color(0xFF6F4BFF),
+                    color: AuthColors.primary,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -998,7 +1074,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         const Text(
           'Vendor *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -1006,8 +1082,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         const SizedBox(height: 8),
         DropdownButtonFormField<Vendor>(
           initialValue: _selectedVendor,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.surface,
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select vendor'),
           items: _vendors.map((vendor) {
             return DropdownMenuItem(
@@ -1037,7 +1113,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         const Text(
           'Employee *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -1045,8 +1121,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         const SizedBox(height: 8),
         DropdownButtonFormField<OrganizationEmployee>(
           initialValue: _selectedEmployee,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.surface,
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select employee'),
           items: _employees.map((employee) {
             return DropdownMenuItem(
@@ -1072,7 +1148,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         const Text(
           'Sub-Category *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -1080,8 +1156,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         const SizedBox(height: 8),
         DropdownButtonFormField<ExpenseSubCategory>(
           initialValue: _selectedSubCategory,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.surface,
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select sub-category'),
           items: _subCategories.where((sc) => sc.isActive).map((subCategory) {
             return DropdownMenuItem(
@@ -1120,7 +1196,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         const Text(
           'Payment Account *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -1138,7 +1214,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               'Select a payment account',
-              style: TextStyle(color: Colors.red.withOpacity(0.8), fontSize: 12),
+              style: TextStyle(color: AuthColors.error.withOpacity(0.8), fontSize: 12),
             ),
           ),
       ],
@@ -1173,25 +1249,25 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withOpacity(0.2)
-              : const Color(0xFF1B1B2C),
+              ? AuthColors.primaryWithOpacity(0.2)
+              : AuthColors.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.white.withOpacity(0.1),
+                ? AuthColors.primary
+                : AuthColors.textMain.withOpacity(0.1),
             width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFF6F4BFF) : Colors.white54, size: 18),
+            Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub, size: 18),
             const SizedBox(width: 8),
             Text(
               account.name,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
+                color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -1201,13 +1277,13 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6F4BFF).withOpacity(0.2),
+                  color: AuthColors.primaryWithOpacity(0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Text(
                   'Primary',
                   style: TextStyle(
-                    color: Color(0xFF6F4BFF),
+                    color: AuthColors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1224,8 +1300,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

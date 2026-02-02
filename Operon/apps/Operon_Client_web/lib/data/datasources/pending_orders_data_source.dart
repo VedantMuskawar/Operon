@@ -34,40 +34,21 @@ class PendingOrdersDataSource {
     return docRef.id;
   }
 
+  /// Returns count of pending orders for the org using Firestore count aggregation.
+  /// Note: Does not filter by hasAvailableTrips (that would require a stored field).
   Future<int> getPendingOrdersCount(String orgId) async {
-    final snapshot = await _ordersRef()
+    final query = _ordersRef()
         .where('organizationId', isEqualTo: orgId)
-        .get();
-
-    int count = 0;
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final status = data['status'] as String?;
-      final items = data['items'] as List<dynamic>? ?? [];
-      // Check if any item has available trips
-      bool hasAvailableTrips = false;
-      for (final item in items) {
-        final itemMap = item as Map<String, dynamic>?;
-        if (itemMap != null) {
-          final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
-          final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
-          if (estimatedTrips > scheduledTrips) {
-            hasAvailableTrips = true;
-            break;
-          }
-        }
-      }
-
-      if ((status == null || status == 'pending') && hasAvailableTrips) {
-        count++;
-      }
-    }
-    return count;
+        .where('status', isEqualTo: 'pending');
+    final snapshot = await query.aggregate(count()).get();
+    return snapshot.count ?? 0;
   }
 
+  /// Sum of estimated trips across pending orders. Uses .limit(500) to cap reads.
   Future<int> getTotalPendingTrips(String orgId) async {
     final snapshot = await _ordersRef()
         .where('organizationId', isEqualTo: orgId)
+        .limit(500)
         .get();
 
     int totalTrips = 0;
@@ -90,6 +71,7 @@ class PendingOrdersDataSource {
     final snapshot = await _ordersRef()
         .where('organizationId', isEqualTo: orgId)
         .orderBy('createdAt', descending: true)
+        .limit(100)
         .get();
 
     final orders = <Map<String, dynamic>>[];
@@ -126,6 +108,7 @@ class PendingOrdersDataSource {
     return _ordersRef()
         .where('organizationId', isEqualTo: orgId)
         .orderBy('createdAt', descending: true)
+        .limit(100)
         .snapshots()
         .map((snapshot) {
           final orders = <Map<String, dynamic>>[];

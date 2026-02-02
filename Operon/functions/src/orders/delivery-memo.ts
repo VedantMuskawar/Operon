@@ -228,7 +228,7 @@ export const generateDM = onCall(async (request) => {
             type: 'credit', // Credit = client owes us (increases receivable)
             category: 'clientCredit', // Client owes (PayLater order)
             amount: tripTotal,
-            orderId: tripData.orderId || '',
+            tripId, // Schedule Trip document ID
             description: `Order Credit - DM-${result.dmNumber} (${paymentType === 'pay_later' ? 'Pay Later' : 'Pay on Delivery'})`,
             metadata: {
               tripId,

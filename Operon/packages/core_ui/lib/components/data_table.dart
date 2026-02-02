@@ -65,6 +65,7 @@ class DataTable<T> extends StatelessWidget {
     this.borderRadius = 12,
     this.headerBackgroundColor,
     this.rowBackgroundColor,
+    this.rowBackgroundColorBuilder,
     this.hoverColor,
     this.stickyHeader = false,
   });
@@ -96,8 +97,11 @@ class DataTable<T> extends StatelessWidget {
   /// Background color for header row
   final Color? headerBackgroundColor;
 
-  /// Background color for data rows
+  /// Background color for data rows (used when rowBackgroundColorBuilder is null)
   final Color? rowBackgroundColor;
+
+  /// Optional per-row background color (overrides rowBackgroundColor when set)
+  final Color? Function(T row, int index)? rowBackgroundColorBuilder;
 
   /// Background color when row is hovered
   final Color? hoverColor;
@@ -139,33 +143,36 @@ class DataTable<T> extends StatelessWidget {
                   color: AuthColors.textMainWithOpacity(0.12),
                 ),
               ],
-              // Use Column instead of ListView when we have bounded constraints
-              if (constraints.maxWidth.isFinite)
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (int index = 0; index < rows.length; index++) ...[
-                      if (index > 0)
-                        Divider(
-                          height: 1,
-                          color: AuthColors.textMainWithOpacity(0.12),
-                        ),
-                      _TableRow<T>(
-                        row: rows[index],
+              // When height is bounded, use scrollable ListView to virtualize rows; otherwise shrinkWrap
+              if (constraints.maxHeight.isFinite)
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: rows.length,
+                    separatorBuilder: (context, index) => Divider(
+                      height: 1,
+                      color: AuthColors.textMainWithOpacity(0.12),
+                    ),
+                    itemBuilder: (context, index) {
+                      final row = rows[index];
+                      final isEven = index % 2 == 0;
+                      final defaultBg = isEven
+                          ? Colors.transparent
+                          : AuthColors.textMainWithOpacity(0.03);
+                      return _TableRow<T>(
+                        row: row,
                         rowIndex: index,
                         columns: columns,
                         rowActions: rowActions,
                         onTap: onRowTap != null
-                            ? () => onRowTap!(rows[index], index)
+                            ? () => onRowTap!(row, index)
                             : null,
-                        backgroundColor: rowBackgroundColor ?? 
-                            (index % 2 == 0 
-                                ? Colors.transparent 
-                                : AuthColors.textMainWithOpacity(0.03)),
+                        backgroundColor: rowBackgroundColorBuilder != null
+                            ? (rowBackgroundColorBuilder!(row, index) ?? defaultBg)
+                            : (rowBackgroundColor ?? defaultBg),
                         hoverColor: hoverColor,
-                      ),
-                    ],
-                  ],
+                      );
+                    },
+                  ),
                 )
               else
                 ListView.separated(
@@ -178,8 +185,10 @@ class DataTable<T> extends StatelessWidget {
                   ),
                   itemBuilder: (context, index) {
                     final row = rows[index];
-                    // Alternate row colors for better readability
                     final isEven = index % 2 == 0;
+                    final defaultBg = isEven
+                        ? Colors.transparent
+                        : AuthColors.textMainWithOpacity(0.03);
                     return _TableRow<T>(
                       row: row,
                       rowIndex: index,
@@ -188,10 +197,9 @@ class DataTable<T> extends StatelessWidget {
                       onTap: onRowTap != null
                           ? () => onRowTap!(row, index)
                           : null,
-                      backgroundColor: rowBackgroundColor ?? 
-                          (isEven 
-                              ? Colors.transparent 
-                              : AuthColors.textMainWithOpacity(0.03)),
+                      backgroundColor: rowBackgroundColorBuilder != null
+                          ? (rowBackgroundColorBuilder!(row, index) ?? defaultBg)
+                          : (rowBackgroundColor ?? defaultBg),
                       hoverColor: hoverColor,
                     );
                   },
@@ -272,7 +280,7 @@ class _TableHeader<T> extends StatelessWidget {
           if (rowActions != null && rowActions!.isNotEmpty) ...[
             const SizedBox(width: 16),
             SizedBox(
-              width: (rowActions!.length * 40).toDouble(),
+              width: (rowActions!.length * 52).toDouble(),
               child: const Center(
                 child: Text(
                   'Actions',
@@ -376,20 +384,25 @@ class _TableRowState<T> extends State<_TableRow<T>> {
               if (widget.rowActions != null && widget.rowActions!.isNotEmpty) ...[
                 const SizedBox(width: 16),
                 SizedBox(
-                  width: (widget.rowActions!.length * 40).toDouble(),
+                  width: (widget.rowActions!.length * 52).toDouble(),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: widget.rowActions!.map((action) {
-                      return IconButton(
-                        icon: Icon(
-                          action.icon,
-                          size: 18,
-                          color: action.color ?? AuthColors.textSub,
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: IconButton(
+                          icon: Icon(
+                            action.icon,
+                            size: 24,
+                            color: action.color ?? AuthColors.textSub,
+                          ),
+                          onPressed: () => action.onTap(widget.row, widget.rowIndex),
+                          tooltip: action.tooltip,
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                            padding: const EdgeInsets.all(10),
+                          ),
                         ),
-                        onPressed: () => action.onTap(widget.row, widget.rowIndex),
-                        tooltip: action.tooltip,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
                       );
                     }).toList(),
                   ),

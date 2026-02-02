@@ -109,7 +109,7 @@ class _CreateOrganizationDialogState extends State<CreateOrganizationDialog> {
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
-                            ?.copyWith(color: Colors.redAccent),
+                            ?.copyWith(color: AuthColors.error),
                       ),
                     ],
                   ],
@@ -184,14 +184,14 @@ class _Input extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           hint,
-          style: theme.textTheme.bodySmall?.copyWith(color: Colors.white54),
+          style: theme.textTheme.bodySmall?.copyWith(color: AuthColors.textSub),
         ),
         if (error != null) ...[
           const SizedBox(height: 4),
           Text(
             error!,
             style:
-                theme.textTheme.bodySmall?.copyWith(color: Colors.redAccent),
+                theme.textTheme.bodySmall?.copyWith(color: AuthColors.error),
           ),
         ],
       ],

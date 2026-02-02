@@ -1,15 +1,21 @@
+import 'dart:async';
+
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/data/repositories/delivery_memo_repository.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
-import 'package:dash_web/presentation/widgets/dm_preview_modal.dart';
+import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/schedule_trip_modal.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:core_models/core_models.dart' hide LatLng;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:typed_data';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class ScheduledTripTile extends StatefulWidget {
   const ScheduledTripTile({
@@ -27,8 +33,130 @@ class ScheduledTripTile extends StatefulWidget {
   State<ScheduledTripTile> createState() => _ScheduledTripTileState();
 }
 
-class _ScheduledTripTileState extends State<ScheduledTripTile> {
+class _ScheduledTripTileState extends State<ScheduledTripTile>
+    with TickerProviderStateMixin {
   bool _isRescheduling = false;
+  bool _isExpanded = false;
+  late AnimationController _pulseController;
+  late AnimationController _expansionController;
+  late Animation<double> _pulseAnimation;
+  StreamSubscription<DatabaseEvent>? _locationSubscription;
+  DriverLocation? _currentLocation;
+  bool _hasLocationTracking = false;
+  GoogleMapController? _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _pulseAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _pulseController,
+        curve: Curves.easeInOut,
+      ),
+    );
+    
+    _expansionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    
+    // Start pulsing if trip is overdue
+    if (_isOverdue()) {
+      _pulseController.repeat(reverse: true);
+    }
+    
+    // Check for location tracking
+    _checkLocationTracking();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _expansionController.dispose();
+    _locationSubscription?.cancel();
+    _mapController?.dispose();
+    super.dispose();
+  }
+  
+  void _updateMapLocation() {
+    if (!mounted || _mapController == null || _currentLocation == null) return;
+    
+    _mapController!.animateCamera(
+      CameraUpdate.newLatLng(
+        LatLng(
+          _currentLocation!.lat,
+          _currentLocation!.lng,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkLocationTracking() async {
+    final driverId = widget.trip['driverId'] as String?;
+    if (driverId == null || driverId.isEmpty) return;
+
+    // Check if location tracking is active in RTDB
+    if (!kIsWeb) return;
+
+    try {
+      final app = Firebase.app();
+      final db = FirebaseDatabase.instanceFor(
+        app: app,
+        databaseURL: app.options.databaseURL ?? 'https://operonappsuite-default-rtdb.firebaseio.com',
+      );
+
+      final ref = db.ref('active_drivers/$driverId');
+      _locationSubscription = ref.onValue.listen((event) {
+        if (!mounted) return;
+        
+        final value = event.snapshot.value;
+        if (value != null && value is Map) {
+          if (!mounted) return;
+          setState(() {
+            _hasLocationTracking = true;
+            try {
+              final json = <String, dynamic>{};
+              for (final kv in value.entries) {
+                json[kv.key.toString()] = kv.value;
+              }
+              _currentLocation = DriverLocation.fromJson(json);
+              // Update map if expanded
+              if (_isExpanded) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _updateMapLocation();
+                });
+              }
+            } catch (e) {
+              debugPrint('Error parsing location: $e');
+            }
+          });
+        } else {
+          if (!mounted) return;
+          setState(() {
+            _hasLocationTracking = false;
+            _currentLocation = null;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('Error checking location tracking: $e');
+    }
+  }
+
+  void _toggleExpansion() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _expansionController.forward();
+      } else {
+        _expansionController.reverse();
+      }
+    });
+  }
 
   Color _getStatusColor() {
     final tripStatus = widget.trip['tripStatus'] as String? ?? 
@@ -50,15 +178,77 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
     }
   }
 
+  int _getActiveStepCount() {
+    final tripStatus = widget.trip['tripStatus'] as String? ?? 
+                       widget.trip['orderStatus'] as String? ?? 
+                       'scheduled';
+    switch (tripStatus.toLowerCase()) {
+      case 'scheduled':
+        return 1;
+      case 'dispatched':
+        return 2;
+      case 'delivered':
+        return 3;
+      case 'returned':
+        return 4;
+      default:
+        return 1;
+    }
+  }
+
+  bool _isOverdue() {
+    final tripStatus = widget.trip['tripStatus'] as String? ?? 
+                       widget.trip['orderStatus'] as String? ?? 
+                       'scheduled';
+    
+    // Only check overdue for scheduled trips
+    if (tripStatus.toLowerCase() != 'scheduled') {
+      return false;
+    }
+
+    // Get scheduled date
+    final scheduledDate = widget.trip['scheduledDate'];
+    if (scheduledDate == null) return false;
+
+    DateTime scheduledDateTime;
+    if (scheduledDate is DateTime) {
+      scheduledDateTime = scheduledDate;
+    } else if (scheduledDate is Map) {
+      // Handle Firestore Timestamp format
+      final seconds = scheduledDate['_seconds'] as int?;
+      if (seconds != null) {
+        scheduledDateTime = DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+      } else {
+        return false; // Can't determine, skip overdue check
+      }
+    } else {
+      return false; // Can't determine, skip overdue check
+    }
+
+    // Get slot number (assuming slots are hourly, starting from 0 or 1)
+    final slot = widget.trip['slot'] as int? ?? 0;
+    
+    // Calculate slot time (assuming 8 AM start, each slot is 1 hour)
+    // Adjust this logic based on your actual slot system
+    // For now, we'll use a simple approach: scheduled date + slot hours
+    final slotTime = DateTime(
+      scheduledDateTime.year,
+      scheduledDateTime.month,
+      scheduledDateTime.day,
+      8 + slot, // Start at 8 AM, add slot hours
+    );
+    
+    // Check if current time is past slot time
+    return DateTime.now().isAfter(slotTime);
+  }
+
   Future<void> _generateDM() async {
     final orgContext = context.read<OrganizationContextCubit>().state;
     final organization = orgContext.organization;
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (organization == null || currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Organization or user not found')),
-      );
+      DashSnackbar.show(context, message: 'Organization or user not found', isError: true);
       return;
     }
 
@@ -66,9 +256,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
     final scheduleTripId = widget.trip['scheduleTripId'] as String?;
 
     if (tripId == null || scheduleTripId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trip ID or Schedule Trip ID not found')),
-      );
+      DashSnackbar.show(context, message: 'Trip ID or Schedule Trip ID not found', isError: true);
       return;
     }
 
@@ -76,9 +264,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       final dmRepo = context.read<DeliveryMemoRepository>();
       
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Generating DM...')),
-      );
+      DashSnackbar.show(context, message: 'Generating DM...', isError: false);
 
       final dmId = await dmRepo.generateDM(
         organizationId: organization.id,
@@ -89,18 +275,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('DM generated: $dmId')),
-      );
+      DashSnackbar.show(context, message: 'DM generated: $dmId', isError: false);
       
       if (widget.onTripsUpdated != null) {
         widget.onTripsUpdated!();
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to generate DM: $e')),
-      );
+      DashSnackbar.show(context, message: 'Failed to generate DM: $e', isError: true);
     }
   }
 
@@ -108,18 +290,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not found')),
-      );
+      DashSnackbar.show(context, message: 'User not found', isError: true);
       return;
     }
 
     final tripId = widget.trip['id'] as String?;
 
     if (tripId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trip ID not found')),
-      );
+      DashSnackbar.show(context, message: 'Trip ID not found', isError: true);
       return;
     }
 
@@ -136,16 +314,16 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
           style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
+          DashButton(
+            label: 'No',
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('No'),
+            variant: DashButtonVariant.text,
           ),
-          TextButton(
+          DashButton(
+            label: 'Yes, Cancel',
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Yes, Cancel',
-              style: TextStyle(color: AuthColors.error),
-            ),
+            variant: DashButtonVariant.text,
+            isDestructive: true,
           ),
         ],
       ),
@@ -157,9 +335,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       final dmRepo = context.read<DeliveryMemoRepository>();
       
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cancelling DM...')),
-      );
+      DashSnackbar.show(context, message: 'Cancelling DM...', isError: false);
 
       await dmRepo.cancelDM(
         tripId: tripId,
@@ -167,18 +343,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('DM cancelled successfully')),
-      );
+      DashSnackbar.show(context, message: 'DM cancelled successfully', isError: false);
       
       if (widget.onTripsUpdated != null) {
         widget.onTripsUpdated!();
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to cancel DM: $e')),
-      );
+      DashSnackbar.show(context, message: 'Failed to cancel DM: $e', isError: true);
     }
   }
 
@@ -207,88 +379,71 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       return;
     }
 
+    // Show loading overlay while fetching DM data
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Center(
+        child: Card(
+          color: AuthColors.surface,
+          child: const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: AuthColors.info),
+                SizedBox(height: 16),
+                Text('Loading DM...', style: TextStyle(color: AuthColors.textMain)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
     try {
       final printService = context.read<DmPrintService>();
-      
-      // Load full DM document from Firestore
+
+      // Load full DM document from Firestore, or convert from trip data if DM doesn't exist
       final dmData = await printService.fetchDmByNumberOrId(
         organizationId: organization.id,
         dmNumber: dmNumber,
         dmId: dmId,
+        tripData: widget.trip, // Pass trip data as fallback
       );
+
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
 
       if (dmData == null) {
         DashSnackbar.show(
           context,
-          message: 'DM not found',
+          message: 'DM not found and unable to generate from trip data',
           isError: true,
         );
         return;
       }
 
-      // Show loading dialog while generating HTML
-      if (!mounted) return;
+      final resolvedDmNumber = (dmData['dmNumber'] as int?) ?? dmNumber ?? 0;
+      if (!context.mounted) return;
       showDialog(
         context: context,
-        barrierDismissible: false,
-        builder: (context) => Center(
-          child: Card(
-            color: AuthColors.surface,
-            child: const Padding(
-              padding: EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(color: AuthColors.info),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading DM Preview...',
-                    style: TextStyle(color: AuthColors.textMain),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-      try {
-        // Generate preview content (HTML for universal, PDF for custom)
-        if (!mounted) return;
-        final previewContent = await printService.generateDmPreviewContent(
+        builder: (_) => DmPrintDialog(
+          dmPrintService: printService,
           organizationId: organization.id,
           dmData: dmData,
-        );
-        
-        // Close loading dialog
-        if (!mounted) return;
-        Navigator.of(context).pop();
-        
-        if (!mounted) return;
-        // Show preview in modal
-        await DmPreviewModal.show(
-          context: context,
-          htmlString: previewContent['type'] == 'html' 
-              ? previewContent['content'] as String? 
-              : null,
-          pdfBytes: previewContent['type'] == 'pdf' 
-              ? previewContent['content'] as Uint8List? 
-              : null,
-        );
-      } catch (e) {
-        // Close loading dialog on error
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-        rethrow;
-      }
-    } catch (e) {
-      if (!mounted) return;
-      DashSnackbar.show(
-        context,
-        message: 'Failed to print DM: ${e.toString()}',
-        isError: true,
+          dmNumber: resolvedDmNumber,
+        ),
       );
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+        DashSnackbar.show(
+          context,
+          message: 'Failed to print DM: ${e.toString()}',
+          isError: true,
+        );
+      }
     }
   }
 
@@ -343,21 +498,20 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
               ),
             ),
             actions: [
-              TextButton(
+              DashButton(
+                label: 'Cancel',
                 onPressed: () => Navigator.of(context).pop(null),
-                child: const Text('Cancel'),
+                variant: DashButtonVariant.text,
               ),
-              TextButton(
+              DashButton(
+                label: 'Reschedule',
                 onPressed: reasonController.text.trim().isEmpty
                     ? null
                     : () => Navigator.of(context).pop({
                           'confirmed': true,
                           'reason': reasonController.text.trim(),
                         }),
-                child: const Text(
-                  'Reschedule',
-                  style: TextStyle(color: AuthColors.warning),
-                ),
+                variant: DashButtonVariant.text,
               ),
             ],
           );
@@ -379,9 +533,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
     try {
       final tripId = widget.trip['id'] as String?;
       if (tripId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Trip ID not found')),
-        );
+        DashSnackbar.show(context, message: 'Trip ID not found', isError: true);
         return;
       }
 
@@ -401,8 +553,10 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                              widget.trip['clientPhone'] as String?;
 
       if (orderId == null || clientId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Order or client information not available')),
+        DashSnackbar.show(
+          context,
+          message: 'Order or client information not available',
+          isError: true,
         );
         return;
       }
@@ -412,7 +566,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       
       if (customerNumber != null && customerNumber.isNotEmpty) {
         try {
-          final client = await clientsRepo.findClientByPhone(customerNumber);
+          final orgId = context.read<OrganizationContextCubit>().state.organization?.id ?? '';
+          final client = await clientsRepo.findClientByPhone(orgId, customerNumber);
           if (client != null) {
             clientPhones = client.phones;
             if (clientPhones.isEmpty && client.primaryPhone != null) {
@@ -462,9 +617,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to reschedule trip: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to reschedule trip: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -484,7 +637,6 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
     final zoneText = deliveryZone != null
         ? '${deliveryZone['region'] ?? ''}, ${deliveryZone['city_name'] ?? deliveryZone['city'] ?? ''}'
         : 'N/A';
-    final statusColor = _getStatusColor();
     
     final items = widget.trip['items'] as List<dynamic>? ?? [];
     final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
@@ -510,6 +662,10 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
     // DM generation should only be available for scheduled trips (DM required before dispatch)
     final canGenerateDM = tripStatus.toLowerCase() == 'scheduled' && !hasDM;
 
+    final isOverdue = _isOverdue();
+    final activeStepCount = _getActiveStepCount();
+    final statusColor = _getStatusColor();
+
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 600),
       child: Material(
@@ -520,7 +676,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
           child: Container(
-            padding: const EdgeInsets.only(left: 20, top: 20, right: 20, bottom: 0),
+            padding: const EdgeInsets.only(left: 20, top: 20, right: 20, bottom: 16),
             decoration: BoxDecoration(
               color: statusColor,
               borderRadius: BorderRadius.circular(16),
@@ -540,6 +696,96 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Status Stepper
+                _TripStatusStepper(
+                  activeStepCount: activeStepCount,
+                  isOverdue: isOverdue,
+                  pulseAnimation: isOverdue ? _pulseAnimation : null,
+                ),
+                const SizedBox(height: 16),
+                
+                // Location Tracking Expand Button (if active)
+                if (_hasLocationTracking)
+                  InkWell(
+                    onTap: _toggleExpansion,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AuthColors.success.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AuthColors.success.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 16,
+                            color: AuthColors.success,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Location Tracking Active',
+                            style: TextStyle(
+                              color: AuthColors.success,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          AnimatedRotation(
+                            turns: _isExpanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 300),
+                            child: Icon(
+                              Icons.expand_more,
+                              size: 20,
+                              color: AuthColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (_hasLocationTracking) const SizedBox(height: 12),
+                
+                // Overdue Badge
+                if (isOverdue)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AuthColors.error.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AuthColors.error.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            size: 14,
+                            color: AuthColors.error,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Overdue',
+                            style: TextStyle(
+                              color: AuthColors.error,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                
                 // Header: Client Name and Vehicle & Slot
                 Row(
                   children: [
@@ -681,8 +927,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                       ),
                       child: Text(
                         'Qty: $fixedQuantityPerTrip',
-                        style: TextStyle(
-                          color: AuthColors.success,
+                        style: const TextStyle(
+                          color: Color(0xFF1B5E20),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -822,13 +1068,13 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                           const Icon(
                             Icons.receipt_long,
                             size: 14,
-                            color: AuthColors.info,
+                            color: Color(0xFF0D47A1),
                           ),
                           const SizedBox(width: 6),
                           Text(
                             'DM Generated: $dmNumber',
                             style: const TextStyle(
-                              color: AuthColors.info,
+                              color: Color(0xFF0D47A1),
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -860,9 +1106,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                             icon: Icons.visibility_outlined,
                             label: 'View DM',
                             color: AuthColors.info.withOpacity(0.3),
-                            onTap: () {
-                              // TODO: Navigate to DM view
-                            },
+                            onTap: () => DashSnackbar.show(context, message: 'Feature under development'),
                           ),
                         ),
                         // Only allow canceling DM if trip is still scheduled (DM required before dispatch)
@@ -911,6 +1155,95 @@ class _ScheduledTripTileState extends State<ScheduledTripTile> {
                       isFullWidth: true,
                     ),
                 ],
+                
+                // Expanded Location Map
+                if (_hasLocationTracking)
+                  SizeTransition(
+                    sizeFactor: _expansionController,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 16),
+                        Divider(color: AuthColors.textMainWithOpacity(0.1)),
+                        const SizedBox(height: 12),
+                        Container(
+                          height: 200,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AuthColors.textMainWithOpacity(0.1),
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: _currentLocation != null && kIsWeb
+                              ? GoogleMap(
+                                  key: ValueKey('map_${_currentLocation!.lat}_${_currentLocation!.lng}'),
+                                  initialCameraPosition: CameraPosition(
+                                    target: LatLng(
+                                      _currentLocation!.lat,
+                                      _currentLocation!.lng,
+                                    ),
+                                    zoom: 15,
+                                  ),
+                                  markers: {
+                                    Marker(
+                                      markerId: const MarkerId('current_location'),
+                                      position: LatLng(
+                                        _currentLocation!.lat,
+                                        _currentLocation!.lng,
+                                      ),
+                                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                                        BitmapDescriptor.hueGreen,
+                                      ),
+                                    ),
+                                  },
+                                  mapToolbarEnabled: false,
+                                  zoomControlsEnabled: true,
+                                  compassEnabled: true,
+                                  onMapCreated: (controller) {
+                                    if (!mounted) return;
+                                    _mapController = controller;
+                                    controller.setMapStyle(darkMapStyle);
+                                    // Center on current location
+                                    if (_currentLocation != null && mounted) {
+                                      controller.animateCamera(
+                                        CameraUpdate.newLatLng(
+                                          LatLng(
+                                            _currentLocation!.lat,
+                                            _currentLocation!.lng,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                )
+                              : Container(
+                                  color: AuthColors.surface,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.location_off,
+                                          size: 48,
+                                          color: AuthColors.textSub,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Waiting for location...',
+                                          style: TextStyle(
+                                            color: AuthColors.textSub,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -980,5 +1313,140 @@ class _ActionButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _TripStatusStepper extends StatelessWidget {
+  const _TripStatusStepper({
+    required this.activeStepCount,
+    required this.isOverdue,
+    this.pulseAnimation,
+  });
+
+  final int activeStepCount;
+  final bool isOverdue;
+  final Animation<double>? pulseAnimation;
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = [
+      'Scheduled',
+      'Dispatched',
+      'Delivered',
+      'Returned',
+    ];
+
+    // Use white tones so stepper is readable on any status card (red/orange/blue/green)
+    final activeColor = Colors.white;
+    final inactiveColor = Colors.white.withOpacity(0.35);
+
+    Widget stepperWidget = Row(
+      children: List.generate(steps.length, (index) {
+        final isActive = index < activeStepCount;
+        final isLast = index == steps.length - 1;
+
+        return Expanded(
+          child: Row(
+            children: [
+              // Step segment
+              Expanded(
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isActive ? activeColor : inactiveColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Arrow connector (except for last step)
+              if (!isLast)
+                Container(
+                  width: 8,
+                  height: 4,
+                  color: Colors.transparent,
+                  child: CustomPaint(
+                    painter: _ArrowPainter(
+                      color: isActive && index + 1 < activeStepCount
+                          ? activeColor
+                          : inactiveColor,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
+
+    // Apply pulsing animation if overdue
+    if (isOverdue && pulseAnimation != null) {
+      stepperWidget = AnimatedBuilder(
+        animation: pulseAnimation!,
+        builder: (context, child) {
+          return Opacity(
+            opacity: pulseAnimation!.value,
+            child: child,
+          );
+        },
+        child: stepperWidget,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        stepperWidget,
+        const SizedBox(height: 8),
+        // Step labels
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(steps.length, (index) {
+            final isActive = index < activeStepCount;
+            return Expanded(
+              child: Text(
+                steps[index],
+                style: TextStyle(
+                  color: isActive
+                      ? activeColor
+                      : Colors.white.withOpacity(0.7),
+                  fontSize: 10,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _ArrowPainter extends CustomPainter {
+  _ArrowPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    path.moveTo(0, size.height / 2);
+    path.lineTo(size.width - 2, 0);
+    path.lineTo(size.width, size.height / 2);
+    path.lineTo(size.width - 2, size.height);
+    path.close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_ArrowPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

@@ -76,14 +76,7 @@ class _AttendanceViewContentState extends State<_AttendanceViewContent> {
       lastDate: lastDate,
       builder: (context, child) {
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AuthColors.primary,
-              onPrimary: AuthColors.textMain,
-              surface: AuthColors.surface,
-              onSurface: AuthColors.textMain,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -130,13 +123,9 @@ class _AttendanceViewContentState extends State<_AttendanceViewContent> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
+                DashButton(
+                  label: 'Retry',
                   onPressed: () => context.read<AttendanceCubit>().refresh(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AuthColors.primary,
-                    foregroundColor: AuthColors.textMain,
-                  ),
-                  child: const Text('Retry'),
                 ),
               ],
             ),
@@ -178,16 +167,11 @@ class _AttendanceViewContentState extends State<_AttendanceViewContent> {
                       ),
                     ),
                     const Spacer(),
-                    OutlinedButton.icon(
+                    DashButton(
+                      icon: Icons.calendar_today,
+                      label: '${_formatMonthYear(_selectedStartDate)} - ${_formatMonthYear(_selectedEndDate)}',
                       onPressed: () => _selectDateRange(context),
-                      icon: const Icon(Icons.calendar_today, size: 18),
-                      label: Text(
-                        '${_formatMonthYear(_selectedStartDate)} - ${_formatMonthYear(_selectedEndDate)}',
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AuthColors.textMain,
-                        side: const BorderSide(color: AuthColors.primary),
-                      ),
+                      variant: DashButtonVariant.outlined,
                     ),
                   ],
                 ),
@@ -282,16 +266,8 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return DashCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

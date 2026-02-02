@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:flutter/material.dart';
 
 class QuickActionItem {
@@ -154,7 +155,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                     return Opacity(
                       opacity: _fadeAnimation.value,
                       child: Container(
-                        color: Colors.black.withOpacity(0.5 * _fadeAnimation.value),
+                        color: AuthColors.background.withOpacity(0.5 * _fadeAnimation.value),
                       ),
                     );
                   },
@@ -225,18 +226,18 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                             end: Alignment.bottomRight,
                             colors: _isExpanded
                                 ? [
-                                    const Color(0xFF6F4BFF),
-                                    const Color(0xFF5A3FD9),
+                                    AuthColors.primary,
+                                    AuthColors.primaryVariant,
                                   ]
                                 : [
-                                    const Color(0xFF6F4BFF),
-                                    const Color(0xFF8B6FFF),
+                                    AuthColors.primary,
+                                    AuthColors.accentPurple,
                                   ],
                           ),
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF6F4BFF).withOpacity(
+                              color: AuthColors.primary.withOpacity(
                                 _isExpanded ? 0.5 : 0.4,
                               ),
                               blurRadius: _isExpanded ? 20 : 12,
@@ -247,7 +248,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                         ),
                         child: Icon(
                           _isExpanded ? Icons.close : Icons.add,
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           size: 24,
                         ),
                       ),
@@ -285,15 +286,15 @@ class _ActionButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF1B1B2C),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.15),
+              color: AuthColors.textMainWithOpacity(0.15),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: AuthColors.background.withOpacity(0.4),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
                 spreadRadius: 0,
@@ -311,14 +312,14 @@ class _ActionButton extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF6F4BFF),
-                      Color(0xFF8B6FFF),
+                      AuthColors.primary,
+                      AuthColors.accentPurple,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF6F4BFF).withOpacity(0.3),
+                      color: AuthColors.primaryWithOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -326,15 +327,15 @@ class _ActionButton extends StatelessWidget {
                 ),
                 child: Icon(
                   icon,
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 12),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AuthColors.textMain,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.2,

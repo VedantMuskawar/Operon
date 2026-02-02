@@ -17,30 +17,6 @@ import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_polyline_algorithm/google_polyline_algorithm.dart';
 
-// #region agent log
-import 'dart:html' as html;
-void _debugLog(String location, String message, Map<String, dynamic> data, String hypothesisId) {
-  if (kIsWeb) {
-    try {
-      final payload = jsonEncode({
-        'location': location,
-        'message': message,
-        'data': data,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'sessionId': 'debug-session',
-        'runId': 'run1',
-        'hypothesisId': hypothesisId,
-      });
-      html.HttpRequest.request(
-        'http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',
-        method: 'POST',
-        requestHeaders: {'Content-Type': 'application/json'},
-        sendData: payload,
-      ).catchError((_) => html.HttpRequest());
-    } catch (_) {}
-  }
-}
-// #endregion
 
 sealed class FleetEvent {
   const FleetEvent();
@@ -445,8 +421,6 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           .where('slot', isEqualTo: event.slot)
           .get();
 
-      debugPrint('[FleetBloc] Found ${tripsSnapshot.docs.length} trips for Date/Vehicle/Slot search');
-
       if (tripsSnapshot.docs.isEmpty) {
         emit(state.copyWith(
           status: ViewStatus.success,
@@ -456,12 +430,6 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           message: 'No trip found for the specified Date/Vehicle/Slot',
         ));
         return;
-      }
-
-      // Debug: Print trip details
-      for (final doc in tripsSnapshot.docs) {
-        final data = doc.data();
-        debugPrint('[FleetBloc] Trip ${doc.id}: vehicleNumber=${data['vehicleNumber']}, routePolyline=${data['routePolyline'] != null ? 'exists (${(data['routePolyline'] as String).length} chars)' : 'null'}, routePointCount=${data['routePointCount']}');
       }
 
       // Load history for the matching trip(s)
@@ -485,7 +453,6 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     ));
 
     try {
-      debugPrint('[FleetBloc] Searching for DM number: ${event.dmNumber} (type: ${event.dmNumber.runtimeType}), orgId: ${event.organizationId}');
       
       // Query SCHEDULE_TRIPS by DM number
       // Try both int and string in case of type mismatch
@@ -498,11 +465,9 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
       
       // If no results, try as string
       if (tripsSnapshot.docs.isEmpty) {
-        debugPrint('[FleetBloc] No results with int, trying as string...');
         tripsSnapshot = await query.where('dmNumber', isEqualTo: event.dmNumber.toString()).get();
       }
 
-      debugPrint('[FleetBloc] Found ${tripsSnapshot.docs.length} trips for DM number ${event.dmNumber}');
 
       if (tripsSnapshot.docs.isEmpty) {
         emit(state.copyWith(
@@ -518,7 +483,6 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
       // Debug: Print trip details
       for (final doc in tripsSnapshot.docs) {
         final data = doc.data();
-        debugPrint('[FleetBloc] Trip ${doc.id}: vehicleNumber=${data['vehicleNumber']}, routePolyline=${data['routePolyline'] != null ? 'exists (${(data['routePolyline'] as String).length} chars)' : 'null'}, routePointCount=${data['routePointCount']}');
       }
 
       // Get the scheduled date from the first trip
@@ -587,8 +551,6 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     // Try new polyline format first
     final routePolyline = tripData?['routePolyline'] as String?;
     if (routePolyline != null && routePolyline.isNotEmpty) {
-      debugPrint('[FleetBloc] Found routePolyline for trip ${tripDoc.id}: ${routePolyline.length} chars, ${tripData?['routePointCount'] ?? 'unknown'} points');
-      
       // Get trip timestamps for approximate location timestamps
       final dispatchedAt = tripData?['dispatchedAt'] as Timestamp?;
       final deliveredAt = tripData?['deliveredAt'] as Timestamp?;
@@ -602,17 +564,10 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           deliveredAt?.millisecondsSinceEpoch ?? 
           startTimestamp + const Duration(hours: 2).inMilliseconds;
       
-      debugPrint('[FleetBloc] Decoding polyline: start=${DateTime.fromMillisecondsSinceEpoch(startTimestamp)}, end=${DateTime.fromMillisecondsSinceEpoch(endTimestamp)}');
-      
       final locations = _decodePolylineToLocations(routePolyline, startTimestamp, endTimestamp);
       if (locations.isNotEmpty) {
-        debugPrint('[FleetBloc] Decoded ${locations.length} locations from polyline');
         return locations;
-      } else {
-        debugPrint('[FleetBloc] Polyline decoding returned empty locations');
       }
-    } else {
-      debugPrint('[FleetBloc] No routePolyline found for trip ${tripDoc.id}, trying history subcollection...');
     }
 
     // Fallback to legacy history subcollection
@@ -670,11 +625,9 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
         final allLocations = await _loadTripLocations(tripDoc);
 
         if (allLocations.isEmpty) {
-          debugPrint('[FleetBloc] No locations found for trip ${tripDoc.id}');
           continue;
         }
 
-        debugPrint('[FleetBloc] Loaded ${allLocations.length} locations for trip ${tripDoc.id}');
 
         // Create polyline from all locations to show full route
         if (allLocations.length > 1) {
@@ -1347,6 +1300,12 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
       state.selectedFilter,
       state.drivers,
     );
+  }
+
+  void _debugLog(String location, String message, Map<String, dynamic> data, String level) {
+    if (kDebugMode) {
+      debugPrint('[$level] $location: $message ${data.isNotEmpty ? data : ""}');
+    }
   }
 
   @override

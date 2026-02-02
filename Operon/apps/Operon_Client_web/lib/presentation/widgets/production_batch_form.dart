@@ -1,5 +1,6 @@
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashFormField, DashSnackbar, DashTheme;
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
 import 'package:dash_web/domain/entities/organization_employee.dart';
@@ -42,6 +43,7 @@ class ProductionBatchForm extends StatefulWidget {
 
 class _ProductionBatchFormState extends State<ProductionBatchForm> {
   final _formKey = GlobalKey<FormState>();
+  final _batchDateController = TextEditingController();
   final _bricksProducedController = TextEditingController();
   final _bricksStackedController = TextEditingController();
   final _notesController = TextEditingController();
@@ -62,6 +64,10 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
   double? _totalWages;
   double? _wagePerEmployee;
 
+  void _updateBatchDateDisplay() {
+    _batchDateController.text = '${_batchDate.day}/${_batchDate.month}/${_batchDate.year}';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -76,11 +82,13 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
       _totalWages = widget.batch!.totalWages;
       _wagePerEmployee = widget.batch!.wagePerEmployee;
     }
+    _updateBatchDateDisplay();
     _loadData();
   }
 
   @override
   void dispose() {
+    _batchDateController.dispose();
     _bricksProducedController.dispose();
     _bricksStackedController.dispose();
     _notesController.dispose();
@@ -108,26 +116,11 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
         }
         _isLoadingData = false;
       });
-      
-      // Debug: Print wage settings status
-      if (kDebugMode) {
-        print('Wage Settings loaded: ${settings != null}');
-        if (settings != null) {
-          print('Wage Settings enabled: ${settings.enabled}');
-          final productionMethods = settings.calculationMethods.values
-              .where((m) => m.enabled && m.methodType == WageMethodType.production)
-              .toList();
-          print('Production methods found: ${productionMethods.length}');
-          print('Selected method ID: $_selectedMethodId');
-        }
-      }
 
       _updateWagePreview();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error loading data: $e', isError: true);
         setState(() => _isLoadingData = false);
       }
     }
@@ -187,14 +180,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
-            ),
-          ),
+          data: DashTheme.light(),
           child: child!,
         );
       },
@@ -202,6 +188,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
     if (picked != null) {
       setState(() {
         _batchDate = picked;
+        _updateBatchDateDisplay();
       });
     }
   }
@@ -236,32 +223,24 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedMethodId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a wage method')),
-      );
+      DashSnackbar.show(context, message: 'Please select a wage method', isError: true);
       return;
     }
 
     if (_selectedEmployeeIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one employee')),
-      );
+      DashSnackbar.show(context, message: 'Please select at least one employee', isError: true);
       return;
     }
 
     // Validate wage calculation can be performed
     if (_totalWages == null || _wagePerEmployee == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to calculate wages. Please check your inputs.')),
-      );
+      DashSnackbar.show(context, message: 'Unable to calculate wages. Please check your inputs.', isError: true);
       return;
     }
 
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User not authenticated')),
-      );
+      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
       return;
     }
 
@@ -321,10 +300,6 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
 
         final batchId = await cubit.createBatch(batch);
         
-        if (kDebugMode) {
-          print('[ProductionBatchForm] Created batch with ID: $batchId');
-        }
-        
         if (batchId.isEmpty) {
           throw Exception('Failed to create batch: batchId is empty');
         }
@@ -332,19 +307,17 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.batch != null
-                ? 'Batch updated and wages calculated successfully'
-                : 'Batch created and wages calculated successfully'),
-          ),
+        DashSnackbar.show(
+          context,
+          message: widget.batch != null
+              ? 'Batch updated and wages calculated successfully'
+              : 'Batch created and wages calculated successfully',
+          isError: false,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        DashSnackbar.show(context, message: 'Error: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -460,40 +433,16 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: TextFormField(
-                                    readOnly: true,
-                                    controller: TextEditingController(
-                                      text: '${_batchDate.day}/${_batchDate.month}/${_batchDate.year}',
-                                    ),
-                                    decoration: InputDecoration(
-                                      labelText: 'Batch Date',
-                                      labelStyle: const TextStyle(color: Colors.white70),
-                                      suffixIcon: const Icon(Icons.calendar_today,
-                                          color: Colors.white70),
-                                      filled: true,
-                                      fillColor: Colors.white.withValues(alpha: 0.05),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(alpha: 0.2),
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(alpha: 0.2),
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFF6F4BFF),
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                    style: const TextStyle(color: Colors.white),
+                                  child: InkWell(
                                     onTap: _selectDate,
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: DashFormField(
+                                      controller: _batchDateController,
+                                      label: 'Batch Date',
+                                      readOnly: true,
+                                      prefix: Icon(Icons.calendar_today, color: AuthColors.textSub),
+                                      style: TextStyle(color: AuthColors.textMain),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -813,35 +762,11 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: TextFormField(
+                                  child: DashFormField(
                                     controller: _bricksProducedController,
-                                    decoration: InputDecoration(
-                                      labelText: 'Bricks Produced (Y) *',
-                                      labelStyle: const TextStyle(color: Colors.white70),
-                                      filled: true,
-                                      fillColor: Colors.white.withValues(alpha: 0.05),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(alpha: 0.2),
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(alpha: 0.2),
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFF6F4BFF),
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                    style: const TextStyle(color: Colors.white),
+                                    label: 'Bricks Produced (Y) *',
                                     keyboardType: TextInputType.number,
+                                    style: TextStyle(color: AuthColors.textMain),
                                     validator: (value) {
                                       if (value == null || value.isEmpty) {
                                         return 'Please enter bricks produced';
@@ -856,35 +781,11 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
-                                  child: TextFormField(
+                                  child: DashFormField(
                                     controller: _bricksStackedController,
-                                    decoration: InputDecoration(
-                                      labelText: 'Bricks Stacked (Z) *',
-                                      labelStyle: const TextStyle(color: Colors.white70),
-                                      filled: true,
-                                      fillColor: Colors.white.withValues(alpha: 0.05),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(alpha: 0.2),
-                                        ),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Colors.white.withValues(alpha: 0.2),
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: const BorderSide(
-                                          color: Color(0xFF6F4BFF),
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                    style: const TextStyle(color: Colors.white),
+                                    label: 'Bricks Stacked (Z) *',
                                     keyboardType: TextInputType.number,
+                                    style: TextStyle(color: AuthColors.textMain),
                                     validator: (value) {
                                       if (value == null || value.isEmpty) {
                                         return 'Please enter bricks stacked';
@@ -1072,35 +973,11 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                               const SizedBox(height: 24),
                             ],
                             // Notes
-                            TextFormField(
+                            DashFormField(
                               controller: _notesController,
-                              decoration: InputDecoration(
-                                labelText: 'Notes (Optional)',
-                                labelStyle: const TextStyle(color: Colors.white70),
-                                filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.05),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFF6F4BFF),
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              style: const TextStyle(color: Colors.white),
+                              label: 'Notes (Optional)',
                               maxLines: 3,
+                              style: TextStyle(color: AuthColors.textMain),
                             ),
                           ],
                         ),
@@ -1143,59 +1020,19 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                             const SizedBox.shrink(),
                           Row(
                             children: [
-                              OutlinedButton(
+                              DashButton(
+                                label: 'Cancel',
                                 onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.white70,
-                                  side: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 14,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text('Cancel'),
+                                variant: DashButtonVariant.text,
                               ),
                               const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                onPressed: _isLoading || _totalWages == null ? null : _submit,
-                                icon: _isLoading
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
-                                      )
-                                    : Icon(
-                                        widget.batch != null
-                                            ? Icons.update_outlined
-                                            : Icons.check_circle_outline,
-                                        size: 18,
-                                      ),
-                                label: Text(
-                                  widget.batch != null ? 'Update Batch' : 'Create Batch',
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _totalWages == null
-                                      ? Colors.grey
-                                      : const Color(0xFF4CAF50),
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 28,
-                                    vertical: 14,
-                                  ),
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
+                              DashButton(
+                                label: widget.batch != null ? 'Update Batch' : 'Create Batch',
+                                icon: widget.batch != null
+                                    ? Icons.update_outlined
+                                    : Icons.check_circle_outline,
+                                onPressed: (_isLoading || _totalWages == null) ? null : _submit,
+                                isLoading: _isLoading,
                               ),
                             ],
                           ),

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dash_web/domain/entities/payment_account.dart';
 
+/// Data source for payment accounts (PAYMENT_ACCOUNTS subcollection).
+/// Queries are capped at 500; document count per org is expected to be low (<50). Monitor if growth is possible.
 class PaymentAccountsDataSource {
   PaymentAccountsDataSource({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -15,7 +17,7 @@ class PaymentAccountsDataSource {
   }
 
   Future<List<PaymentAccount>> fetchAccounts(String orgId) async {
-    final snapshot = await _accountsRef(orgId).orderBy('name').get();
+    final snapshot = await _accountsRef(orgId).orderBy('name').limit(500).get();
     return snapshot.docs
         .map((doc) => PaymentAccount.fromJson(doc.data(), doc.id))
         .toList();

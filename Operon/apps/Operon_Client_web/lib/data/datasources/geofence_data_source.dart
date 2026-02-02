@@ -17,6 +17,7 @@ class GeofenceDataSource {
   Future<List<Geofence>> fetchGeofences(String orgId) async {
     final snapshot = await _geofencesCollection(orgId)
         .orderBy('created_at', descending: true)
+        .limit(500)
         .get();
     return snapshot.docs
         .map((doc) => Geofence.fromMap(doc.data(), doc.id))
@@ -27,6 +28,7 @@ class GeofenceDataSource {
     final snapshot = await _geofencesCollection(orgId)
         .where('is_active', isEqualTo: true)
         .orderBy('created_at', descending: true)
+        .limit(500)
         .get();
     return snapshot.docs
         .map((doc) => Geofence.fromMap(doc.data(), doc.id))

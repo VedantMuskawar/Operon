@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors;
-import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal, LedgerPdfPreviewModal;
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar;
+import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal, OperonPdfPreviewModal;
 import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, generateLedgerPdf, LedgerRowData;
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/raw_materials_repository.dart';
@@ -133,15 +133,11 @@ class _VendorDetailModalState extends State<VendorDetailModal> {
         final cubit = context.read<VendorsCubit>();
         await cubit.deleteVendor(vendor.id);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vendor deleted.')),
-        );
+        DashSnackbar.show(context, message: 'Vendor deleted.', isError: false);
         Navigator.of(context).pop();
       } catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to delete vendor: $error')),
-        );
+        DashSnackbar.show(context, message: 'Unable to delete vendor: $error', isError: true);
       }
     }
   }
@@ -555,7 +551,7 @@ class _OverviewSection extends StatelessWidget {
                 child: _SummaryCard(
                   label: 'Opening Balance',
                   value: _formatCurrency(vendor.openingBalance),
-                  color: const Color(0xFF2196F3),
+                  color: AuthColors.info,
                 ),
               ),
               const SizedBox(width: 12),
@@ -563,7 +559,7 @@ class _OverviewSection extends StatelessWidget {
                 child: _SummaryCard(
                   label: 'Net Change',
                   value: '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())}',
-                  color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                  color: isPositive ? AuthColors.success : AuthColors.error,
                 ),
               ),
             ],
@@ -689,7 +685,7 @@ class _OverviewSection extends StatelessWidget {
                   if (isLoadingMaterials)
                     const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFF6F4BFF),
+                        color: AuthColors.accentPurple,
                       ),
                     )
                   else if (assignedMaterials == null || assignedMaterials?.isEmpty == true)
@@ -766,23 +762,15 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
+    return DashCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
             style: const TextStyle(
-              color: Colors.white70,
+              color: AuthColors.textSub,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -1075,9 +1063,9 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
-                        ElevatedButton(
+                        DashButton(
+                          label: 'Retry',
                           onPressed: _loadTransactions,
-                          child: const Text('Retry'),
                         ),
                       ],
                     ),
@@ -1149,9 +1137,7 @@ class _LedgerTable extends StatelessWidget {
       final organization = orgContext.organization;
       if (organization == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No organization selected')),
-        );
+        DashSnackbar.show(context, message: 'No organization selected', isError: true);
         return;
       }
 
@@ -1244,9 +1230,7 @@ class _LedgerTable extends StatelessWidget {
       final dmSettings = await dmSettingsRepo.fetchDmSettings(organization.id);
       if (dmSettings == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('DM settings not found. Please configure DM settings first.')),
-        );
+        DashSnackbar.show(context, message: 'DM settings not found. Please configure DM settings first.', isError: true);
         return;
       }
 
@@ -1281,7 +1265,7 @@ class _LedgerTable extends StatelessWidget {
       Navigator.of(context).pop();
 
       // Show PDF preview modal
-      await LedgerPdfPreviewModal.show(
+      await OperonPdfPreviewModal.show(
         context: context,
         pdfBytes: pdfBytes,
         title: 'Ledger of $vendorName',
@@ -1289,9 +1273,7 @@ class _LedgerTable extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // Close loading if still open
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to generate ledger PDF: $e')),
-        );
+        DashSnackbar.show(context, message: 'Failed to generate ledger PDF: $e', isError: true);
       }
     }
   }
@@ -1355,13 +1337,11 @@ class _LedgerTable extends StatelessWidget {
                 fontFamily: 'SF Pro Display',
               ),
             ),
-            TextButton.icon(
+            DashButton(
+              label: 'Generate Ledger',
+              icon: Icons.picture_as_pdf,
               onPressed: () => _generateLedgerPdf(context),
-              icon: const Icon(Icons.picture_as_pdf, size: 18),
-              label: const Text('Generate Ledger'),
-              style: TextButton.styleFrom(
-                foregroundColor: AuthColors.primary,
-              ),
+              variant: DashButtonVariant.text,
             ),
           ],
         ),
@@ -1637,25 +1617,18 @@ class _DeleteVendorDialog extends StatelessWidget {
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFED5A5A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
+              child: DashButton(
+                label: 'Delete vendor',
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete vendor'),
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: TextButton(
+              child: DashButton(
+                label: 'Cancel',
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                variant: DashButtonVariant.text,
               ),
             ),
           ],

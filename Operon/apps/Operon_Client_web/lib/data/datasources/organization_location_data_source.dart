@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_models/core_models.dart';
 import 'package:flutter/foundation.dart';
 
+/// Data source for organization locations (LOCATIONS subcollection).
+/// Queries are capped at 500; document count per org is expected to be low (<50). Monitor if growth is possible.
 class OrganizationLocationDataSource {
   OrganizationLocationDataSource({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -23,22 +25,14 @@ class OrganizationLocationDataSource {
 
   Future<List<OrganizationLocation>> fetchLocations(String orgId) async {
     QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _locationsCollection(orgId).get();
-    if (kDebugMode) {
-      final path = 'ORGANIZATIONS/$orgId/$_locCollectionName';
-      // ignore: avoid_print
-      print('[OrganizationLocationDataSource] fetchLocations: $path → ${snapshot.docs.length} docs');
-    }
+        await _locationsCollection(orgId).limit(500).get();
     if (snapshot.docs.isEmpty) {
       final alt = await _firestore
           .collection('ORGANIZATIONS')
           .doc(orgId)
           .collection('locations')
+          .limit(500)
           .get();
-      if (kDebugMode && alt.docs.isNotEmpty) {
-        // ignore: avoid_print
-        print('[OrganizationLocationDataSource] Found ${alt.docs.length} docs in "locations" (lowercase). Use LOCATIONS to match.');
-      }
       if (alt.docs.isNotEmpty) {
         snapshot = alt;
       }

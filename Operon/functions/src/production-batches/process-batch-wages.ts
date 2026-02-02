@@ -172,6 +172,12 @@ export const processProductionBatchWages = onCall(
       const organizationId = batchData.organizationId as string;
       const batchDate = (batchData.batchDate as admin.firestore.Timestamp)?.toDate() || parsedPaymentDate;
       const status = batchData.status as string;
+      
+      // Get batch details for ledger metadata
+      const productName = batchData.productName as string | undefined;
+      const productId = batchData.productId as string | undefined;
+      const totalBricksProduced = batchData.totalBricksProduced as number | undefined;
+      const totalBricksStacked = batchData.totalBricksStacked as number | undefined;
 
       if (!totalWages || !wagePerEmployee || employeeIds.length === 0) {
         throw new Error('Batch does not have calculated wages or is invalid');
@@ -208,7 +214,7 @@ export const processProductionBatchWages = onCall(
           const transactionRef = db.collection(TRANSACTIONS_COLLECTION).doc();
           const transactionId = transactionRef.id;
 
-          const transactionData = {
+          const transactionData: any = {
             transactionId,
             organizationId,
             employeeId,
@@ -228,6 +234,20 @@ export const processProductionBatchWages = onCall(
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           };
+          
+          // Add batch details to metadata if available
+          if (productName) {
+            transactionData.metadata.productName = productName;
+          }
+          if (productId) {
+            transactionData.metadata.productId = productId;
+          }
+          if (totalBricksProduced !== undefined) {
+            transactionData.metadata.totalBricksProduced = totalBricksProduced;
+          }
+          if (totalBricksStacked !== undefined) {
+            transactionData.metadata.totalBricksStacked = totalBricksStacked;
+          }
 
           firestoreBatch.set(transactionRef, transactionData);
           transactionIds.push(transactionId);

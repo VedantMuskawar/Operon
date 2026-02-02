@@ -9,6 +9,7 @@ import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/data/services/qr_code_service.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:core_bloc/core_bloc.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:flutter/material.dart';
@@ -80,10 +81,10 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         return Theme(
           data: ThemeData.dark().copyWith(
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF6F4BFF),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1B1B2C),
-              onSurface: Colors.white,
+              primary: AuthColors.primary,
+              onPrimary: AuthColors.textMain,
+              surface: AuthColors.surface,
+              onSurface: AuthColors.textMain,
             ),
           ),
           child: child!,
@@ -102,7 +103,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   Future<void> _pickReceiptPhoto() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: const Color(0xFF1B1B2C),
+      backgroundColor: AuthColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -111,13 +112,13 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.white),
-              title: const Text('Choose from Gallery', style: TextStyle(color: Colors.white)),
+              leading: const Icon(Icons.photo_library, color: AuthColors.textMain),
+              title: const Text('Choose from Gallery', style: TextStyle(color: AuthColors.textMain)),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.white),
-              title: const Text('Take Photo', style: TextStyle(color: Colors.white)),
+              leading: const Icon(Icons.camera_alt, color: AuthColors.textMain),
+              title: const Text('Take Photo', style: TextStyle(color: AuthColors.textMain)),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
           ],
@@ -153,7 +154,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Split amounts (${_formatCurrency(totalSplit)}) must equal total amount (${_formatCurrency(amount)})'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
         return;
@@ -171,7 +172,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
 
     if (organization == null) {
       return const Scaffold(
-        backgroundColor: Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         body: Center(child: Text('Please select an organization')),
       );
     }
@@ -182,7 +183,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message!),
-              backgroundColor: Colors.green,
+              backgroundColor: AuthColors.success,
             ),
           );
           if (state.selectedClientId != null && state.paymentAmount != null) {
@@ -197,14 +198,14 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message!),
-              backgroundColor: Colors.red,
+              backgroundColor: AuthColors.error,
             ),
           );
         }
       },
       builder: (context, state) {
         return Scaffold(
-          backgroundColor: const Color(0xFF000000),
+          backgroundColor: AuthColors.background,
           appBar: const ModernPageHeader(
             title: 'Record Payment',
           ),
@@ -270,17 +271,17 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: hasClient ? Colors.white24 : Colors.white12,
+            color: hasClient ? AuthColors.textMainWithOpacity(0.24) : AuthColors.textMainWithOpacity(0.12),
           ),
         ),
         child: Row(
           children: [
             Icon(
               Icons.person,
-              color: hasClient ? Colors.white : Colors.white54,
+              color: hasClient ? AuthColors.textMain : AuthColors.textSub,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -290,7 +291,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                   Text(
                     state.selectedClientName ?? 'Select Client',
                     style: TextStyle(
-                      color: hasClient ? Colors.white : Colors.white54,
+                      color: hasClient ? AuthColors.textMain : AuthColors.textSub,
                       fontSize: 16,
                       fontWeight: hasClient ? FontWeight.w600 : FontWeight.normal,
                     ),
@@ -298,7 +299,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white54),
+            const Icon(Icons.chevron_right, color: AuthColors.textSub),
           ],
         ),
       ),
@@ -309,17 +310,17 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: balance >= 0 ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+        color: balance >= 0 ? AuthColors.success.withOpacity(0.1) : AuthColors.error.withOpacity(0.1),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: balance >= 0 ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3),
+          color: balance >= 0 ? AuthColors.success.withOpacity(0.3) : AuthColors.error.withOpacity(0.3),
         ),
       ),
       child: Row(
         children: [
           Icon(
             balance >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
-            color: balance >= 0 ? Colors.green : Colors.red,
+            color: balance >= 0 ? AuthColors.success : AuthColors.error,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -328,13 +329,13 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               children: [
                 const Text(
                   'Current Balance',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _formatCurrency(balance.abs()),
                   style: TextStyle(
-                    color: balance >= 0 ? Colors.green : Colors.red,
+                    color: balance >= 0 ? AuthColors.success : AuthColors.error,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -351,24 +352,24 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     return TextFormField(
       controller: _amountController,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: const TextStyle(color: Colors.white, fontSize: 18),
+      style: const TextStyle(color: AuthColors.textMain, fontSize: 18),
       decoration: InputDecoration(
         labelText: 'Payment Amount',
-        labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: const Icon(Icons.currency_rupee, color: Colors.white54),
+        labelStyle: const TextStyle(color: AuthColors.textSub),
+        prefixIcon: const Icon(Icons.currency_rupee, color: AuthColors.textSub),
         filled: true,
-        fillColor: const Color(0xFF1B1B2C),
+        fillColor: AuthColors.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Colors.white12),
+          borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+          borderSide: const BorderSide(color: AuthColors.primary, width: 2),
         ),
       ),
       validator: (value) {
@@ -391,13 +392,13 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, color: Colors.white54),
+            const Icon(Icons.calendar_today, color: AuthColors.textSub),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -405,19 +406,19 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 children: [
                   const Text(
                     'Payment Date',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _selectedDate != null
                         ? '${_selectedDate!.day} ${_getMonthName(_selectedDate!.month)} ${_selectedDate!.year}'
                         : 'Select date',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white54),
+            const Icon(Icons.chevron_right, color: AuthColors.textSub),
           ],
         ),
       ),
@@ -430,7 +431,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       children: [
         const Text(
           'Receipt Photo (Optional)',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+          style: TextStyle(color: AuthColors.textSub, fontSize: 14),
         ),
         const SizedBox(height: 12),
         if (state.receiptPhoto != null)
@@ -441,7 +442,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
@@ -455,9 +456,9 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 top: 8,
                 right: 8,
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
+                  icon: const Icon(Icons.close, color: AuthColors.textMain),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.black54,
+                    backgroundColor: AuthColors.background.withOpacity(0.54),
                   ),
                   onPressed: () => context.read<PaymentsCubit>().removeReceiptPhoto(),
                 ),
@@ -472,18 +473,18 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               height: 120,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(14),
-                border: const Border.fromBorderSide(BorderSide(color: Colors.white12)),
+                border: Border.fromBorderSide(BorderSide(color: AuthColors.textMainWithOpacity(0.12))),
               ),
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_photo_alternate, color: Colors.white54, size: 40),
+                  Icon(Icons.add_photo_alternate, color: AuthColors.textSub, size: 40),
                   SizedBox(height: 8),
                   Text(
                     'Add Receipt Photo',
-                    style: TextStyle(color: Colors.white54),
+                    style: TextStyle(color: AuthColors.textSub),
                   ),
                 ],
               ),
@@ -528,7 +529,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 children: [
                   const Text(
                     'Payment Accounts (Optional)',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                   ),
                   if (hasSplits && totalAmount > 0)
                     Text(
@@ -539,8 +540,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                               : 'Balanced',
                       style: TextStyle(
                         color: remaining.abs() < 0.01
-                            ? Colors.green
-                            : Colors.orange,
+                            ? AuthColors.success
+                            : AuthColors.warning,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -587,8 +588,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     return ElevatedButton(
       onPressed: isEnabled ? _submitPayment : null,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF6F4BFF),
-        disabledBackgroundColor: Colors.grey[800],
+        backgroundColor: AuthColors.primary,
+        disabledBackgroundColor: AuthColors.surface,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
@@ -600,12 +601,12 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               width: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
               ),
             )
           : const Text(
               'Record Payment',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+              style: TextStyle(color: AuthColors.textMain, fontSize: 16, fontWeight: FontWeight.w600),
             ),
     );
   }
@@ -644,7 +645,7 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
       height: MediaQuery.of(context).size.height * 0.8,
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
-        color: Color(0xFF1B1B2C),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
@@ -654,24 +655,24 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
             height: 4,
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: Colors.white24,
+              color: AuthColors.textMainWithOpacity(0.24),
               borderRadius: BorderRadius.circular(999),
             ),
           ),
           const Text(
             'Select Client',
-            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 20),
           TextField(
             controller: _searchController,
             autofocus: true,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: AuthColors.textMain),
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search, color: Colors.white54),
+              prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white54),
+                      icon: const Icon(Icons.close, color: AuthColors.textSub),
                       onPressed: () {
                         _searchController.clear();
                         context.read<ClientsCubit>().search('');
@@ -679,9 +680,9 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
                     )
                   : null,
               hintText: 'Search clients by name or phone',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: TextStyle(color: AuthColors.textMainWithOpacity(0.38)),
               filled: true,
-              fillColor: const Color(0xFF252530),
+              fillColor: AuthColors.backgroundAlt,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
@@ -706,7 +707,7 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
                       state.searchQuery.isEmpty
                           ? 'No recent clients'
                           : 'No clients found',
-                      style: const TextStyle(color: Colors.white54),
+                      style: const TextStyle(color: AuthColors.textSub),
                     ),
                   );
                 }
@@ -717,15 +718,15 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
                     final client = clients[index];
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: const Color(0xFF6F4BFF),
+                        backgroundColor: AuthColors.primary,
                         child: Text(
                           client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
-                          style: const TextStyle(color: Colors.white),
+                          style: const TextStyle(color: AuthColors.textMain),
                         ),
                       ),
-                      title: Text(client.name, style: const TextStyle(color: Colors.white)),
+                      title: Text(client.name, style: const TextStyle(color: AuthColors.textMain)),
                       subtitle: client.primaryPhone != null
-                          ? Text(client.primaryPhone!, style: const TextStyle(color: Colors.white54))
+                          ? Text(client.primaryPhone!, style: const TextStyle(color: AuthColors.textSub))
                           : null,
                       onTap: () => Navigator.pop(context, client),
                     );
@@ -809,9 +810,9 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF1B1B2C),
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white12),
+            border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -823,7 +824,7 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
               const SizedBox(width: 8),
               Text(
                 widget.account.name,
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
               ),
             ],
           ),
@@ -834,10 +835,10 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF6F4BFF).withOpacity(0.5),
+          color: AuthColors.primaryWithOpacity(0.5),
           width: 2,
         ),
       ),
@@ -856,11 +857,11 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
               Expanded(
                 child: Text(
                   widget.account.name,
-                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(color: AuthColors.textMain, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                icon: const Icon(Icons.close, size: 18, color: AuthColors.textSub),
                 onPressed: widget.onTap,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -873,24 +874,24 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
             child: TextFormField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
               decoration: InputDecoration(
                 labelText: 'Amount',
-                labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
-                prefixIcon: const Icon(Icons.currency_rupee, color: Colors.white54, size: 16),
+                labelStyle: const TextStyle(color: AuthColors.textSub, fontSize: 12),
+                prefixIcon: const Icon(Icons.currency_rupee, color: AuthColors.textSub, size: 16),
                 filled: true,
-                fillColor: const Color(0xFF252530),
+                fillColor: AuthColors.backgroundAlt,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Colors.white12),
+                  borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+                  borderSide: const BorderSide(color: AuthColors.primary, width: 2),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),

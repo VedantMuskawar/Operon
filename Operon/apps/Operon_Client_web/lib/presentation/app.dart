@@ -3,6 +3,7 @@ import 'package:dash_web/config/app_router.dart';
 import 'package:dash_web/config/app_theme.dart';
 import 'package:core_datasources/core_datasources.dart'
     hide ScheduledTripsDataSource, ScheduledTripsRepository;
+import 'package:dash_web/data/datasources/bonus_settings_data_source.dart';
 import 'package:dash_web/data/datasources/employees_data_source.dart';
 import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_web/data/datasources/app_access_roles_data_source.dart';
@@ -12,6 +13,7 @@ import 'package:dash_web/data/datasources/clients_data_source.dart';
 import 'package:dash_web/data/datasources/pending_orders_data_source.dart';
 import 'package:dash_web/data/datasources/scheduled_trips_data_source.dart';
 import 'package:dash_web/data/repositories/auth_repository.dart';
+import 'package:dash_web/data/repositories/bonus_settings_repository.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
@@ -40,6 +42,7 @@ import 'package:dash_web/presentation/blocs/app_initialization/app_initializatio
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_selector/org_selector_cubit.dart';
+import 'package:dash_web/presentation/blocs/analytics_dashboard/analytics_dashboard_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -149,6 +152,11 @@ class DashWebApp extends StatelessWidget {
             dataSource: EmployeeWagesDataSource(),
           ),
         ),
+        RepositoryProvider<BonusSettingsRepository>(
+          create: (_) => BonusSettingsRepository(
+            dataSource: BonusSettingsDataSource(),
+          ),
+        ),
         RepositoryProvider<TransactionsRepository>(
           create: (_) => TransactionsRepository(
             dataSource: TransactionsDataSource(),
@@ -234,20 +242,25 @@ class DashWebApp extends StatelessWidget {
               appAccessRolesRepository: context.read<AppAccessRolesRepository>(),
             ),
           ),
+          BlocProvider<AnalyticsDashboardCubit>(
+            create: (context) => AnalyticsDashboardCubit(
+              analyticsRepository: context.read<AnalyticsRepository>(),
+            ),
+          ),
         ],
         child: Builder(
           builder: (context) {
             final router = buildRouter();
-            
+
             return BlocListener<AppInitializationCubit, AppInitializationState>(
               listener: (context, state) {
                 // Handle navigation at app level for hot restart cases
                 if (state.status == AppInitializationStatus.contextRestored) {
                   final orgState = context.read<OrganizationContextCubit>().state;
                   if (orgState.hasSelection) {
-                    final currentRoute = GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+                    final currentRoute = router.routerDelegate.currentConfiguration.uri.path;
                     if (currentRoute != '/home') {
-                      context.go('/home');
+                      router.go('/home');
                     }
                   }
                 }

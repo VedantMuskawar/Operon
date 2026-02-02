@@ -40,6 +40,7 @@ const admin = __importStar(require("firebase-admin"));
 // Initialize Firebase Admin
 admin.initializeApp();
 // Export all Cloud Functions
+__exportStar(require("./analytics"), exports);
 __exportStar(require("./clients/client-analytics"), exports);
 __exportStar(require("./clients/client-whatsapp"), exports);
 __exportStar(require("./transactions"), exports);
