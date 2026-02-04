@@ -1,3 +1,4 @@
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:core_ui/core_ui.dart';
 
@@ -16,11 +17,11 @@ class OrdersMapView extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.paddingMD),
         Container(
           height: 220,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
             gradient: const LinearGradient(
               colors: [AuthColors.surface, AuthColors.background],
               begin: Alignment.topLeft,

@@ -9,6 +9,8 @@ import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/order_tile.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -43,39 +45,35 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
   Widget build(BuildContext context) {
     final client = widget.client;
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: AuthColors.background,
       body: SafeArea(
       child: Column(
         children: [
             // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   IconButton(
                     onPressed: () => context.pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                   ),
-                  const SizedBox(width: 8),
-                  const Expanded(
+                  const SizedBox(width: AppSpacing.paddingSM),
+                  Expanded(
                     child: Text(
                       'Client Details',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.withColor(AppTypography.h2, AuthColors.textMain),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(width: 48),
+                  const SizedBox(width: AppSpacing.avatarSM),
                 ],
               ),
             ),
             // Client Header Info
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
               child: _ClientHeader(
                 client: client,
             phone: _primaryPhone,
@@ -83,16 +81,16 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
             onDelete: _confirmDelete,
               ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
             // Tab Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF131324),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AuthColors.surface,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
+                    color: AuthColors.textMainWithOpacity(0.1),
                     width: 1,
                   ),
                 ),
@@ -123,7 +121,7 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
                   ),
                 ),
       ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             // Content based on selected tab
             Expanded(
               child: IndexedStack(
@@ -271,15 +269,15 @@ class _ClientHeader extends StatelessWidget {
 
   Color _getClientColor() {
     if (client.isCorporate) {
-      return const Color(0xFF6F4BFF);
+      return AuthColors.accentPurple; // Closest to 0xFF6F4BFF
     }
     final hash = client.name.hashCode;
     final colors = [
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
-      const Color(0xFF9C27B0),
+      AuthColors.successVariant, // 0xFF5AD8A4
+      AuthColors.warning, // 0xFFFF9800
+      AuthColors.info, // 0xFF2196F3
+      AuthColors.error, // 0xFFFF5252 (closest to 0xFFE91E63)
+      AuthColors.accentPurple, // 0xFF9C27B0
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -300,9 +298,9 @@ class _ClientHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         gradient: LinearGradient(
           colors: [
             clientColor.withOpacity(0.3),
@@ -358,7 +356,7 @@ class _ClientHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.paddingLG),
               // Name and Info
               Expanded(
                 child: Column(
@@ -369,10 +367,9 @@ class _ClientHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                             client.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                              fontSize: 22,
-                    fontWeight: FontWeight.w700,
+                  style: AppTypography.withColor(
+                    AppTypography.withWeight(AppTypography.h1, FontWeight.w700),
+                    AuthColors.textMain,
                   ),
                 ),
               ),
@@ -384,10 +381,10 @@ class _ClientHeader extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6F4BFF).withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
+                              color: AuthColors.accentPurple.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                               border: Border.all(
-                                color: const Color(0xFF6F4BFF).withOpacity(0.5),
+                                color: AuthColors.accentPurple.withOpacity(0.5),
                               ),
                             ),
                             child: Row(
@@ -398,7 +395,7 @@ class _ClientHeader extends StatelessWidget {
                                   size: 12,
                                   color: Color(0xFF6F4BFF),
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: AppSpacing.paddingXS),
                                 Text(
                                   orderCount.toString(),
                                   style: const TextStyle(
@@ -412,7 +409,7 @@ class _ClientHeader extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     // Phone with edit
                     GestureDetector(
                       onTap: onEdit,
@@ -422,26 +419,25 @@ class _ClientHeader extends StatelessWidget {
                           Icon(
                             Icons.phone_outlined,
                             size: 16,
-                            color: Colors.white.withOpacity(0.7),
+                            color: AuthColors.textMainWithOpacity(0.7),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: AppSpacing.gapSM),
                           Flexible(
                             child: Text(
                               phone,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                              style: AppTypography.withColor(
+                                AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+                                AuthColors.textMainWithOpacity(0.8),
                               ),
                               overflow: TextOverflow.ellipsis,
                               maxLines: 1,
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppSpacing.paddingXS),
                           Icon(
                             Icons.edit,
                             size: 14,
-                            color: Colors.white.withOpacity(0.5),
+                            color: AuthColors.textMainWithOpacity(0.5),
                           ),
                         ],
                       ),
@@ -452,19 +448,19 @@ class _ClientHeader extends StatelessWidget {
               // Action Buttons
               IconButton(
                 onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                icon: const Icon(Icons.delete_outline, color: AuthColors.textSub),
                 tooltip: 'Delete',
               ),
               IconButton(
                 onPressed: onEdit,
-                icon: const Icon(Icons.edit, color: Colors.white70),
+                icon: const Icon(Icons.edit, color: AuthColors.textSub),
                 tooltip: 'Edit',
               ),
             ],
           ),
           // Tags and Corporate Badge
           if (client.tags.isNotEmpty || client.isCorporate) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -478,7 +474,7 @@ class _ClientHeader extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF6F4BFF).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       border: Border.all(
                         color: const Color(0xFF6F4BFF).withOpacity(0.5),
                       ),
@@ -491,7 +487,7 @@ class _ClientHeader extends StatelessWidget {
                           size: 14,
                           color: Color(0xFF6F4BFF),
                         ),
-                        SizedBox(width: 4),
+                        SizedBox(width: AppSpacing.paddingXS),
                         Text(
                           'Corporate',
                           style: TextStyle(
@@ -511,16 +507,16 @@ class _ClientHeader extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: AuthColors.textMainWithOpacity(0.1),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
+                        color: AuthColors.textMainWithOpacity(0.2),
                       ),
                     ),
                     child: Text(
                       tag,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: AuthColors.textMainWithOpacity(0.8),
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
                       ),
@@ -573,41 +569,37 @@ class _PrimaryContactSheet extends StatelessWidget {
             Container(
               width: 36,
               height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
+              margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
               decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(999                    ),
+                color: AuthColors.textMainWithOpacity(0.24),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
               ),
             ),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Select Primary Contact',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: options.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingSM),
               itemBuilder: (context, index) {
                 final option = options[index];
                 final isSelected = option.phone == currentPhone;
                 return ListTile(
-                  tileColor: const Color(0xFF131324),
+                  tileColor: AuthColors.surface,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   ),
                   leading: CircleAvatar(
                     backgroundColor: isSelected
-                        ? const Color(0xFF6F4BFF)
-                        : const Color(0xFF2A2A3D),
+                        ? AuthColors.accentPurple
+                        : AuthColors.surface,
                     child: Text(
                       option.label.isNotEmpty ? option.label[0] : '?',
                       style: const TextStyle(color: Colors.white                    ),
@@ -621,10 +613,10 @@ class _PrimaryContactSheet extends StatelessWidget {
                     option.subtitle != null && option.subtitle!.isNotEmpty
                         ? '${option.phone} • ${option.subtitle}'
                         : option.phone,
-                    style: const TextStyle(color: Colors.white54),
+                    style: AppTypography.withColor(AppTypography.caption, AuthColors.textSub),
                   ),
                   trailing: isSelected
-                      ? const Icon(Icons.check, color: Colors.white70)
+                      ? const Icon(Icons.check, color: AuthColors.textSub)
                       : null,
                   onTap: () => Navigator.pop(context, option),
                 );
@@ -659,10 +651,10 @@ class _DeleteClientSheet extends StatelessWidget {
             Container(
               width: 36,
               height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
+              margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
               decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius: BorderRadius.circular(999                    ),
+                color: AuthColors.textMainWithOpacity(0.24),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
               ),
             ),
             const Text(
@@ -673,31 +665,31 @@ class _DeleteClientSheet extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.gapSM),
             Text(
               'This will permanently remove $clientName and all related analytics. This action cannot be undone.',
               style: const TextStyle(
-                color: Colors.white70,
+                color: AuthColors.textSub,
                 fontSize: 13,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFED5A5A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: AuthColors.error,
+                  foregroundColor: AuthColors.textMain,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14                    ),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   ),
                 ),
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('Delete client'                    ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             SizedBox(
               width: double.infinity,
               child: TextButton(
@@ -815,7 +807,7 @@ class _PendingOrdersSectionState extends State<_PendingOrdersSection> {
                   child: Column(
                     children: [
                       ..._orders.map((order) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                             child: OrderTile(
                               order: order,
                               onTripsUpdated: () {
@@ -1086,20 +1078,20 @@ class _ClientDMsSection extends StatelessWidget {
                 ? (tripPricing['total'] as num?)?.toDouble() ?? 0.0
                 : 0.0;
             return Card(
-              margin: const EdgeInsets.only(bottom: 12),
+              margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
               color: const Color(0xFF1B1B2C),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 side: BorderSide(color: Colors.white.withOpacity(0.1)),
               ),
               child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingSM),
                 title: Row(
                   children: [
                     Text(
                       dmNumber != null ? 'DM-$dmNumber' : 'DM',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
                       ),
@@ -1116,24 +1108,23 @@ class _ClientDMsSection extends StatelessWidget {
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.paddingXS),
                     Text(
                       clientName,
-                      style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
+                      style: AppTypography.withColor(AppTypography.body, AuthColors.textMainWithOpacity(0.8)),
                     ),
                     Text(
                       '${_formatDate(scheduledDate)} · $vehicleNumber',
-                      style: TextStyle(color: AuthColors.textSub, fontSize: 12),
+                      style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textSub),
                     ),
                     if (total > 0)
                       Padding(
-                        padding: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.only(top: AppSpacing.paddingXS),
                         child: Text(
                           '₹${total.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: AuthColors.successVariant,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
+                          style: AppTypography.withColor(
+                            AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w600),
+                            AuthColors.successVariant,
                           ),
                         ),
                       ),
@@ -1178,12 +1169,12 @@ class _ClientDMsSection extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: const Color(0xFF131324),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+                      color: AuthColors.textMainWithOpacity(0.1),
           width: 1,
         ),
       ),
@@ -1198,7 +1189,7 @@ class _ClientDMsSection extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           SizedBox(
             height: 150,
             child: Row(
@@ -1221,7 +1212,7 @@ class _ClientDMsSection extends StatelessWidget {
                           titleStyle: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                           ),
                         );
                       }).toList(),
@@ -1230,7 +1221,7 @@ class _ClientDMsSection extends StatelessWidget {
                     ),
                 ),
       ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.paddingLG),
                 Expanded(
                   flex: 3,
                   child: Column(
@@ -1243,7 +1234,7 @@ class _ClientDMsSection extends StatelessWidget {
                       final type = typeEntry.key;
 
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
                         child: Row(
                           children: [
                             Container(
@@ -1251,15 +1242,15 @@ class _ClientDMsSection extends StatelessWidget {
                               height: 12,
                               decoration: BoxDecoration(
                                 color: colors[index % colors.length],
-                                borderRadius: BorderRadius.circular(2                    ),
+                                borderRadius: BorderRadius.circular(AppSpacing.paddingXS),
                 ),
       ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.paddingSM),
                             Expanded(
                               child: Text(
                                 type.replaceAll('_', ' ').toUpperCase(),
             style: const TextStyle(
-                                  color: Colors.white70,
+                                  color: AuthColors.textSub,
                                   fontSize: 11,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -1307,12 +1298,12 @@ class _PaymentStatusChart extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: const Color(0xFF131324),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+                      color: AuthColors.textMainWithOpacity(0.1),
           width: 1,
         ),
       ),
@@ -1327,7 +1318,7 @@ class _PaymentStatusChart extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           SizedBox(
             height: 120,
             child: BarChart(
@@ -1347,7 +1338,7 @@ class _PaymentStatusChart extends StatelessWidget {
                           return const Text(
                             'Completed',
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: AuthColors.textSub,
                               fontSize: 11,
                             ),
                           );
@@ -1355,7 +1346,7 @@ class _PaymentStatusChart extends StatelessWidget {
                           return const Text(
                             'Pending',
                             style: TextStyle(
-                              color: Colors.white70,
+                              color: AuthColors.textSub,
                               fontSize: 11,
                             ),
                           );
@@ -1407,7 +1398,7 @@ class _PaymentStatusChart extends StatelessWidget {
                     ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           Row(
             children: [
               Expanded(
@@ -1417,7 +1408,7 @@ class _PaymentStatusChart extends StatelessWidget {
                   color: const Color(0xFF4CAF50                    ),
                 ),
       ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: _PaymentStatusItem(
                   label: 'Pending',
@@ -1447,10 +1438,10 @@ class _PaymentStatusItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
             decoration: BoxDecoration(
         color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         border: Border.all(
           color: color.withOpacity(0.3),
           width: 1,
@@ -1466,7 +1457,7 @@ class _PaymentStatusItem extends StatelessWidget {
               fontSize: 11,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.paddingXS),
           Text(
             value,
             style: TextStyle(
@@ -1490,7 +1481,7 @@ class _LedgerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: AppSpacing.gapSM),
       child: Row(
         children: [
           SizedBox(
@@ -1543,12 +1534,12 @@ class _TransactionListItem extends StatelessWidget {
     final color = isPositive ? Colors.orangeAccent : const Color(0xFF4CAF50);
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: const Color(0xFF131324),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         border: Border.all(
-          color: Colors.white.withOpacity(0.1),
+                      color: AuthColors.textMainWithOpacity(0.1),
           width: 1,
         ),
       ),
@@ -1559,7 +1550,7 @@ class _TransactionListItem extends StatelessWidget {
             height: 40,
             decoration: BoxDecoration(
               color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
             ),
             child: Icon(
               isPositive ? Icons.arrow_upward : Icons.arrow_downward,
@@ -1567,7 +1558,7 @@ class _TransactionListItem extends StatelessWidget {
               size: 20,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1575,12 +1566,12 @@ class _TransactionListItem extends StatelessWidget {
                 Text(
                   type.replaceAll('_', ' ').toUpperCase(),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Row(
                   children: [
                     Text(
@@ -1591,13 +1582,13 @@ class _TransactionListItem extends StatelessWidget {
                       ),
                     ),
                     if (dmNumber != null) ...[
-                      const SizedBox(width: 8),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.paddingSM),
+                      const SizedBox(width: AppSpacing.paddingSM),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                         decoration: BoxDecoration(
                           color: Colors.blue.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                         ),
                         child: Text(
                           'DM-$dmNumber',
@@ -1656,12 +1647,12 @@ class _LedgerTable extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.paddingMD),
           Text(
             'No transactions found.',
             style: TextStyle(color: AuthColors.textSub),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.paddingXL),
           _LedgerSummaryFooter(
             openingBalance: openingBalance,
             totalDebit: 0,
@@ -1814,11 +1805,11 @@ class _LedgerTable extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.paddingMD),
         Container(
           decoration: BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
@@ -1833,7 +1824,7 @@ class _LedgerTable extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.paddingXL),
         _LedgerSummaryFooter(
           openingBalance: openingBalance,
           totalDebit: totalDebit,
@@ -1894,16 +1885,16 @@ class _LedgerTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       child: Row(
         children: [
-          Expanded(flex: 1, child: Text('Date', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('DM No.', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Type', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 2, child: Text('Remarks', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Date', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('DM No.', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Debit', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Credit', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Balance', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
+          Expanded(flex: 1, child: Text('Type', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
+          Expanded(flex: 2, child: Text('Remarks', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
         ],
       ),
     );
@@ -1937,7 +1928,7 @@ class _LedgerTableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingSM),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -1945,7 +1936,7 @@ class _LedgerTableRow extends StatelessWidget {
             flex: 1,
             child: Text(
               formatDate(row.date),
-              style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+              style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textMain),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1956,10 +1947,10 @@ class _LedgerTableRow extends StatelessWidget {
             child: Center(
               child: row.dmNumber != null
                   ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                       decoration: BoxDecoration(
                         color: AuthColors.info.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                       ),
                       child: Text(
                         'DM-${row.dmNumber}',
@@ -1975,10 +1966,10 @@ class _LedgerTableRow extends StatelessWidget {
                     )
                   : row.category != null
                       ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                           decoration: BoxDecoration(
                             color: AuthColors.accentPurple.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                           ),
                           child: Text(
                             _formatCategoryName(row.category!),
@@ -2008,7 +1999,7 @@ class _LedgerTableRow extends StatelessWidget {
                     children: [
                       Text(
                         formatCurrency(row.debit),
-                        style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                        style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textMain),
                         textAlign: TextAlign.center,
                       ),
                       if (row.paymentParts.isNotEmpty)
@@ -2018,10 +2009,10 @@ class _LedgerTableRow extends StatelessWidget {
                           alignment: WrapAlignment.center,
                           children: row.paymentParts
                               .map((p) => Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                                     decoration: BoxDecoration(
                                       color: _accountColor(p.accountType).withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                                     ),
                                     child: Text(
                                       formatCurrency(p.amount),
@@ -2037,13 +2028,13 @@ class _LedgerTableRow extends StatelessWidget {
                         ),
                     ],
                   )
-                : Text('-', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+                : Text('-', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center),
           ),
           Expanded(
             flex: 1,
             child: Text(
               row.credit > 0 ? formatCurrency(row.credit) : '-',
-              style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+              style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textMain),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -2067,7 +2058,7 @@ class _LedgerTableRow extends StatelessWidget {
             flex: 1,
             child: Text(
               row.type.isEmpty ? '-' : row.type,
-              style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+              style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textMain),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -2077,7 +2068,7 @@ class _LedgerTableRow extends StatelessWidget {
             flex: 2,
             child: Text(
               row.remarks,
-              style: const TextStyle(color: AuthColors.textMain, fontSize: 11),
+              style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textMain),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -2106,10 +2097,10 @@ class _LedgerSummaryFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentBalance = openingBalance + totalCredit - totalDebit;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
       child: Row(
@@ -2120,17 +2111,17 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Opening Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
-              Text(formatCurrency(openingBalance), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.paddingXS),
+              Text(formatCurrency(openingBalance), style: AppTypography.withColor(AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w600), AuthColors.info), textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
-              Text(formatCurrency(totalDebit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text('Total Debit', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.paddingXS),
+              Text(formatCurrency(totalDebit), style: AppTypography.withColor(AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w600), AuthColors.info), textAlign: TextAlign.center),
             ],
           ),
           Column(
@@ -2138,8 +2129,8 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Total Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
-              Text(formatCurrency(totalCredit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.paddingXS),
+              Text(formatCurrency(totalCredit), style: AppTypography.withColor(AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w600), AuthColors.info), textAlign: TextAlign.center),
             ],
           ),
           Column(
@@ -2147,8 +2138,8 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Current Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
-              Text(formatCurrency(currentBalance), style: const TextStyle(color: AuthColors.success, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.paddingXS),
+              Text(formatCurrency(currentBalance), style: AppTypography.withColor(AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w600), AuthColors.success), textAlign: TextAlign.center),
             ],
           ),
         ],
@@ -2172,12 +2163,12 @@ class _TabButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF6F4BFF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         ),
         child: Text(
           label,

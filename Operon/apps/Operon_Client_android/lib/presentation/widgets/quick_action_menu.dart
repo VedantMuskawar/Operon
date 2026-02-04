@@ -1,3 +1,4 @@
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:core_ui/core_ui.dart';
 
@@ -209,7 +210,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
             color: Colors.transparent,
             child: InkWell(
               onTap: _toggleMenu,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, child) {
@@ -234,7 +235,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                                     AuthColors.legacyAccent.withOpacity(0.9),
                                   ],
                           ),
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                           boxShadow: [
                             BoxShadow(
                               color: AuthColors.legacyAccent.withOpacity(
@@ -282,12 +283,12 @@ class _ActionButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
           decoration: BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
             border: Border.all(
               color: AuthColors.textMainWithOpacity(0.15),
               width: 1.5,
@@ -316,7 +317,7 @@ class _ActionButton extends StatelessWidget {
                       AuthColors.legacyAccent.withOpacity(0.9),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   boxShadow: [
                     BoxShadow(
                       color: AuthColors.legacyAccent.withOpacity(0.3),
@@ -331,7 +332,7 @@ class _ActionButton extends StatelessWidget {
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               Text(
                 label,
                 style: const TextStyle(
@@ -341,7 +342,7 @@ class _ActionButton extends StatelessWidget {
                   letterSpacing: 0.2,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: AppSpacing.paddingXS),
             ],
           ),
         ),

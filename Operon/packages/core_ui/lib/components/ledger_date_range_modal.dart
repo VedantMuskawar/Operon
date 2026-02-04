@@ -3,14 +3,19 @@ import 'package:core_ui/core_ui.dart' show AuthColors;
 
 /// Shows a date range picker modal for ledger PDF generation
 /// Returns the selected date range or null if cancelled
-Future<DateTimeRange?> showLedgerDateRangeModal(BuildContext context) async {
+/// [initialRange] - Optional initial date range. If not provided, defaults to today-today
+Future<DateTimeRange?> showLedgerDateRangeModal(
+  BuildContext context, {
+  DateTimeRange? initialRange,
+}) async {
   final now = DateTime.now();
   final firstDate = DateTime(now.year - 5, 1, 1);
   final lastDate = DateTime(now.year + 1, 12, 31);
 
-  // Default to current month
-  final initialStartDate = DateTime(now.year, now.month, 1);
-  final initialEndDate = DateTime(now.year, now.month + 1, 0);
+  // Default to today-today if no initial range provided
+  final today = DateTime(now.year, now.month, now.day);
+  final initialStartDate = initialRange?.start ?? today;
+  final initialEndDate = initialRange?.end ?? today;
 
   DateTimeRange? selectedRange = DateTimeRange(
     start: initialStartDate,
@@ -62,15 +67,14 @@ class _LedgerDateRangeModalDialogState extends State<_LedgerDateRangeModalDialog
   DateTimeRange get selectedRange => _selectedRange;
 
   Future<void> _selectStartDate() async {
-    final maxDate = _selectedRange.end.isAfter(_selectedRange.start)
-        ? _selectedRange.end.subtract(const Duration(days: 1))
-        : widget.lastDate;
+    // Allow selecting up to and including the end date (same day selection)
+    final maxDate = _selectedRange.end;
     
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedRange.start,
       firstDate: widget.firstDate,
-      lastDate: maxDate,
+      lastDate: maxDate.isAfter(widget.lastDate) ? widget.lastDate : maxDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -97,13 +101,14 @@ class _LedgerDateRangeModalDialogState extends State<_LedgerDateRangeModalDialog
   }
 
   Future<void> _selectEndDate() async {
-    final minDate = _selectedRange.start.isBefore(_selectedRange.end)
-        ? _selectedRange.start.add(const Duration(days: 1))
-        : widget.firstDate;
+    // Allow selecting the same day as start date
+    final minDate = _selectedRange.start;
     
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedRange.end,
+      initialDate: _selectedRange.end.isBefore(_selectedRange.start)
+          ? _selectedRange.start
+          : _selectedRange.end,
       firstDate: minDate,
       lastDate: widget.lastDate,
       builder: (context, child) {

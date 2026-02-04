@@ -2,6 +2,7 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'analytics_dashboard_state.dart';
 
@@ -80,6 +81,21 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
       final transactions = results[0] as TransactionAnalytics?;
       final clients = results[1] as ClientsAnalytics?;
 
+      if (kDebugMode) {
+        debugPrint('[AnalyticsDashboard] loadInitial: orgId=$orgId fy=$fy');
+        if (transactions != null) {
+          debugPrint('[AnalyticsDashboard] transactions: totalIncome=${transactions.totalIncome} totalReceivables=${transactions.totalReceivables} '
+              'incomeMonthlyKeys=${transactions.incomeMonthly.keys.length} incomeDailyKeys=${transactions.incomeDaily.keys.length}');
+        } else {
+          debugPrint('[AnalyticsDashboard] transactions: null');
+        }
+        if (clients != null) {
+          debugPrint('[AnalyticsDashboard] clients: totalActive=${clients.totalActiveClients} onboardingMonthlyKeys=${clients.onboardingMonthly.keys.length}');
+        } else {
+          debugPrint('[AnalyticsDashboard] clients: null');
+        }
+      }
+
       final c = _getOrCreateCache(orgId, fy);
       if (transactions != null) c.transactions = transactions;
       if (clients != null) c.clients = clients;
@@ -154,11 +170,17 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
       switch (tabIndex) {
         case _tabTransactions:
           final r = await _repo.fetchTransactionAnalytics(orgId, fy);
+          if (kDebugMode && r != null) {
+            debugPrint('[AnalyticsDashboard] loadTabData(Transactions): totalIncome=${r.totalIncome} incomeMonthly=${r.incomeMonthly.keys.length} incomeDaily=${r.incomeDaily.keys.length}');
+          }
           _getOrCreateCache(orgId, fy).transactions = r;
           _emitTabData(_tabTransactions, r, loadingTabs);
           break;
         case _tabClients:
           final r = await _repo.fetchClientsAnalytics(organizationId: orgId, financialYear: fy);
+          if (kDebugMode && r != null) {
+            debugPrint('[AnalyticsDashboard] loadTabData(Clients): totalActive=${r.totalActiveClients} onboardingMonthly=${r.onboardingMonthly.keys.length}');
+          }
           _getOrCreateCache(orgId, fy).clients = r;
           _emitTabData(_tabClients, r, loadingTabs);
           break;

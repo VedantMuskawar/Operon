@@ -8,11 +8,12 @@ import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/clients_page/contact_page.dart';
+import 'package:dash_mobile/presentation/views/home_sections/orders_section_shared.dart';
 import 'package:dash_mobile/presentation/views/orders/create_order_page.dart';
 import 'package:dash_mobile/presentation/views/orders/select_customer_page.dart';
 import 'package:dash_mobile/presentation/widgets/order_tile.dart';
-import 'package:dash_mobile/presentation/widgets/modern_tile.dart';
-import 'package:dash_mobile/shared/constants/constants.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class PendingOrdersView extends StatefulWidget {
@@ -21,7 +22,7 @@ class PendingOrdersView extends StatefulWidget {
   static void showCustomerTypeDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AuthColors.background.withOpacity(0),
       builder: (context) => _CustomerTypeDialog(),
     );
   }
@@ -39,10 +40,42 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   String? _currentOrgId;
   int? _selectedFixedQuantityFilter; // null means "All"
 
+  // Cached — recomputed only when _orders or _selectedFixedQuantityFilter change
+  List<Map<String, dynamic>> _cachedFilteredOrders = [];
+  List<int> _cachedUniqueQuantities = [];
+
   @override
   void initState() {
     super.initState();
     _subscribeToOrders();
+  }
+
+  void _updateCachedValues() {
+    _cachedFilteredOrders = _computeFilteredOrders();
+    _cachedUniqueQuantities = _computeUniqueQuantities();
+  }
+
+  List<Map<String, dynamic>> _computeFilteredOrders() {
+    if (_selectedFixedQuantityFilter == null) return List.from(_orders);
+    return _orders.where((order) {
+      final items = order['items'] as List<dynamic>? ?? [];
+      if (items.isEmpty) return false;
+      final firstItem = items.first as Map<String, dynamic>;
+      return (firstItem['fixedQuantityPerTrip'] as int?) == _selectedFixedQuantityFilter;
+    }).toList();
+  }
+
+  List<int> _computeUniqueQuantities() {
+    final Set<int> unique = {};
+    for (final order in _orders) {
+      final items = order['items'] as List<dynamic>? ?? [];
+      if (items.isNotEmpty) {
+        final q = (items.first as Map<String, dynamic>)['fixedQuantityPerTrip'] as int?;
+        if (q != null && q > 0) unique.add(q);
+      }
+    }
+    final list = unique.toList()..sort();
+    return list;
   }
 
   Future<void> _subscribeToOrders() async {
@@ -59,6 +92,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
           _orders = [];
           _pendingOrdersCount = 0;
           _totalPendingTrips = 0;
+          _updateCachedValues();
         });
       }
       return;
@@ -105,9 +139,10 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
       if (mounted) {
         setState(() {
           _orders = orders;
-            _pendingOrdersCount = orders.length;
-            _totalPendingTrips = tripsCount;
+          _pendingOrdersCount = orders.length;
+          _totalPendingTrips = tripsCount;
           _isLoading = false;
+          _updateCachedValues();
         });
       }
       },
@@ -119,20 +154,6 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     );
   }
 
-  List<Map<String, dynamic>> _getFilteredOrders() {
-    if (_selectedFixedQuantityFilter == null) {
-      return _orders;
-    }
-    
-    return _orders.where((order) {
-      final items = order['items'] as List<dynamic>? ?? [];
-      if (items.isEmpty) return false;
-      final firstItem = items.first as Map<String, dynamic>;
-      final fixedQuantityPerTrip = firstItem['fixedQuantityPerTrip'] as int?;
-      return fixedQuantityPerTrip == _selectedFixedQuantityFilter;
-    }).toList();
-  }
-
   @override
   void dispose() {
     _ordersSubscription?.cancel();
@@ -141,6 +162,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
 
   @override
   Widget build(BuildContext context) {
+    const horizontalPadding = 20.0;
     return BlocListener<OrganizationContextCubit, OrganizationContextState>(
       listener: (context, state) {
         if (state.organization != null) {
@@ -148,25 +170,21 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
           _subscribeToOrders();
         }
       },
-      child: _isLoading
-          ? Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
-              child: const _SkeletonLoader(),
-            )
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Stat Tiles
-                    Row(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: _isLoading
+            ? const OrdersSectionSkeletonLoading()
+            : CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Row(
                       children: [
                         Expanded(
                           child: _StatTile(
                             title: 'Orders',
                             value: _pendingOrdersCount.toString(),
                             icon: Icons.shopping_cart_outlined,
+                            accentColor: AuthColors.primary,
                           ),
                         ),
                         const SizedBox(width: AppSpacing.paddingLG),
@@ -175,74 +193,91 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                             title: 'Trips',
                             value: _totalPendingTrips.toString(),
                             icon: Icons.route_outlined,
-                            backgroundColor: AppColors.success.withOpacity(0.15),
-                            iconColor: AppColors.success,
+                            accentColor: AuthColors.secondary,
                           ),
                         ),
                       ],
                     ),
-                    // Filters
-                    if (_orders.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      _FixedQuantityFilter(
-                        orders: _orders,
+                  ),
+                  if (_orders.isNotEmpty) ...[
+                    const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingXL)),
+                    SliverToBoxAdapter(
+                      child: _FixedQuantityFilter(
+                        uniqueQuantities: _cachedUniqueQuantities,
                         selectedValue: _selectedFixedQuantityFilter,
                         onFilterChanged: (value) {
                           setState(() {
                             _selectedFixedQuantityFilter = value;
+                            _updateCachedValues();
                           });
                         },
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                    // Order Tiles
-                    if (_getFilteredOrders().isNotEmpty) ...[
-                      _OrderList(
-                        orders: _getFilteredOrders(),
-                        onTripsUpdated: () => _subscribeToOrders(),
-                        onDeleted: () => _subscribeToOrders(),
+                    ),
+                    const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingMD)),
+                  ],
+                  if (_cachedFilteredOrders.isNotEmpty)
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final order = _cachedFilteredOrders[index];
+                          final tile = Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                            child: OrderTile(
+                              key: ValueKey(order['id']),
+                              order: order,
+                              onTripsUpdated: () => _subscribeToOrders(),
+                              onDeleted: () => _subscribeToOrders(),
+                            ),
+                          );
+                          return RepaintBoundary(
+                            child: AnimationConfiguration.staggeredList(
+                              position: index,
+                              duration: const Duration(milliseconds: 200),
+                              child: SlideAnimation(
+                                verticalOffset: 50.0,
+                                child: FadeInAnimation(
+                                  curve: Curves.easeOut,
+                                  child: tile,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        childCount: _cachedFilteredOrders.length,
+                        addRepaintBoundaries: true,
                       ),
-                    ] else if (!_isLoading && _orders.isEmpty) ...[
-                      const SizedBox(height: AppSpacing.paddingXXL),
-                      const _EmptyState(),
-                    ],
+                    )
+                  else if (!_isLoading && _orders.isEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 32),
+                        child: OrdersSectionEmptyState(
+                          title: 'No Pending Orders',
+                          message: 'All orders have been processed',
+                        ),
+                      ),
+                    ),
                 ],
-                ),
               ),
-            ),
+      ),
     );
   }
 }
 
 class _FixedQuantityFilter extends StatelessWidget {
   const _FixedQuantityFilter({
-    required this.orders,
+    required this.uniqueQuantities,
     required this.selectedValue,
     required this.onFilterChanged,
   });
 
-  final List<Map<String, dynamic>> orders;
+  final List<int> uniqueQuantities;
   final int? selectedValue;
   final ValueChanged<int?> onFilterChanged;
 
   @override
   Widget build(BuildContext context) {
-    // Extract unique fixedQuantityPerTrip values from orders
-    final Set<int> uniqueQuantities = {};
-    for (final order in orders) {
-      final items = order['items'] as List<dynamic>? ?? [];
-      if (items.isNotEmpty) {
-        final firstItem = items.first as Map<String, dynamic>;
-        final fixedQuantityPerTrip = firstItem['fixedQuantityPerTrip'] as int?;
-        if (fixedQuantityPerTrip != null && fixedQuantityPerTrip > 0) {
-          uniqueQuantities.add(fixedQuantityPerTrip);
-        }
-      }
-    }
-
-    final sortedQuantities = uniqueQuantities.toList()..sort();
-
-    if (sortedQuantities.isEmpty) {
+    if (uniqueQuantities.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -250,15 +285,13 @@ class _FixedQuantityFilter extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          // "All" filter chip
           _FilterChip(
             label: 'All',
             isSelected: selectedValue == null,
             onTap: () => onFilterChanged(null),
           ),
           const SizedBox(width: AppSpacing.paddingSM),
-          // Quantity filter chips
-          ...sortedQuantities.map((quantity) => Padding(
+          ...uniqueQuantities.map((quantity) => Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                 child: _FilterChip(
                   label: quantity.toString(),
@@ -286,53 +319,41 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AuthColors.background.withOpacity(0),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
-        splashColor: AppColors.primary.withOpacity(0.2),
-        highlightColor: AppColors.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+        splashColor: AuthColors.primaryWithOpacity(0.2),
+        highlightColor: AuthColors.primaryWithOpacity(0.1),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.paddingLG,
-            vertical: AppSpacing.paddingSM,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingSM),
           decoration: BoxDecoration(
-            gradient: isSelected
-                ? LinearGradient(
-                    colors: [
-                      AppColors.success,
-                      AppColors.success.withOpacity(0.8),
-                    ],
-                  )
-                : null,
-            color: isSelected ? null : AppColors.cardBackgroundElevated,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
+            color: isSelected ? AuthColors.primary : AuthColors.surface,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
             border: Border.all(
-              color: isSelected
-                  ? AppColors.success
-                  : AppColors.borderMedium,
+              color: isSelected ? AuthColors.primary : AuthColors.textMainWithOpacity(0.15),
               width: isSelected ? 1.5 : 1,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: AppColors.success.withOpacity(0.3),
+                      color: AuthColors.primaryWithOpacity(0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
                   ]
                 : null,
           ),
-          child: AnimatedDefaultTextStyle(
-            duration: const Duration(milliseconds: 200),
-            style: AppTypography.labelSmall.copyWith(
-              color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          child: Text(
+            label,
+            style: AppTypography.withColor(
+              isSelected 
+                  ? AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w600)
+                  : AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w500),
+              isSelected ? AuthColors.textMain : AuthColors.textSub,
             ),
-            child: Text(label),
           ),
         ),
       ),
@@ -345,37 +366,26 @@ class _StatTile extends StatelessWidget {
     required this.title,
     required this.value,
     required this.icon,
-    this.backgroundColor,
-    this.iconColor,
+    required this.accentColor,
   });
 
   final String title;
   final String value;
   final IconData icon;
-  final Color? backgroundColor;
-  final Color? iconColor;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
-    final isSuccess = backgroundColor == AppColors.success.withOpacity(0.15);
-    final effectiveIconColor = iconColor ?? (isSuccess ? AppColors.success : AppColors.primary);
-
-    return ModernTile(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.paddingLG,
-        vertical: AppSpacing.paddingMD,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingLG),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
-      borderColor: isSuccess
-          ? AppColors.success.withOpacity(0.2)
-          : AppColors.borderDefault,
-      elevation: 0,
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: effectiveIconColor,
-            size: AppSpacing.iconMD,
-          ),
+          Icon(icon, color: accentColor, size: 24),
           const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Column(
@@ -384,301 +394,14 @@ class _StatTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textSub),
                 ),
-                const SizedBox(height: AppSpacing.paddingXS / 2),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   value,
-                  style: AppTypography.h1.copyWith(
-                    color: AppColors.textPrimary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTypography.withColor(AppTypography.h1, AuthColors.textMain),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SkeletonLoader extends StatelessWidget {
-  const _SkeletonLoader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Stat tiles skeleton
-        Row(
-          children: [
-            Expanded(child: _SkeletonTile()),
-            const SizedBox(width: AppSpacing.paddingLG),
-            Expanded(child: _SkeletonTile()),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.paddingXXL),
-        // Order tiles skeleton
-        ...List.generate(3, (index) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
-              child: _SkeletonOrderTile(),
-            )),
-      ],
-    );
-  }
-}
-
-class _SkeletonTile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ModernTile(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.paddingLG,
-        vertical: AppSpacing.paddingMD,
-      ),
-      elevation: 0,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardBackgroundElevated,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.inputBackground,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.paddingMD),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: AppColors.inputBackground,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.paddingXS),
-                  Container(
-                    width: 40,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: AppColors.inputBackground,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SkeletonOrderTile extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.paddingMD),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AppColors.borderDefault),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 120,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: AppColors.inputBackground,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.paddingXS),
-                    Container(
-                      width: 150,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: AppColors.inputBackground,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 50,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.inputBackground,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.paddingMD),
-          Row(
-            children: List.generate(3, (index) => Expanded(
-                  child: Container(
-                    margin: EdgeInsets.only(
-                      right: index < 2 ? AppSpacing.paddingSM : 0,
-                    ),
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppColors.inputBackground,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                )),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OrderList extends StatelessWidget {
-  const _OrderList({
-    required this.orders,
-    required this.onTripsUpdated,
-    required this.onDeleted,
-  });
-
-  final List<Map<String, dynamic>> orders;
-  final VoidCallback onTripsUpdated;
-  final VoidCallback onDeleted;
-
-  @override
-  Widget build(BuildContext context) {
-    // Use ListView.builder for better performance with large lists
-    if (orders.length > 5) {
-      return AnimationLimiter(
-        child: ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: orders.length,
-          separatorBuilder: (context, index) => const SizedBox(height: AppSpacing.paddingMD),
-          itemBuilder: (context, index) => AnimationConfiguration.staggeredList(
-            position: index,
-            duration: const Duration(milliseconds: 200),
-            child: SlideAnimation(
-              verticalOffset: 50.0,
-              child: FadeInAnimation(
-                curve: Curves.easeOut,
-                child: RepaintBoundary(
-                  child: OrderTile(
-                    key: ValueKey(orders[index]['id']),
-                    order: orders[index],
-                    onTripsUpdated: onTripsUpdated,
-                    onDeleted: onDeleted,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    // For small lists, use Column for simplicity
-    return AnimationLimiter(
-      child: Column(
-        children: [
-          for (int i = 0; i < orders.length; i++)
-            AnimationConfiguration.staggeredList(
-              position: i,
-              duration: const Duration(milliseconds: 200),
-              child: SlideAnimation(
-                verticalOffset: 50.0,
-                child: FadeInAnimation(
-                  curve: Curves.easeOut,
-                  child: Column(
-                    children: [
-                      if (i > 0) const SizedBox(height: AppSpacing.paddingMD),
-                      RepaintBoundary(
-                        key: ValueKey(orders[i]['id']),
-                        child: OrderTile(
-                          order: orders[i],
-                          onTripsUpdated: onTripsUpdated,
-                          onDeleted: onDeleted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.scale(
-            scale: 0.9 + (0.1 * value),
-            child: child,
-          ),
-        );
-      },
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.paddingXXL),
-            decoration: const BoxDecoration(
-              color: AppColors.cardBackgroundElevated,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.inbox_outlined,
-              size: 64,
-              color: AppColors.textTertiary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.paddingXL),
-          Text(
-            'No Pending Orders',
-            style: AppTypography.h3.copyWith(
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.paddingSM),
-          Text(
-            'All orders have been processed',
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.textSecondary,
             ),
           ),
         ],
@@ -704,24 +427,20 @@ class _CustomerTypeDialog extends StatelessWidget {
             Container(
               width: 36,
               height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
+              margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
               decoration: BoxDecoration(
                 color: AuthColors.textDisabled,
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Select Customer Type',
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.paddingXL),
             _CustomerTypeOption(
               icon: Icons.person_add_outlined,
               title: 'New Customer',
@@ -764,7 +483,7 @@ class _CustomerTypeDialog extends StatelessWidget {
                 }
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             _CustomerTypeOption(
               icon: Icons.person_outline,
               title: 'Existing Customer',
@@ -809,12 +528,12 @@ class _CustomerTypeOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.paddingXL),
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
         ),
         child: Row(
@@ -824,7 +543,7 @@ class _CustomerTypeOption extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: AuthColors.legacyAccent.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
               child: Icon(
                 icon,
@@ -832,26 +551,19 @@ class _CustomerTypeOption extends StatelessWidget {
                 size: 24,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.paddingLG),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: AuthColors.textMain,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: AppTypography.withColor(AppTypography.h4, AuthColors.textMain),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.paddingXS),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: AuthColors.textSub,
-                      fontSize: 13,
-                    ),
+                    style: AppTypography.withColor(AppTypography.bodySmall, AuthColors.textSub),
                   ),
                 ],
               ),

@@ -54,6 +54,7 @@ import 'package:dash_web/presentation/views/wage_settings_page.dart';
 import 'package:dash_web/presentation/views/production_batches_page.dart' deferred as production_batches;
 import 'package:dash_web/presentation/views/production_wages_page.dart' deferred as production_wages;
 import 'package:dash_web/presentation/views/trip_wages_page.dart' deferred as trip_wages;
+import 'package:dash_web/presentation/views/salary_voucher_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -929,6 +930,24 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/expenses',
         redirect: (context, state) => '/financial-transactions',
+      ),
+      GoRoute(
+        path: '/salary-voucher',
+        name: 'salary-voucher',
+        redirect: (context, state) {
+          final authState = context.read<AuthBloc>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (authState.userProfile == null) return '/login';
+          if (!orgState.hasSelection) return '/org-selection';
+          return null;
+        },
+        pageBuilder: (context, state) {
+          return _buildTransitionPage(
+            key: state.pageKey,
+            routePath: state.uri.path,
+            child: const SalaryVoucherPage(),
+          );
+        },
       ),
       GoRoute(
         path: '/wage-settings',

@@ -61,20 +61,59 @@ class CashLedgerState extends BaseState {
     }
   }
 
-  /// All transactions in one list, sorted by date (newest first).
+  /// All transactions in one list, sorted by date (newest first) and filtered by search query.
   List<Transaction> get allRows {
+    // Combine all transaction lists
     final list = <Transaction>[
       ...orderTransactions,
       ...payments,
       ...purchases,
       ...expenses,
     ];
-    list.sort((a, b) {
+
+    // Apply search filter if query exists
+    final filtered = searchQuery.trim().isEmpty
+        ? list
+        : list.where((tx) {
+            final query = searchQuery.toLowerCase();
+            final title = _getTransactionTitle(tx).toLowerCase();
+            final refNumber = (tx.referenceNumber ?? '').toLowerCase();
+            final vendorName = (tx.metadata?['vendorName']?.toString() ?? '').toLowerCase();
+            final description = (tx.description ?? '').toLowerCase();
+            final clientName = (tx.clientName ?? '').toLowerCase();
+
+            return title.contains(query) ||
+                refNumber.contains(query) ||
+                vendorName.contains(query) ||
+                description.contains(query) ||
+                clientName.contains(query);
+          }).toList();
+
+    // Sort by date descending (newest first)
+    filtered.sort((a, b) {
       final aDate = a.createdAt ?? DateTime(1970);
       final bDate = b.createdAt ?? DateTime(1970);
       return bDate.compareTo(aDate);
     });
-    return list;
+
+    return filtered;
+  }
+
+  String _getTransactionTitle(Transaction tx) {
+    switch (tx.category) {
+      case TransactionCategory.advance:
+        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Advance';
+      case TransactionCategory.tripPayment:
+        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Trip Payment';
+      case TransactionCategory.clientPayment:
+        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Payment';
+      case TransactionCategory.vendorPurchase:
+        return tx.metadata?['vendorName']?.toString() ?? 'Purchase';
+      case TransactionCategory.vendorPayment:
+        return tx.metadata?['vendorName']?.toString() ?? 'Vendor Payment';
+      default:
+        return tx.description ?? 'Transaction';
+    }
   }
 
   double get totalOrderTransactions =>

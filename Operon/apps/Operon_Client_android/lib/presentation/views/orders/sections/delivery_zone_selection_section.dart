@@ -1,5 +1,8 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/presentation/blocs/create_order/create_order_cubit.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -22,63 +25,53 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
             : MediaQuery.of(context).size.height * 0.55;
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Select City & Region',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
               ),
-              const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8.0),
+              const SizedBox(height: AppSpacing.paddingXL),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       'City',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.withWeight(AppTypography.label, FontWeight.w600),
                     ),
                   ),
                   Expanded(
                     child: Text(
                       'Region',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.withWeight(AppTypography.label, FontWeight.w600),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             if (state.isLoadingZones)
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CircularProgressIndicator(),
-                      SizedBox(height: 16),
+                      SizedBox(height: AppSpacing.paddingLG),
                       Text(
                         'Loading zones...',
-                        style: TextStyle(color: Colors.white54),
+                        style: AppTypography.withColor(AppTypography.caption, AuthColors.textSub),
                       ),
                     ],
                   ),
                 ),
               )
             else if (state.cities.isEmpty && state.zones.isEmpty)
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -86,17 +79,17 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                       Icon(
                         Icons.location_off,
                         size: 48,
-                        color: Colors.white38,
+                        color: AuthColors.textDisabled,
                       ),
-                      SizedBox(height: 16),
+                      SizedBox(height: AppSpacing.paddingLG),
                       Text(
                         'No delivery zones available',
-                        style: TextStyle(color: Colors.white70),
+                        style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
                       ),
-                      SizedBox(height: 8),
+                      SizedBox(height: AppSpacing.paddingSM),
                       Text(
                         'Add cities and regions in Delivery Zones page',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                        style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textSub),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -118,7 +111,7 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                         onSelectCity: (city) => cubit.selectCity(city),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.paddingMD),
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 220),
                       width: regionWidth,
@@ -138,7 +131,7 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
               ),
             // Unit Price Box - shown when both city and region are selected
             if (state.selectedCity != null && state.selectedZoneId != null) ...[
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.paddingXL),
               _UnitPriceBox(
                 zoneId: state.selectedZoneId!,
                 cubit: cubit,
@@ -202,19 +195,19 @@ class _CityColumn extends StatelessWidget {
       children: [
         Expanded(
           child: cities.isEmpty
-              ? const Center(
+              ? Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD),
                     child: Text(
                       'No cities available.',
-                      style: TextStyle(color: Colors.white54),
+                      style: AppTypography.withColor(AppTypography.caption, AuthColors.textSub),
                       textAlign: TextAlign.center,
                     ),
                   ),
                 )
               : ListView.separated(
                   itemCount: cities.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                   itemBuilder: (context, index) {
                     final city = cities[index];
                     final isSelected = city.name == selectedCity;
@@ -227,14 +220,14 @@ class _CityColumn extends StatelessWidget {
                           vertical: 14,
                         ),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                           color: isSelected
-                              ? const Color(0xFF1E1E2F)
-                              : const Color(0xFF13131E),
+                              ? AuthColors.surface
+                              : AuthColors.backgroundAlt,
                           border: Border.all(
                             color: isSelected
-                                ? const Color(0xFF6F4BFF)
-                                : Colors.white12,
+                                ? AuthColors.accentPurple
+                                : AuthColors.textMainWithOpacity(0.12),
                             width: isSelected ? 2 : 1,
                           ),
                         ),
@@ -243,18 +236,17 @@ class _CityColumn extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 city.name,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: isSelected ? 16 : 15,
-                                ),
+                                style: AppTypography.withWeight(
+                                  isSelected ? AppTypography.h4 : AppTypography.bodyLarge,
+                                  FontWeight.w600,
+                                ).copyWith(color: AuthColors.textMain),
                               ),
                             ),
                             if (isSelected)
                               const Icon(
                                 Icons.arrow_forward_ios,
                                 size: 14,
-                                color: Colors.white54,
+                                color: AuthColors.textSub,
                               ),
                           ],
                         ),
@@ -298,10 +290,10 @@ class _RegionColumn extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onAddRegion,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6F4BFF),
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                backgroundColor: AuthColors.accentPurple,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 ),
               ),
               child: const Text(
@@ -313,13 +305,13 @@ class _RegionColumn extends StatelessWidget {
               ),
             ),
           ),
-        if (hasCities && selectedCity != null) const SizedBox(height: 16),
+        if (hasCities && selectedCity != null) const SizedBox(height: AppSpacing.paddingLG),
         Expanded(
           child: !hasCities
-              ? const Center(
+              ? Center(
                   child: Text(
                     'Select a city first.',
-                    style: TextStyle(color: Colors.white54),
+                    style: AppTypography.withColor(AppTypography.caption, AuthColors.textSub),
                   ),
                 )
               : _buildRegionsList(context),
@@ -339,17 +331,17 @@ class _RegionColumn extends StatelessWidget {
     }
     
     if (allRegions.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No regions in this city.',
-          style: TextStyle(color: Colors.white54),
+          style: AppTypography.withColor(AppTypography.caption, AuthColors.textSub),
         ),
       );
     }
     
     return ListView.separated(
       itemCount: allRegions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
       itemBuilder: (context, index) {
         final zone = allRegions[index];
         final isPending = pendingNewZone != null && zone.id == pendingNewZone!.id;
@@ -366,9 +358,9 @@ class _RegionColumn extends StatelessWidget {
           onLongPress: isPending ? null : () => onLongPressZone(zone),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(AppSpacing.paddingLG),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
               border: Border.all(
                 color: isPending
                     ? const Color(0xFFD4AF37) // Gold for pending
@@ -378,10 +370,10 @@ class _RegionColumn extends StatelessWidget {
                 width: isPending || isSelected ? 2 : 1,
               ),
               color: isPending
-                  ? const Color(0xFFD4AF37).withOpacity(0.1) // Gold tint
+                  ? AuthColors.secondary.withOpacity(0.1) // Gold tint
                   : isSelected
-                      ? const Color(0xFF1E1E2F)
-                      : const Color(0xFF13131E),
+                      ? AuthColors.surface
+                      : AuthColors.backgroundAlt,
             ),
             child: Row(
               children: [
@@ -393,23 +385,19 @@ class _RegionColumn extends StatelessWidget {
                         children: [
                           Text(
                             zone.region,
-                            style: TextStyle(
-                              color: isPending ? const Color(0xFFD4AF37) : Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
+                            style: AppTypography.withColor(
+                              AppTypography.withWeight(AppTypography.h4, FontWeight.w600),
+                              isPending ? AuthColors.secondary : AuthColors.textMain,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.paddingXS),
                       Text(
                         zone.isActive ? 'Active' : 'Inactive',
-                        style: TextStyle(
-                          color: zone.isActive
-                              ? const Color(0xFF5AD8A4)
-                              : Colors.white54,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        style: AppTypography.withColor(
+                          AppTypography.withWeight(AppTypography.labelSmall, FontWeight.w600),
+                          zone.isActive ? AuthColors.successVariant : AuthColors.textSub,
                         ),
                       ),
                     ],
@@ -418,7 +406,7 @@ class _RegionColumn extends StatelessWidget {
                 if (isSelected && !isPending)
                   const Icon(
                     Icons.check_circle,
-                    color: Color(0xFF6F4BFF),
+                    color: AuthColors.accentPurple,
                     size: 20,
                   ),
               ],
@@ -470,11 +458,11 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: const Color(0xFF0A0A0A),
-      title: const Text('Add Region', style: TextStyle(color: Colors.white)),
+      title: Text('Add Region', style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain)),
       content: widget.cities.isEmpty
-          ? const Text(
+          ? Text(
               'Please add a city first.',
-              style: TextStyle(color: Colors.white70),
+              style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
             )
           : Form(
               key: _formKey,
@@ -483,12 +471,12 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                 children: [
                   DropdownButtonFormField<String>(
                     initialValue: _selectedCity,
-                    dropdownColor: const Color(0xFF1B1B2C),
-                    decoration: const InputDecoration(
+                    dropdownColor: AuthColors.surface,
+                    decoration: InputDecoration(
                       labelText: 'City',
                       filled: true,
-                      fillColor: Color(0xFF1B1B2C),
-                      labelStyle: TextStyle(color: Colors.white70),
+                      fillColor: AuthColors.surface,
+                      labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                       border: OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     items: widget.cities
@@ -503,29 +491,29 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                     validator: (value) =>
                         (value == null || value.isEmpty) ? 'Select a city' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   TextFormField(
                     controller: _regionController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                    decoration: InputDecoration(
                       labelText: 'Region / Address',
                       filled: true,
-                      fillColor: Color(0xFF1B1B2C),
-                      labelStyle: TextStyle(color: Colors.white70),
+                      fillColor: AuthColors.surface,
+                      labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                       border: OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty) ? 'Enter a region' : null,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   TextFormField(
                     controller: _roundtripKmController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                    decoration: InputDecoration(
                       labelText: 'Round Trip Distance (KM)',
                       hintText: 'e.g., 25.5',
-                      prefixIcon: Icon(Icons.straighten, color: Colors.white54),
+                      prefixIcon: Icon(Icons.straighten, color: AuthColors.textSub),
                       filled: true,
                       fillColor: Color(0xFF1B1B2C),
                       labelStyle: TextStyle(color: Colors.white70),
@@ -675,8 +663,8 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.zone.region, style: const TextStyle(color: Colors.white)),
-                Text(widget.zone.cityName, style: const TextStyle(color: Colors.white54)),
+                Text(widget.zone.region, style: AppTypography.withColor(AppTypography.body, AuthColors.textMain)),
+                Text(widget.zone.cityName, style: AppTypography.withColor(AppTypography.caption, AuthColors.textSub)),
               ],
             ),
           ),
@@ -699,11 +687,11 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                 DropdownButtonFormField<String>(
                   initialValue: _selectedProductId,
                   dropdownColor: const Color(0xFF1B1B2C),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Product',
                     filled: true,
-                    fillColor: Color(0xFF1B1B2C),
-                    labelStyle: TextStyle(color: Colors.white70),
+                    fillColor: AuthColors.surface,
+                    labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                     border: OutlineInputBorder(borderSide: BorderSide.none),
                   ),
                   items: _products
@@ -721,16 +709,16 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                     });
                   },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.paddingMD),
                 TextField(
                   controller: _priceController,
-                  style: const TextStyle(color: Colors.white),
+                  style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Unit Price',
-                    labelStyle: TextStyle(color: Colors.white70),
+                    labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                     filled: true,
-                    fillColor: Color(0xFF1B1B2C),
+                    fillColor: AuthColors.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                       borderSide: BorderSide.none,
@@ -991,7 +979,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
         if (_loading) {
           return const Center(
             child: Padding(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.all(AppSpacing.paddingXL),
               child: CircularProgressIndicator(),
             ),
           );
@@ -1002,14 +990,14 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
         }
 
         return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(color: Colors.white10),
       ),
       child: Column(
@@ -1023,13 +1011,13 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
           ..._products.map((product) {
             final controller = _priceControllers[product.id];
             if (controller == null) return const SizedBox.shrink();
             
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
               child: Row(
                 children: [
                   Expanded(
@@ -1044,10 +1032,10 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: AppSpacing.gapSM),
                         TextField(
                           controller: controller,
-                          style: const TextStyle(color: Colors.white),
+                          style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           onChanged: (value) {
                             final price = double.tryParse(value);
@@ -1066,7 +1054,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                                 ? const Color(0xFFD4AF37).withOpacity(0.1)
                                 : const Color(0xFF1B1B2C),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                               borderSide: BorderSide(
                                 color: state.pendingPriceUpdates?[product.id] != null
                                     ? const Color(0xFFD4AF37)
@@ -1077,7 +1065,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                               borderSide: BorderSide(
                                 color: state.pendingPriceUpdates?[product.id] != null
                                     ? const Color(0xFFD4AF37)
@@ -1088,7 +1076,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                               borderSide: BorderSide(
                                 color: state.pendingPriceUpdates?[product.id] != null
                                     ? const Color(0xFFD4AF37)

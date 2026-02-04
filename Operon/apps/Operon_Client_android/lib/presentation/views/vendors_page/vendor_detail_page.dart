@@ -6,6 +6,8 @@ import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/data/repositories/raw_materials_repository.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/vendors/vendors_cubit.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -42,7 +44,7 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AuthColors.error),
             child: const Text('Delete'),
           ),
         ],
@@ -89,49 +91,48 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   IconButton(
                     onPressed: () => context.pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                   ),
-                  const SizedBox(width: 8),
-                  const Expanded(
+                  const SizedBox(width: AppSpacing.paddingSM),
+                  Expanded(
                     child: Text(
                       'Vendor Details',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                      style: AppTypography.withColor(
+                        AppTypography.withWeight(AppTypography.h2, FontWeight.w700),
+                        AuthColors.textMain,
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(width: 48),
+                  const SizedBox(width: AppSpacing.avatarSM),
                 ],
               ),
             ),
             // Vendor Header Info
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
               child: _VendorHeader(
                 vendor: widget.vendor,
                 onEdit: _openEditDialog,
                 onDelete: _confirmDelete,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             // Tab Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF131324),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AuthColors.surface,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
+                    color: AuthColors.textMainWithOpacity(0.1),
                     width: 1,
                   ),
                 ),
@@ -155,7 +156,7 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             // Content based on selected tab
             Expanded(
               child: IndexedStack(
@@ -255,13 +256,13 @@ class _VendorHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         gradient: LinearGradient(
           colors: [
             vendorColor.withOpacity(0.3),
-            const Color(0xFF1B1B2C),
+            AuthColors.surface,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -310,7 +311,7 @@ class _VendorHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.paddingLG),
               // Name and Info
               Expanded(
                 child: Column(
@@ -330,7 +331,7 @@ class _VendorHeader extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     // Phone
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -338,16 +339,15 @@ class _VendorHeader extends StatelessWidget {
                         Icon(
                           Icons.phone_outlined,
                           size: 16,
-                          color: Colors.white.withOpacity(0.7),
+                          color: AuthColors.textMainWithOpacity(0.7),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: AppSpacing.gapSM),
                         Flexible(
                           child: Text(
                             vendor.phoneNumber,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                            style: AppTypography.withColor(
+                              AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+                              AuthColors.textMainWithOpacity(0.8),
                             ),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
@@ -361,7 +361,7 @@ class _VendorHeader extends StatelessWidget {
               // Action Buttons
               IconButton(
                 onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: Colors.white70),
+                icon: const Icon(Icons.delete_outline, color: AuthColors.textSub),
                 tooltip: 'Delete',
               ),
               IconButton(
@@ -371,7 +371,7 @@ class _VendorHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           // Badges
           Wrap(
             spacing: 8,
@@ -385,7 +385,7 @@ class _VendorHeader extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: vendorColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
                     color: vendorColor.withOpacity(0.5),
                   ),
@@ -398,7 +398,7 @@ class _VendorHeader extends StatelessWidget {
                       size: 14,
                       color: vendorColor,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: AppSpacing.paddingXS),
                     Text(
                       _formatVendorType(),
                       style: TextStyle(
@@ -420,7 +420,7 @@ class _VendorHeader extends StatelessWidget {
                   color: vendor.status == VendorStatus.active
                       ? const Color(0xFF5AD8A4).withOpacity(0.2)
                       : Colors.grey.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
                     color: vendor.status == VendorStatus.active
                         ? const Color(0xFF5AD8A4).withOpacity(0.5)
@@ -449,7 +449,7 @@ class _VendorHeader extends StatelessWidget {
                     color: isPositive
                         ? const Color(0xFF5AD8A4).withOpacity(0.2)
                         : Colors.redAccent.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                     border: Border.all(
                       color: isPositive
                           ? const Color(0xFF5AD8A4).withOpacity(0.5)
@@ -464,7 +464,7 @@ class _VendorHeader extends StatelessWidget {
                         size: 12,
                         color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: AppSpacing.paddingXS),
                       Text(
                         '${isPositive ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)}',
                         style: TextStyle(
@@ -499,9 +499,9 @@ class _TabButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -611,13 +611,13 @@ class _OverviewSectionState extends State<_OverviewSection> {
         : 0.0;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Current Balance Card
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.paddingXL),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: isPositive
@@ -632,7 +632,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
               border: Border.all(
                 color: (isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350))
                     .withOpacity(0.3),
@@ -650,7 +650,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.paddingSM),
                 Text(
                   _formatCurrency(vendor.currentBalance),
                   style: const TextStyle(
@@ -659,7 +659,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.paddingSM),
                 Row(
                   children: [
                     Icon(
@@ -667,7 +667,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                       size: 16,
                       color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: AppSpacing.paddingXS),
                     Text(
                       '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())} from opening',
                       style: TextStyle(
@@ -677,7 +677,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                       ),
                     ),
                     if (vendor.openingBalance != 0) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.paddingSM),
                       Text(
                         '(${isPositive ? '+' : ''}${percentChange.abs().toStringAsFixed(1)}%)',
                         style: TextStyle(
@@ -691,7 +691,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
 
           // Financial Summary Cards
           Row(
@@ -703,7 +703,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                   color: const Color(0xFF2196F3),
                 ),
               ),
-              const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: _SummaryCard(
                   label: 'Net Change',
@@ -713,14 +713,14 @@ class _OverviewSectionState extends State<_OverviewSection> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
 
           // Contact Information
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.paddingLG),
             decoration: BoxDecoration(
               color: const Color(0xFF131324),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               border: Border.all(
                 color: Colors.white.withOpacity(0.1),
                 width: 1,
@@ -737,7 +737,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.paddingMD),
                 Row(
                   children: [
                     Icon(
@@ -745,7 +745,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                       size: 20,
                       color: Colors.white.withOpacity(0.7),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.paddingMD),
                     Expanded(
                       child: Text(
                         vendor.phoneNumber,
@@ -759,7 +759,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                   ],
                 ),
                 if (vendor.gstNumber != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   Row(
                     children: [
                       Icon(
@@ -767,7 +767,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                         size: 20,
                         color: Colors.white.withOpacity(0.7),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.paddingMD),
                       Expanded(
                         child: Text(
                           'GST: ${vendor.gstNumber}',
@@ -781,7 +781,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                   ),
                 ],
                 if (vendor.contactPerson != null) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   Row(
                     children: [
                       Icon(
@@ -789,7 +789,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                         size: 20,
                         color: Colors.white.withOpacity(0.7),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.paddingMD),
                       Expanded(
                         child: Text(
                           vendor.contactPerson!,
@@ -808,12 +808,12 @@ class _OverviewSectionState extends State<_OverviewSection> {
 
           // Raw Materials (if vendor type is rawMaterial)
           if (vendor.vendorType == VendorType.rawMaterial) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.paddingLG),
               decoration: BoxDecoration(
                 color: const Color(0xFF131324),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 border: Border.all(
                   color: Colors.white.withOpacity(0.1),
                   width: 1,
@@ -830,7 +830,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   if (_isLoadingMaterials)
                     const Center(
                       child: CircularProgressIndicator(
@@ -857,7 +857,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                           ),
                           decoration: BoxDecoration(
                             color: vendorColor.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                             border: Border.all(
                               color: vendorColor.withOpacity(0.3),
                             ),
@@ -897,10 +897,10 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
           color: color.withOpacity(0.3),
           width: 1,
@@ -917,7 +917,7 @@ class _SummaryCard extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.gapSM),
           Text(
             value,
             style: TextStyle(
@@ -1149,7 +1149,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
           : _error != null
               ? Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(AppSpacing.paddingXL),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -1158,7 +1158,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                           size: 48,
                           color: AuthColors.error,
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppSpacing.paddingLG),
                         Text(
                           _error!,
                           style: TextStyle(
@@ -1172,7 +1172,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                   ),
                 )
               : SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(AppSpacing.paddingXL),
                   child: _LedgerTable(
                     openingBalance: widget.vendor.openingBalance,
                     transactions: _transactions,
@@ -1234,12 +1234,12 @@ class _LedgerTable extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.paddingMD),
           Text(
             'No transactions found.',
             style: TextStyle(color: AuthColors.textSub),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.paddingXL),
           _LedgerSummaryFooter(
             openingBalance: openingBalance,
             totalDebit: 0,
@@ -1261,11 +1261,11 @@ class _LedgerTable extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.paddingMD),
         Container(
           decoration: BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
@@ -1315,7 +1315,7 @@ class _LedgerTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       child: Row(
         children: [
           Expanded(flex: 1, child: Text('Date', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
@@ -1390,7 +1390,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentBalance = openingBalance + totalCredit - totalDebit;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(10),
@@ -1404,7 +1404,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Opening Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(formatCurrency(openingBalance), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
@@ -1413,7 +1413,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Total Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(formatCurrency(totalDebit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
@@ -1422,7 +1422,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Total Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(formatCurrency(totalCredit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
@@ -1431,7 +1431,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Current Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(formatCurrency(currentBalance), style: const TextStyle(color: AuthColors.success, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
@@ -1493,10 +1493,10 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
     final cubit = context.read<VendorsCubit>();
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
-      title: const Text(
+      backgroundColor: AuthColors.backgroundAlt,
+      title: Text(
         'Edit Vendor',
-        style: TextStyle(color: Colors.white),
+        style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -1506,28 +1506,28 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('Vendor name'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
                         ? 'Enter vendor name'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _phoneController,
-                style: const TextStyle(color: Colors.white),
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('Phone number'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
                         ? 'Enter phone number'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<VendorType>(
                 initialValue: _selectedVendorType,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                 items: VendorType.values
                     .map(
                       (type) => DropdownMenuItem(
@@ -1544,17 +1544,17 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
                 decoration: _inputDecoration('Vendor Type'),
                 validator: (value) => value == null ? 'Select vendor type' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _gstController,
-                style: const TextStyle(color: Colors.white),
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('GST Number (optional)'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<VendorStatus>(
                 initialValue: _selectedStatus,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                 items: VendorStatus.values
                     .map(
                       (status) => DropdownMenuItem(
@@ -1641,10 +1641,10 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );

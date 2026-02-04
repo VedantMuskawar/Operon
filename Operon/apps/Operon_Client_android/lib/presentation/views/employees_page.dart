@@ -12,6 +12,7 @@ import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
 import 'package:dash_mobile/presentation/utils/debouncer.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -132,12 +133,12 @@ class _EmployeesPageState extends State<EmployeesPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     _CompactPageIndicator(
                       pageCount: 2,
                       currentIndex: _currentPage,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
                   ],
                 ),
               ),
@@ -225,15 +226,15 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
         if (state.status == ViewStatus.failure) {
           return SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              MediaQuery.of(context).viewInsets.bottom + 16,
+              AppSpacing.paddingLG,
+              AppSpacing.paddingLG,
+              AppSpacing.paddingLG,
+              MediaQuery.of(context).viewInsets.bottom + AppSpacing.paddingLG,
             ),
             child: Column(
               children: [
                 _buildSearchBar(context, state),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 ErrorStateWidget(
                   message: state.message ?? 'Failed to load employees',
                   errorType: ErrorType.network,
@@ -251,10 +252,10 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
           slivers: [
             SliverPadding(
               padding: EdgeInsets.fromLTRB(
-                16,
-                16,
-                16,
-                MediaQuery.of(context).viewInsets.bottom + 16,
+                AppSpacing.paddingLG,
+                AppSpacing.paddingLG,
+                AppSpacing.paddingLG,
+                MediaQuery.of(context).viewInsets.bottom + AppSpacing.paddingLG,
               ),
                   sliver: SliverToBoxAdapter(
                 child: _buildSearchBar(context, state),
@@ -281,7 +282,7 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
               )
             else ...[
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
                 sliver: AnimationLimiter(
                   child: SliverList(
                     delegate: SliverChildBuilderDelegate(
@@ -289,7 +290,7 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
                         if (index >= filteredEmployees.length) {
                           return widget.isLoadingMore
                               ? const Padding(
-                                  padding: EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(AppSpacing.paddingLG),
                                   child: Center(child: CircularProgressIndicator()),
                                 )
                               : const SizedBox.shrink();
@@ -433,10 +434,10 @@ class _SearchResultsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           if (state.status == ViewStatus.loading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXL),
               child: Center(
                 child: CircularProgressIndicator(),
               ),
@@ -445,7 +446,7 @@ class _SearchResultsCard extends StatelessWidget {
             _EmptySearchState(query: searchQuery)
           else
             ...employees.map((employee) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                   child: _EmployeeTile(
                     employee: employee,
                   ),
@@ -532,10 +533,10 @@ class _EmployeeTile extends StatelessWidget {
     final isPositive = balanceDifference >= 0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       ),
       child: DataList(
         title: employee.name,
@@ -550,14 +551,14 @@ class _EmployeeTile extends StatelessWidget {
           children: [
             if (balanceDifference != 0)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                   decoration: BoxDecoration(
                     color: isPositive
                         ? AuthColors.success.withOpacity(0.15)
                         : AuthColors.error.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -629,7 +630,7 @@ class _EmptySearchState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(AppSpacing.paddingXXXL),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -638,7 +639,7 @@ class _EmptySearchState extends StatelessWidget {
             size: 48,
             color: AuthColors.textSub.withOpacity(0.5),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           const Text(
             'No results found',
             style: TextStyle(
@@ -647,7 +648,7 @@ class _EmptySearchState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             'No employees match "$query"',
             style: const TextStyle(

@@ -105,7 +105,11 @@ class _DmSettingsDialog extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      }
+                    },
                     icon: const Icon(Icons.close, color: AuthColors.textSub),
                     tooltip: 'Close',
                   ),
@@ -385,7 +389,9 @@ class _DmSettingsContentState extends State<_DmSettingsContent> {
     );
 
     if (mounted && cubit.state.status == ViewStatus.success) {
-      Navigator.of(context).pop();
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
   }
 

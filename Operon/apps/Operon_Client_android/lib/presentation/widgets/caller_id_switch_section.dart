@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/services/caller_overlay_service.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 
 void _log(String msg) {
@@ -139,11 +140,11 @@ class _CallerIdSwitchSectionState extends State<CallerIdSwitchSection>
     if (!Platform.isAndroid) return const SizedBox.shrink();
     if (_loading) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
         child: Row(
           children: [
             Icon(Icons.phone_in_talk, color: AuthColors.textDisabled, size: 22),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.paddingLG),
             Text(
               'Caller ID',
               style: TextStyle(
@@ -164,7 +165,7 @@ class _CallerIdSwitchSectionState extends State<CallerIdSwitchSection>
       );
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
       child: Row(
         children: [
           Icon(
@@ -172,7 +173,7 @@ class _CallerIdSwitchSectionState extends State<CallerIdSwitchSection>
             color: AuthColors.textMain,
             size: 22,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.paddingLG),
           Expanded(
             child: Text(
               'Caller ID',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 /// Alphabet strip widget for fast navigation in contact lists
 class AlphabetStrip extends StatefulWidget {
@@ -68,10 +69,10 @@ class _AlphabetStripState extends State<AlphabetStrip> {
       bottom: 0,
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingSM, horizontal: AppSpacing.paddingXS),
           decoration: BoxDecoration(
             color: AuthColors.surface.withOpacity(0.9),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
             border: Border.all(
               color: AuthColors.textMainWithOpacity(0.1),
               width: 1,

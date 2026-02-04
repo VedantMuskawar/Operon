@@ -65,6 +65,7 @@ class TransactionSummaryCards extends StatelessWidget {
           );
         } else {
           return Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -88,13 +89,11 @@ class TransactionSummaryCards extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              Expanded(
-                child: _SummaryCard(
-                  icon: Icons.trending_down,
-                  label: 'Total Expenses',
-                  value: _formatCurrency(totalExpenses),
-                  color: AuthColors.warning,
-                ),
+              _SummaryCard(
+                icon: Icons.trending_down,
+                label: 'Total Expenses',
+                value: _formatCurrency(totalExpenses),
+                color: AuthColors.warning,
               ),
             ],
           );

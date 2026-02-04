@@ -3,10 +3,10 @@ import 'dart:ui';
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
-import 'package:dash_web/data/utils/analytics_trend_utils.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/transaction_analytics/transaction_analytics_cubit.dart';
 import 'package:dash_web/presentation/blocs/transaction_analytics/transaction_analytics_state.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -110,10 +110,16 @@ class _TransactionAnalyticsViewState extends State<TransactionAnalyticsView> {
 }
 
 /// Content only: stat cards + line chart + donut. Used by [AnalyticsDashboardView].
+/// When [isDailyView] is true, shows only daily chart (last 30 days); otherwise monthly chart only.
 class TransactionAnalyticsContent extends StatefulWidget {
-  const TransactionAnalyticsContent({super.key, required this.analytics});
+  const TransactionAnalyticsContent({
+    super.key,
+    required this.analytics,
+    this.isDailyView = false,
+  });
 
   final TransactionAnalytics analytics;
+  final bool isDailyView;
 
   @override
   State<TransactionAnalyticsContent> createState() => _TransactionAnalyticsContentState();
@@ -131,6 +137,15 @@ class _TransactionAnalyticsContentState extends State<TransactionAnalyticsConten
   @override
   Widget build(BuildContext context) {
     final analytics = widget.analytics;
+    final isDaily = widget.isDailyView;
+
+    if (kDebugMode) {
+      debugPrint('[TransactionAnalyticsContent UI] isDailyView=$isDaily '
+          'totalIncome=${analytics.totalIncome} totalReceivables=${analytics.totalReceivables} '
+          'incomeMonthlyKeys=${analytics.incomeMonthly.keys.length} incomeDailyKeys=${analytics.incomeDaily.keys.length} '
+          'receivablesMonthlyKeys=${analytics.receivablesMonthly.keys.length} receivablesDailyKeys=${analytics.receivablesDaily.keys.length}');
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -140,17 +155,26 @@ class _TransactionAnalyticsContentState extends State<TransactionAnalyticsConten
         ],
         _StatCards(analytics: analytics),
         const SizedBox(height: 24),
-        _MonthlyLineChart(
-          analytics: analytics,
-          touchedDateOrMonth: _touchedDateOrMonth,
-        ),
-        if (analytics.incomeDaily.isNotEmpty || analytics.receivablesDaily.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          _DailyTrendsChart(
+        if (isDaily)
+          (analytics.incomeDaily.isNotEmpty || analytics.receivablesDaily.isNotEmpty)
+              ? _DailyTrendsChart(
+                  analytics: analytics,
+                  touchedDateOrMonth: _touchedDateOrMonth,
+                )
+              : const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text(
+                      'No daily data for the past 30 days.',
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 14),
+                    ),
+                  ),
+                )
+        else
+          _MonthlyLineChart(
             analytics: analytics,
             touchedDateOrMonth: _touchedDateOrMonth,
           ),
-        ],
         const SizedBox(height: 24),
         _ReceivableAgingDonut(analytics: analytics),
       ],
@@ -466,147 +490,115 @@ class _StatCards extends StatelessWidget {
 
   final TransactionAnalytics analytics;
 
-  static String _formatCurrency(double amount) =>
-      NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0).format(amount);
+  static String _formatCurrency(double amount) {
+    final formatted = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0).format(amount.abs());
+    return amount < 0 ? '($formatted)' : formatted;
+  }
 
   @override
   Widget build(BuildContext context) {
     final netReceivables = analytics.netReceivables ??
         (analytics.totalIncome - analytics.totalReceivables).clamp(0.0, double.infinity);
 
-    final incomeMonthly = analytics.incomeMonthly;
-    final receivablesMonthly = analytics.receivablesMonthly;
-    final incomeSorted = incomeMonthly.keys.toList()..sort();
-    final receivablesSorted = receivablesMonthly.keys.toList()..sort();
-    final incomeLatest = incomeSorted.isNotEmpty ? (incomeMonthly[incomeSorted.last] ?? 0.0) : 0.0;
-    final incomePrevious = incomeSorted.length >= 2 ? (incomeMonthly[incomeSorted[incomeSorted.length - 2]] ?? 0.0) : 0.0;
-    final receivablesLatest = receivablesSorted.isNotEmpty ? (receivablesMonthly[receivablesSorted.last] ?? 0.0) : 0.0;
-    final receivablesPrevious = receivablesSorted.length >= 2 ? (receivablesMonthly[receivablesSorted[receivablesSorted.length - 2]] ?? 0.0) : 0.0;
-    final incomeTrend = incomeSorted.length >= 2 ? calculateTrend(incomeLatest, incomePrevious) : null;
-    final receivablesTrend = receivablesSorted.length >= 2 ? calculateTrend(receivablesLatest, receivablesPrevious) : null;
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        const maxCrossAxisExtent = 280.0;
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: (constraints.maxWidth / maxCrossAxisExtent).ceil().clamp(1, 3),
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 1.6,
-          children: [
-            _StatCard(
-              title: 'Total Income',
-              value: _formatCurrency(analytics.totalIncome),
-              icon: Icons.trending_up,
-              gradient: [AuthColors.success.withOpacity(0.15), AuthColors.success.withOpacity(0.05)],
-              trend: incomeTrend,
-            ),
-            _StatCard(
-              title: 'Total Receivables',
-              value: _formatCurrency(analytics.totalReceivables),
-              icon: Icons.receipt_long,
-              gradient: [AuthColors.info.withOpacity(0.15), AuthColors.info.withOpacity(0.05)],
-              trend: receivablesTrend,
-            ),
-            _StatCard(
-              title: 'Net Receivables',
-              value: _formatCurrency(netReceivables),
-              icon: Icons.account_balance_wallet,
-              gradient: [AuthColors.secondary.withOpacity(0.15), AuthColors.secondary.withOpacity(0.05)],
-            ),
-          ],
+        final isWide = constraints.maxWidth > 1200;
+        final cards = [
+          _StatCard(
+            icon: Icons.trending_up,
+            label: 'Total Income',
+            value: _formatCurrency(analytics.totalIncome),
+            color: AuthColors.success,
+          ),
+          _StatCard(
+            icon: Icons.receipt_long,
+            label: 'Total Receivables',
+            value: _formatCurrency(analytics.totalReceivables),
+            color: AuthColors.info,
+          ),
+          _StatCard(
+            icon: Icons.account_balance_wallet,
+            label: 'Net Receivables',
+            value: _formatCurrency(netReceivables),
+            color: AuthColors.secondary,
+          ),
+        ];
+        if (isWide) {
+          return Row(
+            children: [
+              Expanded(child: cards[0]),
+              const SizedBox(width: 16),
+              Expanded(child: cards[1]),
+              const SizedBox(width: 16),
+              Expanded(child: cards[2]),
+            ],
+          );
+        }
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: cards,
         );
       },
     );
   }
 }
 
+/// Summary stat card matching Fuel Ledger design: DashCard with icon, label, value.
 class _StatCard extends StatelessWidget {
   const _StatCard({
-    required this.title,
-    required this.value,
     required this.icon,
-    this.gradient,
-    this.trend,
+    required this.label,
+    required this.value,
+    required this.color,
   });
 
-  final String title;
-  final String value;
   final IconData icon;
-  final List<Color>? gradient;
-  final TrendResult? trend;
+  final String label;
+  final String value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: gradient != null
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: gradient!.map((c) => c.withOpacity(0.5)).toList(),
-                  )
-                : null,
-            color: gradient == null ? AuthColors.surface.withOpacity(0.5) : null,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.15), width: 1),
+    return DashCard(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 24),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AuthColors.secondary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: AuthColors.secondary, size: 24),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AuthColors.textSub,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              if (trend != null) ...[
-                const SizedBox(height: 8),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  trend!.badgeText,
+                  label,
                   style: TextStyle(
-                    color: trend!.direction == TrendDirection.up
-                        ? AuthColors.success
-                        : trend!.direction == TrendDirection.down
-                            ? AuthColors.error
-                            : AuthColors.textSub,
-                    fontSize: 11,
+                    color: AuthColors.textSub,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

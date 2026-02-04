@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 /// Contact tile skeleton with shimmer effect for loading state
 class ContactTileSkeleton extends StatelessWidget {
@@ -15,7 +16,7 @@ class ContactTileSkeleton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingSM),
           child: Row(
             children: [
               // Avatar skeleton
@@ -27,7 +28,7 @@ class ContactTileSkeleton extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               // Text skeleton
               Expanded(
                 child: Column(
@@ -39,16 +40,16 @@ class ContactTileSkeleton extends StatelessWidget {
                       height: 16,
                       decoration: BoxDecoration(
                         color: AuthColors.textMainWithOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     Container(
                       width: 100,
                       height: 14,
                       decoration: BoxDecoration(
                         color: AuthColors.textMainWithOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                       ),
                     ),
                   ],
@@ -60,7 +61,7 @@ class ContactTileSkeleton extends StatelessWidget {
                 height: 20,
                 decoration: BoxDecoration(
                   color: AuthColors.textMainWithOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                 ),
               ),
             ],

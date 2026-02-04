@@ -9,6 +9,7 @@ import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:dash_mobile/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -333,12 +334,12 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
       return Dialog(
         backgroundColor: AuthColors.surface,
         child: Container(
-          padding: const EdgeInsets.all(40),
+          padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
           child: const Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(),
-              SizedBox(height: 16),
+              SizedBox(height: AppSpacing.paddingLG),
               Text(
                 'Loading...',
                 style: TextStyle(color: AuthColors.textMain),
@@ -352,7 +353,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     return Dialog(
           backgroundColor: AuthColors.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 500, maxHeight: 700),
@@ -361,7 +362,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
               children: [
                 // Header
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(AppSpacing.paddingXL),
                   decoration: const BoxDecoration(
                     border: Border(
                       bottom: BorderSide(color: AuthColors.textMainWithOpacity(0.12), width: 1),
@@ -388,7 +389,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                 // Form
                 Flexible(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(AppSpacing.paddingXL),
                     child: Form(
                       key: _formKey,
                       child: Column(
@@ -403,9 +404,9 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSpacing.paddingSM),
                           _buildTypeSelector(),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: AppSpacing.paddingXL),
                           // Dynamic fields based on type
                           if (_selectedType == ExpenseFormType.vendorPayment) ...[
                             _buildVendorSelector(),
@@ -414,7 +415,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                           ] else if (_selectedType == ExpenseFormType.generalExpense) ...[
                             _buildSubCategorySelector(),
                           ],
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.paddingLG),
                           // Amount
                           TextFormField(
                             controller: _amountController,
@@ -435,24 +436,24 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.paddingLG),
                           // Payment Account
                           _buildPaymentAccountSelector(),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.paddingLG),
                           // Date
                           InkWell(
                             onTap: _selectDate,
                             child: Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(AppSpacing.paddingLG),
                               decoration: BoxDecoration(
                                 color: AuthColors.surface,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                               ),
                               child: Row(
                                 children: [
                                   const Icon(Icons.calendar_today,
                                       color: AuthColors.textSub, size: 20),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: AppSpacing.paddingMD),
                                   Text(
                                     _formatDate(_selectedDate),
                                     style: const TextStyle(color: Colors.white),
@@ -461,7 +462,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.paddingLG),
                           // Description
                           TextFormField(
                             controller: _descriptionController,
@@ -480,7 +481,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSpacing.paddingLG),
                           // Reference Number
                           TextFormField(
                             controller: _referenceNumberController,
@@ -494,7 +495,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                 ),
                 // Actions
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(AppSpacing.paddingXL),
                   decoration: const BoxDecoration(
                     border: Border(
                       top: BorderSide(color: AuthColors.textMainWithOpacity(0.12), width: 1),
@@ -507,7 +508,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                         onPressed: () => Navigator.of(context).pop(),
                         child: const Text('Cancel'),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.paddingMD),
                       ElevatedButton(
                         onPressed: _isLoading ? null : _save,
                         style: ElevatedButton.styleFrom(
@@ -533,7 +534,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       ),
       child: Row(
         children: [
@@ -579,12 +580,12 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF6F4BFF).withOpacity(0.2)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFF6F4BFF)
@@ -595,7 +596,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         child: Column(
           children: [
             Icon(icon, color: isSelected ? const Color(0xFF6F4BFF) : Colors.white54, size: 20),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.paddingXS),
             Text(
               label,
               style: TextStyle(
@@ -622,7 +623,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         DropdownButtonFormField<Vendor>(
           initialValue: _selectedVendor,
           dropdownColor: const Color(0xFF1B1B2C),
@@ -657,7 +658,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         DropdownButtonFormField<OrganizationEmployee>(
           initialValue: _selectedEmployee,
           dropdownColor: const Color(0xFF1B1B2C),
@@ -708,7 +709,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         DropdownButtonFormField<ExpenseSubCategory>(
           initialValue: _selectedSubCategory,
           dropdownColor: const Color(0xFF1B1B2C),
@@ -727,7 +728,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.paddingSM),
                   Text(subCategory.name),
                 ],
               ),
@@ -756,7 +757,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         DropdownButtonFormField<PaymentAccount>(
           initialValue: _selectedPaymentAccount,
           dropdownColor: const Color(0xFF1B1B2C),
@@ -786,7 +787,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
       fillColor: const Color(0xFF1B1B2C),
       labelStyle: const TextStyle(color: Colors.white70),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );

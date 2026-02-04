@@ -6,6 +6,7 @@ import 'package:dash_mobile/presentation/views/financial_transactions/financial_
 import 'package:dash_mobile/presentation/views/financial_transactions/financial_transactions_list_view.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -86,12 +87,12 @@ class _UnifiedFinancialTransactionsPageState
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     _CompactPageIndicator(
                       pageCount: 2,
                       currentIndex: _currentPage,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
                   ],
                 ),
               ),

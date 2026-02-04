@@ -509,4 +509,3 @@ async function _cancelCreditTransaction(
     // Don't throw - transaction cancellation failure shouldn't block trip status update
   }
 }
-

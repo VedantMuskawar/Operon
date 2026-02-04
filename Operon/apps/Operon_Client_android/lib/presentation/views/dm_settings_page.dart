@@ -5,6 +5,7 @@ import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/dm_settings/dm_settings_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -248,12 +249,12 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                 child: isLoading
                     ? const Center(
                         child: Padding(
-                          padding: EdgeInsets.all(40),
+                          padding: EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
                           child: CircularProgressIndicator(),
                         ),
                       )
                     : SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(AppSpacing.paddingLG),
                         child: Form(
                           key: _formKey,
                           child: Column(
@@ -261,9 +262,9 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                             children: [
                               // Info Box
                               Container(
-                                padding: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(AppSpacing.paddingLG),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(18),
+                                  borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
                                   color: AuthColors.surface,
                                   border: Border.all(
                                     color: AuthColors.textMain.withOpacity(0.1),
@@ -274,7 +275,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                   style: TextStyle(color: AuthColors.textSub),
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: AppSpacing.paddingXL),
                               // Header Section
                               _buildSection(
                                 title: 'Header Settings',
@@ -282,7 +283,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     _buildLogoSection(),
-                                    const SizedBox(height: 24),
+                                    const SizedBox(height: AppSpacing.paddingXXL),
                                     TextFormField(
                                       controller: _headerNameController,
                                       style: const TextStyle(color: AuthColors.textMain),
@@ -292,7 +293,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                               ? 'Enter name'
                                               : null,
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: AppSpacing.paddingLG),
                                     TextFormField(
                                       controller: _headerAddressController,
                                       style: const TextStyle(color: AuthColors.textMain),
@@ -303,7 +304,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                               ? 'Enter address'
                                               : null,
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: AppSpacing.paddingLG),
                                     TextFormField(
                                       controller: _headerPhoneController,
                                       style: const TextStyle(color: AuthColors.textMain),
@@ -314,7 +315,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                               ? 'Enter phone number'
                                               : null,
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: AppSpacing.paddingLG),
                                     TextFormField(
                                       controller: _headerGstNoController,
                                       style: const TextStyle(color: AuthColors.textMain),
@@ -323,7 +324,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: AppSpacing.paddingXL),
                               // Footer Section
                               _buildSection(
                                 title: 'Footer Settings',
@@ -334,7 +335,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                   maxLines: 3,
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: AppSpacing.paddingXL),
                               // Print Preferences
                               _buildSection(
                                 title: 'Print Preferences',
@@ -349,7 +350,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: AppSpacing.paddingMD),
                                     Row(
                                       children: [
                                         Expanded(
@@ -362,7 +363,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                             }),
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
+                                        const SizedBox(width: AppSpacing.paddingMD),
                                         Expanded(
                                           child: _PrintOption(
                                             label: 'Landscape',
@@ -375,7 +376,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: AppSpacing.paddingXL),
                                     const Text(
                                       'Payment Display',
                                       style: TextStyle(
@@ -384,7 +385,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: AppSpacing.paddingMD),
                                     Row(
                                       children: [
                                         Expanded(
@@ -397,7 +398,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                             }),
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
+                                        const SizedBox(width: AppSpacing.paddingMD),
                                         Expanded(
                                           child: _PrintOption(
                                             label: 'Bank Details',
@@ -413,7 +414,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: AppSpacing.paddingXL),
                               // Save Button
                               SizedBox(
                                 width: double.infinity,
@@ -472,10 +473,10 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
     required Widget child,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
           color: AuthColors.textMain.withOpacity(0.1),
         ),
@@ -491,7 +492,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           child,
         ],
       ),
@@ -510,7 +511,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.paddingMD),
         Row(
           children: [
             if (_logoImageUrl != null || _selectedLogoFile != null)
@@ -519,13 +520,13 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                 height: 80,
                 decoration: BoxDecoration(
                   color: AuthColors.surface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
                     color: AuthColors.textMain.withOpacity(0.1),
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   child: _logoImageUrl != null
                       ? Image.network(
                           _logoImageUrl!,
@@ -549,7 +550,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                 height: 80,
                 decoration: BoxDecoration(
                   color: AuthColors.surface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
                     color: AuthColors.textMain.withOpacity(0.1),
                   ),
@@ -559,7 +560,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                   color: AuthColors.textSub,
                 ),
               ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,7 +577,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                       onPressed: _selectedLogoFile != null ? _uploadLogo : _pickLogo,
                     ),
                   if (_logoImageUrl != null || _selectedLogoFile != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     TextButton(
                       onPressed: _removeLogo,
                       child: const Text(
@@ -601,21 +602,21 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
           color: AuthColors.textMain.withOpacity(0.1),
           width: 1,
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
           color: AuthColors.textMain.withOpacity(0.1),
           width: 1,
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,
@@ -642,14 +643,14 @@ class _PrintOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected
               ? AuthColors.primary.withOpacity(0.2)
               : AuthColors.surface,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
           border: Border.all(
             color: isSelected
                 ? AuthColors.primary
@@ -664,7 +665,7 @@ class _PrintOption extends StatelessWidget {
               color: isSelected ? AuthColors.primary : AuthColors.textSub,
               size: 24,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.paddingSM),
             Text(
               label,
               style: TextStyle(

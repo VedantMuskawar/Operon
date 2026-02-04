@@ -5,6 +5,8 @@ import 'package:dash_mobile/presentation/blocs/raw_materials/raw_materials_cubit
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/stock_history_dialog.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -25,7 +27,7 @@ class RawMaterialsPage extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF000000),
+        backgroundColor: AuthColors.background,
         appBar: const ModernPageHeader(
           title: 'Raw Materials',
         ),
@@ -34,23 +36,23 @@ class RawMaterialsPage extends StatelessWidget {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.paddingLG),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                color: const Color(0xFF13131E),
-                border: Border.all(color: Colors.white12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+                color: AuthColors.backgroundAlt,
+                border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
               ),
               child: const Text(
                 'Manage raw materials, stock levels, and purchase prices for this organization.',
                 style: TextStyle(color: Colors.white70),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.paddingXL),
             if (cubit.canCreate)
               SizedBox(
                 width: double.infinity,
@@ -61,17 +63,17 @@ class RawMaterialsPage extends StatelessWidget {
               )
             else
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.paddingMD),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: const Color(0x22FFFFFF),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                  color: AuthColors.textMainWithOpacity(0.13),
                 ),
                 child: const Text(
                   'You have read-only access to raw materials.',
                   style: TextStyle(color: Colors.white70),
                 ),
               ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.paddingXL),
             BlocBuilder<RawMaterialsCubit, RawMaterialsState>(
               builder: (context, state) {
                 if (state.status == ViewStatus.loading) {
@@ -79,7 +81,7 @@ class RawMaterialsPage extends StatelessWidget {
                 }
                 if (state.materials.isEmpty) {
                   return Padding(
-                    padding: const EdgeInsets.only(top: 40),
+                    padding: const EdgeInsets.only(top: AppSpacing.paddingXXXL * 1.25),
                     child: Text(
                       cubit.canCreate
                           ? 'No raw materials yet. Tap "Add Raw Material".'
@@ -97,7 +99,7 @@ class RawMaterialsPage extends StatelessWidget {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: state.materials.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                     itemBuilder: (context, index) {
                       final material = state.materials[index];
                       return AnimationConfiguration.staggeredList(
@@ -185,20 +187,20 @@ class _RawMaterialTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLowStock = material.isLowStock;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isLowStock
-              ? [const Color(0xFF2A1A1A), const Color(0xFF1A1111)]
-              : [const Color(0xFF1A1A2A), const Color(0xFF0A0A0A)],
+              ? [AuthColors.error.withOpacity(0.2), AuthColors.error.withOpacity(0.1)]
+              : [AuthColors.surface, AuthColors.backgroundAlt],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
           color: isLowStock
               ? Colors.orange.withOpacity(0.5)
-              : Colors.white10,
+              : AuthColors.textMainWithOpacity(0.1),
         ),
       ),
       child: Row(
@@ -209,8 +211,8 @@ class _RawMaterialTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: isLowStock
                   ? Colors.orange.withOpacity(0.2)
-                  : Colors.white10,
-              borderRadius: BorderRadius.circular(14),
+                  : AuthColors.textMainWithOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
             ),
             alignment: Alignment.center,
             child: Icon(
@@ -218,7 +220,7 @@ class _RawMaterialTile extends StatelessWidget {
               color: isLowStock ? Colors.orange : Colors.white,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,7 +244,7 @@ class _RawMaterialTile extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: Colors.orange.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                         ),
                         child: const Text(
                           'Low Stock',
@@ -255,26 +257,26 @@ class _RawMaterialTile extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.gapSM),
                 Text(
                   material.hasGst
                       ? '₹${material.purchasePrice.toStringAsFixed(2)}/unit • GST ${material.gstPercent!.toStringAsFixed(1)}%'
                       : '₹${material.purchasePrice.toStringAsFixed(2)}/unit • No GST',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textSub),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   'Stock: ${material.stock} ${material.unitOfMeasurement} • Min: ${material.minimumStockLevel} ${material.unitOfMeasurement}',
                   style: TextStyle(
-                    color: isLowStock ? Colors.orange : Colors.white38,
+                    color: isLowStock ? AuthColors.warning : AuthColors.textDisabled,
                     fontSize: 12,
                     fontWeight: isLowStock ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   'Status: ${material.status.name}',
-                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textDisabled),
                 ),
               ],
             ),
@@ -283,17 +285,17 @@ class _RawMaterialTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               IconButton(
-                icon: const Icon(Icons.history, color: Colors.white54),
+                icon: const Icon(Icons.history, color: AuthColors.textSub),
                 onPressed: onViewHistory,
                 tooltip: 'View Stock History',
               ),
               if (canEdit || canDelete) ...[
                 if (canEdit)
                   IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.white54),
+                    icon: const Icon(Icons.edit, color: AuthColors.textSub),
                     onPressed: onEdit,
                   ),
-                if (canEdit && canDelete) const SizedBox(height: 8),
+                if (canEdit && canDelete) const SizedBox(height: AppSpacing.paddingSM),
                 if (canDelete)
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
@@ -371,10 +373,10 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
     final canEdit = cubit.canEdit;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.backgroundAlt,
       title: Text(
         isEditing ? 'Edit Raw Material' : 'Add Raw Material',
-        style: const TextStyle(color: Colors.white),
+        style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -391,7 +393,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                         ? 'Enter material name'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _purchasePriceController,
                 keyboardType:
@@ -406,7 +408,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _gstController,
                 keyboardType:
@@ -424,7 +426,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _unitController,
                 style: const TextStyle(color: Colors.white),
@@ -434,7 +436,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                         ? 'Enter unit of measurement'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _stockController,
                 keyboardType: TextInputType.number,
@@ -448,7 +450,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _minimumStockController,
                 keyboardType: TextInputType.number,
@@ -462,7 +464,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<RawMaterialStatus>(
                 initialValue: _status,
                 dropdownColor: const Color(0xFF1B1B2C),
@@ -543,7 +545,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
       fillColor: const Color(0xFF1B1B2C),
       labelStyle: const TextStyle(color: Colors.white70),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );

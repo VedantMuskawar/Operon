@@ -10,6 +10,7 @@ import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
 import 'package:dash_mobile/presentation/utils/debouncer.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -131,12 +132,12 @@ class _VendorsPageState extends State<VendorsPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     _CompactPageIndicator(
                       pageCount: 2,
                       currentIndex: _currentPage,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
                   ],
                 ),
               ),
@@ -191,14 +192,14 @@ class _VendorsListView extends StatelessWidget {
             child: Column(
               children: [
                 _buildSearchBar(context, state),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 _VendorFilterChips(
                   selectedType: state.selectedVendorType,
                   onTypeChanged: (type) {
                     context.read<VendorsCubit>().filterByType(type);
                   },
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 ErrorStateWidget(
                   message: state.message ?? 'Failed to load vendors',
                   errorType: ErrorType.network,
@@ -227,7 +228,7 @@ class _VendorsListView extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _buildSearchBar(context, state),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
                     _VendorFilterChips(
                       selectedType: state.selectedVendorType,
                       onTypeChanged: (type) {
@@ -259,7 +260,7 @@ class _VendorsListView extends StatelessWidget {
               )
             else ...[
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
                 sliver: AnimationLimiter(
                   child: SliverList(
                     delegate: SliverChildBuilderDelegate(
@@ -267,7 +268,7 @@ class _VendorsListView extends StatelessWidget {
                         if (index >= filteredVendors.length) {
                           return isLoadingMore
                               ? const Padding(
-                                  padding: EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(AppSpacing.paddingLG),
                                   child: Center(child: CircularProgressIndicator()),
                                 )
                               : const SizedBox.shrink();
@@ -395,10 +396,10 @@ class _SearchResultsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           if (state.status == ViewStatus.loading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXL),
               child: Center(
                 child: CircularProgressIndicator(),
               ),
@@ -407,7 +408,7 @@ class _SearchResultsCard extends StatelessWidget {
             _EmptySearchState(query: searchQuery)
           else
             ...vendors.map((vendor) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                   child: _VendorTile(
                     vendor: vendor,
                   ),
@@ -471,10 +472,10 @@ class _VendorTile extends StatelessWidget {
     final subtitle = subtitleParts.join(' • ');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       ),
       child: DataList(
         title: vendor.name,
@@ -489,14 +490,14 @@ class _VendorTile extends StatelessWidget {
           children: [
             if (balanceDifference != 0)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                   decoration: BoxDecoration(
                     color: isPositive
                         ? AuthColors.success.withOpacity(0.15)
                         : AuthColors.error.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -557,7 +558,7 @@ class _EmptySearchState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(AppSpacing.paddingXXXL),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -566,7 +567,7 @@ class _EmptySearchState extends StatelessWidget {
             size: 48,
             color: AuthColors.textSub.withOpacity(0.5),
           ),
-          const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
           const Text(
             'No results found',
             style: TextStyle(
@@ -575,7 +576,7 @@ class _EmptySearchState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             'No vendors match "$query"',
             style: const TextStyle(
@@ -611,21 +612,21 @@ class _VendorFilterChips extends StatelessWidget {
             isSelected: selectedType == null,
             onTap: () => onTypeChanged(null),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.paddingSM),
           _FilterChip(
             label: 'Raw Material',
             icon: Icons.inventory_2,
             isSelected: selectedType == VendorType.rawMaterial,
             onTap: () => onTypeChanged(VendorType.rawMaterial),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.paddingSM),
           _FilterChip(
             label: 'Vehicle',
             icon: Icons.directions_car,
             isSelected: selectedType == VendorType.vehicle,
             onTap: () => onTypeChanged(VendorType.vehicle),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.paddingSM),
           _FilterChip(
             label: 'Repair',
             icon: Icons.build,
@@ -655,14 +656,14 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected
               ? AuthColors.primary.withOpacity(0.2)
               : AuthColors.surface.withOpacity(0.6),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(
             color: isSelected
                 ? AuthColors.primary
@@ -680,7 +681,7 @@ class _FilterChip extends StatelessWidget {
                   ? AuthColors.primary
                   : AuthColors.textSub,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: AppSpacing.gapSM),
             Text(
               label,
               style: TextStyle(

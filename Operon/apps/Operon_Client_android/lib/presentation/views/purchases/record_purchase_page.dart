@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -221,7 +222,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
   // Build breakdown row widget
   Widget _buildBreakdownRow(String label, double amount, {bool isTotal = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -567,7 +568,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.paddingLG),
         child: Form(
           key: _formKey,
           child: Column(
@@ -583,7 +584,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.paddingSM),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -604,7 +605,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.paddingXL),
               ],
               
               // Vendor Dropdown
@@ -665,7 +666,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 },
                 validator: (value) => value == null ? 'Please select a vendor' : null,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.paddingXL),
               
               // Date
               InkWell(
@@ -684,7 +685,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.paddingXL),
               
               // Invoice/Voucher Number (for fuel, this is the voucher number)
               TextFormField(
@@ -700,13 +701,13 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                         ? 'Enter ${_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel ? "voucher" : "invoice/voucher"} number'
                         : null,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.paddingXL),
               
               // Fuel-specific fields (vehicle option buttons)
               if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
                 _isLoadingVehicles
                     ? const Center(child: Padding(
-                        padding: EdgeInsets.all(16.0),
+                        padding: EdgeInsets.all(AppSpacing.paddingLG),
                         child: CircularProgressIndicator(),
                       ))
                     : InputDecorator(
@@ -739,16 +740,16 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           }).toList(),
                         ),
                       ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.paddingXL),
               ],
               
               // Raw Materials Section (for raw material vendors)
               if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.rawMaterial) ...[
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   decoration: BoxDecoration(
                     color: AuthColors.surface,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     border: Border.all(
                       color: AuthColors.textMain.withOpacity(0.1),
                     ),
@@ -763,7 +764,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                             color: AuthColors.textSub,
                             size: 20,
                           ),
-                          SizedBox(width: 8),
+                          SizedBox(width: AppSpacing.paddingSM),
                           Text(
                             'Raw Materials Purchased',
                             style: TextStyle(
@@ -774,17 +775,17 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.paddingMD),
                       if (_isLoadingMaterials)
                         const Center(
                           child: Padding(
-                            padding: EdgeInsets.all(16.0),
+                            padding: EdgeInsets.all(AppSpacing.paddingLG),
                             child: CircularProgressIndicator(),
                           ),
                         )
                       else if (_assignedMaterials.isEmpty)
                         Padding(
-                          padding: const EdgeInsets.all(8.0),
+                          padding: const EdgeInsets.all(AppSpacing.paddingSM),
                           child: Text(
                             'No materials assigned to this vendor. Assign materials in vendor settings.',
                             style: TextStyle(
@@ -796,12 +797,12 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       else
                         ..._assignedMaterials.map((material) {
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                             child: Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(AppSpacing.paddingMD),
                               decoration: BoxDecoration(
                                 color: AuthColors.backgroundAlt,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -813,7 +814,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: AppSpacing.paddingSM),
                                   Row(
                                     children: [
                                       Expanded(
@@ -830,7 +831,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                             suffixText: material.unitOfMeasurement,
                                             suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                             border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                               borderSide: BorderSide(
                                                 color: AuthColors.textMain.withOpacity(0.1),
                                               ),
@@ -843,7 +844,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                           },
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      const SizedBox(width: AppSpacing.paddingMD),
                                       Expanded(
                                         child: TextFormField(
                                           controller: _materialPriceControllers[material.id],
@@ -858,7 +859,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                             prefixText: '₹',
                                             prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                             border: OutlineInputBorder(
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                               borderSide: BorderSide(
                                                 color: AuthColors.textMain.withOpacity(0.1),
                                               ),
@@ -879,13 +880,13 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           );
                         }),
                       if (_assignedMaterials.isNotEmpty) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.paddingSM),
                         // Material Totals Breakdown
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(AppSpacing.paddingMD),
                           decoration: BoxDecoration(
                             color: AuthColors.backgroundAlt,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                           ),
                           child: Column(
                             children: [
@@ -900,16 +901,16 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.paddingXL),
               ],
               
               // Additional Charges Section (hidden for fuel vendors)
               if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.fuel) ...[
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.paddingLG),
                 decoration: BoxDecoration(
                   color: AuthColors.surface,
-                  borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   border: Border.all(
                     color: AuthColors.textMain.withOpacity(0.1),
                   ),
@@ -924,7 +925,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           color: AuthColors.textSub,
                           size: 20,
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: AppSpacing.paddingSM),
                         Text(
                           'Additional Charges',
                           style: TextStyle(
@@ -935,7 +936,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     Row(
                       children: [
                         Expanded(
@@ -953,7 +954,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                               prefixText: '₹',
                               prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                 borderSide: BorderSide(
                                   color: AuthColors.textMain.withOpacity(0.1),
                                 ),
@@ -966,7 +967,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppSpacing.paddingMD),
                         Expanded(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -992,7 +993,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           ),
                         ),
                         if (_unloadingHasGst) ...[
-                          const SizedBox(width: 8),
+                          const SizedBox(width: AppSpacing.paddingSM),
                           Expanded(
                             child: TextFormField(
                               controller: _unloadingGstPercentController,
@@ -1007,7 +1008,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                 suffixText: '%',
                                 suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                   borderSide: BorderSide(
                                     color: AuthColors.textMain.withOpacity(0.1),
                                   ),
@@ -1024,12 +1025,12 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       ],
                     ),
                     if ((double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.paddingSM),
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(AppSpacing.paddingMD),
                         decoration: BoxDecoration(
                           color: AuthColors.backgroundAlt,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                         ),
                         child: Column(
                           children: [
@@ -1045,7 +1046,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.paddingXL),
               ],
               
               // Final Breakdown Summary
@@ -1054,10 +1055,10 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                   (_assignedMaterials.isNotEmpty || 
                    (double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0)) ...[
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   decoration: BoxDecoration(
                     color: AuthColors.primaryWithOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     border: Border.all(
                       color: AuthColors.primaryWithOpacity(0.3),
                     ),
@@ -1075,7 +1076,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.paddingXL),
               ],
               
               // Amount
@@ -1099,7 +1100,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                   return null;
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.paddingXL),
               
               // Description (Optional)
               TextFormField(
@@ -1108,7 +1109,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 decoration: _inputDecoration('Description (Optional)'),
                 maxLines: 3,
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: AppSpacing.paddingXXXL),
               
               // Submit Button
               ElevatedButton(
@@ -1116,9 +1117,9 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AuthColors.primary,
                   foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   ),
                 ),
                 child: _isSubmitting
@@ -1160,26 +1161,26 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
       fillColor: AuthColors.surface,
       labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         borderSide: BorderSide(
           color: AuthColors.textMain.withOpacity(0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         borderSide: const BorderSide(
           color: AuthColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         borderSide: const BorderSide(
           color: AuthColors.error,
           width: 2,

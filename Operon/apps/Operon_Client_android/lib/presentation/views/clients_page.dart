@@ -12,6 +12,7 @@ import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
 import 'package:dash_mobile/presentation/widgets/standard_chip.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -189,12 +190,12 @@ class _ClientsPageState extends State<ClientsPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.paddingSM),
                       _CompactPageIndicator(
                         pageCount: 2,
                         currentIndex: _currentPage,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.paddingLG),
                     ],
                   ),
                 ),
@@ -213,7 +214,7 @@ class _ClientsPageState extends State<ClientsPage> {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: _openContactPage,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     child: Container(
                       width: 56,
                       height: 56,
@@ -226,7 +227,7 @@ class _ClientsPageState extends State<ClientsPage> {
                             AuthColors.primaryVariant,
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                         boxShadow: [
                           BoxShadow(
                             color: AuthColors.primaryWithOpacity(0.4),
@@ -294,12 +295,12 @@ class _ClientsListView extends StatelessWidget {
             child: Column(
               children: [
                 _buildSearchBar(context, state),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 _ClientFilterChips(
                   selectedFilter: filterType,
                   onFilterChanged: onFilterChanged,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 ErrorStateWidget(
                   message: state.message ?? 'Failed to load clients',
                   errorType: ErrorType.network,
@@ -330,7 +331,7 @@ class _ClientsListView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSearchBar(context, state),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
                     _ClientFilterChips(
                       selectedFilter: filterType,
                       onFilterChanged: onFilterChanged,
@@ -338,7 +339,7 @@ class _ClientsListView extends StatelessWidget {
                     const SizedBox(height: AppSpacing.itemSpacing),
                     if (state.searchQuery.isEmpty && !state.isRecentLoading)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                         child: Text(
                           '${filteredClients.length} ${filteredClients.length == 1 ? 'client' : 'clients'}',
                           style: const TextStyle(
@@ -373,7 +374,7 @@ class _ClientsListView extends StatelessWidget {
               )
             else ...[
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
                 sliver: SliverToBoxAdapter(
                   child: Row(
                     children: [
@@ -399,7 +400,7 @@ class _ClientsListView extends StatelessWidget {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.itemSpacing)),
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
                 sliver: AnimationLimiter(
                   child: SliverList(
                     delegate: SliverChildBuilderDelegate(
@@ -407,7 +408,7 @@ class _ClientsListView extends StatelessWidget {
                         if (index >= filteredClients.length) {
                           return isLoadingMore
                               ? const Padding(
-                                  padding: EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(AppSpacing.paddingLG),
                                   child: Center(child: CircularProgressIndicator()),
                                 )
                               : const SizedBox.shrink();
@@ -492,10 +493,10 @@ class _SearchResultsCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           if (state.isSearchLoading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXL),
               child: Center(
                 child: CircularProgressIndicator(),
               ),
@@ -504,7 +505,7 @@ class _SearchResultsCard extends StatelessWidget {
             _EmptySearchState(query: state.searchQuery)
           else
             ...state.searchResults.map((client) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                   child: _ClientTile(
                     key: ValueKey(client.id),
                     client: client,
@@ -595,10 +596,10 @@ class _ClientTile extends StatelessWidget {
     final orderCount = _getOrderCount();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       ),
       child: DataList(
         title: client.name,
@@ -613,18 +614,18 @@ class _ClientTile extends StatelessWidget {
           children: [
             if (orderCount > 0)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
                   decoration: BoxDecoration(
                     color: AuthColors.success.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.shopping_bag_outlined, size: 12, color: AuthColors.success),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: AppSpacing.paddingXS),
                       Text(
                         orderCount.toString(),
                         style: const TextStyle(
@@ -639,15 +640,15 @@ class _ClientTile extends StatelessWidget {
               ),
             if (client.tags.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                 child: Wrap(
                   spacing: 4,
                   children: client.tags.take(2).map((tag) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                       decoration: BoxDecoration(
                         color: AuthColors.surface,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                       ),
                       child: Text(
                         tag,
@@ -663,7 +664,7 @@ class _ClientTile extends StatelessWidget {
               ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingLG),
         onTap: () => context.pushNamed('client-detail', extra: client),
       ),
     );
@@ -773,7 +774,7 @@ class _EmptySearchState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(AppSpacing.paddingXXXL),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -782,7 +783,7 @@ class _EmptySearchState extends StatelessWidget {
             size: 48,
             color: AuthColors.textSub.withOpacity(0.5),
           ),
-          const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
           const Text(
             'No results found',
             style: TextStyle(
@@ -791,7 +792,7 @@ class _EmptySearchState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             'No clients match "$query"',
             style: const TextStyle(

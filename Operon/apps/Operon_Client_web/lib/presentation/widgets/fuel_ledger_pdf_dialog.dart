@@ -1,14 +1,19 @@
 import 'dart:html' as html;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:core_utils/core_utils.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
+import 'package:dash_web/presentation/widgets/fuel_ledger_document.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Dialog to generate Fuel Ledger PDF: choose voucher range or date range,
 /// then preview/print/save PDF (web).
@@ -41,12 +46,15 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  Uint8List? _pdfBytes;
-  int _rowCount = 0;
-  double _total = 0;
-  bool _isPrinting = false;
-  bool _isSaving = false;
+  List<FuelLedgerRow>? _viewRows;
+  double _viewTotal = 0;
+  String? _viewPaymentMode;
+  DateTime? _viewPaymentDate;
+  DmHeaderSettings? _viewCompanyHeader;
+  Uint8List? _viewLogoBytes;
+  bool _isGeneratingPdf = false;
   String? _actionError;
+  final GlobalKey _repaintKey = GlobalKey();
 
   @override
   void dispose() {
@@ -59,7 +67,6 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _pdfBytes = null;
     });
 
     try {
@@ -145,21 +152,14 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
       final paymentMode = modes.length == 1 ? (modes.single.isEmpty ? null : modes.single) : 'Various';
       final paymentDate = filtered.last.createdAt;
 
-      final pdfBytes = await generateFuelLedgerPdf(
-        companyHeader: dmSettings.header,
-        vendorName: widget.vendor.name,
-        rows: rows,
-        total: total,
-        paymentMode: paymentMode,
-        paymentDate: paymentDate,
-        logoBytes: logoBytes,
-      );
-
       if (mounted) {
         setState(() {
-          _pdfBytes = pdfBytes;
-          _rowCount = rows.length;
-          _total = total;
+          _viewRows = rows;
+          _viewTotal = total;
+          _viewPaymentMode = paymentMode;
+          _viewPaymentDate = paymentDate;
+          _viewCompanyHeader = dmSettings.header;
+          _viewLogoBytes = logoBytes;
           _isLoading = false;
           _errorMessage = null;
         });
@@ -174,35 +174,72 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     }
   }
 
-  Future<void> _handlePrint() async {
-    if (_pdfBytes == null) return;
-    setState(() {
-      _isPrinting = true;
-      _actionError = null;
-    });
+  Future<void> _shareAsPng() async {
+    final boundary = _repaintKey.currentContext?.findRenderObject()
+        as RenderRepaintBoundary?;
+    if (boundary == null) {
+      if (mounted) DashSnackbar.show(context, message: 'Could not capture', isError: true);
+      return;
+    }
     try {
-      await Printing.layoutPdf(onLayout: (_) async => _pdfBytes!);
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null || !mounted) return;
+      final bytes = byteData.buffer.asUint8List();
+      final name = 'Fuel-Ledger-${widget.vendor.name.replaceAll(RegExp(r'[^\w\s-]'), '')}.png';
+      await Share.shareXFiles(
+        [XFile.fromData(bytes, name: name, mimeType: 'image/png')],
+        text: 'Fuel Ledger ${widget.vendor.name}',
+      );
+    } catch (e) {
+      if (mounted) DashSnackbar.show(context, message: 'Failed to share: $e', isError: true);
+    }
+  }
+
+  Future<void> _generatePdfThenPrint() async {
+    if (_viewRows == null || _viewCompanyHeader == null) return;
+    setState(() => _isGeneratingPdf = true);
+    try {
+      final pdfBytes = await generateFuelLedgerPdf(
+        companyHeader: _viewCompanyHeader!,
+        vendorName: widget.vendor.name,
+        rows: _viewRows!,
+        total: _viewTotal,
+        paymentMode: _viewPaymentMode,
+        paymentDate: _viewPaymentDate,
+        logoBytes: _viewLogoBytes,
+      );
+      if (!mounted) return;
+      setState(() => _isGeneratingPdf = false);
+      await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
       if (mounted) {
-        setState(() => _isPrinting = false);
         Navigator.of(context).pop();
         DashSnackbar.show(context, message: 'Print dialog opened');
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isPrinting = false;
-          _actionError = e.toString();
-        });
-        DashSnackbar.show(context, message: 'Failed to print: $e', isError: true);
+        setState(() => _isGeneratingPdf = false);
+        DashSnackbar.show(context, message: 'Failed to generate PDF: $e', isError: true);
       }
     }
   }
 
-  void _handleSavePdf() {
-    if (_pdfBytes == null) return;
-    setState(() => _actionError = null);
+  Future<void> _generatePdfThenSave() async {
+    if (_viewRows == null || _viewCompanyHeader == null) return;
+    setState(() => _isGeneratingPdf = true);
     try {
-      final blob = html.Blob([_pdfBytes!], 'application/pdf');
+      final pdfBytes = await generateFuelLedgerPdf(
+        companyHeader: _viewCompanyHeader!,
+        vendorName: widget.vendor.name,
+        rows: _viewRows!,
+        total: _viewTotal,
+        paymentMode: _viewPaymentMode,
+        paymentDate: _viewPaymentDate,
+        logoBytes: _viewLogoBytes,
+      );
+      if (!mounted) return;
+      setState(() => _isGeneratingPdf = false);
+      final blob = html.Blob([pdfBytes], 'application/pdf');
       final url = html.Url.createObjectUrlFromBlob(blob);
       (html.AnchorElement(href: url)
         ..setAttribute('download', 'Fuel-Ledger-${widget.vendor.name.replaceAll(RegExp(r'[^\w\s-]'), '')}.pdf')
@@ -214,25 +251,44 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _actionError = e.toString());
+        setState(() => _isGeneratingPdf = false);
         DashSnackbar.show(context, message: 'Failed to save PDF: $e', isError: true);
       }
     }
   }
 
-  void _handlePreview() {
-    if (_pdfBytes == null) return;
-    OperonPdfPreviewModal.show(
-      context: context,
-      pdfBytes: _pdfBytes!,
-      title: 'Fuel Ledger - ${widget.vendor.name}',
-      pdfFileName: 'fuel_ledger_${widget.vendor.name.replaceAll(' ', '_')}.pdf',
-    );
+  Future<void> _generatePdfThenPreview() async {
+    if (_viewRows == null || _viewCompanyHeader == null) return;
+    setState(() => _isGeneratingPdf = true);
+    try {
+      final pdfBytes = await generateFuelLedgerPdf(
+        companyHeader: _viewCompanyHeader!,
+        vendorName: widget.vendor.name,
+        rows: _viewRows!,
+        total: _viewTotal,
+        paymentMode: _viewPaymentMode,
+        paymentDate: _viewPaymentDate,
+        logoBytes: _viewLogoBytes,
+      );
+      if (!mounted) return;
+      setState(() => _isGeneratingPdf = false);
+      OperonPdfPreviewModal.show(
+        context: context,
+        pdfBytes: pdfBytes,
+        title: 'Fuel Ledger - ${widget.vendor.name}',
+        pdfFileName: 'fuel_ledger_${widget.vendor.name.replaceAll(' ', '_')}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
+        DashSnackbar.show(context, message: 'Failed to generate PDF: $e', isError: true);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_pdfBytes != null) {
+    if (_viewRows != null && _viewCompanyHeader != null) {
       return _buildResultDialog();
     }
     return _buildRangeDialog();
@@ -364,73 +420,82 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
 
   Widget _buildResultDialog() {
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: Row(
         children: [
-          const Icon(Icons.receipt_long, color: Colors.blue, size: 20),
+          const Icon(Icons.receipt_long, color: AuthColors.info, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              widget.vendor.name,
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              'Fuel Ledger - ${widget.vendor.name}',
+              style: const TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
       ),
       content: SizedBox(
-        width: 400,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$_rowCount voucher(s)',
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+        width: 500,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RepaintBoundary(
+                key: _repaintKey,
+                child: AspectRatio(
+                  aspectRatio: 210 / 297,
+                  child: FuelLedgerDocument(
+                    companyHeader: _viewCompanyHeader!,
+                    vendorName: widget.vendor.name,
+                    rows: _viewRows!,
+                    total: _viewTotal,
+                    paymentMode: _viewPaymentMode,
+                    paymentDate: _viewPaymentDate,
+                    logoBytes: _viewLogoBytes,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Total: Rs. ${_total.toStringAsFixed(2)}',
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
-                  ),
-                ],
+                ),
               ),
-            ),
-            if (_actionError != null) ...[
-              const SizedBox(height: 12),
-              Text(_actionError!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+              if (_isGeneratingPdf) const LinearProgressIndicator(color: AuthColors.info),
+              if (_actionError != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _actionError!,
+                  style: const TextStyle(color: AuthColors.error, fontSize: 12),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
       actions: [
         DashButton(
           label: 'Close',
-          onPressed: (_isPrinting || _isSaving) ? null : () => Navigator.of(context).pop(),
+          onPressed: _isGeneratingPdf ? null : () => Navigator.of(context).pop(),
           variant: DashButtonVariant.text,
+        ),
+        DashButton(
+          label: 'Share',
+          icon: Icons.share,
+          onPressed: _isGeneratingPdf ? null : _shareAsPng,
+          variant: DashButtonVariant.outlined,
         ),
         DashButton(
           label: 'Preview',
           icon: Icons.preview,
-          onPressed: (_isPrinting || _isSaving) ? null : _handlePreview,
+          onPressed: _isGeneratingPdf ? null : _generatePdfThenPreview,
         ),
         DashButton(
           label: 'Print',
-          onPressed: (_isPrinting || _isSaving) ? null : _handlePrint,
+          onPressed: _isGeneratingPdf ? null : _generatePdfThenPrint,
           icon: Icons.print,
         ),
         DashButton(
           label: 'Save PDF',
-          onPressed: (_isPrinting || _isSaving) ? null : _handleSavePdf,
+          onPressed: _isGeneratingPdf ? null : _generatePdfThenSave,
           icon: Icons.download,
         ),
       ],

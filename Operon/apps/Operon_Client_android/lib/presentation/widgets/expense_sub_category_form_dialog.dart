@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -103,20 +104,20 @@ class _ExpenseSubCategoryFormDialogState
                         ? 'Enter sub-category name'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _descriptionController,
                 style: const TextStyle(color: Colors.white),
                 decoration: _inputDecoration('Description'),
                 maxLines: 2,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               // Icon selector
               const Text(
                 'Icon',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.paddingSM),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -135,7 +136,7 @@ class _ExpenseSubCategoryFormDialogState
                         color: isSelected
                             ? Color(int.parse(_selectedColor.substring(1), radix: 16) + 0xFF000000).withOpacity(0.2)
                             : const Color(0xFF1B1B2C),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                         border: Border.all(
                           color: isSelected
                               ? Color(int.parse(_selectedColor.substring(1), radix: 16) + 0xFF000000)
@@ -153,13 +154,13 @@ class _ExpenseSubCategoryFormDialogState
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.paddingLG),
               // Color selector
               const Text(
                 'Color',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.paddingSM),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -186,7 +187,7 @@ class _ExpenseSubCategoryFormDialogState
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _orderController,
                 style: const TextStyle(color: Colors.white),
@@ -204,7 +205,7 @@ class _ExpenseSubCategoryFormDialogState
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               // Active toggle
               Row(
                 children: [
@@ -270,7 +271,7 @@ class _ExpenseSubCategoryFormDialogState
       fillColor: const Color(0xFF1B1B2C),
       labelStyle: const TextStyle(color: Colors.white70),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );

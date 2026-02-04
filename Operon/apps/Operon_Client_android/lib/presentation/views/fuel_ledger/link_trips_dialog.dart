@@ -1,6 +1,7 @@
 import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -196,7 +197,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
     return Dialog(
       backgroundColor: const Color(0xFF0A0A0A),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       ),
       child: Container(
         constraints: const BoxConstraints(maxHeight: 600),
@@ -205,14 +206,14 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppSpacing.paddingXXL),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(AppSpacing.paddingSM),
                     decoration: BoxDecoration(
                       color: const Color(0xFF6F4BFF).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                     ),
                     child: const Icon(
                       Icons.link,
@@ -220,7 +221,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                       size: 20,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.paddingMD),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,7 +234,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSpacing.paddingXS),
                         Text(
                           'Voucher: ${widget.voucherNumber}',
                           style: TextStyle(
@@ -266,7 +267,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                   : _error != null
                       ? Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(24),
+                            padding: const EdgeInsets.all(AppSpacing.paddingXXL),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -275,7 +276,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                   style: const TextStyle(color: Colors.red),
                                   textAlign: TextAlign.center,
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSpacing.paddingLG),
                                 ElevatedButton(
                                   onPressed: _loadAvailableTrips,
                                   child: const Text('Retry'),
@@ -287,7 +288,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                       : _availableTrips.isEmpty
                           ? Center(
                               child: Padding(
-                                padding: const EdgeInsets.all(24),
+                                padding: const EdgeInsets.all(AppSpacing.paddingXXL),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -296,7 +297,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                       size: 64,
                                       color: Colors.white.withOpacity(0.3),
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: AppSpacing.paddingLG),
                                     Text(
                                       'No trips found',
                                       style: TextStyle(
@@ -304,7 +305,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                         fontSize: 16,
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: AppSpacing.paddingSM),
                                     Text(
                                       'No returned trips found for this vehicle in the past 3 days',
                                       style: TextStyle(
@@ -318,7 +319,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                               ),
                             )
                           : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXXL),
                               itemCount: _availableTrips.length,
                               itemBuilder: (context, index) {
                               final trip = _availableTrips[index];
@@ -333,14 +334,14 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                               final scheduledDate = trip['scheduledDate'];
 
                                 return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
+                                  margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                                   decoration: BoxDecoration(
                                     color: isSelected
                                         ? const Color(0xFF6F4BFF).withOpacity(0.2)
                                         : hasFuelVoucher
                                             ? Colors.orange.withOpacity(0.1)
                                             : const Color(0xFF13131E),
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                                     border: Border.all(
                                       color: isSelected
                                           ? const Color(0xFF6F4BFF)
@@ -377,10 +378,10 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                         ),
                                         if (hasFuelVoucher)
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                                             decoration: BoxDecoration(
                                               color: Colors.orange.withOpacity(0.2),
-                                              borderRadius: BorderRadius.circular(4),
+                                              borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                                               border: Border.all(color: Colors.orange.withOpacity(0.5)),
                                             ),
                                             child: const Text(
@@ -397,11 +398,11 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                     subtitle: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: AppSpacing.paddingXS),
                                         Row(
                                           children: [
                                             Icon(Icons.calendar_today, size: 12, color: Colors.white.withOpacity(0.6)),
-                                            const SizedBox(width: 4),
+                                            const SizedBox(width: AppSpacing.paddingXS),
                                             Text(
                                               _formatDate(scheduledDate),
                                               style: TextStyle(
@@ -411,11 +412,11 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                             ),
                                           ],
                                         ),
-                                        const SizedBox(height: 4),
+                                        const SizedBox(height: AppSpacing.paddingXS),
                                         Row(
                                           children: [
                                             Icon(Icons.location_on, size: 12, color: Colors.white.withOpacity(0.6)),
-                                            const SizedBox(width: 4),
+                                            const SizedBox(width: AppSpacing.paddingXS),
                                             Expanded(
                                               child: Text(
                                                 '$city${region.isNotEmpty ? ', $region' : ''}',
@@ -430,11 +431,11 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                           ],
                                         ),
                                         if (distance > 0) ...[
-                                          const SizedBox(height: 4),
+                                          const SizedBox(height: AppSpacing.paddingXS),
                                           Row(
                                             children: [
                                               Icon(Icons.straighten, size: 12, color: Colors.white.withOpacity(0.6)),
-                                              const SizedBox(width: 4),
+                                              const SizedBox(width: AppSpacing.paddingXS),
                                               Text(
                                                 '${distance.toStringAsFixed(1)} KM',
                                                 style: TextStyle(
@@ -459,7 +460,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
             
             // Summary and Actions
             Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppSpacing.paddingXXL),
               decoration: const BoxDecoration(
                 color: Color(0xFF1B1B2C),
                 borderRadius: BorderRadius.only(
@@ -491,7 +492,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                                    const SizedBox(height: AppSpacing.paddingLG),
                   ],
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -503,7 +504,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                           style: TextStyle(color: Colors.white.withOpacity(0.7)),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.paddingMD),
                       if (_selectedDmIds.isEmpty)
                         TextButton(
                           onPressed: _isLinking ? null : () => Navigator.of(context).pop(),

@@ -9,10 +9,14 @@ import 'package:dash_web/presentation/blocs/analytics_dashboard/analytics_dashbo
 import 'package:dash_web/presentation/blocs/analytics_dashboard/analytics_dashboard_state.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/views/transaction_analytics_view.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+
+/// Period for analytics: monthly (by month, FY) or daily (past 30 days).
+enum AnalyticsPeriod { monthly, daily }
 
 /// Unified analytics dashboard: tabs for Transactions, Clients, Employees, Vendors,
 /// Deliveries, Productions, and Trip Wages. Loads all types from ANALYTICS collection.
@@ -25,6 +29,7 @@ class AnalyticsDashboardView extends StatefulWidget {
 
 class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
   int _selectedTabIndex = 0;
+  AnalyticsPeriod _period = AnalyticsPeriod.monthly;
 
   String _getFinancialYear() {
     final orgState = context.read<OrganizationContextCubit>().state;
@@ -117,6 +122,8 @@ class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
         }
 
         return _AnalyticsTabContent(
+                period: _period,
+                onPeriodChanged: (p) => setState(() => _period = p),
                 selectedTabIndex: _selectedTabIndex,
                 onTabChanged: _onTabSelected,
               );
@@ -127,10 +134,14 @@ class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
 
 class _AnalyticsTabContent extends StatelessWidget {
   const _AnalyticsTabContent({
+    required this.period,
+    required this.onPeriodChanged,
     required this.selectedTabIndex,
     required this.onTabChanged,
   });
 
+  final AnalyticsPeriod period;
+  final ValueChanged<AnalyticsPeriod> onPeriodChanged;
   final int selectedTabIndex;
   final ValueChanged<int> onTabChanged;
 
@@ -147,56 +158,55 @@ class _AnalyticsTabContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AnalyticsDashboardCubit>().state;
-    final transactions = state.transactions;
-    final totalReceivables = transactions?.receivableAging.total ?? 0;
-    final over90 = transactions?.receivableAging.daysOver90 ?? 0;
-    final showTransactionsBadge = totalReceivables > 0 && (over90 / totalReceivables) > 0.10;
+    final isDaily = period == AnalyticsPeriod.daily;
+    final showDailyEmptyState = isDaily && selectedTabIndex != 0;
+
+    if (kDebugMode) {
+      debugPrint('[AnalyticsDashboard UI] period=${period.name} selectedTabIndex=$selectedTabIndex '
+          'hasTransactions=${state.transactions != null} hasClients=${state.clients != null} '
+          'hasEmployees=${state.employees != null} hasVendors=${state.vendors != null} '
+          'hasDeliveries=${state.deliveries != null} hasProductions=${state.productions != null} '
+          'hasTripWages=${state.tripWages != null} showDailyEmptyState=$showDailyEmptyState');
+    }
 
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: AuthColors.surface,
-            border: Border(
-              bottom: BorderSide(color: AuthColors.textMainWithOpacity(0.08)),
-            ),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(_tabs.length, (index) {
-                final tab = _tabs[index];
-                final isSelected = selectedTabIndex == index;
-                final showBadge = index == 0 && showTransactionsBadge;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _NavPill(
-                    icon: tab.icon,
-                    label: tab.label,
-                    isSelected: isSelected,
-                    showBadge: showBadge,
-                    onTap: () => onTabChanged(index),
-                  ),
-                );
-              }),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          child: Center(
+            child: _AnalyticsSingleRowNavBar(
+              period: period,
+              onPeriodChanged: onPeriodChanged,
+              selectedTabIndex: selectedTabIndex,
+              onTabChanged: onTabChanged,
+              tabs: _tabs,
             ),
           ),
         ),
         Expanded(
-          child: IndexedStack(
-            index: selectedTabIndex,
-            children: [
-              _TabContent(
-                isLoading: state.isLoadingTab(0),
-                hasData: state.transactions != null,
-                emptyMessage: 'No transaction analytics for this period.',
-                emptyIcon: Icons.receipt_long,
-                child: state.transactions != null
-                    ? TransactionAnalyticsContent(analytics: state.transactions!)
-                    : null,
-              ),
+          child: showDailyEmptyState
+              ? SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: _EmptySection(
+                    message: 'Daily breakdown is available for Transactions only. Switch to Monthly to see this category.',
+                    icon: Icons.today,
+                  ),
+                )
+              : IndexedStack(
+                  index: selectedTabIndex,
+                  children: [
+                    _TabContent(
+                      isLoading: state.isLoadingTab(0),
+                      hasData: state.transactions != null,
+                      emptyMessage: 'No transaction analytics for this period.',
+                      emptyIcon: Icons.receipt_long,
+                      child: state.transactions != null
+                          ? TransactionAnalyticsContent(
+                              analytics: state.transactions!,
+                              isDailyView: period == AnalyticsPeriod.daily,
+                            )
+                          : null,
+                    ),
               _TabContent(
                 isLoading: state.isLoadingTab(1),
                 hasData: state.clients != null,
@@ -333,20 +343,113 @@ class _AnalyticsTabShimmer extends StatelessWidget {
   }
 }
 
-class _NavPill extends StatelessWidget {
-  const _NavPill({
+/// Single-row nav bar: Monthly | Daily | Transactions | Clients | ... (production-style dark pill bar, scrollable).
+class _AnalyticsSingleRowNavBar extends StatelessWidget {
+  const _AnalyticsSingleRowNavBar({
+    required this.period,
+    required this.onPeriodChanged,
+    required this.selectedTabIndex,
+    required this.onTabChanged,
+    required this.tabs,
+  });
+
+  final AnalyticsPeriod period;
+  final ValueChanged<AnalyticsPeriod> onPeriodChanged;
+  final int selectedTabIndex;
+  final ValueChanged<int> onTabChanged;
+  final List<({IconData icon, String label})> tabs;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A).withOpacity(0.95),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.1),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 12.0,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 4.0,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: AuthColors.primary.withOpacity(0.15),
+            blurRadius: 20,
+            spreadRadius: -5,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AnalyticsNavPill(
+              icon: Icons.calendar_month,
+              label: 'Monthly',
+              isSelected: period == AnalyticsPeriod.monthly,
+              onTap: () => onPeriodChanged(AnalyticsPeriod.monthly),
+            ),
+            const SizedBox(width: 4),
+            _AnalyticsNavPill(
+              icon: Icons.today,
+              label: 'Daily',
+              isSelected: period == AnalyticsPeriod.daily,
+              onTap: () => onPeriodChanged(AnalyticsPeriod.daily),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+            const SizedBox(width: 12),
+            ...List.generate(tabs.length, (int index) {
+              final tab = tabs[index];
+              return Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: _AnalyticsNavPill(
+                  icon: tab.icon,
+                  label: tab.label,
+                  isSelected: selectedTabIndex == index,
+                  onTap: () => onTabChanged(index),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalyticsNavPill extends StatelessWidget {
+  const _AnalyticsNavPill({
     required this.icon,
     required this.label,
     required this.isSelected,
     required this.onTap,
-    this.showBadge = false,
   });
 
   final IconData icon;
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
-  final bool showBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -355,47 +458,35 @@ class _NavPill extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
           decoration: BoxDecoration(
-            color: isSelected
-                ? AuthColors.primary.withOpacity(0.12)
-                : AuthColors.surface,
+            color: isSelected ? AuthColors.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? AuthColors.primary.withOpacity(0.4) : AuthColors.textMainWithOpacity(0.08),
-              width: isSelected ? 1.5 : 1,
-            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 icon,
-                size: 18,
-                color: isSelected ? AuthColors.primary : AuthColors.textSub,
+                size: 20,
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.7),
               ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  color: isSelected
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.7),
+                  fontSize: 14,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? AuthColors.primary : AuthColors.textSub,
+                  letterSpacing: 0.2,
                 ),
               ),
-              if (showBadge) ...[
-                const SizedBox(width: 6),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AuthColors.error,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -507,26 +598,26 @@ class _ClientsStatCards extends StatelessWidget {
               title: 'Active clients',
               value: analytics.totalActiveClients.toString(),
               icon: Icons.people,
-              gradient: [AuthColors.success.withOpacity(0.15), AuthColors.success.withOpacity(0.05)],
+              color: AuthColors.success,
               trend: onboardingTrend,
             ),
             _AnalyticsStatCard(
               title: 'Total orders',
               value: _fmt(analytics.totalOrders),
               icon: Icons.shopping_cart,
-              gradient: [AuthColors.info.withOpacity(0.15), AuthColors.info.withOpacity(0.05)],
+              color: AuthColors.info,
             ),
             _AnalyticsStatCard(
               title: 'Corporate',
               value: _fmt(analytics.corporateCount),
               icon: Icons.business,
-              gradient: [AuthColors.primary.withOpacity(0.15), AuthColors.primary.withOpacity(0.05)],
+              color: AuthColors.primary,
             ),
             _AnalyticsStatCard(
               title: 'Individual',
               value: _fmt(analytics.individualCount),
               icon: Icons.person,
-              gradient: [AuthColors.secondary.withOpacity(0.15), AuthColors.secondary.withOpacity(0.05)],
+              color: AuthColors.secondary,
             ),
           ],
         );
@@ -775,7 +866,7 @@ class _EmployeesSection extends StatelessWidget {
                   title: 'Active employees',
                   value: analytics.totalActiveEmployees.toString(),
                   icon: Icons.badge,
-                  gradient: [AuthColors.secondary.withOpacity(0.15), AuthColors.secondary.withOpacity(0.05)],
+                  color: AuthColors.secondary,
                   trend: trend,
                 ),
               ],
@@ -993,22 +1084,18 @@ class _VendorsSection extends StatelessWidget {
                 title: 'Total payable',
                 value: _fmt(analytics.totalPayable),
                 icon: Icons.payments,
-                gradient: [AuthColors.warning.withOpacity(0.15), AuthColors.warning.withOpacity(0.05)],
+                color: AuthColors.warning,
                 trend: payableTrend,
               ),
             ];
-            final typeColors = [
-              [AuthColors.success.withOpacity(0.15), AuthColors.success.withOpacity(0.05)],
-              [AuthColors.info.withOpacity(0.15), AuthColors.info.withOpacity(0.05)],
-              [AuthColors.primary.withOpacity(0.15), AuthColors.primary.withOpacity(0.05)],
-            ];
+            const typeColors = [AuthColors.success, AuthColors.info, AuthColors.primary];
             for (var i = 0; i < typeTotals.entries.take(3).length; i++) {
               final entry = typeTotals.entries.elementAt(i);
               cards.add(_AnalyticsStatCard(
                 title: entry.key,
                 value: _fmt(entry.value),
                 icon: Icons.storefront,
-                gradient: typeColors[i % typeColors.length],
+                color: typeColors[i % typeColors.length],
               ));
             }
             return GridView.count(
@@ -1416,90 +1503,93 @@ class _DataTimestamp extends StatelessWidget {
   }
 }
 
+/// Summary stat card matching TransactionSummaryCards style used on other pages.
 class _AnalyticsStatCard extends StatelessWidget {
   const _AnalyticsStatCard({
     required this.title,
     required this.value,
     required this.icon,
-    this.gradient,
+    required this.color,
     this.trend,
   });
 
   final String title;
   final String value;
   final IconData icon;
-  final List<Color>? gradient;
+  final Color color;
   final TrendResult? trend;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: gradient != null
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: gradient!.map((c) => c.withOpacity(0.5)).toList(),
-                  )
-                : null,
-            color: gradient == null ? AuthColors.surface.withOpacity(0.5) : null,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.15), width: 1),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withOpacity(0.2),
+            color.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AuthColors.secondary.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
+                  color: color.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: AuthColors.secondary, size: 24),
+                child: Icon(icon, color: color, size: 20),
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  color: AuthColors.textSub,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              if (trend != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  trend!.badgeText,
-                  style: TextStyle(
-                    color: trend!.direction == TrendDirection.up
-                        ? AuthColors.success
-                        : trend!.direction == TrendDirection.down
-                            ? AuthColors.error
-                            : AuthColors.textSub,
-                    fontSize: 11,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: AuthColors.textSub,
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-              ],
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
-        ),
+          if (trend != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              trend!.badgeText,
+              style: TextStyle(
+                color: trend!.direction == TrendDirection.up
+                    ? AuthColors.success
+                    : trend!.direction == TrendDirection.down
+                        ? AuthColors.error
+                        : AuthColors.textSub,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -1539,19 +1629,19 @@ class _DeliveriesSection extends StatelessWidget {
                   title: 'Quantity delivered (FY)',
                   value: _fmt(analytics.totalQuantityDeliveredYearly),
                   icon: Icons.local_shipping,
-                  gradient: [AuthColors.primary.withOpacity(0.15), AuthColors.primary.withOpacity(0.05)],
+                  color: AuthColors.primary,
                 ),
                 _AnalyticsStatCard(
                   title: 'Regions / cities',
                   value: regionCount.toString(),
                   icon: Icons.location_on_outlined,
-                  gradient: [AuthColors.info.withOpacity(0.15), AuthColors.info.withOpacity(0.05)],
+                  color: AuthColors.info,
                 ),
                 _AnalyticsStatCard(
                   title: 'Top clients (FY)',
                   value: analytics.top20ClientsByOrderValueYearly.length.toString(),
                   icon: Icons.star_outline,
-                  gradient: [AuthColors.success.withOpacity(0.15), AuthColors.success.withOpacity(0.05)],
+                  color: AuthColors.success,
                 ),
               ],
             );
@@ -1755,14 +1845,14 @@ class _ProductionsSection extends StatelessWidget {
                   title: 'Total production (FY)',
                   value: _fmt(analytics.totalProductionYearly),
                   icon: Icons.factory,
-                  gradient: [AuthColors.info.withOpacity(0.15), AuthColors.info.withOpacity(0.05)],
+                  color: AuthColors.info,
                 ),
                 if (hasRawMaterials)
                   _AnalyticsStatCard(
                     title: 'Raw materials (FY)',
                     value: _fmt(analytics.totalRawMaterialsMonthly.values.fold<double>(0.0, (a, b) => a + b).toInt()),
                     icon: Icons.inventory_2_outlined,
-                    gradient: [AuthColors.warning.withOpacity(0.15), AuthColors.warning.withOpacity(0.05)],
+                    color: AuthColors.warning,
                   ),
               ],
             );
@@ -1951,13 +2041,13 @@ class _TripWagesSection extends StatelessWidget {
                   title: 'Total trip wages (FY)',
                   value: _fmt(totalYearly),
                   icon: Icons.paid_outlined,
-                  gradient: [AuthColors.success.withOpacity(0.15), AuthColors.success.withOpacity(0.05)],
+                  color: AuthColors.success,
                 ),
                 _AnalyticsStatCard(
                   title: 'Quantity tiers',
                   value: quantityBuckets.toString(),
                   icon: Icons.stacked_bar_chart,
-                  gradient: [AuthColors.secondary.withOpacity(0.15), AuthColors.secondary.withOpacity(0.05)],
+                  color: AuthColors.secondary,
                 ),
               ],
             );

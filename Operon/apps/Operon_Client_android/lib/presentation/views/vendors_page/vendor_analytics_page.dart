@@ -4,6 +4,7 @@ import 'package:dash_mobile/data/repositories/analytics_repository.dart';
 import 'package:dash_mobile/presentation/blocs/vendors/vendors_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/vendors/vendors_state.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -77,7 +78,7 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
     if (_isLoading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(40),
+          padding: EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
           child: CircularProgressIndicator(),
         ),
       );
@@ -86,7 +87,7 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
     if (_analytics == null || (_analytics!.totalPayable == 0 && _analytics!.purchasesByVendorType.isEmpty)) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.paddingXXL),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -95,7 +96,7 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
                 size: 64,
                 color: Colors.white.withOpacity(0.3),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.paddingLG),
               Text(
                 'No analytics data available',
                 style: TextStyle(
@@ -104,7 +105,7 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.paddingSM),
               Text(
                 'Analytics will appear once vendors are added and purchases are made.',
                 textAlign: TextAlign.center,
@@ -123,7 +124,7 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
     final purchasesByMonth = _aggregatePurchasesByMonth(_analytics!.purchasesByVendorType);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -146,7 +147,7 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
               );
             },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
           // Info Tiles
           Row(
             children: [
@@ -157,7 +158,7 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
                 ),
               ),
               if (purchasesByMonth.isNotEmpty) ...[
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.paddingMD),
                 Expanded(
                   child: _InfoTile(
                     title: 'Purchases This Month',
@@ -168,10 +169,10 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
             ],
           ),
           if (purchasesByMonth.isNotEmpty) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             // Purchase Chart
             _PurchasesChart(data: purchasesByMonth),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             // Summary Stats
             _SummaryStats(data: purchasesByMonth),
           ],
@@ -228,7 +229,7 @@ class _VendorsStatsHeader extends StatelessWidget {
                 color: AuthColors.primary,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: _StatCard(
                 icon: Icons.check_circle_outline,
@@ -239,7 +240,7 @@ class _VendorsStatsHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.paddingMD),
         Row(
           children: [
             Expanded(
@@ -277,7 +278,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -287,7 +288,7 @@ class _StatCard extends StatelessWidget {
             AuthColors.background,
           ],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
           color: AuthColors.textSub.withOpacity(0.2),
         ),
@@ -310,14 +311,14 @@ class _StatCard extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 ),
                 child: Icon(icon, color: color, size: 18),
               ),
               const Spacer(),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             value,
             style: const TextStyle(
@@ -336,7 +337,7 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.paddingXS),
             Text(
               subtitle!,
               style: TextStyle(
@@ -364,7 +365,7 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -374,7 +375,7 @@ class _InfoTile extends StatelessWidget {
             const Color(0xFF4CE0B3).withOpacity(0.1),
           ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
       child: Column(
@@ -388,7 +389,7 @@ class _InfoTile extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             value,
             style: const TextStyle(
@@ -435,10 +436,10 @@ class _PurchasesChart extends StatelessWidget {
 
     return Container(
       height: chartHeight + 60,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
       ),
       child: Column(
@@ -452,7 +453,7 @@ class _PurchasesChart extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.paddingXL),
           Expanded(
             child: CustomPaint(
               size: Size.infinite,
@@ -741,7 +742,7 @@ class _SummaryStats extends StatelessWidget {
             color: AuthColors.primary,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.paddingMD),
         Expanded(
           child: _StatChip(
             label: 'Max',
@@ -750,7 +751,7 @@ class _SummaryStats extends StatelessWidget {
             color: AuthColors.success,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.paddingMD),
         Expanded(
           child: _StatChip(
             label: 'Min',
@@ -796,10 +797,10 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
@@ -814,7 +815,7 @@ class _StatChip extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.paddingXS),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -827,7 +828,7 @@ class _StatChip extends StatelessWidget {
                 ),
               ),
               if (subtitle != null) ...[
-                const SizedBox(width: 4),
+                const SizedBox(width: AppSpacing.paddingXS),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Text(

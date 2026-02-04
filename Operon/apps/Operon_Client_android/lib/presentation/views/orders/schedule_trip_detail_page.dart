@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:core_datasources/core_datasources.dart' hide ScheduledTripsRepository, ScheduledTripsDataSource;
-import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/services/storage_service.dart';
@@ -13,9 +12,15 @@ import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dar
 import 'package:dash_mobile/presentation/widgets/delivery_photo_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/return_payment_dialog.dart';
+import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
+import 'package:dash_mobile/presentation/widgets/modern_tile.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class ScheduleTripDetailPage extends StatefulWidget {
@@ -32,6 +37,7 @@ class ScheduleTripDetailPage extends StatefulWidget {
 
 class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
   late Map<String, dynamic> _trip;
+  int _selectedTabIndex = 0;
 
   @override
   void initState() {
@@ -93,17 +99,17 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
               TextFormField(
                 controller: readingController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AuthColors.textMain),
                 decoration: InputDecoration(
                   labelText: 'Odometer Reading',
-                  labelStyle: const TextStyle(color: AuthColors.textSub),
+                  labelStyle: TextStyle(color: AuthColors.textSub),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AuthColors.textMain.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Colors.orange),
-                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AuthColors.info),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   ),
                 ),
                 validator: (value) {
@@ -135,7 +141,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
               }
             },
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.orange,
+              backgroundColor: AuthColors.info,
             ),
             child: const Text('Submit'),
           ),
@@ -340,13 +346,13 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final statusColor = () {
       switch (tripStatus) {
         case 'delivered':
-          return const Color(0xFF4CAF50);
+          return AuthColors.success;
         case 'dispatched':
-          return const Color(0xFF6F4BFF);
+          return AuthColors.primary;
         case 'returned':
-          return Colors.orange;
+          return AuthColors.info;
         default:
-          return Colors.blueGrey;
+          return AuthColors.textDisabled;
       }
     }();
 
@@ -354,672 +360,202 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final includeGstInTotal = _trip['includeGstInTotal'] as bool? ?? true;
 
+    final clientName = _trip['clientName'] as String? ?? 'N/A';
+    final driverName = _trip['driverName'] as String?;
+    final vehicleNumber = _trip['vehicleNumber'] as String? ?? 'Not assigned';
+    final scheduledDate = _trip['scheduledDate'];
+    
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: AuthColors.background,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Trip Details',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            Column(
+              children: [
+                // Enhanced Header
+                _TripHeader(
+                  trip: _trip,
+                  clientName: clientName,
+                  driverName: driverName,
+                  vehicleNumber: vehicleNumber,
+                  scheduledDate: scheduledDate,
+                  tripStatus: tripStatus,
+                  statusColor: statusColor,
+                  dmNumber: dmNumber,
+                  formatDate: _formatDate,
+                ),
+                
+                // Spacing between header and tab bar
+                const SizedBox(height: AppSpacing.paddingLG),
+                
+                // Tab Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
+                  child: Container(
+                    padding: const EdgeInsets.all(AppSpacing.paddingXS / 2),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: statusColor.withOpacity(0.4)),
-                    ),
-                    child: Text(
-                      tripStatus.toUpperCase(),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                      color: AuthColors.surface,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                      border: Border.all(
+                        color: AuthColors.textSub.withOpacity(0.1),
+                        width: 1,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            // Content
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  // Reload trip data if needed
-                  // For now, just trigger a rebuild
-                  setState(() {});
-                },
-                color: const Color(0xFF6F4BFF),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildTopSection(),
-                      const SizedBox(height: 12),
-                      _buildInfoSection(),
-                      const SizedBox(height: 12),
-                      _buildOrderSummary(items, tripPricing, includeGstInTotal),
-                      const SizedBox(height: 12),
-                      _buildPaymentSummary(),
-                      const SizedBox(height: 12),
-                      _buildTripStatus(tripStatus, dmNumber),
-                      const SizedBox(height: 80),
-                    ],
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _TabButton(
+                            label: 'Overview',
+                            isSelected: _selectedTabIndex == 0,
+                            onTap: () => setState(() => _selectedTabIndex = 0),
+                          ),
+                        ),
+                        Expanded(
+                          child: _TabButton(
+                            label: 'Items',
+                            isSelected: _selectedTabIndex == 1,
+                            onTap: () => setState(() => _selectedTabIndex = 1),
+                          ),
+                        ),
+                        Expanded(
+                          child: _TabButton(
+                            label: 'Payments',
+                            isSelected: _selectedTabIndex == 2,
+                            onTap: () => setState(() => _selectedTabIndex = 2),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                
+                // Tab Content
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      setState(() {});
+                    },
+                    color: AuthColors.primary,
+                    child: IndexedStack(
+                      index: _selectedTabIndex,
+                      children: [
+                        _OverviewTab(
+                          trip: _trip,
+                          formatDate: _formatDate,
+                          tripStatus: tripStatus,
+                          statusColor: statusColor,
+                          dmNumber: dmNumber,
+                          onCallDriver: () {
+                            final driverPhone = _trip['driverPhone'] as String?;
+                            if (driverPhone != null) _callNumber(driverPhone, 'Driver');
+                          },
+                          onCallCustomer: () {
+                            final clientPhone = _trip['clientPhone'] as String? ?? _trip['customerNumber'] as String?;
+                            if (clientPhone != null) _callNumber(clientPhone, 'Customer');
+                          },
+                          onPrintDM: dmNumber != null ? () => _openPrintDialog(context) : null,
+                          onDispatch: (value) async {
+                            final meterType = _trip['meterType'] as String?;
+                            final askMeterReadings = meterType == 'KM';
+                            if (value) {
+                              if (askMeterReadings) {
+                                await _showInitialReadingDialog(context);
+                              } else {
+                                await _dispatchTrip(context, null);
+                              }
+                            } else {
+                              await _revertDispatch(context);
+                            }
+                          },
+                          onDelivery: (value) async {
+                            if (value) {
+                              await _showDeliveryPhotoDialog(context);
+                            } else {
+                              await _revertDelivery(context);
+                            }
+                          },
+                          onReturn: (value) async {
+                            final meterType = _trip['meterType'] as String?;
+                            final askMeterReadings = meterType == 'KM';
+                            if (value) {
+                              if (askMeterReadings) {
+                                await _showFinalReadingDialog(context);
+                              } else {
+                                await _markAsReturned(context, null);
+                              }
+                            } else {
+                              await _revertReturn(context);
+                            }
+                          },
+                        ),
+                        _ItemsTab(
+                          items: items,
+                          tripPricing: tripPricing,
+                          includeGstInTotal: includeGstInTotal,
+                          trip: _trip,
+                          formatDate: _formatDate,
+                        ),
+                        _PaymentsTab(
+                          trip: _trip,
+                          tripPricing: tripPricing,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            // FAB Menu - positioned at bottom right with safe padding
+            QuickActionMenu(
+              right: QuickActionMenu.standardRight,
+              bottom: MediaQuery.of(context).padding.bottom + AppSpacing.paddingLG,
+              actions: [
+                QuickActionItem(
+                  icon: Icons.call_outlined,
+                  label: 'Call Driver',
+                  onTap: () {
+                    final driverPhone = _trip['driverPhone'] as String?;
+                    if (driverPhone != null && driverPhone.isNotEmpty) {
+                      _callNumber(driverPhone, 'Driver');
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Driver phone not available'),
+                          backgroundColor: AuthColors.warning,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                QuickActionItem(
+                  icon: Icons.call_outlined,
+                  label: 'Call Customer',
+                  onTap: () {
+                    final clientPhone = _trip['clientPhone'] as String? ?? _trip['customerNumber'] as String?;
+                    if (clientPhone != null && clientPhone.isNotEmpty) {
+                      _callNumber(clientPhone, 'Customer');
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Customer phone not available'),
+                          backgroundColor: AuthColors.warning,
+                        ),
+                      );
+                    }
+                  },
+                ),
+                if (dmNumber != null)
+                  QuickActionItem(
+                    icon: Icons.print_outlined,
+                    label: 'Print DM',
+                    onTap: () => _openPrintDialog(context),
+                  ),
+              ],
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTopSection() {
-    final driverPhone = _trip['driverPhone'] as String?;
-    final clientPhone = _trip['clientPhone'] as String? ?? _trip['customerNumber'] as String?;
-                              
-    return Row(
-                                children: [
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: driverPhone != null && driverPhone.isNotEmpty
-                ? () => _callNumber(driverPhone, 'Driver')
-                : null,
-            icon: const Icon(Icons.call, size: 18),
-            label: const Text('Call Driver'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-              minimumSize: const Size(0, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: FilledButton.icon(
-            onPressed: clientPhone != null && clientPhone.isNotEmpty
-                ? () => _callNumber(clientPhone, 'Customer')
-                : null,
-            icon: const Icon(Icons.call, size: 18),
-            label: const Text('Call Customer'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-              minimumSize: const Size(0, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ),
-                                  ],
-    );
-  }
-
-  Widget _buildInfoSection() {
-    final scheduledDate = _trip['scheduledDate'];
-    final slot = _trip['slot'] as int?;
-    final vehicleNumber = _trip['vehicleNumber'] as String? ?? 'Not assigned';
-    final deliveryZone = _trip['deliveryZone'] as Map<String, dynamic>? ?? {};
-    final address = deliveryZone['region'] ??
-        deliveryZone['zone'] ??
-        deliveryZone['city'] ??
-        deliveryZone['city_name'] ??
-        'Not provided';
-    final city = deliveryZone['city'] ?? deliveryZone['city_name'] ?? '';
-
-    return _InfoCard(
-      title: 'Trip Information',
-      children: [
-        // Date and Slot in a single row
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-                                    children: [
-                                      const SizedBox(
-                                        width: 80,
-                                        child: Text(
-                  'Date',
-                                          style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Text(
-                  _formatDate(scheduledDate),
-                                          style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-              const SizedBox(width: 16),
-              const SizedBox(
-                width: 80,
-                child: Text(
-                  'Slot',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 11,
-                  ),
-                ),
-                    ),
-              Expanded(
-                child: Text(
-                  slot != null ? 'Slot $slot' : 'Not set',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        _InfoRow(label: 'Vehicle', value: vehicleNumber),
-        // Address and City in a single row
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Row(
-                      children: [
-              const SizedBox(
-                width: 80,
-                child: Text(
-                  'Address',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  address,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-                          ),
-              if (city.isNotEmpty) ...[
-                const SizedBox(width: 16),
-                const SizedBox(
-                  width: 80,
-                  child: Text(
-                    'City',
-                    style: TextStyle(
-                      color: Colors.white60,
-                      fontSize: 11,
-                            ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    city,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                            ),
-                        ],
-                      ],
-                    ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOrderSummary(List<dynamic> items, Map<String, dynamic> tripPricing, bool includeGstInTotal) {
-    final subtotal = (tripPricing['subtotal'] as num?)?.toDouble() ?? 0.0;
-    final gstAmount = (tripPricing['gstAmount'] as num?)?.toDouble() ?? 0.0;
-    final total = includeGstInTotal ? subtotal + gstAmount : subtotal;
-
-    return _InfoCard(
-      title: 'Order Summary',
-                      children: [
-        // Product rows
-        ...items.map((item) {
-          final m = item as Map<String, dynamic>;
-          final productName = m['productName'] as String? ?? m['name'] as String? ?? 'Unknown';
-          final qty = (m['fixedQuantityPerTrip'] as num?)?.toInt() ?? 0;
-          final unitPrice = (m['unitPrice'] as num?)?.toDouble() ??
-              (m['unit_price'] as num?)?.toDouble() ??
-              0.0;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-                          children: [
-                Expanded(
-                              child: Text(
-                    productName,
-                    style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                const SizedBox(width: 8),
-                Text(
-                  'Qty: $qty',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '₹${unitPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
-                            ),
-                          ],
-                        ),
-          );
-        }),
-        const Divider(color: Colors.white24, height: 24),
-        // Subtotal
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                'Subtotal',
-                                  style: TextStyle(
-                  color: Colors.white70,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-            Text(
-              '₹${subtotal.toStringAsFixed(2)}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-                              ),
-                            ],
-                          ),
-        const SizedBox(height: 8),
-        // GST
-        Row(
-                              children: [
-            Expanded(
-                                  child: Text(
-                'GST ${includeGstInTotal ? "(Included)" : "(Excluded)"}',
-                                    style: TextStyle(
-                  color: includeGstInTotal ? Colors.greenAccent : Colors.white70,
-                                      fontSize: 12,
-                  fontWeight: includeGstInTotal ? FontWeight.w600 : FontWeight.normal,
-                                    ),
-                                  ),
-                                ),
-            Text(
-              '₹${gstAmount.toStringAsFixed(2)}',
-              style: TextStyle(
-                color: includeGstInTotal ? Colors.greenAccent : Colors.white70,
-                fontSize: 13,
-                fontWeight: includeGstInTotal ? FontWeight.w600 : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                                    ),
-        const Divider(color: Colors.white24, height: 24),
-        // Total
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                'Total',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-            Text(
-              '₹${total.toStringAsFixed(2)}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-                              ),
-                            ],
-                          ),
-                        ],
-    );
-  }
-
-  Widget _buildTripStatus(String tripStatus, int? dmNumber) {
-    final isDispatched = tripStatus.toLowerCase() == 'dispatched';
-    final isDelivered = tripStatus.toLowerCase() == 'delivered';
-    final isReturned = tripStatus.toLowerCase() == 'returned';
-    final isPending = tripStatus.toLowerCase() == 'pending' || tripStatus.toLowerCase() == 'scheduled';
-    final hasDM = dmNumber != null;
-    final meterType = _trip['meterType'] as String?;
-    final askMeterReadings = meterType == 'KM';
-
-    return _InfoCard(
-      title: 'Trip Status',
-                              children: [
-        Row(
-          children: [
-                                const Expanded(
-                                  child: Text(
-                'Status',
-                                    style: TextStyle(
-                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-            Text(
-              tripStatus.toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                            ),
-                          ),
-          ],
-        ),
-        if (hasDM) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => _openPrintDialog(context),
-              icon: const Icon(Icons.print_outlined, size: 18),
-              label: const Text('Print DM'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.blue.withOpacity(0.8),
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ),
-        ],
-                            const SizedBox(height: 12),
-        const Divider(color: Colors.white24, height: 1),
-        const SizedBox(height: 12),
-        Row(
-                                      children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Dispatch',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
-                  ),
-                  if (!hasDM && isPending)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'Generate DM first',
-                        style: TextStyle(
-                          color: Colors.orange.withOpacity(0.8),
-                          fontSize: 10,
-                        ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-            Switch(
-              value: isDispatched,
-              onChanged: (isPending || isDispatched) && !isDelivered && hasDM
-                  ? (value) async {
-                      if (value) {
-                        if (askMeterReadings) {
-                          await _showInitialReadingDialog(context);
-                        } else {
-                          await _dispatchTrip(context, null);
-                        }
-                      } else {
-                        await _revertDispatch(context);
-                      }
-                    }
-                  : null,
-              activeThumbColor: Colors.orange,
-                                      ),
-          ],
-                                ),
-        if (isDispatched || isDelivered || isReturned) ...[
-                          const SizedBox(height: 12),
-                          const Divider(color: Colors.white24, height: 1),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                  'Delivery',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              Switch(
-                value: isDelivered,
-                onChanged: (isDispatched && !isDelivered && !isReturned) || (isDelivered && !isReturned)
-                    ? (value) async {
-                                        if (value) {
-                          // Delivery - show delivery photo dialog
-                          await _showDeliveryPhotoDialog(context);
-                        } else {
-                          // Revert delivery - go back to dispatched
-                          await _revertDelivery(context);
-                                        }
-                                      }
-                                    : null,
-                activeThumbColor: Colors.green,
-                              ),
-                            ],
-                          ),
-                        ],
-        if (isDelivered || isReturned) ...[
-                          const SizedBox(height: 12),
-                          const Divider(color: Colors.white24, height: 1),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  'Return',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              Switch(
-                                value: isReturned,
-                onChanged: isDelivered && !isReturned
-                    ? (value) async {
-                        if (value) {
-                          if (askMeterReadings) {
-                            await _showFinalReadingDialog(context);
-                          } else {
-                            await _markAsReturned(context, null);
-                          }
-                        }
-                      }
-                    : isReturned
-                        ? (value) async {
-                                        if (!value) {
-                              // Revert return - go back to delivered
-                              await _revertReturn(context);
-                                        }
-                                      }
-                                    : null,
-                activeThumbColor: Colors.blue,
-                              ),
-                            ],
-                          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildPaymentSummary() {
-    final paymentType = (_trip['paymentType'] as String?)?.toLowerCase() ?? '';
-    if (paymentType.isEmpty) return const SizedBox.shrink();
-
-    final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
-    final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    final paymentDetails =
-        (_trip['paymentDetails'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
-            [];
-    final totalPaidStored = (_trip['totalPaidOnReturn'] as num?)?.toDouble();
-    final computedPaid = paymentDetails.fold<double>(
-      0,
-      (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
-    );
-    final totalPaid = totalPaidStored ?? computedPaid;
-    final remainingStored = (_trip['remainingAmount'] as num?)?.toDouble();
-    final remaining = remainingStored ?? (tripTotal - totalPaid);
-    final status = (_trip['paymentStatus'] as String?) ??
-        (remaining <= 0.001
-            ? 'full'
-            : totalPaid > 0
-                ? 'partial'
-                : 'pending');
-
-    Color statusColor() {
-      switch (status.toLowerCase()) {
-        case 'full':
-          return Colors.greenAccent;
-        case 'partial':
-          return Colors.orangeAccent;
-        default:
-          return Colors.white70;
-      }
-    }
-
-    return _InfoCard(
-      title: 'Payments',
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Payment Type',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ),
-            Text(
-              paymentType.replaceAll('_', ' ').toUpperCase(),
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Status',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ),
-                          Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                color: statusColor().withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: statusColor().withOpacity(0.6)),
-              ),
-              child: Text(
-                status.toUpperCase(),
-                style: TextStyle(
-                  color: statusColor(),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _InfoRow(
-          label: 'Total',
-          value: '₹${tripTotal.toStringAsFixed(2)}',
-        ),
-        _InfoRow(
-          label: 'Paid',
-          value: '₹${totalPaid.toStringAsFixed(2)}',
-        ),
-        if (remaining > 0.001)
-          _InfoRow(
-            label: 'Remaining',
-            value: '₹${remaining.toStringAsFixed(2)}',
-          ),
-        if (paymentDetails.isNotEmpty) ...[
-          const Divider(color: Colors.white24, height: 18),
-          const Text(
-            'Payment Entries',
-            style: TextStyle(color: Colors.white70, fontSize: 11),
-          ),
-          const SizedBox(height: 6),
-          ...paymentDetails.map((p) {
-            final name = p['paymentAccountName'] as String? ?? 'Account';
-            final amount = (p['amount'] as num?)?.toDouble() ?? 0.0;
-            final type = (p['paymentAccountType'] as String?) ?? '';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-                            child: Row(
-                              children: [
-                  Expanded(
-                                  child: Text(
-                      '$name${type.isNotEmpty ? ' (${type.toUpperCase()})' : ''}',
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-                  Text(
-                    '₹${amount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                              ],
-                            ),
-            );
-          }),
-                        ],
-                      ],
     );
   }
 
@@ -1028,10 +564,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Revert Dispatch', style: TextStyle(color: Colors.white)),
+        title: const Text('Revert Dispatch', style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to revert dispatch? This will change the trip status back to scheduled.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -1040,7 +576,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Revert', style: TextStyle(color: Colors.orange)),
+            child: const Text('Revert', style: TextStyle(color: AuthColors.info)),
           ),
         ],
       ),
@@ -1098,10 +634,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Revert Delivery', style: TextStyle(color: Colors.white)),
+        title: const Text('Revert Delivery', style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to revert delivery? This will change the trip status back to dispatched.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -1110,7 +646,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Revert', style: TextStyle(color: Colors.green)),
+            child: const Text('Revert', style: TextStyle(color: AuthColors.success)),
           ),
         ],
       ),
@@ -1180,19 +716,19 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           child: TextFormField(
             controller: readingController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: AuthColors.textMain),
             decoration: InputDecoration(
               labelText: 'Final Reading',
-              labelStyle: const TextStyle(color: Colors.white70),
+              labelStyle: const TextStyle(color: AuthColors.textSub),
               hintText: 'Enter final meter reading',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+              hintStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
               enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.white30),
-                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: AuthColors.textMain.withOpacity(0.3)),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.blue),
-                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AuthColors.info),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
             ),
             validator: (value) {
@@ -1222,7 +758,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
               }
             },
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.blue,
+              backgroundColor: AuthColors.info,
                 ),
             child: const Text('Submit'),
             ),
@@ -1496,10 +1032,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Revert Return', style: TextStyle(color: Colors.white)),
+        title: const Text('Revert Return', style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to revert return? This will change the trip status back to delivered.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -1508,7 +1044,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Revert', style: TextStyle(color: Colors.blue)),
+            child: const Text('Revert', style: TextStyle(color: AuthColors.info)),
           ),
         ],
       ),
@@ -1626,30 +1162,23 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF13131E),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+    return RepaintBoundary(
+      child: ModernTile(
+        padding: const EdgeInsets.all(AppSpacing.paddingMD),
+        elevation: 0,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: AppTypography.h4.copyWith(
+                fontSize: 15,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          ...children,
-        ],
+            const SizedBox(height: AppSpacing.paddingMD),
+            ...children,
+          ],
+        ),
       ),
     );
   }
@@ -1659,156 +1188,234 @@ class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.label,
     required this.value,
+    this.isTappable = false,
+    this.onTap,
+    this.valueColor,
+    this.valueStyle,
   });
 
   final String label;
   final String value;
+  final bool isTappable;
+  final VoidCallback? onTap;
+  final Color? valueColor;
+  final TextStyle? valueStyle;
 
   @override
   Widget build(BuildContext context) {
+    final effectiveValueColor = valueColor ??
+        (isTappable ? AuthColors.primary : AuthColors.textSub);
+    final effectiveValueStyle = valueStyle ??
+        AppTypography.body.copyWith(
+          color: effectiveValueColor,
+          fontWeight: isTappable ? FontWeight.w600 : FontWeight.normal,
+        );
+
     final content = Row(
       children: [
         SizedBox(
-          width: 80,
+          width: 100,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
+            style: AppTypography.bodySmall.copyWith(
+              color: AuthColors.textDisabled,
             ),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.normal,
-            ),
+            style: effectiveValueStyle,
           ),
         ),
+        if (isTappable)
+          Icon(
+            Icons.phone,
+            color: AuthColors.primary,
+            size: AppSpacing.iconSM,
+          ),
       ],
     );
 
+    if (isTappable && onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap!();
+          },
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
+            child: content,
+          ),
+        ),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
       child: content,
     );
   }
 }
 
-class _InfoPill extends StatelessWidget {
-  const _InfoPill({
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
     required this.icon,
     required this.label,
-    required this.value,
+    this.subtitle,
+    required this.color,
+    required this.onTap,
+    this.isFullWidth = false,
   });
 
   final IconData icon;
   final String label;
-  final String value;
+  final String? subtitle;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool isFullWidth;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF13131E),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white70),
-          const SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final isDisabled = onTap == null;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isDisabled ? null : onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        child: Container(
+          width: isFullWidth ? double.infinity : null,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingMD,
+            vertical: AppSpacing.paddingMD,
+          ),
+          decoration: BoxDecoration(
+            gradient: isDisabled
+                ? null
+                : LinearGradient(
+                    colors: [
+                      color.withOpacity(0.2),
+                      color.withOpacity(0.15),
+                    ],
+                  ),
+            color: isDisabled ? AuthColors.surface : null,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+            border: Border.all(
+              color: isDisabled
+                  ? AuthColors.textMain.withOpacity(0.1)
+                  : color.withOpacity(0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
+              Icon(
+                icon,
+                size: 20,
+                color: isDisabled ? AuthColors.textSub : color,
               ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: AppSpacing.paddingSM),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: isDisabled ? AuthColors.textSub : AuthColors.textMain,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: AppSpacing.paddingXS / 2),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          color: isDisabled
+                              ? AuthColors.textSub
+                              : AuthColors.textMain.withOpacity(0.6),
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _ToggleCard extends StatelessWidget {
-  const _ToggleCard({
-    required this.title,
-    required this.subtitle,
+class _StatusToggleRow extends StatelessWidget {
+  const _StatusToggleRow({
+    required this.label,
     required this.value,
+    this.hint,
+    required this.enabled,
+    required this.activeColor,
     required this.onChanged,
   });
 
-  final String title;
-  final String subtitle;
+  final String label;
   final bool value;
+  final String? hint;
+  final bool enabled;
+  final Color activeColor;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF13131E),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 2),
+              ),
+              if (hint != null) ...[
+                const SizedBox(height: AppSpacing.paddingXS / 2),
                 Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Colors.white54,
+                  hint!,
+                  style: TextStyle(
+                    color: activeColor.withOpacity(0.8),
                     fontSize: 11,
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-          Switch(
-            value: value,
-            activeThumbColor: Colors.greenAccent,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
+        ),
+        Switch(
+          value: value,
+          onChanged: enabled ? onChanged : null,
+          activeThumbColor: activeColor,
+        ),
+      ],
     );
   }
 }
+
 
 extension StringExtension on String {
   String capitalizeFirst() {
@@ -1898,18 +1505,18 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                     initialValue: selectedAccount,
                     decoration: InputDecoration(
                       labelText: 'Payment Account',
-                      labelStyle: const TextStyle(color: AuthColors.textSub),
+                      labelStyle: TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AuthColors.textMain.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.orange),
-                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AuthColors.info),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                     ),
-                    dropdownColor: const Color(0xFF1A1A2E),
-                    style: const TextStyle(color: Colors.white),
+                    dropdownColor: AuthColors.surface,
+                    style: TextStyle(color: AuthColors.textMain),
                     items: _paymentAccounts!.map((account) {
                       return DropdownMenuItem<PaymentAccount>(
                         value: account,
@@ -1930,17 +1537,17 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                   TextFormField(
                     controller: amountController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AuthColors.textMain),
                     decoration: InputDecoration(
                       labelText: 'Amount (₹)',
-                      labelStyle: const TextStyle(color: AuthColors.textSub),
+                      labelStyle: TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AuthColors.textMain.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Colors.orange),
-                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: AuthColors.info),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                     ),
                     validator: (value) {
@@ -1970,7 +1577,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                 }
               },
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.orange,
+                backgroundColor: AuthColors.info,
               ),
               child: const Text('Add'),
             ),
@@ -2106,51 +1713,51 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
             const Expanded(
               child: Text(
                 'Total Amount',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+                style: TextStyle(color: AuthColors.textSub, fontSize: 12),
               ),
             ),
             Text(
               '₹${totalAmount.toStringAsFixed(2)}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+                style: TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         Row(
           children: [
             const Expanded(
               child: Text(
                 'Paid Amount',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+                style: TextStyle(color: AuthColors.textSub, fontSize: 12),
               ),
             ),
             Text(
               '₹${paidAmount.toStringAsFixed(2)}',
               style: TextStyle(
-                color: paidAmount > 0 ? Colors.green : Colors.white70,
+                color: paidAmount > 0 ? AuthColors.success : AuthColors.textSub,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         Row(
           children: [
             const Expanded(
               child: Text(
                 'Remaining',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+                style: TextStyle(color: AuthColors.textSub, fontSize: 12),
               ),
             ),
             Text(
               '₹${remainingAmount.toStringAsFixed(2)}',
               style: TextStyle(
-                color: remainingAmount > 0 ? Colors.orange : Colors.green,
+                color: remainingAmount > 0 ? AuthColors.warning : AuthColors.success,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -2159,8 +1766,8 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
         ),
         if (existingPayments.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Divider(color: Colors.white24, height: 1),
-          const SizedBox(height: 12),
+          Divider(color: AuthColors.textMain.withOpacity(0.24), height: 1),
+          const SizedBox(height: AppSpacing.paddingMD),
           ...existingPayments.map((payment) {
             final paymentMap = payment as Map<String, dynamic>;
             final amount = (paymentMap['amount'] as num?)?.toDouble() ?? 0.0;
@@ -2168,7 +1775,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
             final accountType = paymentMap['paymentAccountType'] as String? ?? '';
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
               child: Row(
                 children: [
                   Expanded(
@@ -2178,15 +1785,15 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                         Text(
                           accountName,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         Text(
                           accountType,
-                          style: const TextStyle(
-                            color: Colors.white60,
+                          style: TextStyle(
+                            color: AuthColors.textMain.withOpacity(0.6),
                             fontSize: 11,
                           ),
                         ),
@@ -2196,7 +1803,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                   Text(
                     '₹${amount.toStringAsFixed(2)}',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -2207,14 +1814,14 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
           }),
         ],
         if (remainingAmount > 0 && !_isSubmitting) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: _isLoading ? null : _showAddPaymentDialog,
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.orange,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                backgroundColor: AuthColors.info,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
               ),
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Add Payment'),
@@ -2222,12 +1829,954 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
           ),
         ],
         if (_isSubmitting) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           const Center(
             child: CircularProgressIndicator(),
           ),
         ],
       ],
+    );
+  }
+}
+
+// Enhanced Trip Header Widget
+class _TripHeader extends StatelessWidget {
+  const _TripHeader({
+    required this.trip,
+    required this.clientName,
+    required this.driverName,
+    required this.vehicleNumber,
+    required this.scheduledDate,
+    required this.tripStatus,
+    required this.statusColor,
+    required this.dmNumber,
+    required this.formatDate,
+  });
+
+  final Map<String, dynamic> trip;
+  final String clientName;
+  final String? driverName;
+  final String vehicleNumber;
+  final dynamic scheduledDate;
+  final String tripStatus;
+  final Color statusColor;
+  final int? dmNumber;
+  final String Function(dynamic) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.paddingLG,
+        AppSpacing.paddingMD,
+        AppSpacing.paddingLG,
+        AppSpacing.paddingMD,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AuthColors.surface,
+            AuthColors.surface.withOpacity(0.95),
+          ],
+        ),
+        border: Border(
+          bottom: BorderSide(
+            color: AuthColors.textSub.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: AuthColors.textSub,
+                  size: AppSpacing.iconMD,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      clientName,
+                      style: AppTypography.h3,
+                    ),
+                    const SizedBox(height: AppSpacing.paddingXS / 2),
+                    Row(
+                      children: [
+                        if (dmNumber != null) ...[
+                          Text(
+                            'DM-$dmNumber',
+                            style: AppTypography.caption.copyWith(
+                              color: AuthColors.textDisabled,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.paddingSM),
+                          Text(
+                            '•',
+                            style: AppTypography.caption.copyWith(
+                              color: AuthColors.textDisabled,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.paddingSM),
+                        ],
+                        Text(
+                          formatDate(scheduledDate),
+                          style: AppTypography.caption.copyWith(
+                            color: AuthColors.textDisabled,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.paddingMD,
+                  vertical: AppSpacing.paddingSM,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      statusColor.withOpacity(0.25),
+                      statusColor.withOpacity(0.15),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                  border: Border.all(
+                    color: statusColor.withOpacity(0.5),
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  tripStatus.toUpperCase(),
+                  style: AppTypography.captionSmall.copyWith(
+                    color: statusColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.paddingMD),
+          // Quick Info Row
+          Row(
+            children: [
+              if (driverName != null && driverName!.isNotEmpty) ...[
+                Expanded(
+                  child: _InfoPill(
+                    icon: Icons.person_outline,
+                    label: 'Driver',
+                    value: driverName!,
+                    color: AuthColors.primary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.paddingMD),
+              ],
+              Expanded(
+                child: _InfoPill(
+                  icon: Icons.directions_car_outlined,
+                  label: 'Vehicle',
+                  value: vehicleNumber,
+                  color: AuthColors.info,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Info Pill Widget
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.paddingMD,
+        vertical: AppSpacing.paddingSM,
+      ),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: color,
+          ),
+          const SizedBox(width: AppSpacing.paddingSM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: AuthColors.textSub,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.paddingXS / 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Tab Button Widget
+class _TabButton extends StatelessWidget {
+  const _TabButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.paddingSM,
+          horizontal: AppSpacing.paddingXS,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AuthColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: AppTypography.bodySmall.copyWith(
+            color: isSelected ? Colors.white : AuthColors.textSub,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Overview Tab
+class _OverviewTab extends StatelessWidget {
+  const _OverviewTab({
+    required this.trip,
+    required this.formatDate,
+    required this.tripStatus,
+    required this.statusColor,
+    required this.dmNumber,
+    required this.onCallDriver,
+    required this.onCallCustomer,
+    required this.onPrintDM,
+    required this.onDispatch,
+    required this.onDelivery,
+    required this.onReturn,
+  });
+
+  final Map<String, dynamic> trip;
+  final String Function(dynamic) formatDate;
+  final String tripStatus;
+  final Color statusColor;
+  final int? dmNumber;
+  final VoidCallback onCallDriver;
+  final VoidCallback onCallCustomer;
+  final VoidCallback? onPrintDM;
+  final ValueChanged<bool> onDispatch;
+  final ValueChanged<bool> onDelivery;
+  final ValueChanged<bool> onReturn;
+
+  @override
+  Widget build(BuildContext context) {
+    final driverPhone = trip['driverPhone'] as String?;
+    final clientPhone = trip['clientPhone'] as String? ?? trip['customerNumber'] as String?;
+    final tripPricing = trip['tripPricing'] as Map<String, dynamic>? ?? {};
+    final totalAmount = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    
+    final isDispatched = tripStatus.toLowerCase() == 'dispatched';
+    final isDelivered = tripStatus.toLowerCase() == 'delivered';
+    final isReturned = tripStatus.toLowerCase() == 'returned';
+    final isPending = tripStatus.toLowerCase() == 'pending' || tripStatus.toLowerCase() == 'scheduled';
+    final hasDM = dmNumber != null;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Quick Actions
+          Row(
+            children: [
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.call_outlined,
+                  label: 'Driver',
+                  subtitle: driverPhone ?? 'Not available',
+                  color: AuthColors.primary,
+                  onTap: driverPhone != null && driverPhone.isNotEmpty
+                      ? onCallDriver
+                      : null,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.paddingMD),
+              Expanded(
+                child: _ActionButton(
+                  icon: Icons.call_outlined,
+                  label: 'Customer',
+                  subtitle: clientPhone ?? 'Not available',
+                  color: AuthColors.info,
+                  onTap: clientPhone != null && clientPhone.isNotEmpty
+                      ? onCallCustomer
+                      : null,
+                ),
+              ),
+            ],
+          ),
+          if (onPrintDM != null) ...[
+            const SizedBox(height: AppSpacing.paddingMD),
+            SizedBox(
+              width: double.infinity,
+              child: _ActionButton(
+                icon: Icons.print_outlined,
+                label: 'Print DM',
+                subtitle: 'DM-${trip['dmNumber']}',
+                color: AuthColors.info,
+                onTap: onPrintDM,
+                isFullWidth: true,
+              ),
+            ),
+          ],
+          const SizedBox(height: AppSpacing.paddingXL),
+          
+          // Trip Status
+          _InfoCard(
+            title: 'Trip Status',
+            children: [
+              _InfoRow(
+                label: 'Status',
+                value: tripStatus.toUpperCase(),
+              ),
+              const SizedBox(height: AppSpacing.paddingLG),
+              Divider(
+                color: AuthColors.textMain.withOpacity(0.1),
+                height: AppSpacing.paddingMD,
+                thickness: 1,
+              ),
+              const SizedBox(height: AppSpacing.paddingMD),
+              _StatusToggleRow(
+                label: 'Dispatch',
+                value: isDispatched,
+                hint: !hasDM && isPending ? 'Generate DM first' : null,
+                enabled: (isPending || isDispatched) && !isDelivered && hasDM,
+                activeColor: AuthColors.info,
+                onChanged: onDispatch,
+              ),
+              if (isDispatched || isDelivered || isReturned) ...[
+                const SizedBox(height: AppSpacing.paddingLG),
+                Divider(
+                  color: AuthColors.textMain.withOpacity(0.1),
+                  height: AppSpacing.paddingMD,
+                  thickness: 1,
+                ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                _StatusToggleRow(
+                  label: 'Delivery',
+                  value: isDelivered,
+                  enabled: (isDispatched && !isDelivered && !isReturned) || (isDelivered && !isReturned),
+                  activeColor: AuthColors.success,
+                  onChanged: onDelivery,
+                ),
+              ],
+              if (isDelivered || isReturned) ...[
+                const SizedBox(height: AppSpacing.paddingLG),
+                Divider(
+                  color: AuthColors.textMain.withOpacity(0.1),
+                  height: AppSpacing.paddingMD,
+                  thickness: 1,
+                ),
+                const SizedBox(height: AppSpacing.paddingMD),
+                _StatusToggleRow(
+                  label: 'Return',
+                  value: isReturned,
+                  enabled: isDelivered && !isReturned,
+                  activeColor: AuthColors.info,
+                  onChanged: onReturn,
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: AppSpacing.paddingMD),
+          
+          // Quick Stats
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.currency_rupee,
+                  label: 'Total Value',
+                  value: '₹${totalAmount.toStringAsFixed(2)}',
+                  color: AuthColors.info,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + AppSpacing.paddingXL),
+        ],
+      ),
+    );
+  }
+}
+
+// Items Tab
+class _ItemsTab extends StatelessWidget {
+  const _ItemsTab({
+    required this.items,
+    required this.tripPricing,
+    required this.includeGstInTotal,
+    required this.trip,
+    required this.formatDate,
+  });
+
+  final List<dynamic> items;
+  final Map<String, dynamic> tripPricing;
+  final bool includeGstInTotal;
+  final Map<String, dynamic> trip;
+  final String Function(dynamic) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtotal = (tripPricing['subtotal'] as num?)?.toDouble() ?? 0.0;
+    final gstAmount = (tripPricing['gstAmount'] as num?)?.toDouble() ?? 0.0;
+    final total = includeGstInTotal ? subtotal + gstAmount : subtotal;
+    
+    final scheduledDate = trip['scheduledDate'];
+    final slot = trip['slot'] as int?;
+    final deliveryZone = trip['deliveryZone'] as Map<String, dynamic>? ?? {};
+    final address = deliveryZone['region'] ??
+        deliveryZone['zone'] ??
+        deliveryZone['city'] ??
+        deliveryZone['city_name'] ??
+        'Not provided';
+    final city = deliveryZone['city'] ?? deliveryZone['city_name'] ?? '';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _InfoCard(
+            title: 'Order Summary',
+            children: [
+              // Product rows
+              ...items.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value as Map<String, dynamic>;
+            final productName = item['productName'] as String? ?? item['name'] as String? ?? 'Unknown';
+            final qty = (item['fixedQuantityPerTrip'] as num?)?.toInt() ?? 0;
+            final unitPrice = (item['unitPrice'] as num?)?.toDouble() ??
+                (item['unit_price'] as num?)?.toDouble() ??
+                0.0;
+            final itemTotal = qty * unitPrice;
+            
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index < items.length - 1 ? AppSpacing.paddingMD : 0,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          productName,
+                style: TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                        ),
+                        const SizedBox(height: AppSpacing.paddingXS / 2),
+                        Row(
+                          children: [
+                            Text(
+                              'Qty: $qty',
+                              style: TextStyle(
+                                color: AuthColors.textMain.withOpacity(0.6),
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.paddingSM),
+                            Text(
+                              '× ₹${unitPrice.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                color: AuthColors.textMain.withOpacity(0.6),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '₹${itemTotal.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: AppSpacing.paddingMD),
+          Divider(
+            color: AuthColors.textMain.withOpacity(0.1),
+            height: AppSpacing.paddingLG,
+            thickness: 1,
+          ),
+          const SizedBox(height: AppSpacing.paddingMD),
+          // Subtotal
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Subtotal',
+                    style: TextStyle(
+                      color: AuthColors.textSub,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Text(
+                  '₹${subtotal.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                ),
+              ],
+            ),
+          ),
+          // GST
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'GST ${includeGstInTotal ? "(Included)" : "(Excluded)"}',
+                    style: TextStyle(
+                      color: includeGstInTotal ? AuthColors.success : AuthColors.textSub,
+                      fontSize: 13,
+                      fontWeight: includeGstInTotal ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+                Text(
+                  '₹${gstAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    color: includeGstInTotal ? AuthColors.success : AuthColors.textSub,
+                    fontSize: 14,
+                    fontWeight: includeGstInTotal ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.paddingMD),
+          Divider(
+            color: AuthColors.textMain.withOpacity(0.1),
+            height: AppSpacing.paddingLG,
+            thickness: 1,
+          ),
+          const SizedBox(height: AppSpacing.paddingMD),
+          // Total
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Total',
+                  style: TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Text(
+                '₹${total.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.paddingLG),
+          
+          // Trip Information
+          _InfoCard(
+            title: 'Trip Information',
+            children: [
+              _InfoRow(
+                label: 'Date',
+                value: formatDate(scheduledDate),
+              ),
+              if (slot != null)
+                _InfoRow(
+                  label: 'Slot',
+                  value: 'Slot $slot',
+                ),
+              _InfoRow(
+                label: 'Address',
+                value: address,
+              ),
+              if (city.isNotEmpty)
+                _InfoRow(
+                  label: 'City',
+                  value: city,
+                ),
+            ],
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + AppSpacing.paddingXL),
+        ],
+      ),
+    );
+  }
+}
+
+// Payments Tab
+class _PaymentsTab extends StatelessWidget {
+  const _PaymentsTab({
+    required this.trip,
+    required this.tripPricing,
+  });
+
+  final Map<String, dynamic> trip;
+  final Map<String, dynamic> tripPricing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
+      child: _buildPaymentSummary(),
+    );
+  }
+
+  Widget _buildPaymentSummary() {
+    final paymentType = (trip['paymentType'] as String?)?.toLowerCase() ?? '';
+    if (paymentType.isEmpty) {
+      return _InfoCard(
+        title: 'Payments',
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.paddingXL),
+              child: Text(
+                'No payment information available',
+                style: TextStyle(
+                  color: AuthColors.textSub,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    final paymentDetails =
+        (trip['paymentDetails'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+            [];
+    final totalPaidStored = (trip['totalPaidOnReturn'] as num?)?.toDouble();
+    final computedPaid = paymentDetails.fold<double>(
+      0,
+      (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+    );
+    final totalPaid = totalPaidStored ?? computedPaid;
+    final remainingStored = (trip['remainingAmount'] as num?)?.toDouble();
+    final remaining = remainingStored ?? (tripTotal - totalPaid);
+    final status = (trip['paymentStatus'] as String?) ??
+        (remaining <= 0.001
+            ? 'full'
+            : totalPaid > 0
+                ? 'partial'
+                : 'pending');
+
+    Color statusColor() {
+      switch (status.toLowerCase()) {
+        case 'full':
+          return AuthColors.success;
+        case 'partial':
+          return AuthColors.info;
+        default:
+          return AuthColors.textSub;
+      }
+    }
+
+    return _InfoCard(
+      title: 'Payments',
+      children: [
+        _InfoRow(
+          label: 'Payment Type',
+          value: paymentType.replaceAll('_', ' ').toUpperCase(),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 110,
+                child: Text(
+                  'Status',
+                  style: TextStyle(
+                    color: AuthColors.textMain.withOpacity(0.6),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.paddingMD,
+                  vertical: AppSpacing.paddingSM,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      statusColor().withOpacity(0.25),
+                      statusColor().withOpacity(0.15),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                  border: Border.all(
+                    color: statusColor().withOpacity(0.5),
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  status.toUpperCase(),
+                  style: TextStyle(
+                    color: statusColor(),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        _InfoRow(
+          label: 'Total',
+          value: '₹${tripTotal.toStringAsFixed(2)}',
+        ),
+        _InfoRow(
+          label: 'Paid',
+          value: '₹${totalPaid.toStringAsFixed(2)}',
+          valueColor: totalPaid > 0 ? AuthColors.success : null,
+        ),
+        if (remaining > 0.001)
+          _InfoRow(
+            label: 'Remaining',
+            value: '₹${remaining.toStringAsFixed(2)}',
+            valueColor: AuthColors.warning,
+          ),
+        if (paymentDetails.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.paddingMD),
+          Divider(
+            color: AuthColors.textMain.withOpacity(0.1),
+            height: AppSpacing.paddingLG,
+            thickness: 1,
+          ),
+          const SizedBox(height: AppSpacing.paddingMD),
+          Text(
+            'Payment Entries',
+            style: TextStyle(
+              color: AuthColors.textMain.withOpacity(0.6),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.paddingMD),
+          ...paymentDetails.asMap().entries.map((entry) {
+            final index = entry.key;
+            final p = entry.value as Map<String, dynamic>;
+            final name = p['paymentAccountName'] as String? ?? 'Account';
+            final amount = (p['amount'] as num?)?.toDouble() ?? 0.0;
+            final type = (p['paymentAccountType'] as String?) ?? '';
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index < paymentDetails.length - 1 ? AppSpacing.paddingMD : 0,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            color: AuthColors.textMain,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (type.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.paddingXS / 2),
+                          Text(
+                            type.toUpperCase(),
+                            style: TextStyle(
+                              color: AuthColors.textMain.withOpacity(0.6),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '₹${amount.toStringAsFixed(2)}',
+                style: TextStyle(
+                  color: AuthColors.textMain,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+}
+
+// Stat Card Widget
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ModernTile(
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
+      elevation: 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      color.withOpacity(0.2),
+                      color.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: AppSpacing.iconSM,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.paddingMD),
+          Text(
+            value,
+            style: AppTypography.h3.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.paddingXS / 2),
+          Text(
+            label,
+            style: AppTypography.bodySmall.copyWith(
+              color: AuthColors.textSub,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

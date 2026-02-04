@@ -1,5 +1,6 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 
 class ReturnPaymentDialog extends StatefulWidget {
@@ -90,7 +91,7 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
             _buildSummaryRow('Trip Total', widget.tripTotal),
             _buildSummaryRow('Already Paid', widget.alreadyPaid),
             _buildSummaryRow('Remaining', _remainingBeforeEntries),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             if (_entries.isEmpty)
               const Text(
                 'Add a payment entry',
@@ -119,13 +120,13 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.paddingSM),
             if (_isOverpay)
               const Text(
                 'Amount exceeds remaining',
                 style: TextStyle(color: AuthColors.error, fontSize: 12),
               ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.gapSM),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -143,7 +144,7 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.paddingSM),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
@@ -245,11 +246,11 @@ class _PaymentEntryRow extends StatelessWidget {
               labelStyle: const TextStyle(color: Colors.white70),
               enabledBorder: OutlineInputBorder(
                 borderSide: const BorderSide(color: Colors.white30),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
               focusedBorder: OutlineInputBorder(
                 borderSide: const BorderSide(color: Colors.blue),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
             ),
             iconEnabledColor: AuthColors.textSub,
@@ -269,7 +270,7 @@ class _PaymentEntryRow extends StatelessWidget {
             },
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.paddingSM),
         Expanded(
           flex: 2,
           child: TextFormField(
@@ -282,18 +283,18 @@ class _PaymentEntryRow extends StatelessWidget {
               labelStyle: const TextStyle(color: Colors.white70),
               enabledBorder: OutlineInputBorder(
                 borderSide: const BorderSide(color: Colors.white30),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
               focusedBorder: OutlineInputBorder(
                 borderSide: const BorderSide(color: Colors.blue),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
             ),
             onChanged: onAmountChanged,
           ),
         ),
         if (onRemove != null) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.paddingSM),
           IconButton(
             onPressed: onRemove,
             icon: const Icon(Icons.close, color: Colors.white70),

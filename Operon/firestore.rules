@@ -61,6 +61,9 @@ service cloud.firestore {
     match /DELIVERY_MEMOS/{dmId} {
       allow read, write: if isSignedIn();
     }
+    match /PRODUCTION_BATCHES/{batchId} {
+      allow read, write: if isSignedIn();
+    }
     match /TRIP_WAGES/{wageId} {
       allow read: if isSignedIn();
       allow create, update, delete: if false;

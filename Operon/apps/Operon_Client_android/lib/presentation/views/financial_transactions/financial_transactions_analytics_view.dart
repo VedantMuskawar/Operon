@@ -2,6 +2,7 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/financial_transactions/unified_financial_transactions_state.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -24,7 +25,7 @@ class FinancialTransactionsAnalyticsView extends StatelessWidget {
         }
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.paddingLG),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -34,7 +35,7 @@ class FinancialTransactionsAnalyticsView extends StatelessWidget {
                 totalPurchases: state.totalPurchases,
                 totalExpenses: state.totalExpenses,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.paddingXXL),
               // Analytics Section (can be expanded later)
               _buildAnalyticsSection(state),
             ],
@@ -56,12 +57,12 @@ class FinancialTransactionsAnalyticsView extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.paddingLG),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.paddingLG),
           decoration: BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(
               color: AuthColors.textMainWithOpacity(0.1),
             ),

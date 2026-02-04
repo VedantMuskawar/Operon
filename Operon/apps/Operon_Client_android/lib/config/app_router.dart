@@ -50,6 +50,7 @@ import 'package:dash_mobile/presentation/views/expenses/expense_sub_categories_p
 import 'package:dash_mobile/presentation/views/expenses/record_expense_page.dart' show ExpenseFormType, RecordExpensePage;
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
 import 'package:dash_mobile/presentation/views/financial_transactions/unified_financial_transactions_page.dart';
+import 'package:dash_mobile/presentation/views/financial_transactions/salary_voucher_page.dart';
 import 'package:dash_mobile/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart';
 import 'package:dash_mobile/presentation/views/dm_settings_page.dart';
 import 'package:dash_mobile/presentation/blocs/dm_settings/dm_settings_cubit.dart';
@@ -776,6 +777,23 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/expenses',
         redirect: (context, state) => '/financial-transactions',
+      ),
+      GoRoute(
+        path: '/salary-voucher',
+        name: 'salary-voucher',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (orgState.organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: const SalaryVoucherPage(),
+          );
+        },
       ),
       GoRoute(
         path: '/expense-sub-categories',

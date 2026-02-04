@@ -5,6 +5,7 @@ import 'package:dash_mobile/presentation/views/orders/create_order_page.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -131,10 +132,10 @@ class _SearchResultsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
@@ -154,10 +155,10 @@ class _SearchResultsSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           if (state.isSearchLoading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXL),
               child: Center(
                 child: CircularProgressIndicator(),
               ),
@@ -171,7 +172,7 @@ class _SearchResultsSection extends StatelessWidget {
             Column(
               children: [
                 for (int i = 0; i < state.searchResults.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 12),
+                  if (i > 0) const SizedBox(height: AppSpacing.paddingMD),
                   _ClientTile(
                     client: state.searchResults[i],
                     onTap: () => onClientSelected(state.searchResults[i]),
@@ -215,7 +216,7 @@ class _RecentClientsSection extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.paddingMD),
         if (state.recentClients.isEmpty && !state.isRecentLoading)
           Text(
             'No clients found. Create a new client to get started.',
@@ -225,7 +226,7 @@ class _RecentClientsSection extends StatelessWidget {
           Column(
             children: [
               for (int i = 0; i < state.recentClients.length; i++) ...[
-                if (i > 0) const SizedBox(height: 12),
+                  if (i > 0) const SizedBox(height: AppSpacing.paddingMD),
                 _ClientTile(
                   client: state.recentClients[i],
                   onTap: () => onClientSelected(state.recentClients[i]),
@@ -254,9 +255,9 @@ class _ClientTile extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.paddingLG),
         decoration: BoxDecoration(
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),

@@ -102,7 +102,11 @@ class AnalyticsRepository {
         return null;
       }
       if (kDebugMode) {
-        debugPrint('[AnalyticsRepository] Received transaction analytics for $docId');
+        final incomeMonthlyKeys = (payload['incomeMonthly'] is Map) ? (payload['incomeMonthly'] as Map).length : 0;
+        final incomeDailyKeys = (payload['incomeDaily'] is Map) ? (payload['incomeDaily'] as Map).length : 0;
+        debugPrint('[AnalyticsRepository] Received transaction analytics for $docId: '
+            'totalIncome=${payload['totalIncome']} totalReceivables=${payload['totalReceivables']} '
+            'incomeMonthlyKeys=$incomeMonthlyKeys incomeDailyKeys=$incomeDailyKeys');
       }
       return TransactionAnalytics.fromJson(payload);
     } catch (e) {

@@ -6,6 +6,7 @@ import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -200,23 +201,23 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(color: AuthColors.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
     );
@@ -227,11 +228,11 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
     return Dialog(
       backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       ),
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.paddingXXL),
           child: Form(
             key: _formKey,
             child: Column(
@@ -241,10 +242,10 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(AppSpacing.paddingSM),
                       decoration: BoxDecoration(
                         color: AuthColors.accentPurple.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       child: const Icon(
                         Icons.card_giftcard,
@@ -252,7 +253,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                         size: 20,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.paddingMD),
                     const Expanded(
                       child: Text(
                         'Record Bonus',
@@ -265,7 +266,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
 
                 DropdownButtonFormField<OrganizationEmployee>(
                   initialValue: _selectedEmployee,
@@ -287,7 +288,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                   validator: (value) =>
                       value == null ? 'Please select an employee' : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
 
                 DropdownButtonFormField<String>(
                   initialValue: _selectedBonusType,
@@ -309,7 +310,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                   validator: (value) =>
                       value == null ? 'Please select bonus type' : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
 
                 TextFormField(
                   controller: _amountController,
@@ -327,7 +328,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
 
                 InkWell(
                   onTap: _selectPaymentDate,
@@ -345,7 +346,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
 
                 DropdownButtonFormField<PaymentAccount>(
                   initialValue: _selectedPaymentAccount,
@@ -365,14 +366,14 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                     setState(() => _selectedPaymentAccount = account);
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
 
                 TextFormField(
                   controller: _referenceNumberController,
                   decoration: _inputDecoration('Reference Number (Optional)'),
                   style: const TextStyle(color: AuthColors.textMain),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
 
                 TextFormField(
                   controller: _descriptionController,
@@ -380,15 +381,15 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                   decoration: _inputDecoration('Description (Optional)'),
                   style: const TextStyle(color: AuthColors.textMain),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
 
                 ElevatedButton(
                   onPressed: _isLoading ? null : _submitBonus,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AuthColors.accentPurple,
                     foregroundColor: AuthColors.textMain,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
                   ),
                   child: _isLoading
                       ? SizedBox(

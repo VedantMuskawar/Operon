@@ -1,8 +1,11 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/access_control/access_control_cubit.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -46,7 +49,7 @@ class AccessControlPage extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Permissions saved successfully'),
-              backgroundColor: Color(0xFF4CAF50),
+              backgroundColor: AuthColors.success,
             ),
           );
         }
@@ -54,7 +57,7 @@ class AccessControlPage extends StatelessWidget {
       child: BlocBuilder<AccessControlCubit, AccessControlState>(
         builder: (context, state) {
           return Scaffold(
-            backgroundColor: const Color(0xFF000000),
+            backgroundColor: AuthColors.background,
             appBar: const ModernPageHeader(
               title: 'Access Control',
             ),
@@ -63,7 +66,7 @@ class AccessControlPage extends StatelessWidget {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppSpacing.paddingLG),
                       child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -72,11 +75,11 @@ class AccessControlPage extends StatelessWidget {
                   onModeChanged: (mode) =>
                       context.read<AccessControlCubit>().setViewMode(mode),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 if (state.status == ViewStatus.loading)
                   const Center(
                     child: Padding(
-                      padding: EdgeInsets.all(40),
+                      padding: EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
                       child: CircularProgressIndicator(),
                     ),
                   )
@@ -119,7 +122,7 @@ class AccessControlPage extends StatelessWidget {
                             ),
                   ),
                 if (state.hasChanges) ...[
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.paddingXXL),
                   _SaveButton(
                     onSave: () => context.read<AccessControlCubit>().saveChanges(),
                     isSaving: state.isSaving,
@@ -155,11 +158,11 @@ class _ViewModeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(AppSpacing.paddingXS),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -170,7 +173,7 @@ class _ViewModeSelector extends StatelessWidget {
             isSelected: currentMode == ViewMode.byPage,
             onTap: () => onModeChanged(ViewMode.byPage),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.paddingSM),
           _ModeButton(
             label: 'By Role',
             icon: Icons.group_outlined,
@@ -202,28 +205,28 @@ class _ModeButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
           decoration: BoxDecoration(
             gradient: isSelected
-                ? const LinearGradient(
-                    colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
+                ? LinearGradient(
+                    colors: [AuthColors.accentPurple, AuthColors.accentPurple.withOpacity(0.8)],
                   )
                 : null,
             color: isSelected ? null : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 18, color: isSelected ? Colors.white : Colors.white70),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
+                  color: isSelected ? AuthColors.textMain : AuthColors.textSub,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   fontSize: 14,
                 ),
@@ -262,7 +265,7 @@ class _ByPageView extends StatelessWidget {
           icon: Icons.dashboard_outlined,
           count: _sections.length,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.paddingLG),
         ..._sections.map((section) => _SectionPermissionCard(
               section: section,
               roles: roles,
@@ -270,13 +273,13 @@ class _ByPageView extends StatelessWidget {
               sections: sections,
               onChanged: (roleId, value) => onSectionChanged(section.key, roleId, value),
             )),
-        const SizedBox(height: 32),
+        const SizedBox(height: AppSpacing.paddingXXXL),
         _SectionHeader(
           title: 'Pages',
           icon: Icons.pages_outlined,
           count: _pages.length,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.paddingLG),
         ..._pages.map((page) => _PagePermissionCard(
               page: page,
               roles: roles,
@@ -305,37 +308,36 @@ class _SectionHeader extends StatelessWidget {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(AppSpacing.paddingMD),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           ),
           child: Icon(icon, color: Colors.white, size: 20),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.paddingMD),
         Text(
           title,
           style: const TextStyle(
-            color: Colors.white,
+            color: AuthColors.textMain,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSpacing.paddingSM),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+            color: AuthColors.textMainWithOpacity(0.1),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
           ),
           child: Text(
             '$count',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+            style: AppTypography.withColor(
+              AppTypography.withWeight(AppTypography.labelSmall, FontWeight.w600),
+              AuthColors.textSub,
             ),
           ),
         ),
@@ -362,7 +364,7 @@ class _SectionPermissionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -372,7 +374,7 @@ class _SectionPermissionCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
           color: section.color.withOpacity(0.3),
           width: 1.5,
@@ -386,34 +388,33 @@ class _SectionPermissionCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.paddingXL),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(AppSpacing.paddingMD),
                   decoration: BoxDecoration(
                     color: section.color.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   ),
                   child: Icon(section.icon, color: section.color, size: 24),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.paddingLG),
                 Expanded(
                   child: Text(
                     section.label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                    style: AppTypography.withColor(
+                      AppTypography.withWeight(AppTypography.h3, FontWeight.w700),
+                      AuthColors.textMain,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.paddingXL),
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -452,7 +453,7 @@ class _PagePermissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (_isAdminOnly) {
       return Container(
-        margin: const EdgeInsets.only(bottom: 20),
+        margin: const EdgeInsets.only(bottom: AppSpacing.paddingXL),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -462,21 +463,21 @@ class _PagePermissionCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(
             color: Colors.amber.withOpacity(0.3),
             width: 1.5,
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppSpacing.paddingXL),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(AppSpacing.paddingMD),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -484,29 +485,28 @@ class _PagePermissionCard extends StatelessWidget {
                           Colors.amber.withOpacity(0.1),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                     ),
                     child: Icon(page.icon, color: Colors.amber, size: 24),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: AppSpacing.paddingLG),
                   Expanded(
                     child: Text(
                       page.label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                      style: AppTypography.withColor(
+                        AppTypography.withWeight(AppTypography.h3, FontWeight.w700),
+                        AuthColors.textMain,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.paddingLG),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.paddingLG),
                 decoration: BoxDecoration(
                   color: Colors.amber.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
                     color: Colors.amber.withOpacity(0.3),
                     width: 1,
@@ -515,7 +515,7 @@ class _PagePermissionCard extends StatelessWidget {
                 child: Row(
                   children: [
                     const Icon(Icons.shield, color: Colors.amber, size: 20),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.paddingMD),
                     Expanded(
                       child: Text(
                         'Admin-only page. Only users with Admin role can access this page.',
@@ -534,7 +534,7 @@ class _PagePermissionCard extends StatelessWidget {
       );
     }
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingXL),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -544,7 +544,7 @@ class _PagePermissionCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(color: Colors.white10, width: 1.5),
         boxShadow: [
           BoxShadow(
@@ -555,14 +555,14 @@ class _PagePermissionCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.paddingXL),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(AppSpacing.paddingMD),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -570,24 +570,23 @@ class _PagePermissionCard extends StatelessWidget {
                         page.color.withOpacity(0.1),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   ),
                   child: Icon(page.icon, color: page.color, size: 24),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.paddingLG),
                 Expanded(
                   child: Text(
                     page.label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                    style: AppTypography.withColor(
+                      AppTypography.withWeight(AppTypography.h3, FontWeight.w700),
+                      AuthColors.textMain,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             ...roles.map((role) {
               final rolePerms = permissions[page.key]?[role.id] ??
                   const PageCrudPermissions();
@@ -621,15 +620,15 @@ class _RoleToggleChip extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: role.isAdmin ? null : () => onChanged(!hasAccess),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
           decoration: BoxDecoration(
             color: hasAccess
                 ? const Color(0xFF4CAF50).withOpacity(0.2)
                 : Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(
               color: hasAccess
                   ? const Color(0xFF4CAF50)
@@ -648,17 +647,19 @@ class _RoleToggleChip extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Text(
                 role.title,
-                style: TextStyle(
-                  color: hasAccess ? Colors.white : Colors.white70,
-                  fontWeight: hasAccess ? FontWeight.w600 : FontWeight.w500,
-                  fontSize: 13,
+                style: AppTypography.withColor(
+                  AppTypography.withWeight(
+                    AppTypography.bodySmall,
+                    hasAccess ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                  hasAccess ? AuthColors.textMain : AuthColors.textSub,
                 ),
               ),
               if (hasAccess) ...[
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.gapSM),
                 const Icon(
                   Icons.check_circle,
                   size: 16,
@@ -666,7 +667,7 @@ class _RoleToggleChip extends StatelessWidget {
                 ),
               ],
               if (role.isAdmin) ...[
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.gapSM),
                 const Icon(
                   Icons.shield,
                   size: 14,
@@ -696,8 +697,8 @@ class _RolePermissionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     if (role.isAdmin) {
       return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
+        padding: const EdgeInsets.all(AppSpacing.paddingLG),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -705,7 +706,7 @@ class _RolePermissionRow extends StatelessWidget {
               Colors.amber.withOpacity(0.05),
             ],
           ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(
             color: Colors.amber.withOpacity(0.3),
             width: 1.5,
@@ -721,25 +722,23 @@ class _RolePermissionRow extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: Text(
                 role.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                style: AppTypography.withColor(
+                  AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+                  AuthColors.textMain,
                 ),
               ),
             ),
             const Icon(Icons.shield, color: Colors.amber, size: 18),
-            const SizedBox(width: 8),
-            const Text(
+            const SizedBox(width: AppSpacing.paddingSM),
+            Text(
               'Full Access',
-              style: TextStyle(
-                color: Colors.amber,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+              style: AppTypography.withColor(
+                AppTypography.withWeight(AppTypography.labelSmall, FontWeight.w600),
+                AuthColors.warning,
               ),
             ),
           ],
@@ -748,11 +747,11 @@ class _RolePermissionRow extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Column(
@@ -768,12 +767,12 @@ class _RolePermissionRow extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: Text(
                   role.title,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -781,7 +780,7 @@ class _RolePermissionRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           Row(
             children: [
               Expanded(
@@ -792,7 +791,7 @@ class _RolePermissionRow extends StatelessWidget {
                   onChanged: (value) => onChanged(CrudAction.create, value),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Expanded(
                 child: _CrudToggle(
                   label: 'Edit',
@@ -801,7 +800,7 @@ class _RolePermissionRow extends StatelessWidget {
                   onChanged: (value) => onChanged(CrudAction.edit, value),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Expanded(
                 child: _CrudToggle(
                   label: 'Delete',
@@ -837,15 +836,15 @@ class _CrudToggle extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => onChanged(!enabled),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD, horizontal: AppSpacing.paddingSM),
           decoration: BoxDecoration(
             color: enabled
                 ? const Color(0xFF6F4BFF).withOpacity(0.2)
                 : Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(
               color: enabled
                   ? const Color(0xFF6F4BFF)
@@ -861,7 +860,7 @@ class _CrudToggle extends StatelessWidget {
                 size: 18,
                 color: enabled ? const Color(0xFF6F4BFF) : Colors.white54,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(
                 label,
                 style: TextStyle(
@@ -939,7 +938,7 @@ class _RoleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (role.isAdmin) {
       return Container(
-        margin: const EdgeInsets.only(bottom: 20),
+        margin: const EdgeInsets.only(bottom: AppSpacing.paddingXL),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -949,14 +948,14 @@ class _RoleCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(
             color: Colors.amber.withOpacity(0.4),
             width: 2,
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.paddingXXL),
           child: Row(
             children: [
               Container(
@@ -969,30 +968,26 @@ class _RoleCard extends StatelessWidget {
                       _hexToColor(role.colorHex).withOpacity(0.7),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 ),
                 child: const Icon(Icons.shield, color: Colors.white, size: 32),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: AppSpacing.paddingXL),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       role.title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                      style: AppTypography.withColor(
+                        AppTypography.withWeight(AppTypography.h2, FontWeight.w700),
+                        AuthColors.textMain,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
+                    const SizedBox(height: AppSpacing.paddingSM),
+                    Text(
                       'Full access to all pages and sections',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
+                      style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
                     ),
                   ],
                 ),
@@ -1005,7 +1000,7 @@ class _RoleCard extends StatelessWidget {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingXL),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [
@@ -1015,7 +1010,7 @@ class _RoleCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
           color: _hexToColor(role.colorHex).withOpacity(0.3),
           width: 1.5,
@@ -1029,7 +1024,7 @@ class _RoleCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXL),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1045,7 +1040,7 @@ class _RoleCard extends StatelessWidget {
                         _hexToColor(role.colorHex).withOpacity(0.7),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     boxShadow: [
                       BoxShadow(
                         color: _hexToColor(role.colorHex).withOpacity(0.4),
@@ -1054,31 +1049,29 @@ class _RoleCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.badge, color: Colors.white, size: 28),
+                  child: const Icon(Icons.badge, color: AuthColors.textMain, size: 28),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppSpacing.paddingLG),
                 Expanded(
                   child: Text(
                     role.title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
+                    style: AppTypography.withColor(
+                      AppTypography.withWeight(AppTypography.h2, FontWeight.w700),
+                      AuthColors.textMain,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            const Text(
+            const SizedBox(height: AppSpacing.paddingXXL),
+            Text(
               'Navigation Sections',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              style: AppTypography.withColor(
+                AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+                AuthColors.textSub,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             ..._sections.map((section) {
               final hasAccess = sections[section.key]?[role.id] ?? false;
               return _SectionToggleTile(
@@ -1087,16 +1080,15 @@ class _RoleCard extends StatelessWidget {
                 onChanged: (value) => onSectionChanged(section.key, value),
               );
             }),
-            const SizedBox(height: 24),
-            const Text(
+            const SizedBox(height: AppSpacing.paddingXXL),
+            Text(
               'Page Permissions',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              style: AppTypography.withColor(
+                AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+                AuthColors.textSub,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             ..._pages.map((page) {
               final isAdminOnly = page.key == 'roles' || 
                   page.key == 'accessControl' || 
@@ -1105,11 +1097,11 @@ class _RoleCard extends StatelessWidget {
               
               if (isAdminOnly) {
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   decoration: BoxDecoration(
                     color: Colors.amber.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     border: Border.all(
                       color: Colors.amber.withOpacity(0.3),
                       width: 1,
@@ -1118,26 +1110,26 @@ class _RoleCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(AppSpacing.paddingSM),
                         decoration: BoxDecoration(
                           color: Colors.amber.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                         ),
                         child: Icon(page.icon, color: Colors.amber, size: 20),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.paddingMD),
                       Expanded(
                         child: Text(
                           page.label,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
                         ),
                       ),
                       const Icon(Icons.shield, color: Colors.amber, size: 18),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: AppSpacing.paddingSM),
                       const Text(
                         'Admin Only',
                         style: TextStyle(
@@ -1183,7 +1175,7 @@ class _SaveButton extends StatelessWidget {
         gradient: const LinearGradient(
           colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF6F4BFF).withOpacity(0.4),
@@ -1196,9 +1188,9 @@ class _SaveButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: isSaving ? null : onSave,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1213,11 +1205,11 @@ class _SaveButton extends StatelessWidget {
                   )
                 else ...[
                   const Icon(Icons.save, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.paddingSM),
                   const Text(
                     'Save Changes',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
                     ),
@@ -1262,11 +1254,11 @@ class _SectionToggleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(
           color: hasAccess
               ? section.color.withOpacity(0.3)
@@ -1277,19 +1269,19 @@ class _SectionToggleTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSpacing.paddingSM),
             decoration: BoxDecoration(
               color: section.color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             ),
             child: Icon(section.icon, color: section.color, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Text(
               section.label,
               style: const TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontWeight: FontWeight.w500,
                 fontSize: 14,
               ),
@@ -1320,11 +1312,11 @@ class _PagePermissionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Column(
@@ -1333,19 +1325,19 @@ class _PagePermissionTile extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(AppSpacing.paddingSM),
                 decoration: BoxDecoration(
                   color: page.color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 ),
                 child: Icon(page.icon, color: page.color, size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: Text(
                   page.label,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -1353,7 +1345,7 @@ class _PagePermissionTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           Row(
             children: [
               Expanded(
@@ -1364,7 +1356,7 @@ class _PagePermissionTile extends StatelessWidget {
                   onChanged: (value) => onChanged(CrudAction.create, value),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Expanded(
                 child: _CrudToggle(
                   label: 'Edit',
@@ -1373,7 +1365,7 @@ class _PagePermissionTile extends StatelessWidget {
                   onChanged: (value) => onChanged(CrudAction.edit, value),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Expanded(
                 child: _CrudToggle(
                   label: 'Delete',

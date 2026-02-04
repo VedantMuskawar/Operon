@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 class DateRangePicker extends StatelessWidget {
   const DateRangePicker({
@@ -68,10 +69,10 @@ class DateRangePicker extends StatelessWidget {
               onStartDateChanged,
             ),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
               decoration: BoxDecoration(
                 color: AuthColors.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 border: Border.all(
                   color: startDate != null
                       ? AuthColors.legacyAccent.withOpacity(0.5)
@@ -81,7 +82,7 @@ class DateRangePicker extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.paddingMD),
                   Expanded(
                     child: Text(
                       startDate != null ? _formatDate(startDate!) : 'Start Date',
@@ -96,7 +97,7 @@ class DateRangePicker extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.paddingMD),
         Expanded(
           child: GestureDetector(
             onTap: () => _selectDate(
@@ -107,10 +108,10 @@ class DateRangePicker extends StatelessWidget {
               onEndDateChanged,
             ),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
               decoration: BoxDecoration(
                 color: AuthColors.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 border: Border.all(
                   color: endDate != null
                       ? AuthColors.legacyAccent.withOpacity(0.5)
@@ -120,7 +121,7 @@ class DateRangePicker extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.paddingMD),
                   Expanded(
                     child: Text(
                       endDate != null ? _formatDate(endDate!) : 'End Date',

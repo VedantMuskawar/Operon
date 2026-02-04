@@ -9,16 +9,29 @@ import 'package:core_utils/core_utils.dart' as pdf_template;
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/services/qr_code_service.dart';
-import 'package:dash_web/domain/entities/payment_account.dart';
+import 'package:dash_web/data/services/print_view_data_mixin.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:http/http.dart' as http;
-import 'package:printing/printing.dart';
 
 // Export QrCodeService for use in print service
 export 'package:dash_web/data/services/qr_code_service.dart' show QrCodeService;
 
+/// Payload for DM view (no PDF). Same data source as PDF generation.
+class DmViewPayload {
+  const DmViewPayload({
+    required this.dmSettings,
+    this.paymentAccount,
+    this.logoBytes,
+    this.qrCodeBytes,
+  });
+
+  final DmSettings dmSettings;
+  final Map<String, dynamic>? paymentAccount;
+  final Uint8List? logoBytes;
+  final Uint8List? qrCodeBytes;
+}
+
 /// Service for printing Delivery Memos (DM)
-class DmPrintService {
+class DmPrintService with PrintViewDataMixin {
   DmPrintService({
     required DmSettingsRepository dmSettingsRepository,
     required PaymentAccountsRepository paymentAccountsRepository,
@@ -33,6 +46,19 @@ class DmPrintService {
   final PaymentAccountsRepository _paymentAccountsRepository;
   final QrCodeService _qrCodeService;
   final FirebaseStorage _storage;
+
+  // Mixin requirements
+  @override
+  DmSettingsRepository get dmSettingsRepository => _dmSettingsRepository;
+
+  @override
+  PaymentAccountsRepository get paymentAccountsRepository => _paymentAccountsRepository;
+
+  @override
+  QrCodeService get qrCodeService => _qrCodeService;
+
+  @override
+  FirebaseStorage get storage => _storage;
 
   /// Convert schedule trip data to DM data format
   Map<String, dynamic> convertTripToDmData(Map<String, dynamic> tripData) {
@@ -235,150 +261,63 @@ class DmPrintService {
     }
   }
 
-  /// Load image bytes from URL (Firebase Storage or HTTP)
-  Future<Uint8List?> loadImageBytes(String? url) async {
-    if (url == null || url.isEmpty) return null;
 
-    try {
-      if (url.startsWith('gs://') || url.contains('firebase')) {
-        // Firebase Storage URL
-        final ref = _storage.refFromURL(url);
-        return await ref.getData();
-      } else {
-        // HTTP/HTTPS URL
-        final response = await http.get(Uri.parse(url));
-        if (response.statusCode == 200) {
-          return response.bodyBytes;
-        }
-      }
-    } catch (e) {
-      // Silently fail - images are optional
-      return null;
-    }
-
-    return null;
-  }
-
-  /// Generate PDF bytes (used for auto-generation in dialog)
-  Future<Uint8List> generatePdfBytes({
+  /// Load view data only (no PDF). Use for "view first" UI; same data as PDF.
+  Future<DmViewPayload> loadDmViewData({
     required String organizationId,
     required Map<String, dynamic> dmData,
   }) async {
+    final dmSettings = await loadDmSettings(organizationId);
+    final paymentAccountResult = await loadPaymentAccountWithQr(
+      organizationId: organizationId,
+      dmSettings: dmSettings,
+    );
+    final logoBytes = await loadImageBytes(dmSettings.header.logoImageUrl);
+
+    return DmViewPayload(
+      dmSettings: dmSettings,
+      paymentAccount: paymentAccountResult.paymentAccount,
+      logoBytes: logoBytes,
+      qrCodeBytes: paymentAccountResult.qrCodeBytes,
+    );
+  }
+
+  /// Generate PDF bytes (used for print). Pass [viewPayload] to avoid duplicate fetches when user taps Print after viewing.
+  Future<Uint8List> generatePdfBytes({
+    required String organizationId,
+    required Map<String, dynamic> dmData,
+    DmViewPayload? viewPayload,
+  }) async {
     try {
-      // Load DM Settings (includes print preferences)
-      final dmSettings = await _dmSettingsRepository.fetchDmSettings(organizationId);
-      if (dmSettings == null) {
-        throw Exception('DM Settings not found. Please configure DM Settings first.');
+      final DmSettings dmSettings;
+      final Map<String, dynamic>? paymentAccount;
+      final Uint8List? logoBytes;
+      final Uint8List? qrCodeBytes;
+
+      if (viewPayload != null) {
+        dmSettings = viewPayload.dmSettings;
+        paymentAccount = viewPayload.paymentAccount;
+        logoBytes = viewPayload.logoBytes;
+        qrCodeBytes = viewPayload.qrCodeBytes;
+      } else {
+        final payload = await loadDmViewData(
+          organizationId: organizationId,
+          dmData: dmData,
+        );
+        dmSettings = payload.dmSettings;
+        paymentAccount = payload.paymentAccount;
+        logoBytes = payload.logoBytes;
+        qrCodeBytes = payload.qrCodeBytes;
       }
 
-      // Load Payment Account based on DM Settings preference
-      Map<String, dynamic>? paymentAccount;
-      Uint8List? qrCodeBytes;
-
-      final showQrCode = dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
-
-      // Fetch payment accounts to find one with QR or bank details
-      final accounts = await _paymentAccountsRepository.fetchAccounts(organizationId);
-      
-      if (accounts.isNotEmpty) {
-        PaymentAccount? selectedAccount;
-        
-        if (showQrCode) {
-          try {
-            selectedAccount = accounts.firstWhere(
-              (acc) => acc.qrCodeImageUrl != null && acc.qrCodeImageUrl!.isNotEmpty,
-            );
-          } catch (e) {
-            try {
-              selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
-            } catch (e) {
-              selectedAccount = accounts.first;
-            }
-          }
-          
-          // Load QR code image - try multiple sources
-          if (selectedAccount.qrCodeImageUrl != null && selectedAccount.qrCodeImageUrl!.isNotEmpty) {
-            try {
-              qrCodeBytes = await loadImageBytes(selectedAccount.qrCodeImageUrl);
-              // If loading failed, try generating from UPI data
-              if (qrCodeBytes == null || qrCodeBytes.isEmpty) {
-                throw Exception('QR image loading failed');
-              }
-            } catch (e) {
-              // Fall through to generate from UPI data
-              qrCodeBytes = null;
-            }
-          }
-          
-          // Try to generate QR code from UPI data if image not loaded
-          if ((qrCodeBytes == null || qrCodeBytes.isEmpty)) {
-            if (selectedAccount.upiQrData != null && selectedAccount.upiQrData!.isNotEmpty) {
-              // Generate QR code from UPI QR data
-              try {
-                qrCodeBytes = await _qrCodeService.generateQrCodeImage(selectedAccount.upiQrData!);
-              } catch (e) {
-                // If generation fails, continue without QR code
-              }
-            } else if (selectedAccount.upiId != null && selectedAccount.upiId!.isNotEmpty) {
-              // Generate QR code from UPI ID if UPI QR data not available
-              try {
-                // Format UPI ID as UPI payment string
-                final upiPaymentString = 'upi://pay?pa=${selectedAccount.upiId}&pn=${Uri.encodeComponent(selectedAccount.name)}&cu=INR';
-                qrCodeBytes = await _qrCodeService.generateQrCodeImage(upiPaymentString);
-              } catch (e) {
-                // If generation fails, continue without QR code
-              }
-            }
-          }
-        } else {
-          try {
-            selectedAccount = accounts.firstWhere(
-              (acc) => (acc.accountNumber != null && acc.accountNumber!.isNotEmpty) ||
-                       (acc.ifscCode != null && acc.ifscCode!.isNotEmpty),
-            );
-          } catch (e) {
-            try {
-              selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
-            } catch (e) {
-              selectedAccount = accounts.first;
-            }
-          }
-        }
-
-        // selectedAccount is guaranteed to be non-null since accounts.isNotEmpty
-        paymentAccount = {
-          'name': selectedAccount.name,
-          'accountNumber': selectedAccount.accountNumber,
-          'ifscCode': selectedAccount.ifscCode,
-          'upiId': selectedAccount.upiId,
-          'qrCodeImageUrl': selectedAccount.qrCodeImageUrl,
-        };
-      }
-
-      // Load logo image
-      final logoBytes = await loadImageBytes(dmSettings.header.logoImageUrl);
-
-      // Generate PDF using preferences from DM Settings
-      // Load watermark image (optional - for custom templates)
-      // Watermark path can be stored in org settings or default location
-      Uint8List? watermarkBytes;
-      try {
-        // Try to load watermark from Firebase Storage if available
-        // For now, watermark is optional - custom templates will work without it
-        // Feature planned: Add watermark URL configuration to DM settings or organization settings
-      } catch (e) {
-        // Watermark is optional, continue without it
-      }
-
-      // Use PDF template generator from core_utils. For custom templates
-      // (e.g. Lakshmee), dmData is converted to structured DmPrintData inside.
+      // Use PDF template generator from core_utils for custom templates
       final pdfBytes = await pdf_template.generateDmPdf(
         dmData: dmData,
         dmSettings: dmSettings,
         paymentAccount: paymentAccount,
         logoBytes: logoBytes,
         qrCodeBytes: qrCodeBytes,
-        watermarkBytes: watermarkBytes,
+        watermarkBytes: null,
       );
 
       return pdfBytes;
@@ -387,426 +326,36 @@ class DmPrintService {
     }
   }
 
-  /// Print PDF from bytes
-  Future<void> printPdfBytes({
-    required Uint8List pdfBytes,
-  }) async {
-    try {
-      await Printing.layoutPdf(
-        onLayout: (format) async => pdfBytes,
-      );
-    } catch (e) {
-      throw Exception('Failed to print PDF: $e');
-    }
-  }
-
-  /// Save PDF from bytes
-  Future<void> savePdfBytes({
-    required Uint8List pdfBytes,
-    required String fileName,
-  }) async {
-    try {
-      await Printing.sharePdf(
-        bytes: pdfBytes,
-        filename: fileName,
-      );
-    } catch (e) {
-      throw Exception('Failed to save PDF: $e');
-    }
-  }
-
-  /// Generate preview content for DM (HTML for universal, PDF bytes for custom)
-  /// Returns a map with 'type' ('html' or 'pdf') and the content
-  Future<Map<String, dynamic>> generateDmPreviewContent({
+  /// Returns PDF bytes for the current template (custom → core_utils PDF; universal → HTML to PDF). Use for Print from view-first dialog.
+  Future<Uint8List> getPdfBytesForPrint({
     required String organizationId,
     required Map<String, dynamic> dmData,
+    DmViewPayload? viewPayload,
   }) async {
-    try {
-      // Load DM Settings (includes print preferences)
-      final dmSettings = await _dmSettingsRepository.fetchDmSettings(organizationId);
-      if (dmSettings == null) {
-        throw Exception('DM Settings not found. Please configure DM Settings first.');
-      }
-
-      // Check if custom template is used
-      if (dmSettings.templateType == DmTemplateType.custom && 
-          dmSettings.customTemplateId != null) {
-        // Generate PDF for custom templates
-        final pdfBytes = await generatePdfBytes(
+    final payload = viewPayload ??
+        await loadDmViewData(
           organizationId: organizationId,
           dmData: dmData,
         );
-        
-        return {
-          'type': 'pdf',
-          'content': pdfBytes,
-        };
-      }
 
-      // Generate HTML for universal template
-      // Load Payment Account based on DM Settings preference
-      Map<String, dynamic>? paymentAccount;
-      Uint8List? qrCodeBytes;
-
-      final showQrCode = dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
-
-      // Fetch payment accounts to find one with QR or bank details
-      final accounts = await _paymentAccountsRepository.fetchAccounts(organizationId);
-      
-      if (accounts.isNotEmpty) {
-        // Find primary account or first account with required details
-        PaymentAccount? selectedAccount;
-        
-        if (showQrCode) {
-          // Find account with QR code
-          try {
-            selectedAccount = accounts.firstWhere(
-              (acc) => acc.qrCodeImageUrl != null && acc.qrCodeImageUrl!.isNotEmpty,
-            );
-          } catch (e) {
-            // Fallback to primary or first account
-            try {
-              selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
-            } catch (e) {
-              selectedAccount = accounts.first;
-            }
-          }
-          
-          // Load QR code image - try multiple sources
-          if (selectedAccount.qrCodeImageUrl != null && selectedAccount.qrCodeImageUrl!.isNotEmpty) {
-            try {
-              qrCodeBytes = await loadImageBytes(selectedAccount.qrCodeImageUrl);
-              // If loading failed, try generating from UPI data
-              if (qrCodeBytes == null || qrCodeBytes.isEmpty) {
-                throw Exception('QR image loading failed');
-              }
-            } catch (e) {
-              // Fall through to generate from UPI data
-              qrCodeBytes = null;
-            }
-          }
-          
-          // Try to generate QR code from UPI data if image not loaded
-          if ((qrCodeBytes == null || qrCodeBytes.isEmpty)) {
-            if (selectedAccount.upiQrData != null && selectedAccount.upiQrData!.isNotEmpty) {
-              // Generate QR code from UPI QR data
-              try {
-                qrCodeBytes = await _qrCodeService.generateQrCodeImage(selectedAccount.upiQrData!);
-              } catch (e) {
-                // If generation fails, continue without QR code
-              }
-            } else if (selectedAccount.upiId != null && selectedAccount.upiId!.isNotEmpty) {
-              // Generate QR code from UPI ID if UPI QR data not available
-              try {
-                // Format UPI ID as UPI payment string
-                final upiPaymentString = 'upi://pay?pa=${selectedAccount.upiId}&pn=${Uri.encodeComponent(selectedAccount.name)}&cu=INR';
-                qrCodeBytes = await _qrCodeService.generateQrCodeImage(upiPaymentString);
-              } catch (e) {
-                // If generation fails, continue without QR code
-              }
-            }
-          }
-        } else {
-          // Find account with bank details
-          try {
-            selectedAccount = accounts.firstWhere(
-              (acc) => (acc.accountNumber != null && acc.accountNumber!.isNotEmpty) ||
-                       (acc.ifscCode != null && acc.ifscCode!.isNotEmpty),
-            );
-          } catch (e) {
-            // Fallback to primary or first account
-            try {
-              selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
-            } catch (e) {
-              selectedAccount = accounts.first;
-            }
-          }
-        }
-
-        // selectedAccount will always be non-null here since accounts.isNotEmpty
-        paymentAccount = {
-          'name': selectedAccount.name,
-          'accountNumber': selectedAccount.accountNumber,
-          'ifscCode': selectedAccount.ifscCode,
-          'upiId': selectedAccount.upiId,
-          'qrCodeImageUrl': selectedAccount.qrCodeImageUrl,
-        };
-      }
-
-      // Load logo image
-      final logoBytes = await loadImageBytes(dmSettings.header.logoImageUrl);
-
-      // Generate HTML string
-      final htmlString = _generateDmHtml(
+    if (payload.dmSettings.templateType == DmTemplateType.custom &&
+        payload.dmSettings.customTemplateId != null) {
+      return generatePdfBytes(
+        organizationId: organizationId,
         dmData: dmData,
-        dmSettings: dmSettings,
-        paymentAccount: paymentAccount,
-        logoBytes: logoBytes,
-        qrCodeBytes: qrCodeBytes,
+        viewPayload: payload,
       );
-      
-      return {
-        'type': 'html',
-        'content': htmlString,
-      };
-    } catch (e) {
-      throw Exception('Failed to generate DM preview: $e');
     }
-  }
 
-  /// Generate and print/save DM PDF
-  /// Uses print preferences and template type (custom vs universal) from DM Settings
-  Future<void> printDm({
-    required String organizationId,
-    required Map<String, dynamic> dmData,
-  }) async {
-    try {
-      // Load DM Settings (includes print preferences and template type)
-      final dmSettings = await _dmSettingsRepository.fetchDmSettings(organizationId);
-      if (dmSettings == null) {
-        throw Exception('DM Settings not found. Please configure DM Settings first.');
-      }
-
-      // Follow DM Settings template type: custom → PDF, universal → HTML
-      if (dmSettings.templateType == DmTemplateType.custom &&
-          dmSettings.customTemplateId != null) {
-        final pdfBytes = await generatePdfBytes(
-          organizationId: organizationId,
-          dmData: dmData,
-        );
-        await printPdfBytes(pdfBytes: pdfBytes);
-        return;
-      }
-
-      // Universal template: HTML path
-      Map<String, dynamic>? paymentAccount;
-      Uint8List? qrCodeBytes;
-
-      final showQrCode = dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
-
-      // Fetch payment accounts to find one with QR or bank details
-      final accounts = await _paymentAccountsRepository.fetchAccounts(organizationId);
-      
-      if (accounts.isNotEmpty) {
-        // Find primary account or first account with required details
-        PaymentAccount? selectedAccount;
-        
-        if (showQrCode) {
-          // Find account with QR code
-          try {
-            selectedAccount = accounts.firstWhere(
-              (acc) => acc.qrCodeImageUrl != null && acc.qrCodeImageUrl!.isNotEmpty,
-            );
-          } catch (e) {
-            // Fallback to primary or first account
-            try {
-              selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
-            } catch (e) {
-              selectedAccount = accounts.first;
-            }
-          }
-          
-          // Load QR code image - try multiple sources
-          if (selectedAccount.qrCodeImageUrl != null && selectedAccount.qrCodeImageUrl!.isNotEmpty) {
-            try {
-              qrCodeBytes = await loadImageBytes(selectedAccount.qrCodeImageUrl);
-              // If loading failed, try generating from UPI data
-              if (qrCodeBytes == null || qrCodeBytes.isEmpty) {
-                throw Exception('QR image loading failed');
-              }
-            } catch (e) {
-              // Fall through to generate from UPI data
-              qrCodeBytes = null;
-            }
-          }
-          
-          // Try to generate QR code from UPI data if image not loaded
-          if ((qrCodeBytes == null || qrCodeBytes.isEmpty)) {
-            if (selectedAccount.upiQrData != null && selectedAccount.upiQrData!.isNotEmpty) {
-              // Generate QR code from UPI QR data
-              try {
-                qrCodeBytes = await _qrCodeService.generateQrCodeImage(selectedAccount.upiQrData!);
-              } catch (e) {
-                // If generation fails, continue without QR code
-              }
-            } else if (selectedAccount.upiId != null && selectedAccount.upiId!.isNotEmpty) {
-              // Generate QR code from UPI ID if UPI QR data not available
-              try {
-                // Format UPI ID as UPI payment string
-                final upiPaymentString = 'upi://pay?pa=${selectedAccount.upiId}&pn=${Uri.encodeComponent(selectedAccount.name)}&cu=INR';
-                qrCodeBytes = await _qrCodeService.generateQrCodeImage(upiPaymentString);
-              } catch (e) {
-                // If generation fails, continue without QR code
-              }
-            }
-          }
-        } else {
-          // Find account with bank details
-          try {
-            selectedAccount = accounts.firstWhere(
-              (acc) => (acc.accountNumber != null && acc.accountNumber!.isNotEmpty) ||
-                       (acc.ifscCode != null && acc.ifscCode!.isNotEmpty),
-            );
-          } catch (e) {
-            // Fallback to primary or first account
-            try {
-              selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
-            } catch (e) {
-              selectedAccount = accounts.first;
-            }
-          }
-        }
-
-        // selectedAccount will always be non-null here since accounts.isNotEmpty
-        paymentAccount = {
-          'name': selectedAccount.name,
-          'accountNumber': selectedAccount.accountNumber,
-          'ifscCode': selectedAccount.ifscCode,
-          'upiId': selectedAccount.upiId,
-          'qrCodeImageUrl': selectedAccount.qrCodeImageUrl,
-        };
-      }
-
-      // Load logo image
-      final logoBytes = await loadImageBytes(dmSettings.header.logoImageUrl);
-
-      // Generate HTML and print using browser's native print
-      final htmlString = _generateDmHtml(
-        dmData: dmData,
-        dmSettings: dmSettings,
-        paymentAccount: paymentAccount,
-        logoBytes: logoBytes,
-        qrCodeBytes: qrCodeBytes,
-      );
-      
-      // Print HTML using browser's native print functionality
-      _printHtml(htmlString);
-    } catch (e) {
-      throw Exception('Failed to print DM: $e');
-    }
-  }
-
-  /// Generate and save DM PDF
-  /// Uses print preferences and template type (custom vs universal) from DM Settings
-  Future<void> saveDmPdf({
-    required String organizationId,
-    required Map<String, dynamic> dmData,
-    required String fileName,
-  }) async {
-    try {
-      // Load DM Settings (includes print preferences and template type)
-      final dmSettings = await _dmSettingsRepository.fetchDmSettings(organizationId);
-      if (dmSettings == null) {
-        throw Exception('DM Settings not found. Please configure DM Settings first.');
-      }
-
-      // Follow DM Settings template type: custom → PDF, universal → HTML-to-PDF
-      if (dmSettings.templateType == DmTemplateType.custom &&
-          dmSettings.customTemplateId != null) {
-        final pdfBytes = await generatePdfBytes(
-          organizationId: organizationId,
-          dmData: dmData,
-        );
-        await savePdfBytes(pdfBytes: pdfBytes, fileName: fileName);
-        return;
-      }
-
-      // Universal template: HTML path
-      Map<String, dynamic>? paymentAccount;
-      Uint8List? qrCodeBytes;
-
-      final showQrCode = dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
-
-      final accounts = await _paymentAccountsRepository.fetchAccounts(organizationId);
-      
-      if (accounts.isNotEmpty) {
-        PaymentAccount? selectedAccount;
-        
-        if (showQrCode) {
-          try {
-            selectedAccount = accounts.firstWhere(
-              (acc) => acc.qrCodeImageUrl != null && acc.qrCodeImageUrl!.isNotEmpty,
-            );
-          } catch (e) {
-            try {
-              selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
-            } catch (e) {
-              selectedAccount = accounts.first;
-            }
-          }
-          
-          if (selectedAccount.qrCodeImageUrl != null) {
-            qrCodeBytes = await loadImageBytes(selectedAccount.qrCodeImageUrl);
-          }
-        } else {
-          try {
-            selectedAccount = accounts.firstWhere(
-              (acc) => (acc.accountNumber != null && acc.accountNumber!.isNotEmpty) ||
-                       (acc.ifscCode != null && acc.ifscCode!.isNotEmpty),
-            );
-          } catch (e) {
-            try {
-              selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
-            } catch (e) {
-              selectedAccount = accounts.first;
-            }
-          }
-        }
-
-        paymentAccount = {
-          'name': selectedAccount.name,
-          'accountNumber': selectedAccount.accountNumber,
-          'ifscCode': selectedAccount.ifscCode,
-          'upiId': selectedAccount.upiId,
-          'qrCodeImageUrl': selectedAccount.qrCodeImageUrl,
-        };
-      }
-
-      final logoBytes = await loadImageBytes(dmSettings.header.logoImageUrl);
-
-      final htmlString = _generateDmHtml(
-        dmData: dmData,
-        dmSettings: dmSettings,
-        paymentAccount: paymentAccount,
-        logoBytes: logoBytes,
-        qrCodeBytes: qrCodeBytes,
-      );
-
-      final pdfBytes = await _htmlToPdf(htmlString);
-
-      await Printing.sharePdf(
-        bytes: pdfBytes,
-        filename: fileName,
-      );
-    } catch (e) {
-      throw Exception('Failed to save DM PDF: $e');
-    }
-  }
-
-  /// Generate DM PDF document from HTML
-  /// Handles portrait orientation only
-  Future<Uint8List> generateDmPdf({
-    required Map<String, dynamic> dmData,
-    required DmSettings dmSettings,
-    Map<String, dynamic>? paymentAccount,
-    Uint8List? logoBytes,
-    Uint8List? qrCodeBytes,
-  }) async {
-    try {
-      // Generate HTML
-      final htmlString = _generateDmHtml(
-        dmData: dmData,
-        dmSettings: dmSettings,
-        paymentAccount: paymentAccount,
-        logoBytes: logoBytes,
-        qrCodeBytes: qrCodeBytes,
-      );
-
-      // Convert HTML to PDF bytes
-      return await _htmlToPdf(htmlString);
-    } catch (e) {
-      throw Exception('Failed to generate DM PDF: $e');
-    }
+    // Universal template: HTML then convert to PDF
+    final htmlString = _generateDmHtml(
+      dmData: dmData,
+      dmSettings: payload.dmSettings,
+      paymentAccount: payload.paymentAccount,
+      logoBytes: payload.logoBytes,
+      qrCodeBytes: payload.qrCodeBytes,
+    );
+    return _htmlToPdf(htmlString);
   }
 
   /// Generate HTML string for DM
@@ -1309,40 +858,34 @@ class DmPrintService {
     return '';
   }
 
-  /// Print HTML using browser's native print functionality
-  void _printHtml(String htmlString) {
-    // Use Blob URL instead of data URI to avoid browser security restrictions
-    // Create a Blob from HTML string
-    final blob = html.Blob([htmlString], 'text/html');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    
-    // Open in new window with Blob URL (allowed by browsers)
-    // The HTML contains a script that auto-triggers print when page loads
-    html.window.open(url, '_blank');
-    
-    // Clean up the blob URL after a delay
-    Future.delayed(const Duration(seconds: 5), () {
-      html.Url.revokeObjectUrl(url);
-    });
-  }
-
   /// Convert HTML to PDF bytes using html2pdf.js
   Future<Uint8List> _htmlToPdf(String htmlString) async {
     try {
       // Call the JavaScript helper function convertHtmlToPdfBlob
       // This function is defined in index.html and uses html2pdf.js
-      // The function is attached to window, so we access it via window property
+      // The function is attached to window, so we access it via js.context
+      // Since js.context['window'] returns a Window object (not JsObject),
+      // we need to use a workaround: access the function through dynamic typing
       final windowObj = js.context['window'];
       if (windowObj == null) {
         throw Exception('window object is not available');
       }
-      final jsPromise = (windowObj as js.JsObject).callMethod('convertHtmlToPdfBlob', [htmlString]);
+      // Access the function using dynamic to bypass type checking
+      // Then convert it to JsFunction to call it
+      final convertFunc = (windowObj as dynamic).convertHtmlToPdfBlob;
+      if (convertFunc == null) {
+        throw Exception('convertHtmlToPdfBlob function is not available on window');
+      }
+      // Call the function - convertFunc should be callable
+      // apply() returns dynamic, so we need to cast the result to JsObject
+      final jsPromiseResult = (convertFunc as js.JsFunction).apply([htmlString]);
+      final jsPromise = jsPromiseResult as js.JsObject;
       
       // Convert JavaScript Promise to Dart Future using Completer
       final completer = Completer<html.Blob>();
       
       // Set up promise callbacks using JsFunction
-      js.JsObject promise = jsPromise as js.JsObject;
+      js.JsObject promise = jsPromise;
       promise.callMethod('then', [
         js.JsFunction.withThis((_, blob) {
           completer.complete(blob as html.Blob);

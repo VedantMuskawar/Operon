@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 /// Text field with built-in validation and error display
 class ValidatedTextField extends StatelessWidget {
@@ -54,32 +55,32 @@ class ValidatedTextField extends StatelessWidget {
             prefixIcon: prefixIcon,
             suffixIcon: suffixIcon,
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: const BorderSide(
                 color: Color(0xFF6F4BFF),
                 width: 2,
               ),
             ),
             errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: const BorderSide(
                 color: Colors.redAccent,
                 width: 1,
               ),
             ),
             focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: const BorderSide(
                 color: Colors.redAccent,
                 width: 2,
               ),
             ),
             disabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: BorderSide.none,
             ),
             contentPadding: const EdgeInsets.symmetric(

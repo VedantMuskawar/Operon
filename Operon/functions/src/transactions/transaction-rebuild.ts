@@ -200,10 +200,13 @@ export async function rebuildTransactionAnalyticsForOrg(
     .get();
   
   const incomeDaily: Record<string, number> = {};
+  const receivablesDaily: Record<string, number> = {};
   const expenseDaily: Record<string, number> = {};
   const incomeWeekly: Record<string, number> = {};
+  const receivablesWeekly: Record<string, number> = {};
   const expenseWeekly: Record<string, number> = {};
   const incomeMonthly: Record<string, number> = {};
+  const receivablesMonthly: Record<string, number> = {};
   const expenseMonthly: Record<string, number> = {};
   const byType: Record<string, { count: number; total: number; daily: Record<string, number>; weekly: Record<string, number>; monthly: Record<string, number> }> = {};
   const byPaymentAccount: Record<string, { accountId: string; accountName: string; accountType: string; count: number; total: number; daily: Record<string, number>; weekly: Record<string, number>; monthly: Record<string, number> }> = {};
@@ -236,7 +239,11 @@ export async function rebuildTransactionAnalyticsForOrg(
       completedTransactionCount++;
     }
     
-    const isIncome = category === 'income';
+    const ledgerType = tx.ledgerType as string | undefined;
+    // Align with transaction-handlers: clientLedger debit = income, clientLedger credit = receivables
+    const isClientLedgerDebit = ledgerType === 'clientLedger' && type === 'debit';
+    const isClientLedgerCredit = ledgerType === 'clientLedger' && type === 'credit';
+    const isExpenseByCategory = category !== 'income';
     const multiplier = 1; // All transactions here are non-cancelled
     
     // Get transaction date
@@ -247,12 +254,19 @@ export async function rebuildTransactionAnalyticsForOrg(
     const weekString = getISOWeek(transactionDate);
     const monthString = formatMonth(transactionDate);
     
-    // Update daily/weekly/monthly breakdowns
-    if (isIncome) {
+    // Income/receivables: same semantics as transaction-handlers (for Transaction Analytics UI)
+    if (isClientLedgerDebit) {
       incomeDaily[dateString] = (incomeDaily[dateString] || 0) + (amount * multiplier);
       incomeWeekly[weekString] = (incomeWeekly[weekString] || 0) + (amount * multiplier);
       incomeMonthly[monthString] = (incomeMonthly[monthString] || 0) + (amount * multiplier);
-    } else {
+    }
+    if (isClientLedgerCredit) {
+      receivablesDaily[dateString] = (receivablesDaily[dateString] || 0) + (amount * multiplier);
+      receivablesWeekly[weekString] = (receivablesWeekly[weekString] || 0) + (amount * multiplier);
+      receivablesMonthly[monthString] = (receivablesMonthly[monthString] || 0) + (amount * multiplier);
+    }
+    // Expense: category-based (for expense analytics)
+    if (isExpenseByCategory) {
       expenseDaily[dateString] = (expenseDaily[dateString] || 0) + (amount * multiplier);
       expenseWeekly[weekString] = (expenseWeekly[weekString] || 0) + (amount * multiplier);
       expenseMonthly[monthString] = (expenseMonthly[monthString] || 0) + (amount * multiplier);
@@ -300,7 +314,6 @@ export async function rebuildTransactionAnalyticsForOrg(
     byPaymentMethodType[methodType].monthly[monthString] = (byPaymentMethodType[methodType].monthly[monthString] || 0) + (amount * multiplier);
 
     // Total payable to vendors: vendorLedger + type credit
-    const ledgerType = tx.ledgerType as string | undefined;
     if (ledgerType === 'vendorLedger' && type === 'credit') {
       totalPayableToVendors += amount;
     }
@@ -362,6 +375,7 @@ export async function rebuildTransactionAnalyticsForOrg(
   
   // Clean daily data (keep only last 90 days)
   const cleanedIncomeDaily = cleanDailyData(incomeDaily, 90);
+  const cleanedReceivablesDaily = cleanDailyData(receivablesDaily, 90);
   const cleanedExpenseDaily = cleanDailyData(expenseDaily, 90);
   
   // Clean daily data for each breakdown
@@ -375,26 +389,42 @@ export async function rebuildTransactionAnalyticsForOrg(
     byPaymentMethodType[methodType].daily = cleanDailyData(byPaymentMethodType[methodType].daily, 90);
   });
   
-  // Calculate totals
+  // Calculate totals (align with transaction-handlers for UI)
   const totalIncome = Object.values(incomeMonthly).reduce((sum, val) => sum + (val || 0), 0);
+  const totalReceivables = Object.values(receivablesMonthly).reduce((sum, val) => sum + (val || 0), 0);
+  const netReceivables = totalReceivables - totalIncome;
   const totalExpense = Object.values(expenseMonthly).reduce((sum, val) => sum + (val || 0), 0);
   const netIncome = totalIncome - totalExpense;
-  
-  // Update analytics document
+
+  // Receivable aging: rebuild has no per-bucket dates, put total in current (UI accepts over90 key)
+  const receivableAging = {
+    current: totalReceivables,
+    days31to60: 0,
+    days61to90: 0,
+    over90: 0,
+  };
+
+  // Update analytics document (same top-level fields as transaction-handlers for Transaction Analytics UI)
   await analyticsRef.set({
     source: TRANSACTIONS_SOURCE_KEY,
     organizationId,
     financialYear,
     incomeDaily: cleanedIncomeDaily,
+    receivablesDaily: cleanedReceivablesDaily,
     expenseDaily: cleanedExpenseDaily,
     incomeWeekly,
+    receivablesWeekly,
     expenseWeekly,
     incomeMonthly,
+    receivablesMonthly,
     expenseMonthly,
     byType,
     byPaymentAccount,
     byPaymentMethodType,
     totalIncome,
+    totalReceivables,
+    netReceivables,
+    receivableAging,
     totalExpense,
     netIncome,
     transactionCount,

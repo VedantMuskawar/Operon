@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/core_ui.dart';
@@ -10,6 +12,8 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/widgets/fuel_ledger_pdf_dialog.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:dash_web/presentation/widgets/cash_voucher_camera_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -60,6 +64,9 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
   List<Transaction> _availableInvoices = [];
   Set<String> _selectedInvoiceIds = {};
   bool _isLoadingInvoices = false;
+
+  /// Cash voucher photo bytes for salary expense (optional).
+  Uint8List? _cashVoucherPhotoBytes;
 
   @override
   void initState() {
@@ -307,7 +314,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             setState(() => _isSubmitting = false);
             return;
           }
-          await cubit.createSalaryDebit(
+          final transactionId = await cubit.createSalaryDebit(
             employeeId: _selectedEmployee!.id,
             amount: amount,
             paymentAccountId: _selectedPaymentAccount!.id,
@@ -318,7 +325,31 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             referenceNumber: _referenceNumberController.text.trim().isEmpty
                 ? null
                 : _referenceNumberController.text.trim(),
+            employeeName: _selectedEmployee!.name,
           );
+          if (transactionId == null) {
+            setState(() => _isSubmitting = false);
+            return;
+          }
+          if (_cashVoucherPhotoBytes != null && mounted) {
+            try {
+              final url = await _uploadCashVoucherPhoto(transactionId);
+              if (url != null && mounted) {
+                await context.read<TransactionsRepository>().updateTransactionMetadata(
+                      transactionId,
+                      {'cashVoucherPhotoUrl': url},
+                    );
+              }
+            } catch (e) {
+              if (mounted) {
+                DashSnackbar.show(
+                  context,
+                  message: 'Expense saved but voucher upload failed: $e',
+                  isError: false,
+                );
+              }
+            }
+          }
           break;
         case ExpenseFormType.generalExpense:
           if (_selectedSubCategory == null) {
@@ -376,6 +407,43 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
     );
   }
 
+  Future<void> _pickCashVoucherPhoto() async {
+    try {
+      // getUserMedia is called from the main page so the browser prompts for camera permission
+      final result = await showCashVoucherCameraDialog(context);
+      if (result != null && mounted) {
+        setState(() => _cashVoucherPhotoBytes = result);
+      }
+    } catch (e) {
+      if (mounted) {
+        DashSnackbar.show(context, message: 'Failed to take photo: $e', isError: true);
+      }
+    }
+  }
+
+  Future<String?> _uploadCashVoucherPhoto(String transactionId) async {
+    if (_cashVoucherPhotoBytes == null) return null;
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final organizationId = orgState.organization?.id;
+    if (organizationId == null) return null;
+    try {
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('organizations')
+          .child(organizationId)
+          .child('expenses')
+          .child(transactionId)
+          .child('cash_voucher.jpg');
+      await storageRef.putData(
+        _cashVoucherPhotoBytes!,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      return storageRef.getDownloadURL();
+    } catch (e) {
+      throw Exception('Failed to upload voucher photo: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -426,6 +494,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                         _buildInvoiceSelectionSection(),
                       ] else if (_selectedType == ExpenseFormType.salaryDebit) ...[
                         _buildEmployeeSelector(),
+                        const SizedBox(height: 16),
+                        _buildCashVoucherSection(),
                       ] else if (_selectedType == ExpenseFormType.generalExpense) ...[
                         _buildSubCategorySelector(),
                       ],
@@ -567,6 +637,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           _selectedVendor = null;
           _selectedEmployee = null;
           _selectedSubCategory = null;
+          if (type != ExpenseFormType.salaryDebit) _cashVoucherPhotoBytes = null;
         });
       },
       child: Container(
@@ -598,6 +669,52 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCashVoucherSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Cash Voucher',
+          style: TextStyle(
+            color: AuthColors.textSub,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DashButton(
+          label: _cashVoucherPhotoBytes == null ? 'Open camera' : 'Take photo again',
+          icon: Icons.camera_alt,
+          onPressed: _pickCashVoucherPhoto,
+          variant: DashButtonVariant.outlined,
+        ),
+        if (_cashVoucherPhotoBytes != null) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.memory(
+                  _cashVoucherPhotoBytes!,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 12),
+              DashButton(
+                label: 'Remove',
+                icon: Icons.delete_outline,
+                onPressed: () => setState(() => _cashVoucherPhotoBytes = null),
+                variant: DashButtonVariant.text,
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 

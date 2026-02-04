@@ -36,7 +36,6 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   SortOption _sortOption = SortOption.dateNewest;
   final Set<String> _selectedOrderIds = {};
   final FocusNode _searchFocusNode = FocusNode();
-  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -277,29 +276,10 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     return 5;
   }
 
-  double _getAspectRatio(int columnCount) {
-    // Adjust aspect ratio based on column count for better tile sizing
-    switch (columnCount) {
-      case 1:
-        return 1.0;
-      case 2:
-        return 0.9;
-      case 3:
-        return 0.85;
-      case 4:
-        return 0.85;
-      case 5:
-        return 0.85;
-      default:
-        return 0.85;
-    }
-  }
-
   @override
   void dispose() {
     _ordersSubscription?.cancel();
     _searchFocusNode.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -415,58 +395,65 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final screenWidth = MediaQuery.of(context).size.width;
-                        final columnCount = _getColumnCount(screenWidth);
-                        final aspectRatio = _getAspectRatio(columnCount);
+                        var columnCount = _getColumnCount(screenWidth);
+                        if (columnCount <= 0) {
+                          columnCount = 1;
+                        }
                         final filteredOrders = _getFilteredOrders();
+                        const crossAxisSpacing = 20.0;
+                        const mainAxisSpacing = 20.0;
+                        final contentWidth = constraints.maxWidth;
+                        final usableWidth = contentWidth - crossAxisSpacing * (columnCount - 1);
+                        final tileWidth = columnCount > 0
+                            ? (usableWidth > 0 ? usableWidth / columnCount : contentWidth / columnCount)
+                            : contentWidth;
 
                         return AnimationLimiter(
-                          child: GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            controller: _scrollController,
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: columnCount,
-                              childAspectRatio: aspectRatio,
-                              crossAxisSpacing: 20,
-                              mainAxisSpacing: 20,
-                            ),
-                            itemCount: filteredOrders.length,
-                              itemBuilder: (context, index) {
-                                final order = filteredOrders[index];
-                                final orderId = order['id'] as String;
-                                final isSelected = _selectedOrderIds.contains(orderId);
+                          child: Wrap(
+                            spacing: crossAxisSpacing,
+                            runSpacing: mainAxisSpacing,
+                            children: List.generate(filteredOrders.length, (index) {
+                              final order = filteredOrders[index];
+                              final orderId = order['id'] as String;
+                              final isSelected = _selectedOrderIds.contains(orderId);
 
-                                return AnimationConfiguration.staggeredGrid(
-                                  position: index,
-                                  duration: const Duration(milliseconds: 200),
-                                  columnCount: columnCount,
-                                  child: SlideAnimation(
-                                    verticalOffset: 50.0,
-                                    child: FadeInAnimation(
-                                      curve: Curves.easeOut,
-                                      child: PendingOrderTile(
-                                        key: ValueKey(orderId),
-                                        order: order,
-                                        isSelected: isSelected,
-                                        onTripsUpdated: () => _subscribeToOrders(),
-                                        onDeleted: () {
-                                          _selectedOrderIds.remove(orderId);
-                                          _subscribeToOrders();
-                                        },
-                                        onTap: () {
-                                          // Toggle selection on tap
-                                          _toggleOrderSelection(orderId);
-                                        },
-                                        onSelectionToggle: () => _toggleOrderSelection(orderId),
+                              return AnimationConfiguration.staggeredGrid(
+                                position: index,
+                                duration: const Duration(milliseconds: 200),
+                                columnCount: columnCount,
+                                child: SlideAnimation(
+                                  verticalOffset: 50.0,
+                                  child: FadeInAnimation(
+                                    curve: Curves.easeOut,
+                                    child: SizedBox(
+                                      width: tileWidth,
+                                      child: Align(
+                                        alignment: Alignment.topCenter,
+                                        child: PendingOrderTile(
+                                          key: ValueKey(orderId),
+                                          order: order,
+                                          isSelected: isSelected,
+                                          onTripsUpdated: () => _subscribeToOrders(),
+                                          onDeleted: () {
+                                            _selectedOrderIds.remove(orderId);
+                                            _subscribeToOrders();
+                                          },
+                                          onTap: () {
+                                            // Toggle selection on tap
+                                            _toggleOrderSelection(orderId);
+                                          },
+                                          onSelectionToggle: () => _toggleOrderSelection(orderId),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                );
-                              },
-                            ),
-                          );
-                        },
-                      ),
+                                ),
+                              );
+                            }),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                   if (!_isLoading && _orders.isEmpty) ...[
                     const SizedBox(height: 48),

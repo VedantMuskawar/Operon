@@ -8,6 +8,7 @@ import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_cubit.
 import 'package:dash_web/presentation/blocs/employee_wages/employee_wages_state.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
+import 'package:dash_web/presentation/widgets/salary_voucher_modal.dart';
 import 'package:dash_web/presentation/views/employee_wages/credit_salary_dialog.dart';
 import 'package:dash_web/presentation/views/employee_wages/record_bonus_dialog.dart';
 import 'package:flutter/material.dart';
@@ -923,6 +924,25 @@ class _WagesDataTable extends StatelessWidget {
     ];
 
     final rowActions = [
+      custom_table.DataTableRowAction<Transaction>(
+        icon: Icons.receipt_long,
+        tooltip: 'View voucher',
+        color: AuthColors.primary,
+        onTap: (tx, _) {
+          final hasVoucher = tx.category == TransactionCategory.salaryDebit &&
+              tx.metadata?['cashVoucherPhotoUrl'] != null &&
+              (tx.metadata!['cashVoucherPhotoUrl'] as String).isNotEmpty;
+          if (hasVoucher) {
+            showSalaryVoucherModal(context, tx.id);
+          } else {
+            DashSnackbar.show(
+              context,
+              message: 'No voucher for this transaction',
+              isError: false,
+            );
+          }
+        },
+      ),
       custom_table.DataTableRowAction<Transaction>(
         icon: Icons.delete_outline,
         onTap: (tx, _) => onDelete(tx),

@@ -3,6 +3,7 @@ import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dar
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dash_mobile/presentation/views/fuel_ledger/link_trips_dialog.dart';
@@ -269,11 +270,11 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
     return Dialog(
       backgroundColor: const Color(0xFF0A0A0A),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       ),
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.paddingXXL),
           child: Form(
             key: _formKey,
             child: Column(
@@ -284,10 +285,10 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(AppSpacing.paddingSM),
                       decoration: BoxDecoration(
                         color: const Color(0xFF6F4BFF).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       child: const Icon(
                         Icons.local_gas_station,
@@ -295,7 +296,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                         size: 20,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.paddingMD),
                     const Expanded(
                       child: Text(
                         'Record Fuel Purchase',
@@ -312,7 +313,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 
                 // Vendor Dropdown
                 DropdownButtonFormField<Vendor>(
@@ -352,7 +353,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                   },
                   validator: (value) => value == null ? 'Please select a vendor' : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Date
                 InkWell(
@@ -371,7 +372,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Amount
                 TextFormField(
@@ -390,12 +391,12 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Vehicle Dropdown
                 _isLoadingVehicles
                     ? const Center(child: Padding(
-                        padding: EdgeInsets.all(16.0),
+                        padding: EdgeInsets.all(AppSpacing.paddingLG),
                         child: CircularProgressIndicator(),
                       ))
                     : DropdownButtonFormField<Vehicle>(
@@ -423,7 +424,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                         },
                         validator: (value) => value == null ? 'Please select a vehicle' : null,
                       ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Voucher Number
                 TextFormField(
@@ -435,7 +436,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                           ? 'Enter voucher number'
                           : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Link Trips Now Checkbox (Optional)
                 CheckboxListTile(
@@ -456,7 +457,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                   activeColor: const Color(0xFF6F4BFF),
                   contentPadding: EdgeInsets.zero,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 
                 // Actions
                 Row(
@@ -469,7 +470,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                         style: TextStyle(color: Colors.white.withOpacity(0.7)),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.paddingMD),
                     ElevatedButton(
                       onPressed: _isLoading ? null : _submitPurchase,
                       style: ElevatedButton.styleFrom(
@@ -504,26 +505,26 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
       fillColor: const Color(0xFF2B2B3C),
       labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
           color: Colors.white.withOpacity(0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
           color: Color(0xFF6F4BFF),
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
           color: Colors.red,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
           color: Colors.red,
           width: 2,

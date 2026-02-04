@@ -34,12 +34,12 @@ class _OrderTileState extends State<OrderTile> {
 
   Color _getPriorityBorderColor() {
     return _isHighPriority()
-        ? AuthColors.secondary // Gold
-        : AppColors.borderMedium;
+        ? AuthColors.secondary
+        : AuthColors.textMainWithOpacity(0.15);
   }
 
   List<BoxShadow> _getPriorityShadows() {
-    if (!_isHighPriority()) return AppShadows.none;
+    if (!_isHighPriority()) return const [];
     return [
       BoxShadow(
         color: AuthColors.secondary.withOpacity(0.4),
@@ -99,13 +99,13 @@ class _OrderTileState extends State<OrderTile> {
 
   Color _getETAColor(int daysDiff) {
     if (daysDiff < 0) {
-      return AppColors.error;
+      return AuthColors.error;
     } else if (daysDiff == 0 || daysDiff == 1) {
-      return AppColors.success;
+      return AuthColors.success;
     } else if (daysDiff <= 3) {
-      return AppColors.warning;
+      return AuthColors.warning;
     } else {
-      return AppColors.info;
+      return AuthColors.info;
     }
   }
 
@@ -355,7 +355,7 @@ class _OrderTileState extends State<OrderTile> {
         child: Container(
           padding: const EdgeInsets.all(AppSpacing.paddingMD),
           decoration: BoxDecoration(
-            color: AppColors.cardBackground,
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             border: Border.all(
               color: priorityColor,
@@ -363,7 +363,11 @@ class _OrderTileState extends State<OrderTile> {
             ),
             boxShadow: [
               ...priorityShadows,
-              ...AppShadows.card,
+              BoxShadow(
+                color: AuthColors.background.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
             ],
           ),
           child: Column(
@@ -437,6 +441,7 @@ class _OrderHeader extends StatelessWidget {
           style: AppTypography.h4.copyWith(
             fontSize: 16,
             fontWeight: FontWeight.w600,
+            color: AuthColors.textMain,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -447,7 +452,7 @@ class _OrderHeader extends StatelessWidget {
             const Icon(
               Icons.location_on_outlined,
               size: AppSpacing.iconXS,
-              color: AppColors.textSecondary,
+              color: AuthColors.textSub,
             ),
             const SizedBox(width: AppSpacing.paddingXS / 2),
             Expanded(
@@ -455,7 +460,7 @@ class _OrderHeader extends StatelessWidget {
                 zoneText,
                 style: AppTypography.bodySmall.copyWith(
                   fontSize: 12,
-                  color: AppColors.textSecondary,
+                  color: AuthColors.textSub,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -495,26 +500,26 @@ class _TripCounterBadge extends StatelessWidget {
         gradient: isComplete
             ? LinearGradient(
                 colors: [
-                  AppColors.success,
-                  AppColors.success.withOpacity(0.8),
+                  AuthColors.success,
+                  AuthColors.success.withOpacity(0.8),
                 ],
               )
             : LinearGradient(
                 colors: [
-                  AppColors.primary.withOpacity(0.2),
-                  AppColors.primary.withOpacity(0.1),
+                  AuthColors.primary.withOpacity(0.2),
+                  AuthColors.primary.withOpacity(0.1),
                 ],
               ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         border: Border.all(
           color: isComplete
-              ? AppColors.success
-              : AppColors.primary.withOpacity(0.4),
+              ? AuthColors.success
+              : AuthColors.primary.withOpacity(0.4),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: (isComplete ? AppColors.success : AppColors.primary)
+            color: (isComplete ? AuthColors.success : AuthColors.primary)
                 .withOpacity(0.2),
             blurRadius: 4,
             offset: const Offset(0, 1),
@@ -531,16 +536,16 @@ class _TripCounterBadge extends StatelessWidget {
                 Icons.route,
                 size: AppSpacing.iconSM,
                 color: isComplete
-                    ? AppColors.textPrimary
-                    : AppColors.primary,
+                    ? AuthColors.textMain
+                    : AuthColors.primary,
               ),
               const SizedBox(width: AppSpacing.paddingXS / 2),
               Text(
                 '$scheduled/$total',
                 style: AppTypography.labelSmall.copyWith(
                   color: isComplete
-                      ? AppColors.textPrimary
-                      : AppColors.primary,
+                      ? AuthColors.textMain
+                      : AuthColors.primary,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -552,13 +557,13 @@ class _TripCounterBadge extends StatelessWidget {
             SizedBox(
               width: 50,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(AppSpacing.paddingXS),
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 3,
-                  backgroundColor: AppColors.inputBackground,
+                  backgroundColor: AuthColors.textMainWithOpacity(0.08),
                   valueColor: const AlwaysStoppedAnimation<Color>(
-                    AppColors.primary,
+                    AuthColors.primary,
                   ),
                 ),
               ),
@@ -593,10 +598,10 @@ class _ProductInfo extends StatelessWidget {
             vertical: AppSpacing.paddingXS,
           ),
           decoration: BoxDecoration(
-            color: AppColors.cardBackgroundElevated,
+            color: AuthColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
             border: Border.all(
-              color: AppColors.borderDefault,
+              color: AuthColors.textMainWithOpacity(0.1),
               width: 1,
             ),
           ),
@@ -606,13 +611,13 @@ class _ProductInfo extends StatelessWidget {
               const Icon(
                 Icons.inventory_2_outlined,
                 size: AppSpacing.iconXS,
-                color: AppColors.textSecondary,
+                color: AuthColors.textSub,
               ),
               const SizedBox(width: AppSpacing.paddingXS / 2),
               Text(
                 productName,
                 style: AppTypography.labelSmall.copyWith(
-                  color: AppColors.textPrimary,
+                  color: AuthColors.textMain,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -629,20 +634,20 @@ class _ProductInfo extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.success.withOpacity(0.2),
-                AppColors.success.withOpacity(0.1),
+                AuthColors.success.withOpacity(0.2),
+                AuthColors.success.withOpacity(0.1),
               ],
             ),
             borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
             border: Border.all(
-              color: AppColors.success.withOpacity(0.3),
+              color: AuthColors.success.withOpacity(0.3),
               width: 1,
             ),
           ),
           child: Text(
             'Qty: $fixedQuantityPerTrip',
             style: AppTypography.captionSmall.copyWith(
-              color: AppColors.success,
+              color: AuthColors.success,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -651,7 +656,7 @@ class _ProductInfo extends StatelessWidget {
         Text(
           formatDate(createdAt),
           style: AppTypography.captionSmall.copyWith(
-            color: AppColors.textTertiary,
+            color: AuthColors.textDisabled,
           ),
         ),
       ],
@@ -680,7 +685,7 @@ class _ActionButtons extends StatelessWidget {
           child: _CompactActionButton(
             icon: Icons.delete_outline,
             label: 'Delete',
-            color: AppColors.error,
+            color: AuthColors.error,
             onTap: isDeleting ? null : onDelete,
             isLoading: isDeleting,
           ),
@@ -690,7 +695,7 @@ class _ActionButtons extends StatelessWidget {
           child: _CompactActionButton(
             icon: Icons.phone_outlined,
             label: 'Call',
-            color: AppColors.success,
+            color: AuthColors.success,
             onTap: onCall,
           ),
         ),
@@ -699,7 +704,7 @@ class _ActionButtons extends StatelessWidget {
           child: _CompactActionButton(
             icon: Icons.schedule_outlined,
             label: 'Schedule',
-            color: AppColors.info,
+            color: AuthColors.info,
             onTap: onSchedule,
             isDisabled: onSchedule == null,
           ),
@@ -729,14 +734,14 @@ class _CompactActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveColor = (isDisabled || onTap == null)
-        ? AppColors.inputBackground
+        ? AuthColors.textMainWithOpacity(0.08)
         : color;
     final textColor = (isDisabled || onTap == null)
-        ? AppColors.textTertiary
-        : AppColors.textPrimary;
+        ? AuthColors.textDisabled
+        : AuthColors.textMain;
 
     return Material(
-      color: Colors.transparent,
+      color: AuthColors.background.withOpacity(0),
       child: InkWell(
         onTap: (isDisabled || isLoading) ? null : onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
@@ -763,7 +768,7 @@ class _CompactActionButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
             border: (isDisabled || onTap == null)
                 ? Border.all(
-                    color: AppColors.borderDefault,
+                    color: AuthColors.textMainWithOpacity(0.1),
                     width: 1,
                   )
                 : null,

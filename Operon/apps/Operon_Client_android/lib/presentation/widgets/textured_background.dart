@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 /// A widget that provides a textured background (grain or dotted pattern)
 /// for the entire app
@@ -72,7 +73,7 @@ class TexturedBackground extends StatelessWidget {
               top: 0,
               right: 0,
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(AppSpacing.paddingSM),
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.9),
                   borderRadius: const BorderRadius.only(

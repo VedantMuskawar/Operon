@@ -7,9 +7,11 @@ import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
 import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:go_router/go_router.dart';
 
 /// Transactions List view for Financial Transactions (Android)
 /// Optimized with CustomScrollView + SliverList for better performance
@@ -97,7 +99,7 @@ class _FinancialTransactionsListViewState
             child: Column(
               children: [
                 _buildControls(state),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 ErrorStateWidget(
                   message: state.message ?? 'Failed to load transactions',
                   errorType: ErrorType.network,
@@ -147,7 +149,7 @@ class _FinancialTransactionsListViewState
             // Transaction list grouped by date
             else ...[
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
                 sliver: AnimationLimiter(
                   child: SliverList(
                     delegate: SliverChildBuilderDelegate(
@@ -155,7 +157,7 @@ class _FinancialTransactionsListViewState
                         if (index >= filteredTransactions.length) {
                           return _isLoadingMore
                               ? const Padding(
-                                  padding: EdgeInsets.all(16),
+                                  padding: EdgeInsets.all(AppSpacing.paddingLG),
                                   child: Center(
                                     child: CircularProgressIndicator(),
                                   ),
@@ -172,7 +174,7 @@ class _FinancialTransactionsListViewState
                             child: FadeInAnimation(
                               curve: Curves.easeOut,
                               child: Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                                 child: _buildTransactionTile(transaction),
                               ),
                             ),
@@ -205,7 +207,7 @@ class _FinancialTransactionsListViewState
                 );
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.paddingLG),
         // Date Range Picker
         DateRangePicker(
           startDate: state.startDate,
@@ -223,7 +225,7 @@ class _FinancialTransactionsListViewState
                 );
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.paddingLG),
         // Search Bar
         StandardSearchBar(
           controller: _searchController,
@@ -307,10 +309,17 @@ class _FinancialTransactionsListViewState
         );
     }
 
+    final hasVoucher = transaction.category == TransactionCategory.salaryDebit &&
+        transaction.metadata?['cashVoucherPhotoUrl'] != null &&
+        (transaction.metadata!['cashVoucherPhotoUrl'] as String).isNotEmpty;
+
     return TransactionListTile(
       transaction: transaction,
       title: title,
       subtitle: subtitle,
+      onTap: hasVoucher
+          ? () => context.go('/salary-voucher?transactionId=${transaction.id}')
+          : null,
       onDelete: () => _showDeleteConfirmation(context, transaction),
     );
   }
@@ -482,7 +491,7 @@ class _EmptySearchState extends StatelessWidget {
             size: 48,
             color: AuthColors.textSub.withOpacity(0.5),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           const Text(
             'No results found',
             style: TextStyle(
@@ -491,7 +500,7 @@ class _EmptySearchState extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             'No transactions match "$query"',
             style: const TextStyle(

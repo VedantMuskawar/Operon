@@ -1,8 +1,13 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:core_datasources/core_datasources.dart';
+import 'package:dash_mobile/data/datasources/employees_data_source.dart';
+import 'package:dash_mobile/data/repositories/attendance_repository_impl.dart';
 import 'package:dash_mobile/presentation/blocs/attendance/attendance_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -24,7 +29,29 @@ class AttendanceView extends StatelessWidget {
       );
     }
 
-    return const _AttendanceViewContent();
+    // Check if AttendanceCubit is already provided (e.g., in attendance_page.dart)
+    try {
+      context.read<AttendanceCubit>();
+      // Provider exists, use it directly
+      return const _AttendanceViewContent();
+    } catch (_) {
+      // Provider doesn't exist, create it (e.g., when used in home_page)
+      return BlocProvider<AttendanceCubit>(
+        create: (context) {
+          final employeesDataSource = EmployeesDataSource();
+          final attendanceDataSource = EmployeeAttendanceDataSource();
+          final repository = AttendanceRepositoryImpl(
+            employeesDataSource: employeesDataSource,
+            attendanceDataSource: attendanceDataSource,
+          );
+          return AttendanceCubit(
+            repository: repository,
+            organizationId: organization.id,
+          )..loadAttendanceForCurrentMonth();
+        },
+        child: const _AttendanceViewContent(),
+      );
+    }
   }
 }
 
@@ -73,39 +100,44 @@ class _AttendanceViewContent extends StatelessWidget {
     return BlocBuilder<AttendanceCubit, AttendanceState>(
       builder: (context, state) {
         if (state.status == ViewStatus.loading && state.roleGroups == null) {
-          return const Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
+          return SizedBox.expand(
+            child: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
+              ),
             ),
           );
         }
 
         if (state.status == ViewStatus.failure) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: AuthColors.error,
-                  size: 48,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  state.message ?? 'Failed to load attendance',
-                  style: const TextStyle(color: AuthColors.textMain),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => context.read<AttendanceCubit>().refresh(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AuthColors.primary,
-                    foregroundColor: AuthColors.textMain,
+          return SizedBox.expand(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: AuthColors.error,
+                    size: 48,
                   ),
-                  child: const Text('Retry'),
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.paddingLG),
+                  Text(
+                    state.message ?? 'Failed to load attendance',
+                    style: const TextStyle(color: AuthColors.textMain),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.paddingLG),
+                  ElevatedButton(
+                    onPressed: () => context.read<AttendanceCubit>().refresh(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AuthColors.primary,
+                      foregroundColor: AuthColors.textMain,
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -117,47 +149,49 @@ class _AttendanceViewContent extends StatelessWidget {
         final monthDate = _parseYearMonth(selectedYearMonth) ?? DateTime.now();
         final monthYearDisplay = _formatMonthYear(selectedYearMonth);
 
-        return Column(
-          children: [
-            // Month Picker
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: _MonthPicker(
-                selectedYearMonth: selectedYearMonth,
-                onMonthSelected: (yearMonth) {
-                  context.read<AttendanceCubit>().loadAttendanceForMonth(yearMonth);
-                },
-              ),
-            ),
-            // Tables by Role
-            if (roleGroups.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    'No attendance data available for $monthYearDisplay',
-                    style: const TextStyle(color: AuthColors.textSub),
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 80),
-                  itemCount: roleGroups.length,
-                  itemBuilder: (context, index) {
-                    final group = roleGroups.values.elementAt(index);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                      child: _RoleAttendanceTable(
-                        roleTitle: group.roleTitle,
-                        employees: group.employees,
-                        monthDate: monthDate,
-                      ),
-                    );
+        return SizedBox.expand(
+          child: Column(
+            children: [
+              // Month Picker
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingLG),
+                child: _MonthPicker(
+                  selectedYearMonth: selectedYearMonth,
+                  onMonthSelected: (yearMonth) {
+                    context.read<AttendanceCubit>().loadAttendanceForMonth(yearMonth);
                   },
                 ),
               ),
-          ],
+              // Tables by Role
+              if (roleGroups.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'No attendance data available for $monthYearDisplay',
+                      style: const TextStyle(color: AuthColors.textSub),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.paddingXXXL * 2.5),
+                    itemCount: roleGroups.length,
+                    itemBuilder: (context, index) {
+                      final group = roleGroups.values.elementAt(index);
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingSM),
+                        child: _RoleAttendanceTable(
+                          roleTitle: group.roleTitle,
+                          employees: group.employees,
+                          monthDate: monthDate,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
         );
       },
     );
@@ -228,12 +262,12 @@ class _MonthPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => _selectMonth(context),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
             color: AuthColors.primary.withOpacity(0.3),
             width: 1,
@@ -249,13 +283,12 @@ class _MonthPicker extends StatelessWidget {
                   color: AuthColors.primary,
                   size: 20,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.paddingMD),
                 Text(
                   _formatMonthYear(selectedYearMonth),
-                  style: const TextStyle(
-                    color: AuthColors.textMain,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                  style: AppTypography.withColor(
+                    AppTypography.withWeight(AppTypography.h4, FontWeight.w600),
+                    AuthColors.textMain,
                   ),
                 ),
               ],
@@ -304,7 +337,7 @@ class _RoleAttendanceTable extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(
           color: AuthColors.primary.withOpacity(0.2),
           width: 1,
@@ -312,10 +345,11 @@ class _RoleAttendanceTable extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Role Title Header
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.paddingLG),
             decoration: BoxDecoration(
               color: AuthColors.primary.withOpacity(0.1),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -330,19 +364,18 @@ class _RoleAttendanceTable extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.paddingSM),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
                   decoration: BoxDecoration(
                     color: AuthColors.primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   ),
                   child: Text(
                     '${employees.length}',
-                    style: const TextStyle(
-                      color: AuthColors.primary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    style: AppTypography.withColor(
+                      AppTypography.withWeight(AppTypography.labelSmall, FontWeight.w600),
+                      AuthColors.primary,
                     ),
                   ),
                 ),
@@ -352,41 +385,54 @@ class _RoleAttendanceTable extends StatelessWidget {
           // Table
           LayoutBuilder(
             builder: (context, constraints) {
+              // Handle unbounded constraints by using a default width
+              final availableWidth = constraints.maxWidth.isFinite && constraints.maxWidth > 0
+                  ? constraints.maxWidth
+                  : 400.0; // Default width when constraints are unbounded
+              
+              final col1Width = (availableWidth * 0.6).clamp(150.0, 300.0);
+              final col2Width = (availableWidth * 0.4).clamp(100.0, 200.0);
+              final minTableWidth = col1Width + col2Width;
+              
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  constraints: BoxConstraints(
+                    minWidth: constraints.maxWidth.isFinite && constraints.maxWidth > 0
+                        ? constraints.maxWidth
+                        : minTableWidth,
+                  ),
                   child: Table(
                     border: TableBorder.all(
                       color: AuthColors.primary.withOpacity(0.3),
                       width: 1,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                     ),
                     columnWidths: {
-                      0: FixedColumnWidth((constraints.maxWidth * 0.6).clamp(150.0, double.infinity)),
-                      1: FixedColumnWidth((constraints.maxWidth * 0.4).clamp(100.0, double.infinity)),
+                      0: FixedColumnWidth(col1Width),
+                      1: FixedColumnWidth(col2Width),
                     },
-              children: [
-                // Header Row
-                TableRow(
-                  decoration: BoxDecoration(
-                    color: AuthColors.primary.withOpacity(0.1),
-                  ),
-                  children: [
-                    _buildTableCell('Employee Name', isHeader: true),
-                    _buildTableCell('Attendance', isHeader: true),
-                  ],
-                ),
-                // Data Rows
-                ...employees.map((employee) {
-                  return TableRow(
                     children: [
-                      _buildTableCell(employee.employeeName, isHeader: false),
-                      _buildTableCell(_getAttendanceRatio(employee), isHeader: false),
+                      // Header Row
+                      TableRow(
+                        decoration: BoxDecoration(
+                          color: AuthColors.primary.withOpacity(0.1),
+                        ),
+                        children: [
+                          _buildTableCell('Employee Name', isHeader: true),
+                          _buildTableCell('Attendance', isHeader: true),
+                        ],
+                      ),
+                      // Data Rows
+                      ...employees.map((employee) {
+                        return TableRow(
+                          children: [
+                            _buildTableCell(employee.employeeName, isHeader: false),
+                            _buildTableCell(_getAttendanceRatio(employee), isHeader: false),
+                          ],
+                        );
+                      }),
                     ],
-                  );
-                }),
-              ],
                   ),
                 ),
               );
@@ -399,7 +445,7 @@ class _RoleAttendanceTable extends StatelessWidget {
 
   Widget _buildTableCell(String text, {bool isHeader = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD, horizontal: AppSpacing.paddingLG),
       child: Text(
         text,
         textAlign: TextAlign.center,

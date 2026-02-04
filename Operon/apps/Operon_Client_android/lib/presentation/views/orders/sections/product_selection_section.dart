@@ -1,6 +1,9 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/domain/entities/order_item.dart';
 import 'package:dash_mobile/presentation/blocs/create_order/create_order_cubit.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -25,19 +28,15 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Select Product & Trips',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.paddingXL),
         if (state.isLoadingProducts)
           const Center(
             child: Padding(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.all(AppSpacing.paddingXL),
               child: CircularProgressIndicator(),
             ),
           )
@@ -55,7 +54,7 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
             },
           ),
           if (_selectedProduct != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             // Fixed Quantity Per Trip Dropdown
             _FixedQuantityDropdown(
               options: cubit.getFixedQuantityOptions(_selectedProduct!.id),
@@ -67,7 +66,7 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
               },
             ),
             if (_selectedFixedQuantity != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.paddingLG),
               // Number of Trips Selector
               _TripQuantitySelector(
                 trips: _estimatedTrips,
@@ -86,33 +85,32 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
                   }
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               // Total Quantity Display
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.paddingMD),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AuthColors.textMainWithOpacity(0.05),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Total:',
-                      style: TextStyle(color: Colors.white70),
+                      style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
                     ),
                     Text(
                       '${_estimatedTrips * _selectedFixedQuantity!} units',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
+                      style: AppTypography.withColor(
+                        AppTypography.withWeight(AppTypography.h4, FontWeight.w600),
+                        AuthColors.textMain,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.paddingLG),
               // Add Product Button
               SizedBox(
                 width: double.infinity,
@@ -131,16 +129,16 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
                     });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6F4BFF),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: AuthColors.accentPurple,
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                     ),
                   ),
                   child: const Text(
                     'Add Product',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -148,18 +146,17 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
               ),
             ],
           ],
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
           // Order Items List
           if (state.selectedItems.isNotEmpty) ...[
-            const Text(
+            Text(
               'Product List:',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              style: AppTypography.withColor(
+                AppTypography.withWeight(AppTypography.h4, FontWeight.w600),
+                AuthColors.textMain,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             ...state.selectedItems.asMap().entries.map((entry) {
               final index = entry.key;
               final item = entry.value;
@@ -202,18 +199,18 @@ class _ProductDropdown extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       ),
       child: DropdownButtonFormField<OrganizationProduct>(
         initialValue: selectedProduct,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Select Product',
-          labelStyle: TextStyle(color: Colors.white70),
+          labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
         ),
-        dropdownColor: const Color(0xFF1B1B2C),
-        style: const TextStyle(color: Colors.white),
+        dropdownColor: AuthColors.surface,
+        style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
         items: products.map((product) {
           return DropdownMenuItem<OrganizationProduct>(
             value: product,
@@ -244,18 +241,18 @@ class _FixedQuantityDropdown extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       ),
       child: DropdownButtonFormField<int>(
         initialValue: selectedQuantity,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Fixed Quantity Per Trip',
-          labelStyle: TextStyle(color: Colors.white70),
+          labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
         ),
-        dropdownColor: const Color(0xFF1B1B2C),
-        style: const TextStyle(color: Colors.white),
+        dropdownColor: AuthColors.surface,
+        style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
         items: options.map((quantity) {
           return DropdownMenuItem<int>(
             value: quantity,
@@ -290,7 +287,7 @@ class _TripQuantitySelector extends StatelessWidget {
           'Number of Trips:',
           style: TextStyle(color: Colors.white70, fontSize: 14),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           child: Row(
@@ -301,19 +298,19 @@ class _TripQuantitySelector extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: trips > 1 ? onDecrement : null,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   child: Container(
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
                       color: trips > 1
-                          ? const Color(0xFF1B1B2C)
-                          : Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(8),
+                          ? AuthColors.surface
+                          : AuthColors.textMainWithOpacity(0.05),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       border: Border.all(
                         color: trips > 1
-                            ? Colors.white24
-                            : Colors.white.withOpacity(0.1),
+                            ? AuthColors.textMainWithOpacity(0.24)
+                            : AuthColors.textMainWithOpacity(0.1),
                       ),
                     ),
                     child: Icon(
@@ -323,44 +320,44 @@ class _TripQuantitySelector extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               // Trip Count Display
               Container(
                 width: 80,
                 height: 48,
                 decoration: BoxDecoration(
                   color: const Color(0xFF1B1B2C),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.white24),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                  border: Border.all(color: AuthColors.textMainWithOpacity(0.24)),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   trips.toString(),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               // Increment Button
               Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: onIncrement,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   child: Container(
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
                       color: const Color(0xFF1B1B2C),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white24),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                      border: Border.all(color: AuthColors.textMainWithOpacity(0.24)),
                     ),
                     child: const Icon(
                       Icons.add,
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                     ),
                   ),
                 ),
@@ -390,15 +387,15 @@ class _OrderItemTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(color: Colors.white10),
       ),
       child: Column(
@@ -413,12 +410,12 @@ class _OrderItemTile extends StatelessWidget {
                     Text(
                       item.productName,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontWeight: FontWeight.w600,
                         fontSize: 16,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.gapSM),
                     Text(
                       item.displayText,
                       style: const TextStyle(
@@ -435,7 +432,7 @@ class _OrderItemTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           Row(
             children: [
               const Text(
@@ -447,7 +444,7 @@ class _OrderItemTile extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: item.estimatedTrips > 1 ? onDecrement : null,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                   child: Container(
                     width: 32,
                     height: 32,
@@ -455,7 +452,7 @@ class _OrderItemTile extends StatelessWidget {
                       color: item.estimatedTrips > 1
                           ? Colors.white.withOpacity(0.1)
                           : Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                     ),
                     child: Icon(
                       Icons.remove,
@@ -467,7 +464,7 @@ class _OrderItemTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Container(
                 width: 50,
                 alignment: Alignment.center,
@@ -479,24 +476,24 @@ class _OrderItemTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               // Increment
               Material(
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: onIncrement,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                   child: Container(
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                     ),
                     child: const Icon(
                       Icons.add,
                       size: 16,
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                     ),
                   ),
                 ),

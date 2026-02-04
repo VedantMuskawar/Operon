@@ -4,11 +4,15 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar, OperonPdfPreviewModal, showLedgerDateRangeModal;
-import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, generateLedgerPdf, LedgerRowData;
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar, showLedgerDateRangeModal;
+import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, LedgerRowData;
+import 'package:dash_web/presentation/widgets/ledger_preview_dialog.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
+import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
+import 'package:dash_web/data/services/ledger_print_service.dart';
+import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
@@ -16,10 +20,10 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_web/presentation/widgets/pending_order_tile.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 
 class ClientDetailPage extends StatefulWidget {
   const ClientDetailPage({
@@ -1346,50 +1350,35 @@ class _LedgerTable extends StatelessWidget {
         ));
       }
 
-      // Fetch DM settings for company header
-      final dmSettingsRepo = context.read<DmSettingsRepository>();
-      final dmSettings = await dmSettingsRepo.fetchDmSettings(organization.id);
-      if (dmSettings == null || !context.mounted) {
-        Navigator.of(context).pop(); // Close loading
-        DashSnackbar.show(context, message: 'DM settings not found. Please configure DM settings first.', isError: true);
-        return;
-      }
-
-      // Load logo if available
-      Uint8List? logoBytes;
-      if (dmSettings.header.logoImageUrl != null && dmSettings.header.logoImageUrl!.isNotEmpty) {
-        try {
-          final logoUrl = dmSettings.header.logoImageUrl!;
-          final response = await http.get(Uri.parse(logoUrl));
-          if (response.statusCode == 200) {
-            logoBytes = response.bodyBytes;
-          }
-        } catch (e) {
-          // Logo loading failed, continue without it
-        }
-      }
-
-      // Generate PDF
-      final pdfBytes = await generateLedgerPdf(
-        ledgerType: LedgerType.clientLedger,
-        entityName: clientName,
-        transactions: ledgerRows,
-        openingBalance: openingBal,
-        companyHeader: dmSettings.header,
-        startDate: dateRange.start,
-        endDate: dateRange.end,
-        logoBytes: logoBytes,
+      // Load view data using shared service (with memoization)
+      final ledgerPrintService = LedgerPrintService(
+        dmSettingsRepository: context.read<DmSettingsRepository>(),
+        paymentAccountsRepository: context.read<PaymentAccountsRepository>(),
+        qrCodeService: QrCodeService(),
+        storage: FirebaseStorage.instance,
+      );
+      
+      final ledgerPayload = await ledgerPrintService.loadLedgerViewData(
+        organizationId: organization.id,
       );
 
-      // Close loading dialog
+      // Close loading dialog and show ledger view (view first; Print generates PDF)
       if (!context.mounted) return;
       Navigator.of(context).pop();
 
-      // Show PDF preview modal
-      await OperonPdfPreviewModal.show(
+      await showDialog<void>(
         context: context,
-        pdfBytes: pdfBytes,
-        title: 'Ledger of $clientName',
+        builder: (context) => LedgerPreviewDialog(
+          ledgerType: LedgerType.clientLedger,
+          entityName: clientName,
+          transactions: ledgerRows,
+          openingBalance: openingBal,
+          companyHeader: ledgerPayload.dmSettings.header,
+          startDate: dateRange.start,
+          endDate: dateRange.end,
+          logoBytes: ledgerPayload.logoBytes,
+          title: 'Ledger of $clientName',
+        ),
       );
     } catch (e) {
       if (context.mounted) {

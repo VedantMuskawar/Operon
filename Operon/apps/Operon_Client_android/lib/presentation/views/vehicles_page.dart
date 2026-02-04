@@ -9,6 +9,8 @@ import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/vehicles/vehicles_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -34,7 +36,7 @@ class VehiclesPage extends StatelessWidget {
               const Expanded(
                 child: Center(
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: EdgeInsets.all(AppSpacing.paddingLG),
                     child: Text(
                       'Please select an organization to manage vehicles.',
                       style: TextStyle(color: AuthColors.textSub),
@@ -99,7 +101,7 @@ class VehiclesPage extends StatelessWidget {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -117,7 +119,7 @@ class VehiclesPage extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.paddingXL),
             BlocBuilder<VehiclesCubit, VehiclesState>(
               builder: (context, state) {
                 if (state.status == ViewStatus.loading) {
@@ -125,7 +127,7 @@ class VehiclesPage extends StatelessWidget {
                 }
                 if (state.vehicles.isEmpty) {
                   return const Padding(
-                    padding: EdgeInsets.only(top: 40),
+                    padding: EdgeInsets.only(top: AppSpacing.paddingXXXL * 1.25),
                     child: Text(
                       'No vehicles yet. Tap “Add Vehicle” to get started.',
                       style: TextStyle(
@@ -141,7 +143,7 @@ class VehiclesPage extends StatelessWidget {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: state.vehicles.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                     itemBuilder: (context, index) {
                       final vehicle = state.vehicles[index];
                       return AnimationConfiguration.staggeredList(
@@ -303,7 +305,7 @@ class _VehicleDataListItem extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AuthColors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       ),
       child: DataList(
         title: vehicle.vehicleNumber,
@@ -320,7 +322,7 @@ class _VehicleDataListItem extends StatelessWidget {
               color: _getStatusColor(),
               size: 8,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             PopupMenuButton<String>(
               icon: const Icon(
                 Icons.more_vert,
@@ -330,7 +332,7 @@ class _VehicleDataListItem extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
               color: AuthColors.surface,
               onSelected: (value) {
@@ -356,7 +358,7 @@ class _VehicleDataListItem extends StatelessWidget {
                         color: AuthColors.textMain,
                         size: 18,
                       ),
-                      SizedBox(width: 12),
+                      SizedBox(width: AppSpacing.paddingMD),
                       Text(
                         'Edit',
                         style: TextStyle(color: AuthColors.textMain),
@@ -377,7 +379,7 @@ class _VehicleDataListItem extends StatelessWidget {
                             : AuthColors.textMain,
                         size: 18,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.paddingMD),
                       Text(
                         vehicle.driver != null
                             ? 'Change Driver'
@@ -396,7 +398,7 @@ class _VehicleDataListItem extends StatelessWidget {
                         color: AuthColors.error,
                         size: 18,
                       ),
-                      SizedBox(width: 12),
+                      SizedBox(width: AppSpacing.paddingMD),
                       Text(
                         'Delete',
                         style: TextStyle(color: AuthColors.error),
@@ -433,10 +435,10 @@ class _DocStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _docStatus();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.gapSM),
       decoration: BoxDecoration(
         color: status.color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: status.color.withOpacity(0.4)),
       ),
       child: Text(
@@ -613,10 +615,10 @@ class _VehicleDialogState extends State<_VehicleDialog> {
       title: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSpacing.paddingSM),
             decoration: BoxDecoration(
               color: AuthColors.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
             ),
             child: const Icon(
               Icons.local_shipping_outlined,
@@ -624,7 +626,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
               size: 20,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Text(
               isEditing ? 'Edit Vehicle' : 'Add Vehicle',
@@ -660,7 +662,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                 : null,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppSpacing.paddingMD),
                         Expanded(
                           child: TextFormField(
                             controller: _capacityController,
@@ -672,7 +674,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     Row(
                       children: [
                         Expanded(
@@ -690,12 +692,12 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     const Text(
                       'Meter Type',
                       style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -732,7 +734,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 // Tag Section
                 _FormSection(
                   title: 'Vehicle Tag',
@@ -794,7 +796,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                       ],
                     ),
                     if (_showCustomTag) ...[
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.paddingMD),
                       TextFormField(
                         controller: _customTagController,
                         style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
@@ -806,7 +808,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                     ],
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 // Capacity Section
                 _FormSection(
                   title: 'Capacity Settings',
@@ -816,7 +818,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                       backgroundColor: Colors.transparent,
                       collapsedBackgroundColor: Colors.transparent,
                       tilePadding: EdgeInsets.zero,
-                      childrenPadding: const EdgeInsets.only(top: 8),
+                      childrenPadding: const EdgeInsets.only(top: AppSpacing.paddingSM),
                       title: const Text(
                         'Weekly Capacity',
                         style: TextStyle(color: AuthColors.textSub, fontSize: 14),
@@ -844,13 +846,13 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                     _isLoadingProducts
                         ? const Center(
                             child: Padding(
-                              padding: EdgeInsets.all(16),
+                              padding: EdgeInsets.all(AppSpacing.paddingLG),
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           )
                         : _products.isEmpty
                             ? const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
+                                padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingSM),
                                 child: Text(
                                   'No products available.',
                                   style: TextStyle(
@@ -863,7 +865,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                 backgroundColor: Colors.transparent,
                                 collapsedBackgroundColor: Colors.transparent,
                                 tilePadding: EdgeInsets.zero,
-                                childrenPadding: const EdgeInsets.only(top: 8),
+                                childrenPadding: const EdgeInsets.only(top: AppSpacing.paddingSM),
                                 title: const Text(
                                   'Product Capacities',
                                   style: TextStyle(color: AuthColors.textSub, fontSize: 14),
@@ -871,7 +873,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                 children: _products
                                     .map(
                                       (product) => Padding(
-                                        padding: const EdgeInsets.only(bottom: 10),
+                                        padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                                         child: TextFormField(
                                           controller: _productControllers[product.id],
                                           style: const TextStyle(
@@ -892,7 +894,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                               ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 // Documents Section
                 _FormSection(
                   title: 'Documents',
@@ -904,14 +906,14 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                       expiry: _insuranceExpiry,
                       onPickDate: (date) => setState(() => _insuranceExpiry = date),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     _CompactDocumentFields(
                       title: 'Fitness',
                       numberController: _fitnessNumberController,
                       expiry: _fitnessExpiry,
                       onPickDate: (date) => setState(() => _fitnessExpiry = date),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     _CompactDocumentFields(
                       title: 'PUC',
                       numberController: _pucNumberController,
@@ -920,7 +922,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 // Notes Section
                 _FormSection(
                   title: 'Additional Notes',
@@ -928,7 +930,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                   children: [
                     TextFormField(
                       controller: _notesController,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: AppTypography.withColor(AppTypography.bodySmall, AuthColors.textMain),
                       decoration: _compactInputDecoration('Notes (optional)'),
                       maxLines: 2,
                     ),
@@ -1024,24 +1026,24 @@ class _VehicleDialogState extends State<_VehicleDialog> {
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingLG),
     );
   }
 
   InputDecoration _compactInputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+      labelStyle: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textSub),
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         borderSide: BorderSide.none,
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       isDense: true,
     );
   }
@@ -1190,7 +1192,7 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
       filled: true,
       fillColor: AuthColors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );
@@ -1214,10 +1216,10 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                 children: [
                   if (widget.vehicle.driver != null) ...[
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(AppSpacing.paddingMD),
                       decoration: BoxDecoration(
                         color: AuthColors.primary.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                         border: Border.all(
                           color: AuthColors.primary.withOpacity(0.3),
                         ),
@@ -1229,7 +1231,7 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                             color: AuthColors.primary,
                             size: 20,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: AppSpacing.paddingSM),
                           Expanded(
                             child: Text(
                               'Current: ${widget.vehicle.driver!.name ?? 'Unknown'}'
@@ -1243,7 +1245,7 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
                   ],
                   DropdownButtonFormField<OrganizationEmployee?>(
                     initialValue: _selectedEmployee,
@@ -1269,7 +1271,7 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                     ],
                   ),
                   if (_employees.isEmpty) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     const Text(
                       'No employees available. Add employees first.',
                       style: TextStyle(color: AuthColors.textSub, fontSize: 12),
@@ -1312,10 +1314,10 @@ class _FormSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: AuthColors.surface.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
@@ -1324,7 +1326,7 @@ class _FormSection extends StatelessWidget {
           Row(
             children: [
               Icon(icon, color: AuthColors.legacyAccent, size: 18),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Text(
                 title,
                 style: const TextStyle(
@@ -1335,7 +1337,7 @@ class _FormSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           ...children,
         ],
       ),
@@ -1371,15 +1373,15 @@ class _CompactDocumentFields extends StatelessWidget {
               filled: true,
               fillColor: AuthColors.surface,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 borderSide: BorderSide.none,
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
               isDense: true,
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: AppSpacing.paddingMD),
         Expanded(
           child: InkWell(
             onTap: () async {
@@ -1407,10 +1409,10 @@ class _CompactDocumentFields extends StatelessWidget {
             },
             child: Container(
               height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD),
               decoration: BoxDecoration(
                 color: AuthColors.surface,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               alignment: Alignment.centerLeft,

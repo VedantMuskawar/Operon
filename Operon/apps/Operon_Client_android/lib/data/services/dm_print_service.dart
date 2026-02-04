@@ -10,6 +10,21 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:printing/printing.dart';
 
+/// Payload for DM view (no PDF). Same data source as PDF generation.
+class DmViewPayload {
+  const DmViewPayload({
+    required this.dmSettings,
+    this.paymentAccount,
+    this.logoBytes,
+    this.qrCodeBytes,
+  });
+
+  final DmSettings dmSettings;
+  final Map<String, dynamic>? paymentAccount;
+  final Uint8List? logoBytes;
+  final Uint8List? qrCodeBytes;
+}
+
 /// Service for printing Delivery Memos (DM) on Android.
 /// Uses core_utils PDF generation and the printing package for preview/print/share.
 class DmPrintService {
@@ -208,8 +223,8 @@ class DmPrintService {
     return null;
   }
 
-  /// Generate PDF bytes for the given DM data
-  Future<Uint8List> generatePdfBytes({
+  /// Load view data only (no PDF). Use for "view first" UI; same data as PDF.
+  Future<DmViewPayload> loadDmViewData({
     required String organizationId,
     required Map<String, dynamic> dmData,
   }) async {
@@ -287,8 +302,41 @@ class DmPrintService {
 
     final logoBytes = await loadImageBytes(dmSettings.header.logoImageUrl);
 
-    // For custom templates (e.g. Lakshmee), dmData is converted to
-    // structured DmPrintData inside core_utils.
+    return DmViewPayload(
+      dmSettings: dmSettings,
+      paymentAccount: paymentAccount,
+      logoBytes: logoBytes,
+      qrCodeBytes: qrCodeBytes,
+    );
+  }
+
+  /// Generate PDF bytes for the given DM data. Pass [viewPayload] to avoid duplicate fetches when user taps Print after viewing.
+  Future<Uint8List> generatePdfBytes({
+    required String organizationId,
+    required Map<String, dynamic> dmData,
+    DmViewPayload? viewPayload,
+  }) async {
+    final DmSettings dmSettings;
+    final Map<String, dynamic>? paymentAccount;
+    final Uint8List? logoBytes;
+    final Uint8List? qrCodeBytes;
+
+    if (viewPayload != null) {
+      dmSettings = viewPayload.dmSettings;
+      paymentAccount = viewPayload.paymentAccount;
+      logoBytes = viewPayload.logoBytes;
+      qrCodeBytes = viewPayload.qrCodeBytes;
+    } else {
+      final payload = await loadDmViewData(
+        organizationId: organizationId,
+        dmData: dmData,
+      );
+      dmSettings = payload.dmSettings;
+      paymentAccount = payload.paymentAccount;
+      logoBytes = payload.logoBytes;
+      qrCodeBytes = payload.qrCodeBytes;
+    }
+
     final pdfBytes = await pdf_template.generateDmPdf(
       dmData: dmData,
       dmSettings: dmSettings,

@@ -3,6 +3,7 @@ import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/products/products_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -33,12 +34,12 @@ class ProductsPage extends StatelessWidget {
               child: SafeArea(
                 bottom: false,
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _AddProductButton(canCreate: cubit.canCreate),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppSpacing.paddingXL),
                       _ProductList(cubit: cubit),
                     ],
                   ),
@@ -119,9 +120,9 @@ class _AddProductButton extends StatelessWidget {
       );
     }
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         color: AuthColors.textMain.withOpacity(0.1),
       ),
       child: const Text(
@@ -147,7 +148,7 @@ class _ProductList extends StatelessWidget {
         }
         if (state.products.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.only(top: 40),
+            padding: const EdgeInsets.only(top: AppSpacing.paddingXXXL * 1.25),
             child: Text(
               cubit.canCreate
                   ? 'No products yet. Tap "Add Product".'
@@ -261,7 +262,7 @@ class _ProductDataListItem extends StatelessWidget {
             color: _getStatusDotColor(),
             size: 8,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.paddingMD),
           if (canEdit)
             IconButton(
               icon: const Icon(
@@ -273,7 +274,7 @@ class _ProductDataListItem extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
-          if (canEdit && canDelete) const SizedBox(width: 8),
+          if (canEdit && canDelete) const SizedBox(width: AppSpacing.paddingSM),
           if (canDelete)
             IconButton(
               icon: const Icon(
@@ -355,7 +356,7 @@ class _ProductDialogState extends State<_ProductDialog> {
     return AlertDialog(
       backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         side: BorderSide(
           color: AuthColors.textMain.withOpacity(0.1),
           width: 1,
@@ -380,7 +381,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                         ? 'Enter product name'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _priceController,
                 keyboardType:
@@ -395,7 +396,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _gstController,
                 keyboardType:
@@ -413,14 +414,14 @@ class _ProductDialogState extends State<_ProductDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _stockController,
                 keyboardType: TextInputType.number,
                 style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Stock (optional)'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _fixedQuantityController,
                 keyboardType: TextInputType.number,
@@ -444,7 +445,7 @@ class _ProductDialogState extends State<_ProductDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<ProductStatus>(
                 initialValue: _status,
                 dropdownColor: AuthColors.surface,
@@ -537,21 +538,21 @@ class _ProductDialogState extends State<_ProductDialog> {
       fillColor: AuthColors.surface,
       labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
           color: AuthColors.textMain.withOpacity(0.1),
           width: 1,
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
           color: AuthColors.textMain.withOpacity(0.1),
           width: 1,
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,

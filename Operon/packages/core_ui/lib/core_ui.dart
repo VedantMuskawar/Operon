@@ -40,6 +40,7 @@ export 'components/transactions/transaction_type_segmented_control.dart';
 export 'components/transactions/transaction_summary_cards.dart';
 export 'components/transactions/transaction_list_tile.dart';
 export 'components/transactions/transaction_date_group_header.dart';
+export 'components/cash_voucher_view.dart';
 // Trip scheduling components
 // Note: ScheduleTripModal is not exported here to avoid conflicts with app-specific wrappers
 // Import directly: import 'package:core_ui/components/trip_scheduling/schedule_trip_modal.dart' as shared_modal;

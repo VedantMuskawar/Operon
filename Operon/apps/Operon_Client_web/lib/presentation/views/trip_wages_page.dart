@@ -89,6 +89,7 @@ class _TripWagesContent extends StatefulWidget {
 
 class _TripWagesContentState extends State<_TripWagesContent> {
   DateTime _selectedDate = DateTime.now();
+  int _sectionIndex = 0;
 
   @override
   void initState() {
@@ -420,61 +421,87 @@ class _TripWagesContentState extends State<_TripWagesContent> {
 
         final cubit = context.read<TripWagesCubit>();
 
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Date picker header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: FloatingNavBar(
+                    items: const [
+                      NavBarItem(
+                        icon: Icons.local_shipping_outlined,
+                        label: 'Trip Wages',
+                        heroTag: 'trip_wages_main',
                       ),
-                    ),
-                    child: InkWell(
-                      onTap: _selectDate,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                              size: 20,
+                      NavBarItem(
+                        icon: Icons.calendar_view_week_outlined,
+                        label: 'Weekly Ledger',
+                        heroTag: 'trip_wages_weekly_ledger',
+                      ),
+                    ],
+                    currentIndex: _sectionIndex,
+                    onItemTapped: (index) => setState(() => _sectionIndex = index),
+                  ),
+                ),
+              ),
+            ),
+            if (_sectionIndex == 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AuthColors.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AuthColors.textMain.withValues(alpha: 0.15),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurface,
-                                fontSize: 14,
+                          ),
+                          child: InkWell(
+                            onTap: _selectDate,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today,
+                                    color: AuthColors.textSub,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                                    style: const TextStyle(
+                                      color: AuthColors.textMain,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    Icons.arrow_drop_down,
+                                    color: AuthColors.textSub,
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              Icons.arrow_drop_down,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const _WeeklyLedgerBlock(),
-              const SizedBox(height: 24),
-              // Main content: DMs and Summary Table
-              LayoutBuilder(
+                    const SizedBox(height: 24),
+                    LayoutBuilder(
                 builder: (context, constraints) {
                   return SizedBox(
                     height: constraints.maxHeight.isFinite 
@@ -605,8 +632,15 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                   );
                 },
               ),
-            ],
-          ),
+                  ],
+                ),
+              ),
+            if (_sectionIndex != 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: const _WeeklyLedgerBlock(),
+              ),
+          ],
         );
       },
     );

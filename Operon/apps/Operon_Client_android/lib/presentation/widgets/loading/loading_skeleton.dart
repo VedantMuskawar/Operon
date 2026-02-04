@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 /// Generic skeleton loader widget with shimmer effect
 class LoadingSkeleton extends StatelessWidget {
@@ -21,7 +22,7 @@ class LoadingSkeleton extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         color: AuthColors.textMainWithOpacity(0.05),
-        borderRadius: borderRadius ?? BorderRadius.circular(8),
+        borderRadius: borderRadius ?? BorderRadius.circular(AppSpacing.radiusSM),
       ),
     );
   }
@@ -34,11 +35,11 @@ class ClientTileSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: const Row(
@@ -49,14 +50,14 @@ class ClientTileSkeleton extends StatelessWidget {
             height: 48,
             borderRadius: BorderRadius.all(Radius.circular(24)),
           ),
-          SizedBox(width: 16),
+          SizedBox(width: AppSpacing.paddingLG),
           // Text skeleton
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 LoadingSkeleton(width: 150, height: 16),
-                SizedBox(height: 8),
+                SizedBox(height: AppSpacing.paddingSM),
                 LoadingSkeleton(width: 100, height: 14),
               ],
             ),
@@ -74,26 +75,26 @@ class TripCardSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           LoadingSkeleton(width: 200, height: 16),
-          SizedBox(height: 12),
+          SizedBox(height: AppSpacing.paddingMD),
           Row(
             children: [
               Expanded(child: LoadingSkeleton(width: double.infinity, height: 14)),
-              SizedBox(width: 16),
+              SizedBox(width: AppSpacing.paddingLG),
               Expanded(child: LoadingSkeleton(width: double.infinity, height: 14)),
             ],
           ),
-          SizedBox(height: 12),
+          SizedBox(height: AppSpacing.paddingMD),
           LoadingSkeleton(width: 100, height: 14),
         ],
       ),

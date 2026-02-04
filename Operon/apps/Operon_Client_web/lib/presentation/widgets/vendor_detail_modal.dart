@@ -5,8 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar;
-import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal, OperonPdfPreviewModal;
-import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, generateLedgerPdf, LedgerRowData;
+import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal;
+import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, LedgerRowData;
+import 'package:dash_web/presentation/widgets/ledger_preview_dialog.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/raw_materials_repository.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
@@ -1248,27 +1249,23 @@ class _LedgerTable extends StatelessWidget {
         }
       }
 
-      // Generate PDF
-      final pdfBytes = await generateLedgerPdf(
-        ledgerType: LedgerType.vendorLedger,
-        entityName: vendorName,
-        transactions: ledgerRows,
-        openingBalance: openingBal,
-        companyHeader: dmSettings.header,
-        startDate: dateRange.start,
-        endDate: dateRange.end,
-        logoBytes: logoBytes,
-      );
-
-      // Close loading dialog
+      // Close loading dialog and show ledger view (view first; Print generates PDF)
       if (!context.mounted) return;
       Navigator.of(context).pop();
 
-      // Show PDF preview modal
-      await OperonPdfPreviewModal.show(
+      await showDialog<void>(
         context: context,
-        pdfBytes: pdfBytes,
-        title: 'Ledger of $vendorName',
+        builder: (context) => LedgerPreviewDialog(
+          ledgerType: LedgerType.vendorLedger,
+          entityName: vendorName,
+          transactions: ledgerRows,
+          openingBalance: openingBal,
+          companyHeader: dmSettings.header,
+          startDate: dateRange.start,
+          endDate: dateRange.end,
+          logoBytes: logoBytes,
+          title: 'Ledger of $vendorName',
+        ),
       );
     } catch (e) {
       if (context.mounted) {

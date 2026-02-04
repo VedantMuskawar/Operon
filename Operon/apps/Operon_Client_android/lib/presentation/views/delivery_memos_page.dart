@@ -11,9 +11,9 @@ import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/standard_chip.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
 class DeliveryMemosPage extends StatefulWidget {
@@ -72,7 +72,7 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
               const Expanded(
                 child: Center(
                   child: Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: EdgeInsets.all(AppSpacing.paddingLG),
                     child: Text(
                       'Please select an organization',
                       style: TextStyle(color: AuthColors.textSub),
@@ -115,22 +115,72 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
             child: Column(
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Search Bar
-              _buildSearchBar(),
-              const SizedBox(height: 20),
-              // Filters
-              _buildFilters(),
-              const SizedBox(height: 20),
-              // Delivery Memos List
-              _buildDeliveryMemosList(),
-            ],
-                    ),
+                  child: BlocBuilder<DeliveryMemosCubit, DeliveryMemosState>(
+                    builder: (context, state) {
+                      final filteredMemos = state.filteredDeliveryMemos;
+                      return CustomScrollView(
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppSpacing.paddingLG),
+                              child: _buildSearchBar(),
+                            ),
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingXL)),
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16),
+                              child: _buildFilters(),
+                            ),
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingXL)),
+                          if (state.status == ViewStatus.loading)
+                            const SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                    color: AuthColors.primary),
+                              ),
+                            )
+                          else if (filteredMemos.isEmpty)
+                            SliverFillRemaining(
+                              hasScrollBody: false,
+                              child: Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  child: Text(
+                                    state.searchQuery.isNotEmpty
+                                        ? 'No delivery memos found for "${state.searchQuery}"'
+                                        : 'No delivery memos found',
+                                    style: const TextStyle(
+                                        color: AuthColors.textSub),
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            SliverPadding(
+                              padding: const EdgeInsets.only(
+                                  left: 16, right: 16, bottom: 16),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    final dm = filteredMemos[index];
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                          bottom: 12),
+                                      child: _DeliveryMemoTile(dm: dm),
+                                    );
+                                  },
+                                  childCount: filteredMemos.length,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ),
                 QuickNavBar(
@@ -164,10 +214,10 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
             filled: true,
             fillColor: AuthColors.surface,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
           ),
         );
       },
@@ -186,13 +236,13 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
                 isSelected: state.statusFilter == null,
                 onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter(null),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               StandardChip(
                 label: 'Active',
                 isSelected: state.statusFilter == 'active',
                 onTap: () => context.read<DeliveryMemosCubit>().setStatusFilter('active'),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               StandardChip(
                 label: 'Cancelled',
                 isSelected: state.statusFilter == 'cancelled',
@@ -205,54 +255,6 @@ class _DeliveryMemosPageState extends State<DeliveryMemosPage> {
     );
   }
 
-  Widget _buildDeliveryMemosList() {
-    return BlocBuilder<DeliveryMemosCubit, DeliveryMemosState>(
-      builder: (context, state) {
-        if (state.status == ViewStatus.loading) {
-          return const Center(
-            child: CircularProgressIndicator(color: AuthColors.primary),
-          );
-        }
-
-        final filteredMemos = state.filteredDeliveryMemos;
-
-        if (filteredMemos.isEmpty) {
-          return Center(
-            child: Text(
-              state.searchQuery.isNotEmpty
-                  ? 'No delivery memos found for "${state.searchQuery}"'
-                  : 'No delivery memos found',
-              style: const TextStyle(color: AuthColors.textSub),
-            ),
-          );
-        }
-
-        return AnimationLimiter(
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 20),
-            itemCount: filteredMemos.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final dm = filteredMemos[index];
-              return AnimationConfiguration.staggeredList(
-                position: index,
-                duration: const Duration(milliseconds: 200),
-                child: SlideAnimation(
-                  verticalOffset: 50.0,
-                  child: FadeInAnimation(
-                    curve: Curves.easeOut,
-                    child: _DeliveryMemoTile(dm: dm),
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _DeliveryMemoTile extends StatelessWidget {
@@ -354,11 +356,11 @@ class _DeliveryMemoTile extends StatelessWidget {
     final statusColor = isCancelled ? AuthColors.error : AuthColors.successVariant;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       child: Container(
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(
             color: isCancelled
                 ? AuthColors.error.withOpacity(0.25)
@@ -366,7 +368,7 @@ class _DeliveryMemoTile extends StatelessWidget {
           ),
         ),
         child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 4,
@@ -377,7 +379,7 @@ class _DeliveryMemoTile extends StatelessWidget {
           ),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.paddingLG),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -395,12 +397,12 @@ class _DeliveryMemoTile extends StatelessWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.paddingSM),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
                               decoration: BoxDecoration(
                                 color: statusColor.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                 border: Border.all(
                                   color: statusColor.withOpacity(0.3),
                                 ),
@@ -427,7 +429,7 @@ class _DeliveryMemoTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: AppSpacing.gapSM),
                   Text(
                     clientName,
                     style: const TextStyle(
@@ -435,7 +437,7 @@ class _DeliveryMemoTile extends StatelessWidget {
                       fontSize: 14,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   Wrap(
                     spacing: 12,
                     runSpacing: 8,
@@ -466,12 +468,12 @@ class _DeliveryMemoTile extends StatelessWidget {
                     ],
                   ),
                   if (total > 0) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingSM, horizontal: AppSpacing.paddingMD),
                       decoration: BoxDecoration(
                         color: AuthColors.successVariant.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -521,7 +523,7 @@ class _InfoChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: AuthColors.textSub),
-        const SizedBox(width: 4),
+        const SizedBox(width: AppSpacing.paddingXS),
         Flexible(
           child: Text(
             label,

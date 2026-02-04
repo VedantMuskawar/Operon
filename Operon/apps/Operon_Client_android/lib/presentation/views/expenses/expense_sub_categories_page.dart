@@ -5,6 +5,8 @@ import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_su
 import 'package:dash_mobile/presentation/widgets/expense_sub_category_form_dialog.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -131,14 +133,14 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Search Bar
             _buildSearchBar(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             // Sub-Categories List
             BlocBuilder<ExpenseSubCategoriesCubit,
                 ExpenseSubCategoriesState>(
@@ -173,7 +175,7 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
                             onDelete: () => _deleteSubCategory(subCategory),
                           ),
                           if (index < subCategories.length - 1)
-                            const SizedBox(height: 12),
+                            const SizedBox(height: AppSpacing.paddingMD),
                         ],
                       );
                     }),
@@ -244,7 +246,7 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
             filled: true,
             fillColor: AuthColors.surface,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
               borderSide: BorderSide.none,
             ),
           ),
@@ -320,7 +322,7 @@ class _SubCategoryDataListItem extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AuthColors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       ),
       child: DataList(
         title: subCategory.name,
@@ -337,7 +339,7 @@ class _SubCategoryDataListItem extends StatelessWidget {
               color: subCategory.isActive ? AuthColors.success : AuthColors.textDisabled,
               size: 8,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             IconButton(
               icon: const Icon(
                 Icons.edit_outlined,
@@ -348,7 +350,7 @@ class _SubCategoryDataListItem extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.paddingSM),
             IconButton(
               icon: const Icon(
                 Icons.delete_outline,
@@ -376,7 +378,7 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -386,9 +388,9 @@ class _EmptyState extends StatelessWidget {
               const Color(0xFF161622).withOpacity(0.8),
             ],
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
           border: Border.all(
-            color: Colors.white.withOpacity(0.1),
+            color: AuthColors.textMainWithOpacity(0.1),
           ),
         ),
         child: Column(
@@ -398,16 +400,16 @@ class _EmptyState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withOpacity(0.15),
+                color: AuthColors.accentPurple.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.category_outlined,
                 size: 32,
-                color: Color(0xFF6F4BFF),
+                color: AuthColors.accentPurple,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.paddingXL),
             const Text(
               'No sub-categories yet',
               style: TextStyle(
@@ -416,16 +418,13 @@ class _EmptyState extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
+            const SizedBox(height: AppSpacing.paddingSM),
+            Text(
               'Start by adding your first expense sub-category',
-              style: TextStyle(
-                color: Colors.white60,
-                fontSize: 14,
-              ),
+              style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             DashButton(
               label: 'Add Sub-Category',
               icon: Icons.add,

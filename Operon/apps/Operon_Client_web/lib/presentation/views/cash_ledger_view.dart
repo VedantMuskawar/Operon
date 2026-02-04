@@ -7,6 +7,7 @@ import 'package:dash_web/presentation/blocs/cash_ledger/cash_ledger_cubit.dart';
 import 'package:dash_web/presentation/blocs/cash_ledger/cash_ledger_state.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
+import 'package:dash_web/presentation/widgets/salary_voucher_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -730,6 +731,27 @@ class _CashLedgerViewState extends State<CashLedgerView> {
     ];
 
     final rowActions = <custom_table.DataTableRowAction<Transaction>>[];
+    rowActions.add(
+      custom_table.DataTableRowAction<Transaction>(
+        icon: Icons.receipt_long,
+        tooltip: 'View voucher',
+        color: AuthColors.primary,
+        onTap: (transaction, index) {
+          final hasVoucher = transaction.category == TransactionCategory.salaryDebit &&
+              transaction.metadata?['cashVoucherPhotoUrl'] != null &&
+              (transaction.metadata!['cashVoucherPhotoUrl'] as String).isNotEmpty;
+          if (hasVoucher) {
+            showSalaryVoucherModal(context, transaction.id);
+          } else {
+            DashSnackbar.show(
+              context,
+              message: 'No voucher for this transaction',
+              isError: false,
+            );
+          }
+        },
+      ),
+    );
     if (isAdmin) {
       rowActions.add(
         custom_table.DataTableRowAction<Transaction>(

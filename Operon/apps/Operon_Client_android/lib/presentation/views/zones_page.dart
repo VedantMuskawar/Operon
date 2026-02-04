@@ -8,6 +8,7 @@ import 'package:dash_mobile/presentation/widgets/loading/loading_skeleton.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -101,7 +102,7 @@ class _ZonesPageState extends State<ZonesPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   child: LayoutBuilder(
           builder: (context, constraints) {
             return BlocBuilder<DeliveryZonesCubit, DeliveryZonesState>(
@@ -149,7 +150,7 @@ class _ZonesPageState extends State<ZonesPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
+                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
                       child: Row(
                         children: [
                           Expanded(
@@ -173,7 +174,7 @@ class _ZonesPageState extends State<ZonesPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.paddingMD),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -325,7 +326,7 @@ class _ZonesPageState extends State<ZonesPage> {
       builder: (_) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.paddingXL),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,7 +335,7 @@ class _ZonesPageState extends State<ZonesPage> {
                   child: Container(
                     width: 40,
                     height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
+                    margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
                     decoration: BoxDecoration(
                       color: AuthColors.textMainWithOpacity(0.12),
                       borderRadius: BorderRadius.circular(2),
@@ -349,7 +350,7 @@ class _ZonesPageState extends State<ZonesPage> {
                     fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.paddingXS),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.edit, color: AuthColors.textMain),
@@ -524,9 +525,9 @@ class _CityColumn extends StatelessWidget {
         else
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.paddingMD),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               color: AuthColors.textMainWithOpacity(0.13),
             ),
             child: const Text(
@@ -534,18 +535,18 @@ class _CityColumn extends StatelessWidget {
               style: TextStyle(color: AuthColors.textSub),
             ),
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.paddingLG),
         Expanded(
           child: isLoading
               ? ListView.builder(
                   itemCount: 5,
                   itemBuilder: (context, index) {
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                       child: LoadingSkeleton(
                         width: double.infinity,
                         height: 56,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                       ),
                     );
                   },
@@ -564,7 +565,7 @@ class _CityColumn extends StatelessWidget {
                   : AnimationLimiter(
                       child: ListView.separated(
                         itemCount: cities.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                         itemBuilder: (context, index) {
                           final city = cities[index];
                           final isSelected = city.name == selectedCity;
@@ -583,9 +584,9 @@ class _CityColumn extends StatelessWidget {
                               : null,
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingLG),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                               color: isSelected
                                   ? AuthColors.surface
                                   : AuthColors.surface,
@@ -666,18 +667,18 @@ class _RegionColumn extends StatelessWidget {
               onPressed: hasCities ? onAddRegion : null,
             ),
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.paddingLG),
         Expanded(
           child: isLoading
               ? ListView.builder(
                   itemCount: 5,
                   itemBuilder: (context, index) {
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                       child: LoadingSkeleton(
                         width: double.infinity,
                         height: 80,
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
                       ),
                     );
                   },
@@ -703,7 +704,7 @@ class _RegionColumn extends StatelessWidget {
                       : AnimationLimiter(
                           child: ListView.separated(
                             itemCount: regions.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 12),
+                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                             itemBuilder: (context, index) {
                               final zone = regions[index];
                               final isSelected = selectedZoneId == zone.id;
@@ -723,9 +724,9 @@ class _RegionColumn extends StatelessWidget {
                               },
                               child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(AppSpacing.paddingLG),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(
             color: isSelected ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.12),
             width: isSelected ? 2 : 1,
@@ -745,7 +746,7 @@ class _RegionColumn extends StatelessWidget {
                             fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.paddingXS),
                   Row(
                     children: [
                   Text(
@@ -765,7 +766,7 @@ class _RegionColumn extends StatelessWidget {
                           size: 14,
                           color: AuthColors.textSub,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: AppSpacing.paddingXS),
                         Text(
                           '${zone.roundtripKm!.toStringAsFixed(1)} km',
                           style: const TextStyle(
@@ -1102,7 +1103,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
 
         return AlertDialog(
           backgroundColor: AuthColors.surface,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingXXL),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1141,7 +1142,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                             .toList(),
                         onChanged: (value) => setState(() => _selectedProductId = value),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.paddingMD),
                       TextFormField(
                         controller: _priceController,
                         style: const TextStyle(color: AuthColors.textMain),
@@ -1168,29 +1169,29 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                           fillColor: AuthColors.surface,
                           errorStyle: const TextStyle(color: AuthColors.error),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                             borderSide: BorderSide.none,
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                             borderSide: BorderSide.none,
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                             borderSide: const BorderSide(
                               color: AuthColors.primary,
                               width: 2,
                             ),
                           ),
                           errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                             borderSide: const BorderSide(
                               color: AuthColors.error,
                               width: 1,
                             ),
                           ),
                           focusedErrorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                             borderSide: const BorderSide(
                               color: AuthColors.error,
                               width: 2,
@@ -1461,7 +1462,7 @@ class _ZoneDialogState extends State<_ZoneDialog> {
             ),
             if (!canSubmit)
               const Padding(
-                padding: EdgeInsets.only(top: 8),
+                padding: EdgeInsets.only(top: AppSpacing.paddingSM),
                 child: Text(
                   'You do not have permission to save changes for this zone.',
                   style: TextStyle(color: AuthColors.error, fontSize: 12),

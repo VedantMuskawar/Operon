@@ -3,6 +3,7 @@ import 'package:dash_mobile/data/repositories/analytics_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -94,7 +95,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
     if (_isLoading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(40),
+          padding: EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
           child: CircularProgressIndicator(),
         ),
       );
@@ -103,7 +104,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
     if (_analytics == null || _analytics!.onboardingMonthly.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.paddingXXL),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -112,7 +113,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
                 size: 64,
                 color: AuthColors.textSub.withOpacity(0.5),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.paddingLG),
               const Text(
                 'No analytics data available',
                 style: TextStyle(
@@ -121,7 +122,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.paddingSM),
               Text(
                 'Analytics will appear once clients are added.',
                 textAlign: TextAlign.center,
@@ -137,7 +138,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -152,7 +153,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
             return _ClientsStatsHeader(clients: state.recentClients);
           },
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.paddingXXL),
         // Info Tiles
         Row(
           children: [
@@ -162,7 +163,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
                 value: _cachedActiveClientsValue ?? _analytics!.totalActiveClients.toString(),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: _InfoTile(
                 title: 'Onboarding',
@@ -171,13 +172,13 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.paddingXXL),
         // Graph
         if (_analytics != null)
           _OnboardingChart(
             data: _cachedChartData ?? _analytics!.onboardingMonthly,
           ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.paddingXXL),
         // Summary Stats
         _SummaryStats(data: _analytics!.onboardingMonthly),
       ],
@@ -205,7 +206,7 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -215,7 +216,7 @@ class _InfoTile extends StatelessWidget {
             AuthColors.success.withOpacity(0.1),
           ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
       ),
       child: Column(
@@ -229,7 +230,7 @@ class _InfoTile extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             value,
             style: const TextStyle(
@@ -276,10 +277,10 @@ class _OnboardingChart extends StatelessWidget {
 
     return Container(
       height: chartHeight + 60,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
       ),
       child: Column(
@@ -293,7 +294,7 @@ class _OnboardingChart extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.paddingXL),
           Expanded(
             child: CustomPaint(
               size: Size.infinite,
@@ -599,7 +600,7 @@ class _SummaryStats extends StatelessWidget {
             color: AuthColors.primary,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.paddingMD),
         Expanded(
           child: _StatChip(
             label: 'Max',
@@ -608,7 +609,7 @@ class _SummaryStats extends StatelessWidget {
             color: AuthColors.success,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.paddingMD),
         Expanded(
           child: _StatChip(
             label: 'Min',
@@ -654,10 +655,10 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
@@ -672,7 +673,7 @@ class _StatChip extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.paddingXS),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -685,7 +686,7 @@ class _StatChip extends StatelessWidget {
                 ),
               ),
               if (subtitle != null) ...[
-                const SizedBox(width: 4),
+                const SizedBox(width: AppSpacing.paddingXS),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Text(
@@ -732,7 +733,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                 color: AuthColors.primary,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: _StatCard(
                 icon: Icons.business_outlined,
@@ -743,7 +744,7 @@ class _ClientsStatsHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.paddingMD),
         Row(
           children: [
             Expanded(
@@ -754,7 +755,7 @@ class _ClientsStatsHeader extends StatelessWidget {
                 color: AuthColors.secondary,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: _StatCard(
                 icon: Icons.shopping_bag_outlined,
@@ -786,7 +787,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -796,7 +797,7 @@ class _StatCard extends StatelessWidget {
             AuthColors.background,
           ],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
           color: AuthColors.textSub.withOpacity(0.2),
         ),
@@ -819,14 +820,14 @@ class _StatCard extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 ),
                 child: Icon(icon, color: color, size: 18),
               ),
               const Spacer(),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             value,
             style: const TextStyle(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 /// Generic empty state widget with icon, title, message, and optional action button
 class EmptyStateWidget extends StatelessWidget {
@@ -23,7 +24,7 @@ class EmptyStateWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.paddingXXL),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -33,7 +34,7 @@ class EmptyStateWidget extends StatelessWidget {
               size: 64,
               color: iconColor ?? AuthColors.textDisabled,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             Text(
               title,
               style: const TextStyle(
@@ -43,7 +44,7 @@ class EmptyStateWidget extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.paddingSM),
             Text(
               message,
               style: const TextStyle(
@@ -53,7 +54,7 @@ class EmptyStateWidget extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.paddingXXL),
               ElevatedButton.icon(
                 onPressed: onAction,
                 icon: const Icon(Icons.add, size: 18),
@@ -65,7 +66,7 @@ class EmptyStateWidget extends StatelessWidget {
                     vertical: 12,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   ),
                 ),
               ),

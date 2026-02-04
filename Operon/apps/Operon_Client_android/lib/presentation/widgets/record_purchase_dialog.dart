@@ -6,6 +6,7 @@ import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -217,7 +218,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
   // Build breakdown row widget
   Widget _buildBreakdownRow(String label, double amount, {bool isTotal = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -522,11 +523,11 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
     return Dialog(
       backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       ),
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.paddingXXL),
           child: Form(
             key: _formKey,
             child: Column(
@@ -537,10 +538,10 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(AppSpacing.paddingSM),
                       decoration: BoxDecoration(
                         color: AuthColors.legacyAccent.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       child: const Icon(
                         Icons.shopping_cart,
@@ -548,7 +549,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         size: 20,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.paddingMD),
                     const Expanded(
                       child: Text(
                         'Record Purchase',
@@ -565,7 +566,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 
                 // Vendor Type Selection (Option Buttons)
                 if (_availableTypes.isNotEmpty) ...[
@@ -577,7 +578,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.paddingSM),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -598,7 +599,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.paddingXXL),
                 ],
                 
                 // Vendor Dropdown
@@ -659,7 +660,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   },
                   validator: (value) => value == null ? 'Please select a vendor' : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Date
                 InkWell(
@@ -678,7 +679,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Invoice/Voucher Number (for fuel, this is the voucher number)
                 TextFormField(
@@ -694,13 +695,13 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           ? 'Enter ${_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel ? "voucher" : "invoice/voucher"} number'
                           : null,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Fuel-specific fields (vehicle option buttons)
                 if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
                   _isLoadingVehicles
                       ? const Center(child: Padding(
-                          padding: EdgeInsets.all(16.0),
+                          padding: EdgeInsets.all(AppSpacing.paddingLG),
                           child: CircularProgressIndicator(),
                         ))
                       : InputDecorator(
@@ -733,16 +734,16 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             }).toList(),
                           ),
                         ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.paddingLG),
                 ],
                 
                 // Raw Materials Section (for raw material vendors)
                 if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.rawMaterial) ...[
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     decoration: BoxDecoration(
                       color: AuthColors.surface,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
                         color: AuthColors.textMain.withOpacity(0.1),
                       ),
@@ -757,7 +758,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                               color: AuthColors.textSub,
                               size: 20,
                             ),
-                            SizedBox(width: 8),
+                            SizedBox(width: AppSpacing.paddingSM),
                             Text(
                               'Raw Materials Purchased',
                               style: TextStyle(
@@ -768,17 +769,17 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AppSpacing.paddingMD),
                         if (_isLoadingMaterials)
                           const Center(
                             child: Padding(
-                              padding: EdgeInsets.all(16.0),
+                              padding: EdgeInsets.all(AppSpacing.paddingLG),
                               child: CircularProgressIndicator(),
                             ),
                           )
                         else if (_assignedMaterials.isEmpty)
                           Padding(
-                            padding: const EdgeInsets.all(8.0),
+                            padding: const EdgeInsets.all(AppSpacing.paddingSM),
                             child: Text(
                               'No materials assigned to this vendor. Assign materials in vendor settings.',
                               style: TextStyle(
@@ -790,12 +791,12 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         else
                           ..._assignedMaterials.map((material) {
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                               child: Container(
-                                padding: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.all(AppSpacing.paddingMD),
                                 decoration: BoxDecoration(
                                   color: AuthColors.surface,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -807,7 +808,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: AppSpacing.paddingSM),
                                     Row(
                                       children: [
                                         Expanded(
@@ -824,7 +825,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                               suffixText: material.unitOfMeasurement,
                                               suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                               border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(8),
+                                                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                                 borderSide: BorderSide(
                                                   color: AuthColors.textMain.withOpacity(0.1),
                                                 ),
@@ -837,7 +838,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                             },
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
+                                        const SizedBox(width: AppSpacing.paddingMD),
                                         Expanded(
                                           child: TextFormField(
                                             controller: _materialPriceControllers[material.id],
@@ -852,7 +853,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                               prefixText: '₹',
                                               prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                               border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(8),
+                                                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                                 borderSide: BorderSide(
                                                   color: AuthColors.textMain.withOpacity(0.1),
                                                 ),
@@ -873,13 +874,13 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             );
                           }),
                         if (_assignedMaterials.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppSpacing.paddingSM),
                           // Material Totals Breakdown
                           Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(AppSpacing.paddingMD),
                             decoration: BoxDecoration(
                               color: AuthColors.surface,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                             ),
                             child: Column(
                               children: [
@@ -894,16 +895,16 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.paddingLG),
                 ],
                 
                 // Additional Charges Section (hidden for fuel vendors)
                 if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.fuel) ...[
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   decoration: BoxDecoration(
                     color: AuthColors.surface,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                     border: Border.all(
                       color: AuthColors.textMain.withOpacity(0.1),
                     ),
@@ -918,7 +919,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             color: AuthColors.textSub,
                             size: 20,
                           ),
-                          SizedBox(width: 8),
+                          SizedBox(width: AppSpacing.paddingSM),
                           Text(
                             'Additional Charges',
                             style: TextStyle(
@@ -929,7 +930,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.paddingMD),
                       Row(
                         children: [
                           Expanded(
@@ -947,7 +948,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                 prefixText: '₹',
                                 prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                   borderSide: BorderSide(
                                     color: AuthColors.textMain.withOpacity(0.1),
                                   ),
@@ -960,7 +961,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                               },
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: AppSpacing.paddingMD),
                           Expanded(
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -986,7 +987,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             ),
                           ),
                           if (_unloadingHasGst) ...[
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.paddingSM),
                             Expanded(
                               child: TextFormField(
                                 controller: _unloadingGstPercentController,
@@ -1001,7 +1002,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                   suffixText: '%',
                                   suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                     borderSide: BorderSide(
                                       color: AuthColors.textMain.withOpacity(0.1),
                                     ),
@@ -1018,12 +1019,12 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         ],
                       ),
                       if ((double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppSpacing.paddingSM),
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(AppSpacing.paddingMD),
                           decoration: BoxDecoration(
                             color: AuthColors.surface,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                           ),
                           child: Column(
                             children: [
@@ -1039,7 +1040,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 ],
                 
                 // Final Breakdown Summary
@@ -1048,10 +1049,10 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     (_assignedMaterials.isNotEmpty || 
                      (double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0)) ...[
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     decoration: BoxDecoration(
                       color: AuthColors.primary.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
                         color: AuthColors.primary.withOpacity(0.3),
                       ),
@@ -1069,7 +1070,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.paddingLG),
                 ],
                 
                 // Amount
@@ -1093,7 +1094,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.paddingLG),
                 
                 // Description (Optional)
                 TextFormField(
@@ -1102,7 +1103,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   decoration: _inputDecoration('Description (Optional)'),
                   maxLines: 3,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 
                 // Actions
                 Row(
@@ -1115,7 +1116,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         style: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpacing.paddingMD),
                     ElevatedButton(
                       onPressed: _submitPurchase,
                       style: ElevatedButton.styleFrom(
@@ -1141,26 +1142,26 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       fillColor: AuthColors.surface,
       labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
           color: AuthColors.textMain.withOpacity(0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
           color: Colors.red,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
           color: Colors.red,
           width: 2,

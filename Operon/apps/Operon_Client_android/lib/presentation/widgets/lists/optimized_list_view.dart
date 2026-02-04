@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/loading/loading_skeleton.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 /// Wrapper around ListView.builder with built-in error/loading/empty states
 /// and pull-to-refresh functionality
@@ -123,13 +124,13 @@ class OptimizedListView<T> extends StatelessWidget {
       itemCount: 5,
       itemBuilder: (context, index) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
           child: Container(
             padding: const EdgeInsets.all(16),
             margin: const EdgeInsets.symmetric(horizontal: 0),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A2A),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               border: Border.all(color: Colors.white10),
             ),
             child: const Row(
@@ -146,7 +147,7 @@ class OptimizedListView<T> extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       LoadingSkeleton(width: 150, height: 16),
-                      SizedBox(height: 8),
+                      SizedBox(height: AppSpacing.paddingSM),
                       LoadingSkeleton(width: 100, height: 14),
                     ],
                   ),

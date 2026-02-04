@@ -3,6 +3,7 @@ import 'package:dash_mobile/data/repositories/raw_materials_repository.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -117,7 +118,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
     return Dialog(
       backgroundColor: AuthColors.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         side: BorderSide(
           color: AuthColors.textMain.withOpacity(0.1),
           width: 1,
@@ -126,7 +127,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.8,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXL),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,10 +136,10 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(AppSpacing.paddingSM),
                   decoration: BoxDecoration(
                     color: AuthColors.primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   ),
                   child: const Icon(
                     Icons.history,
@@ -179,10 +180,10 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
             
             // Current Stock Info
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.paddingLG),
               decoration: BoxDecoration(
                 color: AuthColors.background,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 border: Border.all(
                   color: AuthColors.textMain.withOpacity(0.1),
                 ),
@@ -200,7 +201,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                           fontSize: 12,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.paddingXS),
                       Text(
                         '${widget.material.stock} ${widget.material.unitOfMeasurement}',
                         style: const TextStyle(
@@ -221,7 +222,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                           fontSize: 12,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.paddingXS),
                       Text(
                         '${widget.material.minimumStockLevel} ${widget.material.unitOfMeasurement}',
                         style: TextStyle(
@@ -242,7 +243,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
               child: Container(
                 decoration: BoxDecoration(
                   color: AuthColors.background,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
                     color: AuthColors.textMain.withOpacity(0.1),
                   ),
@@ -309,7 +310,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: AuthColors.surface,
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                       border: Border.all(
                                         color: AuthColors.textMain.withOpacity(0.1),
                                       ),
@@ -321,7 +322,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                           height: 40,
                                           decoration: BoxDecoration(
                                             color: typeColor.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                           ),
                                           child: Icon(
                                             _getTypeIcon(entry.type),
@@ -365,7 +366,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 4),
+                                              const SizedBox(height: AppSpacing.paddingXS),
                                               Text(
                                                 entry.reason,
                                                 style: const TextStyle(
@@ -397,7 +398,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            const SizedBox(height: 4),
+                                            const SizedBox(height: AppSpacing.paddingXS),
                                             Text(
                                               _formatDate(entry.createdAt),
                                               style: const TextStyle(

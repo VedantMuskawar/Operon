@@ -28,6 +28,14 @@ class UnifiedFinancialTransactionsCubit
     try {
       final fy = financialYear ?? FinancialYearUtils.getCurrentFinancialYear();
 
+      // Set default date range to Today to Today if not provided
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      final todayEnd = DateTime(today.year, today.month, today.day, 23, 59, 59);
+      
+      final effectiveStartDate = startDate ?? todayStart;
+      final effectiveEndDate = endDate ?? todayEnd;
+
       // Load all data in parallel
       final data = await _transactionsRepository.getUnifiedFinancialData(
         organizationId: _organizationId,
@@ -38,12 +46,10 @@ class UnifiedFinancialTransactionsCubit
       var purchases = data['purchases'] ?? [];
       var expenses = data['expenses'] ?? [];
 
-      // Apply date filter if provided
-      if (startDate != null || endDate != null) {
-        transactions = _filterByDateRange(transactions, startDate, endDate);
-        purchases = _filterByDateRange(purchases, startDate, endDate);
-        expenses = _filterByDateRange(expenses, startDate, endDate);
-      }
+      // Apply date filter (always apply since we have default dates)
+      transactions = _filterByDateRange(transactions, effectiveStartDate, effectiveEndDate);
+      purchases = _filterByDateRange(purchases, effectiveStartDate, effectiveEndDate);
+      expenses = _filterByDateRange(expenses, effectiveStartDate, effectiveEndDate);
 
       emit(state.copyWith(
         status: ViewStatus.success,
@@ -51,8 +57,8 @@ class UnifiedFinancialTransactionsCubit
         purchases: purchases,
         expenses: expenses,
         financialYear: fy,
-        startDate: startDate,
-        endDate: endDate,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
       ));
     } catch (e) {
       emit(state.copyWith(

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 
 /// Modern tile component with glassmorphism effects
-/// Provides consistent styling across all list items
+/// Uses AuthColors for theme consistency with DashTheme.
 class ModernTile extends StatelessWidget {
   const ModernTile({
     super.key,
@@ -25,26 +26,51 @@ class ModernTile extends StatelessWidget {
   final bool showShadow;
   final int elevation; // 0 = flat, 1 = elevated, 2 = highly elevated
 
+  static List<BoxShadow> _cardShadow() => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.3),
+          blurRadius: 8,
+          offset: const Offset(0, 4),
+        ),
+      ];
+  static List<BoxShadow> _cardElevatedShadow() => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.4),
+          blurRadius: 12,
+          offset: const Offset(0, 6),
+        ),
+        BoxShadow(
+          color: Colors.black.withOpacity(0.2),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ];
+  static List<BoxShadow> _cardHoverShadow() => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.5),
+          blurRadius: 16,
+          offset: const Offset(0, 8),
+        ),
+      ];
+
   @override
   Widget build(BuildContext context) {
-    final effectiveBorderColor = borderColor ?? 
-        (accentColor?.withOpacity(0.2) ?? AppColors.borderDefault);
+    final effectiveBorderColor = borderColor ??
+        (accentColor?.withOpacity(0.2) ?? AuthColors.textMainWithOpacity(0.1));
     final effectivePadding = padding ?? const EdgeInsets.all(AppSpacing.paddingLG);
     final effectiveMargin = margin ?? EdgeInsets.zero;
 
-    // Shadow based on elevation
-    final shadow = elevation == 0 
-        ? (showShadow ? AppShadows.card : AppShadows.none)
-        : elevation == 1 
-            ? AppShadows.cardElevated 
-            : AppShadows.cardHover;
-
-    // Background gradient based on elevation
-    final backgroundColor = elevation == 0
-        ? AppColors.cardBackground
+    final List<BoxShadow> shadow = elevation == 0
+        ? (showShadow ? _cardShadow() : const <BoxShadow>[])
         : elevation == 1
-            ? AppColors.cardBackgroundElevated
-            : AppColors.cardBackgroundHover;
+            ? _cardElevatedShadow()
+            : _cardHoverShadow();
+
+    final backgroundColor = elevation == 0
+        ? AuthColors.surface
+        : elevation == 1
+            ? AuthColors.surface
+            : AuthColors.backgroundAlt;
 
     Widget content = Container(
       padding: effectivePadding,
@@ -105,11 +131,11 @@ class ModernTileWithAvatar extends StatelessWidget {
   Color _getDefaultAvatarColor() {
     final hash = title.hashCode;
     const colors = [
-      AppColors.primary,
-      AppColors.success,
-      AppColors.warning,
-      AppColors.info,
-      AppColors.error,
+      AuthColors.primary,
+      AuthColors.success,
+      AuthColors.warning,
+      AuthColors.info,
+      AuthColors.error,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -159,13 +185,13 @@ class ModernTileWithAvatar extends StatelessWidget {
               child: avatarIcon != null
                   ? Icon(
                       avatarIcon,
-                      color: AppColors.textPrimary,
+                      color: AuthColors.textMain,
                       size: AppSpacing.iconMD,
                     )
                   : Text(
                       effectiveAvatarText,
                       style: AppTypography.h4.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AuthColors.textMain,
                       ),
                     ),
             ),
@@ -182,7 +208,7 @@ class ModernTileWithAvatar extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title,
-                        style: AppTypography.h4,
+                        style: AppTypography.h4.copyWith(color: AuthColors.textMain),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -197,7 +223,7 @@ class ModernTileWithAvatar extends StatelessWidget {
                 Text(
                   subtitle,
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AuthColors.textSub,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -216,7 +242,7 @@ class ModernTileWithAvatar extends StatelessWidget {
             const SizedBox(width: AppSpacing.itemSpacing),
             const Icon(
               Icons.chevron_right,
-              color: AppColors.textTertiary,
+              color: AuthColors.textDisabled,
               size: AppSpacing.iconSM,
             ),
           ],
@@ -271,18 +297,18 @@ class ModernProductTile extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  AppColors.primary.withOpacity(0.3),
-                  AppColors.primary.withOpacity(0.1),
+                  AuthColors.primary.withOpacity(0.3),
+                  AuthColors.primary.withOpacity(0.1),
                 ],
               ),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               border: Border.all(
-                color: AppColors.primary.withOpacity(0.2),
+                color: AuthColors.primary.withOpacity(0.2),
               ),
             ),
             child: const Icon(
               Icons.inventory_2_outlined,
-              color: AppColors.primary,
+              color: AuthColors.primary,
               size: AppSpacing.iconMD,
             ),
           ),
@@ -295,7 +321,7 @@ class ModernProductTile extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: AppTypography.h4,
+                  style: AppTypography.h4.copyWith(color: AuthColors.textMain),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -305,7 +331,7 @@ class ModernProductTile extends StatelessWidget {
                       ? '₹${price.toStringAsFixed(2)} • GST ${gstPercent!.toStringAsFixed(1)}%'
                       : '₹${price.toStringAsFixed(2)} • No GST',
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AuthColors.textSub,
                   ),
                 ),
                 if (fixedQuantityOptions != null &&
@@ -314,7 +340,7 @@ class ModernProductTile extends StatelessWidget {
                   Text(
                     'Fixed Qty/Trip: ${fixedQuantityOptions!.join(", ")}',
                     style: AppTypography.caption.copyWith(
-                      color: AppColors.textTertiary,
+                      color: AuthColors.textDisabled,
                     ),
                   ),
                 ],
@@ -322,7 +348,7 @@ class ModernProductTile extends StatelessWidget {
                 Text(
                   'Status: $status',
                   style: AppTypography.caption.copyWith(
-                    color: AppColors.textTertiary,
+                    color: AuthColors.textDisabled,
                   ),
                 ),
               ],
@@ -338,7 +364,7 @@ class ModernProductTile extends StatelessWidget {
                   IconButton(
                     icon: const Icon(
                       Icons.edit_outlined,
-                      color: AppColors.textSecondary,
+                      color: AuthColors.textSub,
                       size: AppSpacing.iconSM,
                     ),
                     onPressed: onEdit,
@@ -351,7 +377,7 @@ class ModernProductTile extends StatelessWidget {
                   IconButton(
                     icon: const Icon(
                       Icons.delete_outline,
-                      color: AppColors.error,
+                      color: AuthColors.error,
                       size: AppSpacing.iconSM,
                     ),
                     onPressed: onDelete,

@@ -13,6 +13,7 @@ class AppSpacing {
   static const double paddingXL = 20.0;
   static const double paddingXXL = 24.0;
   static const double paddingXXXL = 32.0;
+  static const double paddingXXXXL = 48.0;
 
   // Margins
   static const double marginXS = 4.0;
@@ -34,8 +35,13 @@ class AppSpacing {
   // Standard spacing values
   static const double pagePadding = paddingLG; // 16px
   static const double itemSpacing = paddingMD; // 12px
+  static const double listItemSpacing = paddingMD; // 12px
   static const double sectionSpacing = paddingXXL; // 24px
   static const double sectionSpacingLarge = paddingXXXL; // 32px
+  
+  // Component-specific padding
+  static const double buttonPadding = 14.0;
+  static const double inputPadding = 12.0;
 
   // Border Radius
   static const double radiusXS = 6.0;

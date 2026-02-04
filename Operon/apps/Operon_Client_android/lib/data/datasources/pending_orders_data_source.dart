@@ -209,6 +209,74 @@ class PendingOrdersDataSource {
     });
   }
 
+  /// Watch a single order document for real-time updates
+  Stream<Map<String, dynamic>?> watchOrder(String orderId) {
+    return _ordersRef()
+        .doc(orderId)
+        .snapshots()
+        .map((snapshot) {
+      if (!snapshot.exists) return null;
+      final data = snapshot.data()!;
+      return {
+        'id': snapshot.id,
+        ...data,
+      };
+    });
+  }
+
+  /// Update order fields (priority, delivery zone, advance amount, etc.)
+  Future<void> updateOrder({
+    required String orderId,
+    String? priority,
+    Map<String, dynamic>? deliveryZone,
+    double? advanceAmount,
+    String? advancePaymentAccountId,
+    Map<String, dynamic>? notes,
+  }) async {
+    final orderRef = _ordersRef().doc(orderId);
+    final orderDoc = await orderRef.get();
+    
+    if (!orderDoc.exists) {
+      throw Exception('Order not found');
+    }
+
+    final updates = <String, dynamic>{
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (priority != null) {
+      updates['priority'] = priority;
+    }
+
+    if (deliveryZone != null) {
+      updates['deliveryZone'] = deliveryZone;
+    }
+
+    if (advanceAmount != null) {
+      final data = orderDoc.data()!;
+      final pricing = data['pricing'] as Map<String, dynamic>?;
+      final totalAmount = (pricing?['totalAmount'] as num?)?.toDouble() ?? 0.0;
+      
+      updates['advanceAmount'] = advanceAmount;
+      if (advancePaymentAccountId != null) {
+        updates['advancePaymentAccountId'] = advancePaymentAccountId;
+      }
+      
+      final remainingAmount = totalAmount - advanceAmount;
+      if (remainingAmount > 0) {
+        updates['remainingAmount'] = remainingAmount;
+      } else {
+        updates['remainingAmount'] = 0.0;
+      }
+    }
+
+    if (notes != null) {
+      updates['notes'] = notes;
+    }
+
+    await orderRef.update(updates);
+  }
+
   Future<void> deleteOrder(String orderId) async {
     await _ordersRef().doc(orderId).delete();
   }

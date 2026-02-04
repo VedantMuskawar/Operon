@@ -3,6 +3,7 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/roles/roles_cubit.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -31,7 +32,7 @@ class RolesPage extends StatelessWidget {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -43,7 +44,7 @@ class RolesPage extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 boxShadow: [
                   BoxShadow(
                     color: AuthColors.primary.withOpacity(0.4),
@@ -56,17 +57,17 @@ class RolesPage extends StatelessWidget {
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () => _openRoleDialog(context),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG, horizontal: AppSpacing.paddingXL),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(AppSpacing.paddingSM),
                           decoration: BoxDecoration(
                             color: AuthColors.textMain.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                           ),
                           child: const Icon(
                             Icons.add,
@@ -74,7 +75,7 @@ class RolesPage extends StatelessWidget {
                             size: 20,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppSpacing.paddingMD),
                         const Text(
                           'Add New Role',
                           style: TextStyle(
@@ -90,7 +91,7 @@ class RolesPage extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             BlocBuilder<RolesCubit, RolesState>(
               builder: (context, state) {
                 if (state.status == ViewStatus.loading) {
@@ -98,7 +99,7 @@ class RolesPage extends StatelessWidget {
                 }
                 if (state.roles.isEmpty) {
                   return const Padding(
-                    padding: EdgeInsets.only(top: 40),
+                    padding: EdgeInsets.only(top: AppSpacing.paddingXXXL * 1.25),
                     child: Text(
                       'No roles yet. Tap “Add Role” to create one.',
                       style: TextStyle(
@@ -114,7 +115,7 @@ class RolesPage extends StatelessWidget {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: state.roles.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                     itemBuilder: (context, index) {
                       final role = state.roles[index];
                       return AnimationConfiguration.staggeredList(
@@ -254,7 +255,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerP
     return Container(
       decoration: BoxDecoration(
         color: AuthColors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       ),
       child: Column(
         children: [
@@ -273,7 +274,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerP
                   color: _getStatusColor(),
                   size: 8,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.paddingMD),
                 IconButton(
                   icon: const Icon(
                     Icons.edit_outlined,
@@ -284,7 +285,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerP
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.paddingSM),
                 IconButton(
                   icon: const Icon(
                     Icons.delete_outline,
@@ -295,7 +296,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerP
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.paddingSM),
                 RotationTransition(
                   turns: _rotationAnimation,
                   child: IconButton(
@@ -334,7 +335,7 @@ class _RoleDataListItemState extends State<_RoleDataListItem> with SingleTickerP
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.paddingLG),
               decoration: const BoxDecoration(
                 color: AuthColors.background,
                 borderRadius: BorderRadius.only(
@@ -365,7 +366,7 @@ class _RoleInfoPanel extends StatelessWidget {
     if (role.isAdmin) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXL),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -375,7 +376,7 @@ class _RoleInfoPanel extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(
             color: AuthColors.success.withOpacity(0.3),
             width: 1.5,
@@ -384,10 +385,10 @@ class _RoleInfoPanel extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppSpacing.paddingMD),
               decoration: BoxDecoration(
                 color: AuthColors.success.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
               child: const Icon(
                 Icons.verified,
@@ -395,7 +396,7 @@ class _RoleInfoPanel extends StatelessWidget {
                 size: 24,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppSpacing.paddingLG),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,7 +409,7 @@ class _RoleInfoPanel extends StatelessWidget {
                       fontSize: 16,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: AppSpacing.paddingXS),
                   Text(
                     'Admins have unrestricted access to all sections and pages.',
                     style: TextStyle(
@@ -426,7 +427,7 @@ class _RoleInfoPanel extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.paddingXXL),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -436,7 +437,7 @@ class _RoleInfoPanel extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(
           color: AuthColors.primary.withOpacity(0.3),
           width: 1.5,
@@ -445,10 +446,10 @@ class _RoleInfoPanel extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.paddingMD),
             decoration: BoxDecoration(
               color: AuthColors.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             ),
             child: const Icon(
               Icons.security,
@@ -456,7 +457,7 @@ class _RoleInfoPanel extends StatelessWidget {
               size: 24,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           const Text(
             'Permissions Managed in Access Control',
             style: TextStyle(
@@ -466,7 +467,7 @@ class _RoleInfoPanel extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             'Manage this role\'s permissions from the Access Control page in Settings.',
             style: TextStyle(
@@ -475,25 +476,25 @@ class _RoleInfoPanel extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           Material(
             color: Colors.transparent,
             child: InkWell(
               onTap: () => context.go('/access-control'),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [AuthColors.primary, AuthColors.primaryVariant],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.arrow_forward, color: AuthColors.textMain, size: 18),
-                    SizedBox(width: 8),
+                    SizedBox(width: AppSpacing.paddingSM),
                     Text(
                       'Go to Access Control',
                       style: TextStyle(
@@ -577,7 +578,7 @@ class _RoleDialogState extends State<_RoleDialog> {
                         ? 'Enter a role title'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<SalaryType>(
                 initialValue: _salaryType,
                 dropdownColor: AuthColors.surface,
@@ -597,7 +598,7 @@ class _RoleDialogState extends State<_RoleDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               _ColorSelector(
                 colors: _colorOptions,
                 selected: _colorHex,
@@ -669,7 +670,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       fillColor: AuthColors.surface,
       labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );
@@ -696,7 +697,7 @@ class _ColorSelector extends StatelessWidget {
           'Accent Color',
           style: TextStyle(color: AuthColors.textSub),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         Wrap(
           spacing: 12,
           children: colors.map((color) {

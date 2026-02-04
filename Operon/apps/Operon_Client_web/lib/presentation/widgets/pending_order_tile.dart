@@ -293,58 +293,62 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
     // Pricing information
     final pricing = widget.order['pricing'] as Map<String, dynamic>?;
     final subtotal = (pricing?['subtotal'] as num?)?.toDouble() ?? 0.0;
-    final totalGst = (pricing?['totalGst'] as num?)?.toDouble() ?? 0.0;
+    final totalGstValue = (pricing?['totalGst'] as num?)?.toDouble();
+    final totalGst = totalGstValue ?? 0.0;
     final totalAmount = (pricing?['totalAmount'] as num?)?.toDouble() ?? 0.0;
-    final includeGst = widget.order['includeGstInTotal'] as bool? ?? true;
+    final includeGstFlag = widget.order['includeGstInTotal'];
+    final includeGst = includeGstFlag is bool ? includeGstFlag : (totalGstValue != null && totalGstValue > 0);
     
     // Progress calculation
     final progress = totalTrips > 0 ? totalScheduledTrips / totalTrips : 0.0;
     final progressPercent = (progress * 100).toInt();
 
-    return Material(
-      color: Colors.transparent,
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: InkWell(
-          onTap: widget.onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: widget.isSelected
-                  ? AuthColors.primary.withValues(alpha: 0.1)
-                  : AuthColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 600),
+      child: Material(
+        color: Colors.transparent,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
                 color: widget.isSelected
-                    ? AuthColors.primary
-                    : priorityColor.withValues(alpha: 0.6),
-                width: widget.isSelected ? 2.5 : 2,
+                    ? AuthColors.primary.withValues(alpha: 0.1)
+                    : AuthColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: widget.isSelected
+                      ? AuthColors.primary
+                      : priorityColor.withValues(alpha: 0.6),
+                  width: widget.isSelected ? 2.5 : 2,
+                ),
+                boxShadow: [
+                  if (_isHovered || widget.isSelected)
+                    BoxShadow(
+                      color: (widget.isSelected ? AuthColors.primary : priorityColor)
+                          .withOpacity(0.3),
+                      blurRadius: _isHovered ? 16 : 12,
+                      spreadRadius: _isHovered ? 2 : 0,
+                      offset: Offset(0, _isHovered ? 6 : 4),
+                    )
+                  else
+                    BoxShadow(
+                      color: AuthColors.background.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                ],
               ),
-              boxShadow: [
-                if (_isHovered || widget.isSelected)
-                  BoxShadow(
-                    color: (widget.isSelected ? AuthColors.primary : priorityColor)
-                        .withOpacity(0.3),
-                    blurRadius: _isHovered ? 16 : 12,
-                    spreadRadius: _isHovered ? 2 : 0,
-                    offset: Offset(0, _isHovered ? 6 : 4),
-                  )
-                else
-                  BoxShadow(
-                    color: AuthColors.background.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 // Header Row: Selection Checkbox, Client Name, Priority, Trip Counter
                 Row(
                   children: [
@@ -862,7 +866,8 @@ class _PendingOrderTileState extends State<PendingOrderTile> {
                     ),
                   ],
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

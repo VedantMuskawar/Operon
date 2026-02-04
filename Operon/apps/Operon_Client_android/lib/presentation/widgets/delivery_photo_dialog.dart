@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -118,7 +119,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
           style: TextStyle(color: Colors.white70),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.paddingXXL),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -145,7 +146,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
   }) {
     return Expanded(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
         child: ElevatedButton.icon(
           onPressed: onTap,
           icon: Icon(icon),
@@ -153,7 +154,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF6F4BFF),
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
           ),
         ),
       ),
@@ -178,7 +179,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
             child: _buildImageWidget(),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.paddingLG),
         const Text(
           'Photo selected. Tap "Upload & Mark Delivered" to proceed.',
           style: TextStyle(color: Colors.white70, fontSize: 12),
@@ -250,7 +251,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.error_outline, color: AuthColors.textSub, size: 48),
-          SizedBox(height: 8),
+          SizedBox(height: AppSpacing.paddingSM),
           Text(
             'Failed to load image',
             style: TextStyle(color: Colors.white70),

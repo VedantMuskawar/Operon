@@ -1,3 +1,4 @@
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 
@@ -27,7 +28,7 @@ class LoginPageShell extends StatelessWidget {
           }
           return Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXXL, vertical: AppSpacing.paddingXXXL),
               child: RepaintBoundary(
                 child: Row(
                   children: [
@@ -104,8 +105,8 @@ class _HeroPanelState extends State<_HeroPanel> {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
-        topRight: Radius.circular(48),
-        bottomRight: Radius.circular(48),
+        topRight: Radius.circular(AppSpacing.paddingXXXXL),
+        bottomRight: Radius.circular(AppSpacing.paddingXXXXL),
       ),
       child: Container(
         decoration: const BoxDecoration(
@@ -132,7 +133,7 @@ class _HeroPanelState extends State<_HeroPanel> {
                       width: 220,
                       height: 220,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(48),
+                        borderRadius: BorderRadius.circular(AppSpacing.avatarSM * 1.5),
                         gradient: const LinearGradient(
                           colors: [
                             Color(0x332E1BFF),
@@ -181,7 +182,7 @@ class _LoginFormCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: AppSpacing.paddingXXXL),
         ],
         Padding(
           padding: const EdgeInsets.symmetric(
@@ -208,7 +209,7 @@ class _MobileLoginShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingXXL),
         child: RepaintBoundary(
           child: _LoginFormCard(
             title: title,

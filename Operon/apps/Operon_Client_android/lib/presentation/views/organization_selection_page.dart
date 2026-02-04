@@ -7,6 +7,7 @@ import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_selector/org_selector_cubit.dart';
 import 'package:dash_mobile/presentation/views/home_page.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -265,7 +266,7 @@ class _OrganizationSelectionPageState
               top: 0,
               right: 0,
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(AppSpacing.paddingLG),
                 child: OutlinedButton.icon(
                   onPressed: () async {
                     // Clear organization context before logout
@@ -276,14 +277,14 @@ class _OrganizationSelectionPageState
                     }
                   },
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
                     side: BorderSide(
                       color: AuthColors.textMainWithOpacity(0.3),
                       width: 1.5,
                     ),
                     backgroundColor: AuthColors.textMainWithOpacity(0.1),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                     ),
                   ),
                   icon: const Icon(
@@ -323,7 +324,7 @@ class _OrganizationSelectionPageState
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         boxShadow: [
           BoxShadow(
             color: AuthColors.secondaryWithOpacity(0.3),
@@ -338,29 +339,29 @@ class _OrganizationSelectionPageState
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const OrganizationSelectionHeader(),
-          const SizedBox(height: 32),
+          const SizedBox(height: AppSpacing.paddingXXXL),
           const OrganizationSelectionSkeleton(count: 3),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
           // Financial year selector skeleton
           Container(
             height: 56,
             decoration: BoxDecoration(
               color: AuthColors.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               border: Border.all(
                 color: AuthColors.textMainWithOpacity(0.1),
                 width: 1,
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
           // Continue button skeleton
           Container(
             width: double.infinity,
             height: 50,
             decoration: BoxDecoration(
               color: AuthColors.primaryWithOpacity(0.5),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
             ),
           ),
         ],
@@ -383,7 +384,7 @@ class _OrganizationSelectionPageState
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         boxShadow: [
           BoxShadow(
             color: AuthColors.secondaryWithOpacity(0.3),
@@ -398,14 +399,14 @@ class _OrganizationSelectionPageState
         crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
           const OrganizationSelectionHeader(),
-          const SizedBox(height: 32),
+          const SizedBox(height: AppSpacing.paddingXXXL),
           RepaintBoundary(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: state.organizations.map((org) {
                 final isSelected = state.selectedOrganization?.id == org.id;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                   child: OrganizationTile(
                     organizationName: org.name,
                     organizationRole: org.role,
@@ -420,7 +421,7 @@ class _OrganizationSelectionPageState
               }).toList(),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
           FinancialYearSelector(
             financialYear: state.financialYear,
                     financialYears: _financialYears,
@@ -431,7 +432,7 @@ class _OrganizationSelectionPageState
               }
             },
                   ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
           OrganizationSelectionContinueButton(
             isEnabled: state.selectedOrganization != null &&
                 (state.financialYear ?? '').isNotEmpty,

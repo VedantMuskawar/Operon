@@ -79,8 +79,16 @@ class ProductionBatchesPage extends StatelessWidget {
   }
 }
 
-class _ProductionBatchesContent extends StatelessWidget {
+class _ProductionBatchesContent extends StatefulWidget {
   const _ProductionBatchesContent();
+
+  @override
+  State<_ProductionBatchesContent> createState() =>
+      _ProductionBatchesContentState();
+}
+
+class _ProductionBatchesContentState extends State<_ProductionBatchesContent> {
+  int _sectionIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -93,109 +101,136 @@ class _ProductionBatchesContent extends StatelessWidget {
           DashSnackbar.show(context, message: state.message!, isError: true);
         }
       },
-      child: BlocBuilder<ProductionBatchesCubit, ProductionBatchesState>(
-        builder: (context, state) {
-          if (state.status == ViewStatus.loading) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SkeletonLoader(
-                      height: 40,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: FloatingNavBar(
+                  items: const [
+                    NavBarItem(
+                      icon: Icons.inventory_2_outlined,
+                      label: 'Batches',
+                      heroTag: 'prod_batches',
+                    ),
+                    NavBarItem(
+                      icon: Icons.calendar_view_week_outlined,
+                      label: 'Weekly Ledger',
+                      heroTag: 'prod_weekly_ledger',
+                    ),
+                  ],
+                  currentIndex: _sectionIndex,
+                  onItemTapped: (index) => setState(() => _sectionIndex = index),
+                ),
+              ),
+            ),
+          ),
+          _sectionIndex == 0
+              ? _BatchesSection(organization: organization)
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: const _WeeklyLedgerBlock(),
+                ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BatchesSection extends StatelessWidget {
+  const _BatchesSection({this.organization});
+
+  final dynamic organization;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ProductionBatchesCubit, ProductionBatchesState>(
+      builder: (context, state) {
+        if (state.status == ViewStatus.loading) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SkeletonLoader(
+                    height: 40,
+                    width: double.infinity,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  const SizedBox(height: 16),
+                  ...List.generate(8, (_) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: SkeletonLoader(
+                      height: 56,
                       width: double.infinity,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(height: 16),
-                    ...List.generate(8, (_) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: SkeletonLoader(
-                        height: 56,
-                        width: double.infinity,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    )),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          if (state.status == ViewStatus.failure && state.message != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Error: ${state.message}'),
-                  const SizedBox(height: 16),
-                  DashButton(
-                    label: 'Retry',
-                    onPressed: () =>
-                        context.read<ProductionBatchesCubit>().loadBatches(),
-                  ),
+                  )),
                 ],
               ),
-            );
-          }
+            ),
+          );
+        }
 
-          final filteredBatches = state.filteredBatches;
-
-          return Padding(
-            padding: const EdgeInsets.all(24.0),
+        if (state.status == ViewStatus.failure && state.message != null) {
+          return Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Production Wages',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                Text('Error: ${state.message}'),
+                const SizedBox(height: 16),
+                DashButton(
+                  label: 'Retry',
+                  onPressed: () =>
+                      context.read<ProductionBatchesCubit>().loadBatches(),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final filteredBatches = state.filteredBatches;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _FiltersBar(
+                trailing: DashButton(
+                  icon: Icons.add,
+                  label: 'New Batch',
+                  onPressed: () {
+                    if (organization != null) {
+                      final cubit = context.read<ProductionBatchesCubit>();
+                      final employeesRepo = context.read<EmployeesRepository>();
+                      final productsRepo = context.read<ProductsRepository>();
+                      final wageSettingsRepo =
+                          context.read<WageSettingsRepository>();
+                      showDialog(
+                        context: context,
+                        builder: (dialogContext) => BlocProvider.value(
+                          value: cubit,
+                          child: ProductionBatchForm(
+                            organizationId: organization.id,
+                            employeesRepository: employeesRepo,
+                            productsRepository: productsRepo,
+                            wageSettingsRepository: wageSettingsRepo,
                           ),
-                    ),
-                    DashButton(
-                      icon: Icons.add,
-                      label: 'New Batch',
-                      onPressed: () {
-                        if (organization != null) {
-                          final cubit = context.read<ProductionBatchesCubit>();
-                          final employeesRepo = context.read<EmployeesRepository>();
-                          final productsRepo = context.read<ProductsRepository>();
-                          final wageSettingsRepo = context.read<WageSettingsRepository>();
-                          showDialog(
-                            context: context,
-                            builder: (dialogContext) => BlocProvider.value(
-                              value: cubit,
-                              child: ProductionBatchForm(
-                                organizationId: organization.id,
-                                employeesRepository: employeesRepo,
-                                productsRepository: productsRepo,
-                                wageSettingsRepository: wageSettingsRepo,
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ],
+                        ),
+                      );
+                    }
+                  },
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  'Record and manage production batches for wage calculation.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white70,
-                      ),
-                ),
-                const SizedBox(height: 24),
-                const _FiltersBar(),
-                const SizedBox(height: 24),
-                const _WeeklyLedgerBlock(),
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 24),
               if (filteredBatches.isEmpty)
                 EmptyState(
                   icon: Icons.inventory_2_outlined,
@@ -208,40 +243,46 @@ class _ProductionBatchesContent extends StatelessWidget {
                 )
               else
                 ...filteredBatches.map((batch) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: ProductionBatchCard(
-                        batch: batch,
-                        onTap: () {
-                          context.read<ProductionBatchesCubit>().setSelectedBatch(batch);
-                          showDialog(
-                            context: context,
-                            builder: (dialogContext) => BlocProvider.value(
-                              value: context.read<ProductionBatchesCubit>(),
-                              child: ProductionBatchDetailModal(
-                                batch: batch,
-                                organizationId: organization?.id ?? '',
-                                employeesRepository: context.read<EmployeesRepository>(),
-                                productsRepository: context.read<ProductsRepository>(),
-                                wageSettingsRepository: context.read<WageSettingsRepository>(),
-                              ),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: ProductionBatchCard(
+                      batch: batch,
+                      onTap: () {
+                        context
+                            .read<ProductionBatchesCubit>()
+                            .setSelectedBatch(batch);
+                        showDialog(
+                          context: context,
+                          builder: (dialogContext) => BlocProvider.value(
+                            value: context.read<ProductionBatchesCubit>(),
+                            child: ProductionBatchDetailModal(
+                              batch: batch,
+                              organizationId: organization?.id ?? '',
+                              employeesRepository:
+                                  context.read<EmployeesRepository>(),
+                              productsRepository:
+                                  context.read<ProductsRepository>(),
+                              wageSettingsRepository:
+                                  context.read<WageSettingsRepository>(),
                             ),
-                          );
-                        },
-                      ),
-                    );
-                  }),
-              ],
-            ),
-          );
-        },
-      ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 class _FiltersBar extends StatelessWidget {
-  const _FiltersBar();
+  const _FiltersBar({this.trailing});
+
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -368,6 +409,10 @@ class _FiltersBar extends StatelessWidget {
                 },
                 variant: DashButtonVariant.text,
               ),
+              if (trailing != null) ...[
+                const SizedBox(width: 16),
+                trailing!,
+              ],
             ],
           ),
         );

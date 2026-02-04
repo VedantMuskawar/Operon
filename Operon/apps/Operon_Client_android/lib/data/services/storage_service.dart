@@ -33,5 +33,25 @@ class StorageService {
       throw Exception('Failed to upload delivery photo: $e');
     }
   }
+
+  /// Upload cash voucher photo for a salary expense.
+  /// Path: organizations/{organizationId}/expenses/{transactionId}/cash_voucher.jpg
+  /// Returns the download URL.
+  Future<String> uploadExpenseVoucher({
+    required File imageFile,
+    required String organizationId,
+    required String transactionId,
+  }) async {
+    try {
+      final path =
+          'organizations/$organizationId/expenses/$transactionId/cash_voucher.jpg';
+      final ref = _storage.ref().child(path);
+      await ref.putFile(imageFile);
+      final downloadUrl = await ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      throw Exception('Failed to upload expense voucher: $e');
+    }
+  }
 }
 

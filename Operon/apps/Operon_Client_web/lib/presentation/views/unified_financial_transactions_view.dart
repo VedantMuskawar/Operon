@@ -5,6 +5,7 @@ import 'package:core_ui/components/data_table.dart' as custom_table;
 import 'package:dash_web/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart';
 import 'package:dash_web/presentation/blocs/financial_transactions/unified_financial_transactions_state.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
+import 'package:dash_web/presentation/widgets/salary_voucher_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -139,6 +140,7 @@ class _UnifiedFinancialTransactionsViewState
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Summary Cards
@@ -147,8 +149,11 @@ class _UnifiedFinancialTransactionsViewState
               // Filter Bar (Date Range + Search + Tab Selector)
               _buildFilterBar(),
               const SizedBox(height: 24),
-              // Transaction list (virtualized) - takes remaining space
-              Expanded(child: _buildTransactionList()),
+              // Transaction list (virtualized) - shrink-wraps inside scrollable
+              Flexible(
+                fit: FlexFit.loose,
+                child: _buildTransactionList(),
+              ),
             ],
           ),
         ),
@@ -550,21 +555,44 @@ class _UnifiedFinancialTransactionsViewState
     ];
   }
 
+  List<custom_table.DataTableRowAction<Transaction>> _rowActionsFor(
+    BuildContext context,
+    Transaction transaction,
+  ) {
+    final hasVoucher = transaction.category == TransactionCategory.salaryDebit &&
+        transaction.metadata?['cashVoucherPhotoUrl'] != null &&
+        (transaction.metadata!['cashVoucherPhotoUrl'] as String).isNotEmpty;
+    return [
+      custom_table.DataTableRowAction<Transaction>(
+        icon: Icons.receipt_long,
+        tooltip: hasVoucher ? 'View voucher' : 'No voucher',
+        color: hasVoucher ? AuthColors.primary : AuthColors.textSub,
+        onTap: (tx, index) {
+          if (hasVoucher) {
+            showSalaryVoucherModal(context, tx.id);
+          } else {
+            DashSnackbar.show(
+              context,
+              message: 'No voucher for this transaction',
+              isError: false,
+            );
+          }
+        },
+      ),
+      custom_table.DataTableRowAction<Transaction>(
+        icon: Icons.delete_outline,
+        tooltip: 'Delete',
+        color: AuthColors.error,
+        onTap: (tx, index) => _showDeleteConfirmation(context, tx),
+      ),
+    ];
+  }
+
   Widget _buildVirtualizedTransactionTable(
     BuildContext context,
     List<Transaction> transactions,
   ) {
     final columns = _transactionColumns();
-    final rowActions = [
-      custom_table.DataTableRowAction<Transaction>(
-        icon: Icons.delete_outline,
-        tooltip: 'Delete',
-        color: AuthColors.error,
-        onTap: (transaction, index) {
-          _showDeleteConfirmation(context, transaction);
-        },
-      ),
-    ];
     return Container(
       decoration: BoxDecoration(
         color: AuthColors.surface,
@@ -574,49 +602,63 @@ class _UnifiedFinancialTransactionsViewState
           width: 1,
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _TransactionTableHeader(
-            columns: columns,
-            rowActions: rowActions,
-          ),
-          Divider(
-            height: 1,
-            color: AuthColors.textMainWithOpacity(0.12),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: transactions.length,
-              itemBuilder: (context, index) {
-                final transaction = transactions[index];
-                final isEven = index % 2 == 0;
-                final bgColor = isEven
-                    ? Colors.transparent
-                    : AuthColors.textMainWithOpacity(0.03);
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (index > 0)
-                      Divider(
-                        height: 1,
-                        color: AuthColors.textMainWithOpacity(0.12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _TransactionTableHeader(
+                columns: columns,
+                rowActions: [
+                  custom_table.DataTableRowAction<Transaction>(
+                    icon: Icons.receipt_long,
+                    tooltip: 'View voucher',
+                    color: AuthColors.primary,
+                    onTap: (_, __) {},
+                  ),
+                  custom_table.DataTableRowAction<Transaction>(
+                    icon: Icons.delete_outline,
+                    tooltip: 'Delete',
+                    color: AuthColors.error,
+                    onTap: (_, __) {},
+                  ),
+                ],
+              ),
+              Divider(
+                height: 1,
+                color: AuthColors.textMainWithOpacity(0.12),
+              ),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: transactions.length,
+                itemBuilder: (context, index) {
+                  final transaction = transactions[index];
+                  final isEven = index % 2 == 0;
+                  final bgColor = isEven
+                      ? Colors.transparent
+                      : AuthColors.textMainWithOpacity(0.03);
+                  final rowActions = _rowActionsFor(context, transaction);
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (index > 0)
+                        Divider(
+                          height: 1,
+                          color: AuthColors.textMainWithOpacity(0.12),
+                        ),
+                      _TransactionRow(
+                        transaction: transaction,
+                        rowIndex: index,
+                        columns: columns,
+                        rowActions: rowActions,
+                        backgroundColor: bgColor,
                       ),
-                    _TransactionRow(
-                      transaction: transaction,
-                      rowIndex: index,
-                      columns: columns,
-                      rowActions: rowActions,
-                      backgroundColor: bgColor,
-                    ),
-                  ],
-                );
-              },
-            ),
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+        );
   }
 
   String _getTransactionTitle(Transaction transaction) {

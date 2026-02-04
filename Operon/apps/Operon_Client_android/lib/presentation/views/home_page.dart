@@ -12,7 +12,10 @@ import 'package:dash_mobile/presentation/views/home_sections/schedule_orders_vie
 import 'package:dash_mobile/presentation/views/home_sections/orders_map_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/attendance_view.dart';
 import 'package:dash_mobile/presentation/views/cash_ledger/cash_ledger_section.dart';
+import 'package:dash_mobile/shared/utils/responsive_layout.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/presentation/widgets/caller_id_switch_section.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -132,100 +135,19 @@ class _HomePageState extends State<HomePage> {
               ),
               drawer: const _HomeProfileDrawer(),
               endDrawer: const _HomeSettingsDrawer(),
-            body: Stack(
-              children: [
-                // DotGridPattern background (matching login page)
-                const Positioned.fill(
-                  child: RepaintBoundary(
-                    child: DotGridPattern(),
+              body: ResponsiveWrapper(
+                mobile: (context) => _buildHomeBody(context, homeState),
+                tablet: (context) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: _buildHomeBody(context, homeState),
+                ),
+                desktop: (context) => Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: _buildHomeBody(context, homeState),
                   ),
                 ),
-                // Main content
-                Column(
-                  children: [
-                    Expanded(
-                      child: SafeArea(
-                        bottom: false,
-                        child: HomeSectionTransition(
-                          child: IndexedStack(
-                            index: homeState.currentIndex,
-                            children: _sections,
-                          ),
-                        ),
-                      ),
-                    ),
-                    FloatingNavBar(
-                      items: const [
-                        NavBarItem(
-                          icon: Icons.home_rounded,
-                          label: 'Home',
-                          heroTag: 'nav_home',
-                        ),
-                        NavBarItem(
-                          icon: Icons.pending_actions_rounded,
-                          label: 'Pending',
-                          heroTag: 'nav_pending',
-                        ),
-                        NavBarItem(
-                          icon: Icons.schedule_rounded,
-                          label: 'Schedule',
-                          heroTag: 'nav_schedule',
-                        ),
-                        NavBarItem(
-                          icon: Icons.map_rounded,
-                          label: 'Map',
-                          heroTag: 'nav_map',
-                        ),
-                        NavBarItem(
-                          icon: Icons.account_balance_wallet_rounded,
-                          label: 'Cash Ledger',
-                          heroTag: 'nav_cash_ledger',
-                        ),
-                      ],
-                      currentIndex: homeState.currentIndex,
-                      onItemTapped: (index) {
-                        context.read<HomeCubit>().switchToSection(index);
-                      },
-                      visibleIndices: homeState.allowedSections,
-                    ),
-                  ],
-                ),
-                // Smart Action FAB - visible on Home and Pending Orders pages
-                if (homeState.currentIndex == 0 || homeState.currentIndex == 1)
-                  ActionFab(
-                    actions: [
-                      ActionItem(
-                        icon: Icons.receipt,
-                        label: 'Add Expense',
-                        onTap: () {
-                          context.go('/record-expense');
-                        },
-                      ),
-                      ActionItem(
-                        icon: Icons.payment,
-                        label: 'Payments',
-                        onTap: () {
-                          context.go('/record-payment');
-                        },
-                      ),
-                      ActionItem(
-                        icon: Icons.shopping_cart,
-                        label: 'Record Purchase',
-                        onTap: () {
-                          context.go('/record-purchase');
-                        },
-                      ),
-                      ActionItem(
-                        icon: Icons.add_shopping_cart_outlined,
-                        label: 'Create Order',
-                        onTap: () {
-                          PendingOrdersView.showCustomerTypeDialog(context);
-                        },
-                      ),
-                    ],
-                  ),
-              ],
-            ),
+              ),
           );
         },
         ),
@@ -233,6 +155,102 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  static Widget _buildHomeBody(BuildContext context, HomeState homeState) {
+    return Stack(
+      children: [
+        // DotGridPattern background (matching login page)
+        const Positioned.fill(
+          child: RepaintBoundary(
+            child: DotGridPattern(),
+          ),
+        ),
+        // Main content
+        Column(
+          children: [
+            Expanded(
+              child: SafeArea(
+                bottom: false,
+                child: HomeSectionTransition(
+                  child: IndexedStack(
+                    index: homeState.currentIndex,
+                    children: _sections,
+                  ),
+                ),
+              ),
+            ),
+            FloatingNavBar(
+              items: const [
+                NavBarItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  heroTag: 'nav_home',
+                ),
+                NavBarItem(
+                  icon: Icons.pending_actions_rounded,
+                  label: 'Pending',
+                  heroTag: 'nav_pending',
+                ),
+                NavBarItem(
+                  icon: Icons.schedule_rounded,
+                  label: 'Schedule',
+                  heroTag: 'nav_schedule',
+                ),
+                NavBarItem(
+                  icon: Icons.map_rounded,
+                  label: 'Map',
+                  heroTag: 'nav_map',
+                ),
+                NavBarItem(
+                  icon: Icons.account_balance_wallet_rounded,
+                  label: 'Cash Ledger',
+                  heroTag: 'nav_cash_ledger',
+                ),
+              ],
+              currentIndex: homeState.currentIndex,
+              onItemTapped: (index) {
+                context.read<HomeCubit>().switchToSection(index);
+              },
+              visibleIndices: homeState.allowedSections,
+            ),
+          ],
+        ),
+        // Smart Action FAB - visible on Home and Pending Orders pages
+        if (homeState.currentIndex == 0 || homeState.currentIndex == 1)
+          ActionFab(
+            actions: [
+              ActionItem(
+                icon: Icons.receipt,
+                label: 'Add Expense',
+                onTap: () {
+                  context.go('/record-expense');
+                },
+              ),
+              ActionItem(
+                icon: Icons.payment,
+                label: 'Payments',
+                onTap: () {
+                  context.go('/record-payment');
+                },
+              ),
+              ActionItem(
+                icon: Icons.shopping_cart,
+                label: 'Record Purchase',
+                onTap: () {
+                  context.go('/record-purchase');
+                },
+              ),
+              ActionItem(
+                icon: Icons.add_shopping_cart_outlined,
+                label: 'Create Order',
+                onTap: () {
+                  PendingOrdersView.showCustomerTypeDialog(context);
+                },
+              ),
+            ],
+          ),
+      ],
+    );
+  }
 }
 
 class _AnalyticsPlaceholder extends StatelessWidget {
@@ -284,7 +302,7 @@ class _SettingsDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXL),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -297,7 +315,7 @@ class _SettingsDrawer extends StatelessWidget {
                 fontFamily: 'SF Pro Display',
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             const Text(
               'Pages',
               style: TextStyle(
@@ -306,7 +324,7 @@ class _SettingsDrawer extends StatelessWidget {
                 fontFamily: 'SF Pro Display',
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             // 1. Roles
             if (canManageRoles)
             _SettingsTile(
@@ -325,7 +343,7 @@ class _SettingsDrawer extends StatelessWidget {
                   fontFamily: 'SF Pro Display',
                 ),
               ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             // 2. Products
             _SettingsTile(
               label: 'Products',
@@ -335,7 +353,7 @@ class _SettingsDrawer extends StatelessWidget {
                 Future.microtask(() => onOpenProducts());
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             // 3. Vehicles
             if (canAccessVehicles)
               _SettingsTile(
@@ -345,7 +363,7 @@ class _SettingsDrawer extends StatelessWidget {
                   Future.microtask(() => onOpenVehicles());
                 },
               ),
-            if (canAccessVehicles) const SizedBox(height: 12),
+            if (canAccessVehicles) const SizedBox(height: AppSpacing.paddingMD),
             // 4. Payment Accounts
             if (onOpenPaymentAccounts != null)
               _SettingsTile(
@@ -364,7 +382,7 @@ class _SettingsDrawer extends StatelessWidget {
                   fontFamily: 'SF Pro Display',
                 ),
               ),
-            if (onOpenPaymentAccounts != null) const SizedBox(height: 12),
+            if (onOpenPaymentAccounts != null) const SizedBox(height: AppSpacing.paddingMD),
             // 5. DM Settings
             if (onOpenDmSettings != null)
               _SettingsTile(
@@ -374,7 +392,7 @@ class _SettingsDrawer extends StatelessWidget {
                   Future.microtask(() => onOpenDmSettings!());
                 },
               ),
-            if (onOpenDmSettings != null) const SizedBox(height: 12),
+            if (onOpenDmSettings != null) const SizedBox(height: AppSpacing.paddingMD),
             // 6. Expense Sub Categories
             _SettingsTile(
               label: 'Expense Sub Categories',
@@ -406,7 +424,7 @@ class _SettingsTile extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
           color: AuthColors.textMainWithOpacity(0.1),
           width: 1,
@@ -414,7 +432,7 @@ class _SettingsTile extends StatelessWidget {
       ),
       child: ListTile(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         ),
         title: Text(
           label,
@@ -524,7 +542,7 @@ class _HomeProfileDrawer extends StatelessWidget {
                   height: 40,
                   fit: BoxFit.contain,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.paddingMD),
                 Text(
                   'Operon',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(

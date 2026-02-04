@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 enum ErrorType {
   network,
@@ -31,7 +32,7 @@ class ErrorStateWidget extends StatelessWidget {
     switch (errorType) {
       case ErrorType.network:
         icon = Icons.wifi_off;
-        iconColor = Colors.orange;
+        iconColor = AuthColors.secondary;
         break;
       case ErrorType.permission:
         icon = Icons.lock_outline;
@@ -48,7 +49,7 @@ class ErrorStateWidget extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.paddingXXL),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -58,7 +59,7 @@ class ErrorStateWidget extends StatelessWidget {
               size: 64,
               color: iconColor,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             Text(
               message,
               style: const TextStyle(
@@ -68,7 +69,7 @@ class ErrorStateWidget extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.paddingXXL),
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 18),
@@ -80,7 +81,7 @@ class ErrorStateWidget extends StatelessWidget {
                     vertical: 12,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   ),
                 ),
               ),

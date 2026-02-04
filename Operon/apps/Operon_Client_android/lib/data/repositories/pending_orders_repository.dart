@@ -38,6 +38,28 @@ class PendingOrdersRepository {
     );
   }
 
+  Stream<Map<String, dynamic>?> watchOrder(String orderId) {
+    return _dataSource.watchOrder(orderId);
+  }
+
+  Future<void> updateOrder({
+    required String orderId,
+    String? priority,
+    Map<String, dynamic>? deliveryZone,
+    double? advanceAmount,
+    String? advancePaymentAccountId,
+    Map<String, dynamic>? notes,
+  }) {
+    return _dataSource.updateOrder(
+      orderId: orderId,
+      priority: priority,
+      deliveryZone: deliveryZone,
+      advanceAmount: advanceAmount,
+      advancePaymentAccountId: advancePaymentAccountId,
+      notes: notes,
+    );
+  }
+
   Future<void> deleteOrder(String orderId) {
     return _dataSource.deleteOrder(orderId);
   }

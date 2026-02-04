@@ -2,6 +2,7 @@ import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_state.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -17,17 +18,17 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
         if (transactions.isEmpty) {
           return Center(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppSpacing.paddingXXL),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.analytics_outlined, size: 64, color: AuthColors.textSub.withValues(alpha: 0.5)),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.paddingLG),
                   Text(
                     'No analytics data available',
                     style: const TextStyle(color: AuthColors.textSub, fontSize: 18, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.paddingSM),
                   const Text(
                     'Analytics will appear once wages transactions are recorded.',
                     textAlign: TextAlign.center,
@@ -65,7 +66,7 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
               avgAmount: avgAmount,
               avgMonthly: avgMonthly,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             Row(
               children: [
                 Expanded(
@@ -76,24 +77,24 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             Container(
-              padding: const EdgeInsets.all(40),
+              padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
               decoration: BoxDecoration(
                 color: AuthColors.surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.bar_chart_outlined, size: 48, color: AuthColors.textSub.withValues(alpha: 0.5)),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.paddingLG),
                   const Text(
                     'Charts coming soon',
                     style: TextStyle(color: AuthColors.textSub, fontSize: 16, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.paddingSM),
                   const Text(
                     'Wages analytics charts will be available here.',
                     textAlign: TextAlign.center,
@@ -145,7 +146,7 @@ class _WagesStatsHeader extends StatelessWidget {
                 color: AuthColors.warning,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: _StatCard(
                 icon: Icons.payments,
@@ -156,7 +157,7 @@ class _WagesStatsHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.paddingMD),
         Row(
           children: [
             Expanded(
@@ -167,7 +168,7 @@ class _WagesStatsHeader extends StatelessWidget {
                 color: AuthColors.info,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: _StatCard(
                 icon: Icons.trending_up,
@@ -178,7 +179,7 @@ class _WagesStatsHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.paddingMD),
         Row(
           children: [
             Expanded(
@@ -213,10 +214,10 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
@@ -230,14 +231,14 @@ class _StatCard extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 ),
                 child: Icon(icon, color: color, size: 18),
               ),
               const Spacer(),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             value,
             style: const TextStyle(color: AuthColors.textMain, fontSize: 16, fontWeight: FontWeight.w700),
@@ -269,10 +270,10 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
@@ -282,7 +283,7 @@ class _InfoTile extends StatelessWidget {
             title,
             style: const TextStyle(color: AuthColors.textSub, fontSize: 14, fontWeight: FontWeight.w500),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           Text(
             value,
             style: const TextStyle(color: AuthColors.textMain, fontSize: 28, fontWeight: FontWeight.w700),

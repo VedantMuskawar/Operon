@@ -5,6 +5,8 @@ import 'package:dash_mobile/data/services/recently_viewed_employees_service.dart
 import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/presentation/blocs/employees/employees_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -41,46 +43,42 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   Widget build(BuildContext context) {
     final employee = widget.employee;
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: AuthColors.background,
       body: SafeArea(
         child: Column(
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   IconButton(
                     onPressed: () => context.pop(),
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                   ),
-                  const SizedBox(width: 8),
-                  const Expanded(
+                  const SizedBox(width: AppSpacing.paddingSM),
+                  Expanded(
                     child: Text(
                       'Employee Details',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AppTypography.withColor(AppTypography.h2, AuthColors.textMain),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(width: 48),
+                  const SizedBox(width: AppSpacing.avatarSM),
                 ],
               ),
             ),
             // Employee Header Info
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
               child: _EmployeeHeader(
                 employee: employee,
                 onEdit: _openEditDialog,
                 onDelete: _confirmDelete,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             // Transactions Section
             Expanded(
               child: _TransactionsSection(employee: widget.employee),
@@ -146,12 +144,12 @@ class _EmployeeHeader extends StatelessWidget {
   Color _getEmployeeColor() {
     final hash = employee.primaryJobRoleTitle.hashCode;
     final colors = [
-      const Color(0xFF6F4BFF),
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
-      const Color(0xFF9C27B0),
+      AuthColors.accentPurple, // 0xFF9C27B0 (closest to 0xFF6F4BFF)
+      AuthColors.successVariant, // 0xFF5AD8A4
+      AuthColors.warning, // 0xFFFF9800
+      AuthColors.info, // 0xFF2196F3
+      AuthColors.error, // 0xFFFF5252 (closest to 0xFFE91E63)
+      AuthColors.accentPurple, // 0xFF9C27B0
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -171,9 +169,9 @@ class _EmployeeHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         gradient: LinearGradient(
           colors: [
             employeeColor.withOpacity(0.3),
@@ -226,7 +224,7 @@ class _EmployeeHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.paddingLG),
           // Name and Info
           Expanded(
             child: Column(
@@ -235,12 +233,12 @@ class _EmployeeHeader extends StatelessWidget {
                 Text(
                   employee.name,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.paddingSM),
                 // Role Badge
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -249,7 +247,7 @@ class _EmployeeHeader extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: employeeColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                     border: Border.all(
                       color: employeeColor.withOpacity(0.5),
                     ),
@@ -262,7 +260,7 @@ class _EmployeeHeader extends StatelessWidget {
                         size: 14,
                         color: employeeColor,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: AppSpacing.paddingXS),
                       Text(
                         employee.primaryJobRoleTitle.isEmpty ? 'No Role' : employee.primaryJobRoleTitle,
                         style: TextStyle(
@@ -280,12 +278,12 @@ class _EmployeeHeader extends StatelessWidget {
           // Action Buttons
           IconButton(
             onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline, color: Colors.white70),
+            icon: const Icon(Icons.delete_outline, color: AuthColors.textSub),
             tooltip: 'Delete',
           ),
           IconButton(
             onPressed: onEdit,
-            icon: const Icon(Icons.edit, color: Colors.white70),
+            icon: const Icon(Icons.edit, color: AuthColors.textSub),
             tooltip: 'Edit',
           ),
         ],
@@ -312,7 +310,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
     if (organization == null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppSpacing.paddingXL),
           child: Text(
             'No organization selected',
             style: TextStyle(color: AuthColors.textSub),
@@ -344,7 +342,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
             if (ledgerSnapshot.hasError || transactionsSnapshot.hasError) {
               return Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(AppSpacing.paddingXL),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -353,7 +351,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                         size: 48,
                         color: AuthColors.error,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.paddingLG),
                       Text(
                         'Failed to load ledger: ${ledgerSnapshot.error ?? transactionsSnapshot.error}',
                         style: TextStyle(
@@ -371,7 +369,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
             final transactions = transactionsSnapshot.data ?? [];
 
             return SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(AppSpacing.paddingXL),
               child: _LedgerTable(
                 openingBalance: widget.employee.openingBalance,
                 transactions: transactions,
@@ -463,12 +461,12 @@ class _LedgerTable extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.paddingMD),
           Text(
             'No transactions found.',
             style: TextStyle(color: AuthColors.textSub),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.paddingXL),
           _LedgerSummaryFooter(
             openingBalance: openingBalance,
             totalDebit: 0,
@@ -490,11 +488,11 @@ class _LedgerTable extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.paddingMD),
         Container(
           decoration: BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
@@ -512,6 +510,14 @@ class _LedgerTable extends StatelessWidget {
                 final isCredit = type == 'credit';
                 final credit = isCredit ? amount : 0.0;
                 final debit = !isCredit ? amount : 0.0;
+                final txId = tx['transactionId'] as String? ?? tx['id'] as String?;
+                final metadata = tx['metadata'] as Map<String, dynamic>?;
+                final voucherUrl = metadata?['cashVoucherPhotoUrl']?.toString();
+                final showVoucher = category == 'salaryDebit' &&
+                    txId != null &&
+                    txId.isNotEmpty &&
+                    voucherUrl != null &&
+                    voucherUrl.isNotEmpty;
 
                 return _LedgerTableRow(
                   date: date,
@@ -523,12 +529,14 @@ class _LedgerTable extends StatelessWidget {
                   remarks: '-',
                   formatCurrency: formatCurrency,
                   formatDate: formatDate,
+                  transactionId: txId,
+                  showVoucher: showVoucher,
                 );
               }),
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.paddingXL),
         _LedgerSummaryFooter(
           openingBalance: openingBalance,
           totalDebit: totalDebit,
@@ -544,7 +552,7 @@ class _LedgerTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       child: Row(
         children: [
           Expanded(flex: 1, child: Text('Date', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
@@ -571,6 +579,8 @@ class _LedgerTableRow extends StatelessWidget {
     required this.remarks,
     required this.formatCurrency,
     required this.formatDate,
+    this.transactionId,
+    this.showVoucher = false,
   });
 
   final dynamic date;
@@ -582,11 +592,13 @@ class _LedgerTableRow extends StatelessWidget {
   final String remarks;
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
+  final String? transactionId;
+  final bool showVoucher;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingSM),
       child: Row(
         children: [
           Expanded(flex: 1, child: Text(formatDate(date), style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
@@ -595,7 +607,21 @@ class _LedgerTableRow extends StatelessWidget {
           Expanded(flex: 1, child: Text(credit > 0 ? formatCurrency(credit) : '-', style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
           Expanded(flex: 1, child: Text(formatCurrency(balance), style: TextStyle(color: balance >= 0 ? AuthColors.warning : AuthColors.success, fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
           Expanded(flex: 1, child: Text(type.isEmpty ? '-' : type, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 2, child: Text(remarks, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(
+            flex: 2,
+            child: showVoucher && transactionId != null
+                ? TextButton(
+                    onPressed: () => context.go('/salary-voucher?transactionId=$transactionId'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AuthColors.primary,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('View voucher', style: TextStyle(fontSize: 11)),
+                  )
+                : Text(remarks, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
         ],
       ),
     );
@@ -619,10 +645,10 @@ class _LedgerSummaryFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentBalance = openingBalance + totalCredit - totalDebit;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
       child: Row(
@@ -633,7 +659,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Opening Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(formatCurrency(openingBalance), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
@@ -642,7 +668,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Total Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(formatCurrency(totalDebit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
@@ -651,7 +677,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Total Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(formatCurrency(totalCredit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
@@ -660,7 +686,7 @@ class _LedgerSummaryFooter extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Current Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.paddingXS),
               Text(formatCurrency(currentBalance), style: const TextStyle(color: AuthColors.success, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
@@ -679,9 +705,9 @@ class _DeleteEmployeeSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
         top: false,
@@ -692,45 +718,38 @@ class _DeleteEmployeeSheet extends StatelessWidget {
             Container(
               width: 36,
               height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
+              margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: AuthColors.textMainWithOpacity(0.24),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
-            const Text(
+            Text(
               'Delete employee',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
+              style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.gapSM),
             Text(
               'This will permanently remove $employeeName and all related data. This action cannot be undone.',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-              ),
+              style: AppTypography.withColor(AppTypography.bodySmall, AuthColors.textSub),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFED5A5A),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: AuthColors.error,
+                  foregroundColor: AuthColors.textMain,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   ),
                 ),
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text('Delete employee'),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             SizedBox(
               width: double.infinity,
               child: TextButton(
@@ -820,10 +839,10 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     final selectedRole = _findSelectedRole(roles);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.backgroundAlt,
       title: Text(
         isEditing ? 'Edit Employee' : 'Add Employee',
-        style: const TextStyle(color: Colors.white),
+        style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -833,18 +852,18 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('Employee name'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
                         ? 'Enter employee name'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<String>(
                 initialValue: _selectedRoleId,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.surface,
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                 items: roles
                     .map(
                       (role) => DropdownMenuItem(
@@ -865,13 +884,13 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                 validator: (value) =>
                     value == null ? 'Select a role' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _openingBalanceController,
                 enabled: !isEditing && cubit.canCreate,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('Opening balance'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -882,13 +901,13 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               if (selectedRole?.salaryType == SalaryType.salaryMonthly || selectedRole?.salaryType == null)
                 TextFormField(
                   controller: _salaryController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(color: Colors.white),
+                  style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
                   decoration: _inputDecoration('Salary amount'),
                   validator: (value) {
                     final parsed = double.tryParse(value ?? '');
@@ -981,10 +1000,10 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );

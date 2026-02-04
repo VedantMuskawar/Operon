@@ -57,20 +57,13 @@ class ModernPageHeader extends StatelessWidget implements PreferredSizeWidget {
             )
           : null,
       leadingWidth: showBackButton ? 56 : 0,
-      title: centerTitle
-          ? Flexible(
-              child: Text(
-                title,
-                style: AppTypography.h2,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            )
-          : Text(
-              title,
-              style: AppTypography.h2,
-            ),
+      title: Text(
+        title,
+        style: AppTypography.h2,
+        textAlign: centerTitle ? TextAlign.center : TextAlign.left,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       centerTitle: centerTitle,
       titleSpacing: 0,
       actions: actions ?? [const SizedBox(width: 48)], // Balance the leading width

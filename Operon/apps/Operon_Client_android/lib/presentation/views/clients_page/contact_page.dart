@@ -15,9 +15,9 @@ import 'package:dash_mobile/presentation/blocs/contacts/contact_state.dart';
 import 'package:dash_mobile/presentation/utils/network_error_helper.dart';
 import 'package:dash_mobile/presentation/views/clients_page/contact_processing.dart';
 import 'package:dash_mobile/presentation/widgets/loading/contact_skeleton.dart';
-import 'package:dash_mobile/presentation/widgets/alphabet_strip.dart';
+import 'package:dash_mobile/presentation/widgets/alphabet_strip.dart' show groupContactsByLetter, getAvailableLetters;
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:core_bloc/core_bloc.dart' as core_bloc;
@@ -59,13 +59,14 @@ class _ContactPageState extends State<_ContactPageContent> {
   bool _isCallLogLoading = true;
   String? _callLogMessage;
   List<_CallLogEntry> _entries = const [];
+  List<_CallLogEntry> _filteredCallLogs = const [];
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _callLogSearchController = TextEditingController();
   final ScrollController _contactListController = ScrollController();
   final ScrollController _callLogScrollController = ScrollController();
   late final PageController _pageController;
   double _currentPage = 0;
   final ClientService _clientService = ClientService();
-  String? _currentLetter; // For alphabet strip
   Isolate? _contactsIsolate;
   ReceivePort? _receivePort;
 
@@ -84,6 +85,7 @@ class _ContactPageState extends State<_ContactPageContent> {
     _loadCallLogs();
     _loadContacts();
     _searchController.addListener(_onSearchChanged);
+    _callLogSearchController.addListener(_onCallLogSearchChanged);
     _pageController = PageController()
       ..addListener(_onPageChanged);
     _contactListController.addListener(_handleContactListScroll);
@@ -92,6 +94,7 @@ class _ContactPageState extends State<_ContactPageContent> {
   @override
   void dispose() {
     _searchController.dispose();
+    _callLogSearchController.dispose();
     _pageController.removeListener(_onPageChanged);
     _pageController.dispose();
     _contactListController.removeListener(_handleContactListScroll);
@@ -148,6 +151,7 @@ class _ContactPageState extends State<_ContactPageContent> {
 
       setState(() {
         _entries = entries;
+        _filteredCallLogs = entries;
         _callLogMessage =
             entries.isEmpty ? 'No call logs recorded for today or yesterday.' : null;
         _isCallLogLoading = false;
@@ -326,6 +330,23 @@ class _ContactPageState extends State<_ContactPageContent> {
     context.read<ContactCubit>().searchContacts(query);
   }
 
+  void _onCallLogSearchChanged() {
+    final query = _callLogSearchController.text.trim().toLowerCase();
+    if (!mounted) return;
+    
+    setState(() {
+      if (query.isEmpty) {
+        _filteredCallLogs = _entries;
+      } else {
+        _filteredCallLogs = _entries.where((entry) {
+          final nameMatch = entry.contactName.toLowerCase().contains(query);
+          final phoneMatch = entry.phoneNumber.replaceAll(RegExp(r'[^0-9+]'), '').contains(query.replaceAll(RegExp(r'[^0-9+]'), ''));
+          return nameMatch || phoneMatch;
+        }).toList();
+      }
+    });
+  }
+
   void _onPageChanged() {
     if (!_pageController.hasClients) return;
     final newPage = _pageController.page ?? 0;
@@ -343,66 +364,6 @@ class _ContactPageState extends State<_ContactPageContent> {
 
     final cubit = context.read<ContactCubit>();
     if (cubit.state.isSearchActive) return;
-
-    final position = _contactListController.position;
-    if (position.pixels >= position.maxScrollExtent - 200) {
-      // Update current letter for alphabet strip
-      _updateCurrentLetter(position.pixels);
-    }
-  }
-
-  void _updateCurrentLetter(double scrollPosition) {
-    if (!mounted) return;
-    final cubit = context.read<ContactCubit>();
-    final contacts = cubit.state.filteredContacts;
-    if (contacts.isEmpty) return;
-
-    // Calculate which letter section we're in based on scroll position
-    // This is approximate - for exact calculation, we'd need item positions
-    final itemHeight = 72.0;
-    final headerHeight = 60.0;
-    final estimatedIndex = ((scrollPosition - headerHeight) / itemHeight).floor();
-    
-    if (estimatedIndex >= 0 && estimatedIndex < contacts.length) {
-      final contact = contacts[estimatedIndex];
-      final firstChar = contact.normalizedName.isNotEmpty
-          ? contact.normalizedName[0].toUpperCase()
-          : '#';
-      final letter = RegExp(r'[A-Z]').hasMatch(firstChar) ? firstChar : '#';
-      
-      if (_currentLetter != letter) {
-        setState(() {
-          _currentLetter = letter;
-        });
-      }
-    }
-  }
-
-  void _jumpToLetter(String letter) {
-    if (!mounted) return;
-    final cubit = context.read<ContactCubit>();
-    final contacts = cubit.state.filteredContacts;
-    if (contacts.isEmpty) return;
-
-    // Find first contact with this letter
-    final index = contacts.indexWhere((contact) {
-      final firstChar = contact.normalizedName.isNotEmpty
-          ? contact.normalizedName[0].toUpperCase()
-          : '#';
-      final contactLetter = RegExp(r'[A-Z]').hasMatch(firstChar) ? firstChar : '#';
-      return contactLetter == letter;
-    });
-
-    if (index >= 0) {
-      final itemHeight = 72.0;
-      final headerHeight = 60.0;
-      final targetPosition = (index * itemHeight) + headerHeight;
-      _contactListController.animateTo(
-        targetPosition,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
   }
 
   Future<void> _handleContactTap(ContactEntry entry) async {
@@ -431,10 +392,8 @@ class _ContactPageState extends State<_ContactPageContent> {
 
     final existingClient = await _findExistingClient(contactToUse);
     if (existingClient != null) {
-      final action = await _showDuplicateClientSheet(existingClient);
-      if (action == _ExistingClientAction.viewExisting && mounted) {
-        context.pushNamed('client-detail', extra: existingClient);
-      }
+      if (!mounted) return;
+      context.pushNamed('client-detail', extra: existingClient);
       return;
     }
 
@@ -496,15 +455,6 @@ class _ContactPageState extends State<_ContactPageContent> {
     return showDialog<_ContactAction>(
       context: context,
       builder: (context) => const _ContactActionSheet(),
-    );
-  }
-
-  Future<_ExistingClientAction?> _showDuplicateClientSheet(
-    ClientRecord existing,
-  ) {
-    return showDialog<_ExistingClientAction>(
-      context: context,
-      builder: (context) => _DuplicateClientSheet(client: existing),
     );
   }
 
@@ -573,7 +523,7 @@ class _ContactPageState extends State<_ContactPageContent> {
 
   @override
   Widget build(BuildContext context) {
-    final grouped = _groupByDay(_entries);
+    final grouped = _groupByDay(_filteredCallLogs);
 
     return Scaffold(
       backgroundColor: AuthColors.background,
@@ -582,7 +532,7 @@ class _ContactPageState extends State<_ContactPageContent> {
           children: [
             Container(
               color: AuthColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -590,7 +540,7 @@ class _ContactPageState extends State<_ContactPageContent> {
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close, color: AuthColors.textMain),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.paddingSM),
                   const Expanded(
                     child: Text(
                       'Contact',
@@ -602,7 +552,7 @@ class _ContactPageState extends State<_ContactPageContent> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  const SizedBox(width: 48),
+                  const SizedBox(width: AppSpacing.avatarSM),
                 ],
               ),
             ),
@@ -615,16 +565,59 @@ class _ContactPageState extends State<_ContactPageContent> {
                       physics: const ClampingScrollPhysics(),
                       allowImplicitScrolling: false,
                       children: [
-                        SingleChildScrollView(
-                          controller: _callLogScrollController,
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                          physics: const ClampingScrollPhysics(),
-                          child: _CallLogsCard(
-                            isLoading: _isCallLogLoading,
-                            message: _callLogMessage,
-                            groupedEntries: grouped,
-                            onCallTap: _handleCallLogTap,
-                          ),
+                        Column(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.fromLTRB(
+                                AppSpacing.paddingXL,
+                                AppSpacing.paddingLG,
+                                AppSpacing.paddingXL,
+                                AppSpacing.paddingMD,
+                              ),
+                              color: AuthColors.background,
+                              child: TextField(
+                                controller: _callLogSearchController,
+                                style: const TextStyle(color: AuthColors.textMain, fontSize: 15),
+                                decoration: InputDecoration(
+                                  prefixIcon: const Icon(Icons.search, color: AuthColors.textSub, size: 20),
+                                  hintText: 'Search call logs',
+                                  hintStyle: const TextStyle(color: AuthColors.textDisabled, fontSize: 14),
+                                  filled: true,
+                                  fillColor: AuthColors.backgroundAlt,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.paddingLG,
+                                    vertical: AppSpacing.paddingLG,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                                    borderSide: const BorderSide(
+                                      color: AuthColors.legacyAccent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                textInputAction: TextInputAction.search,
+                              ),
+                            ),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                controller: _callLogScrollController,
+                                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
+                                physics: const ClampingScrollPhysics(),
+                                child: _CallLogsCard(
+                                  isLoading: _isCallLogLoading,
+                                  message: _callLogMessage,
+                                  groupedEntries: grouped,
+                                  onCallTap: _handleCallLogTap,
+                                  searchQuery: _callLogSearchController.text,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         BlocBuilder<ContactCubit, ContactState>(
                           builder: (context, state) {
@@ -649,7 +642,7 @@ class _ContactPageState extends State<_ContactPageContent> {
                                           state.allContacts.isEmpty)
                                         const SliverToBoxAdapter(
                                           child: Padding(
-                                            padding: EdgeInsets.all(20),
+                                            padding: EdgeInsets.all(AppSpacing.paddingXL),
                                             child: ContactListSkeleton(itemCount: 10),
                                           ),
                                         )
@@ -657,7 +650,7 @@ class _ContactPageState extends State<_ContactPageContent> {
                                           state.allContacts.isEmpty)
                                         SliverFillRemaining(
                                           child: Padding(
-                                            padding: const EdgeInsets.all(20),
+                                            padding: const EdgeInsets.all(AppSpacing.paddingXL),
                                             child: _ContactPermissionErrorWidget(
                                               message: state.message ?? '',
                                               onOpenSettings: () async {
@@ -677,7 +670,7 @@ class _ContactPageState extends State<_ContactPageContent> {
                                           state.isSearchActive)
                                         const SliverFillRemaining(
                                           child: Padding(
-                                            padding: EdgeInsets.all(20),
+                                            padding: EdgeInsets.all(AppSpacing.paddingXL),
                                             child: Center(
                                               child: Text(
                                                 'No contacts match your search.',
@@ -694,7 +687,7 @@ class _ContactPageState extends State<_ContactPageContent> {
                                       if (state.isLoadingChunk)
                                         const SliverToBoxAdapter(
                                           child: Padding(
-                                            padding: EdgeInsets.symmetric(vertical: 16),
+                                            padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                                             child: Center(
                                               child: SizedBox(
                                                 height: 20,
@@ -708,18 +701,6 @@ class _ContactPageState extends State<_ContactPageContent> {
                                         ),
                                     ],
                                   ),
-                                  if (!state.isSearchActive &&
-                                      state.filteredContacts.isNotEmpty)
-                                    AlphabetStrip(
-                                      onLetterTap: _jumpToLetter,
-                                      currentLetter: _currentLetter,
-                                      availableLetters: getAvailableLetters(
-                                        groupContactsByLetter<ContactEntry>(
-                                          contacts: state.filteredContacts,
-                                          getName: (c) => c.normalizedName,
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               ),
                             );
@@ -728,9 +709,9 @@ class _ContactPageState extends State<_ContactPageContent> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   _PageIndicator(pageCount: 2, currentIndex: _currentPage),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.paddingXXL),
                 ],
               ),
             ),
@@ -754,7 +735,7 @@ class _ContactPageState extends State<_ContactPageContent> {
             final contact = contacts[index];
             return RepaintBoundary(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
                 child: _ContactListTile(
                   key: ValueKey(contact.id),
                   contact: contact,
@@ -801,7 +782,12 @@ class _ContactPageState extends State<_ContactPageContent> {
           
           if (item.type == _ListItemType.header) {
             return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.paddingXL,
+                AppSpacing.paddingLG,
+                AppSpacing.paddingXL,
+                AppSpacing.paddingSM,
+              ),
               child: Text(
                 item.letter!,
                 style: const TextStyle(
@@ -814,7 +800,7 @@ class _ContactPageState extends State<_ContactPageContent> {
           } else {
             return RepaintBoundary(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
                 child: _ContactListTile(
                   key: ValueKey(item.contact!.id),
                   contact: item.contact!,
@@ -929,7 +915,7 @@ class _ContactPermissionErrorWidget extends StatelessWidget {
             size: 64,
             color: AuthColors.textMainWithOpacity(0.3),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           Text(
             message,
             style: const TextStyle(
@@ -938,7 +924,7 @@ class _ContactPermissionErrorWidget extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
           ElevatedButton.icon(
             onPressed: onOpenSettings,
             icon: const Icon(Icons.settings, size: 18),
@@ -951,7 +937,7 @@ class _ContactPermissionErrorWidget extends StatelessWidget {
                 vertical: 12,
               ),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
             ),
           ),
@@ -985,7 +971,7 @@ class _CallLogSection extends StatelessWidget {
             fontSize: 14,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.paddingSM),
         ...entries.map(
           (entry) => _CallLogTile(
             entry: entry,
@@ -1012,9 +998,9 @@ class _CallLogTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingSM),
           child: Row(
             children: [
               CircleAvatar(
@@ -1031,7 +1017,7 @@ class _CallLogTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1048,7 +1034,7 @@ class _CallLogTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.paddingXS / 2),
                     Text(
                       entry.phoneNumber,
                       style: const TextStyle(
@@ -1088,7 +1074,7 @@ class _EmptyState extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: AuthColors.textMainWithOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
             ),
             child: const SizedBox(
               width: 60,
@@ -1096,7 +1082,7 @@ class _EmptyState extends StatelessWidget {
               child: Icon(Icons.call_end, color: AuthColors.textDisabled),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           Text(
             message ?? 'No call logs available.',
             style: TextStyle(color: AuthColors.textMainWithOpacity(0.6)),
@@ -1137,10 +1123,18 @@ class _PinnedSearchHeader extends SliverPersistentHeaderDelegate {
   final ValueChanged<ContactEntry> onContactTap;
 
   @override
-  double get minExtent => 120.0;
+  double get minExtent {
+    // Minimum: padding (4*2) + TextField height (~56) = ~64px
+    // Using smaller value to ensure layoutExtent doesn't exceed paintExtent
+    return 68.0;
+  }
 
   @override
-  double get maxExtent => recentContacts.isNotEmpty ? 180.0 : 120.0;
+  double get maxExtent {
+    // Maximum: padding (16*2) + TextField (~56) + recent contacts section (~60) = ~148px
+    // Reduced by 1px to ensure layoutExtent doesn't exceed paintExtent
+    return recentContacts.isNotEmpty ? 148.0 : 87.0;
+  }
 
   @override
   Widget build(
@@ -1148,85 +1142,89 @@ class _PinnedSearchHeader extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return Container(
-      color: AuthColors.background,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Search Contacts',
-            style: TextStyle(
-              color: AuthColors.textMain,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+    final isShrunk = shrinkOffset > 0;
+    final showRecentContacts = !isShrunk && recentContacts.isNotEmpty;
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        final canShowRecent = availableHeight >= 120 && showRecentContacts;
+        
+        return Container(
+          color: AuthColors.background,
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingXL,
+            vertical: isShrunk ? AppSpacing.paddingXS : AppSpacing.paddingLG,
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Search through your phone contacts to quickly reach the right person.',
-            style: TextStyle(
-              color: AuthColors.textMainWithOpacity(0.6),
-              fontSize: 13,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: availableHeight,
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: searchController,
-            style: const TextStyle(color: AuthColors.textMain, fontSize: 15),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search, color: AuthColors.textSub, size: 20),
-              hintText: 'Search contacts',
-              hintStyle: const TextStyle(color: AuthColors.textDisabled, fontSize: 14),
-              filled: true,
-              fillColor: AuthColors.backgroundAlt,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                  color: AuthColors.legacyAccent,
-                  width: 2,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+              TextField(
+                controller: searchController,
+                style: const TextStyle(color: AuthColors.textMain, fontSize: 15),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search, color: AuthColors.textSub, size: 20),
+                  hintText: 'Search contacts',
+                  hintStyle: const TextStyle(color: AuthColors.textDisabled, fontSize: 14),
+                  filled: true,
+                  fillColor: AuthColors.backgroundAlt,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.paddingLG,
+                    vertical: AppSpacing.paddingLG,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                    borderSide: const BorderSide(
+                      color: AuthColors.legacyAccent,
+                      width: 2,
+                    ),
+                  ),
                 ),
+                textInputAction: TextInputAction.search,
               ),
-            ),
-            textInputAction: TextInputAction.search,
+              if (canShowRecent) ...[
+                const SizedBox(height: AppSpacing.paddingMD),
+                const Text(
+                  'Recently searched',
+                  style: TextStyle(
+                    color: AuthColors.textSub,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.paddingSM),
+                SizedBox(
+                  height: 40,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemBuilder: (context, index) {
+                      final contact = recentContacts[index];
+                      return ActionChip(
+                        label: Text(contact.name),
+                        labelStyle: const TextStyle(color: AuthColors.textMain),
+                        backgroundColor: AuthColors.surface,
+                        onPressed: () => onContactTap(contact),
+                      );
+                    },
+                    separatorBuilder: (_, __) => const SizedBox(width: AppSpacing.paddingSM),
+                    itemCount: recentContacts.length,
+                  ),
+                ),
+              ],
+            ],
           ),
-          if (recentContacts.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Text(
-              'Recently searched',
-              style: TextStyle(
-                color: AuthColors.textSub,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 40,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemBuilder: (context, index) {
-                  final contact = recentContacts[index];
-                  return ActionChip(
-                    label: Text(contact.name),
-                    labelStyle: const TextStyle(color: AuthColors.textMain),
-                    backgroundColor: AuthColors.surface,
-                    onPressed: () => onContactTap(contact),
-                  );
-                },
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemCount: recentContacts.length,
-              ),
-            ),
-          ],
-        ],
-      ),
+        ),
+      );
+      },
     );
   }
 
@@ -1255,9 +1253,9 @@ class _ContactListTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingSM),
           child: Row(
             children: [
               // Optimized CircleAvatar with const text
@@ -1275,7 +1273,7 @@ class _ContactListTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1291,7 +1289,7 @@ class _ContactListTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.paddingXS / 2),
                     Text(
                       contact.primaryDisplayPhone,
                       style: const TextStyle(
@@ -1319,8 +1317,6 @@ class _ContactListTile extends StatelessWidget {
 
 enum _ContactAction { newClient, existing }
 
-enum _ExistingClientAction { viewExisting, cancel }
-
 class _PageIndicator extends StatelessWidget {
   const _PageIndicator({
     required this.pageCount,
@@ -1340,195 +1336,15 @@ class _PageIndicator extends StatelessWidget {
           final isActive = currentIndex.round() == index;
           return AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.symmetric(horizontal: 4),
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXS),
             width: isActive ? 18 : 8,
             height: 8,
             decoration: BoxDecoration(
               color: isActive ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.3),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _ContactSearchCard extends StatelessWidget {
-  const _ContactSearchCard({
-    required this.controller,
-    required this.isLoading,
-    required this.message,
-    required this.filteredContacts,
-    required this.recentContacts,
-    required this.onContactTap,
-    required this.isLoadingMore,
-    required this.hasMore,
-  });
-
-  final TextEditingController controller;
-  final bool isLoading;
-  final String? message;
-  final List<ContactEntry> filteredContacts;
-  final List<ContactEntry> recentContacts;
-  final ValueChanged<ContactEntry> onContactTap;
-  final bool isLoadingMore;
-  final bool hasMore;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Search Contacts',
-            style: TextStyle(
-              color: AuthColors.textMain,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Search through your phone contacts to quickly reach the right person.',
-            style: TextStyle(
-              color: AuthColors.textMainWithOpacity(0.6),
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: controller,
-            style: const TextStyle(color: AuthColors.textMain, fontSize: 15),
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search, color: AuthColors.textSub, size: 20),
-              hintText: 'Search contacts',
-              hintStyle: const TextStyle(color: AuthColors.textDisabled, fontSize: 14),
-              filled: true,
-              fillColor: AuthColors.backgroundAlt,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                  color: AuthColors.legacyAccent,
-                  width: 2,
-                ),
-              ),
-            ),
-            textInputAction: TextInputAction.search,
-          ),
-          const SizedBox(height: 16),
-          if (isLoading)
-            const Center(child: CircularProgressIndicator())
-          else ...[
-            if (message != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                message!,
-                style: const TextStyle(color: AuthColors.textSub, fontSize: 12),
-              ),
-            ] else ...[
-              if (recentContacts.isNotEmpty) ...[
-                const Text(
-                  'Recently searched',
-                  style: TextStyle(
-                    color: AuthColors.textSub,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemBuilder: (context, index) {
-                      final contact = recentContacts[index];
-                      return ActionChip(
-                        label: Text(contact.name),
-                        labelStyle: const TextStyle(color: AuthColors.textMain),
-                        backgroundColor: AuthColors.surface,
-                        onPressed: () => onContactTap(contact),
-                      );
-                    },
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemCount: recentContacts.length,
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              if (filteredContacts.isEmpty)
-                const Text(
-                  'No contacts match your search.',
-                  style: TextStyle(color: AuthColors.textSub, fontSize: 12),
-                )
-              else
-                AnimationLimiter(
-                  child: ListView.builder(
-                    addAutomaticKeepAlives: false,
-                    itemCount: filteredContacts.length + (isLoadingMore ? 1 : 0) + (hasMore && !isLoadingMore ? 1 : 0),
-                    itemExtent: 72,
-                    itemBuilder: (context, index) {
-                      if (index < filteredContacts.length) {
-                        final contact = filteredContacts[index];
-                        return AnimationConfiguration.staggeredList(
-                          position: index,
-                          duration: const Duration(milliseconds: 200),
-                          child: SlideAnimation(
-                            verticalOffset: 50.0,
-                            child: FadeInAnimation(
-                              curve: Curves.easeOut,
-                              child: _ContactListTile(
-                                key: ValueKey(contact.id),
-                                contact: contact,
-                                onTap: () => onContactTap(contact),
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                        
-                        if (index == filteredContacts.length && isLoadingMore) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                              child: SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ),
-                          );
-                        }
-                        
-                        if (index == filteredContacts.length + (isLoadingMore ? 1 : 0) && hasMore) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 12, bottom: 16),
-                            child: Text(
-                              'Scroll to load more contacts…',
-                              style: TextStyle(
-                                color: AuthColors.textMainWithOpacity(0.6),
-                                fontSize: 12,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          );
-                        }
-                        
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-            ],
-          ],
-        ],
       ),
     );
   }
@@ -1540,24 +1356,26 @@ class _CallLogsCard extends StatelessWidget {
     required this.message,
     required this.groupedEntries,
     required this.onCallTap,
+    this.searchQuery = '',
   });
 
   final bool isLoading;
   final String? message;
   final Map<String, List<_CallLogEntry>> groupedEntries;
   final ValueChanged<_CallLogEntry> onCallTap;
+  final String searchQuery;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           if (isLoading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXXXL * 1.25),
               child: Center(
                 child: CircularProgressIndicator(
                   color: AuthColors.legacyAccent,
@@ -1565,7 +1383,11 @@ class _CallLogsCard extends StatelessWidget {
               ),
             )
           else if (groupedEntries.isEmpty)
-            _EmptyState(message: message)
+            _EmptyState(
+              message: searchQuery.isNotEmpty
+                  ? 'No call logs match your search.'
+                  : message,
+            )
           else
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -1573,7 +1395,7 @@ class _CallLogsCard extends StatelessWidget {
                   .map(
                     (entry) => Padding(
                       key: ValueKey(entry.key),
-                      padding: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
                       child: _CallLogSection(
                         title: entry.key,
                         entries: entry.value,
@@ -1601,10 +1423,10 @@ class _ContactActionSheet extends StatelessWidget {
           maxWidth: 400,
           maxHeight: MediaQuery.of(context).size.height * 0.8,
         ),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXL),
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
         ),
         child: Column(
@@ -1629,7 +1451,7 @@ class _ContactActionSheet extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: AppSpacing.paddingXS),
             const Text(
               'Create a new client or attach this contact to an existing one.',
               style: TextStyle(
@@ -1637,7 +1459,7 @@ class _ContactActionSheet extends StatelessWidget {
                 fontSize: 13,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.paddingXL),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Container(
@@ -1645,7 +1467,7 @@ class _ContactActionSheet extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: AuthColors.legacyAccent.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 ),
                 child: Icon(Icons.person_add_alt, color: AuthColors.legacyAccent.withOpacity(0.8)),
               ),
@@ -1659,7 +1481,7 @@ class _ContactActionSheet extends StatelessWidget {
               ),
               onTap: () => Navigator.of(context).pop(_ContactAction.newClient),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Container(
@@ -1667,7 +1489,7 @@ class _ContactActionSheet extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: AuthColors.successVariant.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 ),
                 child: const Icon(Icons.group_add, color: AuthColors.successVariant),
               ),
@@ -1765,14 +1587,14 @@ class _ExistingClientPickerSheetState
           maxHeight: MediaQuery.of(context).size.height * 0.8,
         ),
         padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          left: AppSpacing.paddingXL,
+          right: AppSpacing.paddingXL,
+          top: AppSpacing.paddingXL,
+          bottom: MediaQuery.of(context).viewInsets.bottom + AppSpacing.paddingXL,
         ),
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
         ),
         child: Column(
@@ -1796,7 +1618,7 @@ class _ExistingClientPickerSheetState
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.gapSM),
             TextField(
               controller: _searchController,
               style: const TextStyle(color: AuthColors.textMain),
@@ -1807,20 +1629,20 @@ class _ExistingClientPickerSheetState
                 filled: true,
                 fillColor: AuthColors.backgroundAlt,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   borderSide: BorderSide.none,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             if (_isLoading)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXXXL),
                 child: CircularProgressIndicator(),
               )
             else if (_error != null)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXXXL),
                 child: Text(
                   _error!,
                   style: const TextStyle(color: AuthColors.error),
@@ -1829,7 +1651,7 @@ class _ExistingClientPickerSheetState
               )
             else if (_filtered.isEmpty)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingXXXL),
                 child: Text(
                   'No clients match your search.',
                   style: TextStyle(color: AuthColors.textSub),
@@ -1840,7 +1662,7 @@ class _ExistingClientPickerSheetState
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: _filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                   itemBuilder: (context, index) {
                     final client = _filtered[index];
                     final tagSummary = client.tags.isEmpty
@@ -1849,7 +1671,7 @@ class _ExistingClientPickerSheetState
                     return ListTile(
                       tileColor: AuthColors.backgroundAlt,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                       ),
                       title: Text(
                         client.name,
@@ -1871,85 +1693,6 @@ class _ExistingClientPickerSheetState
                   },
                 ),
               ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DuplicateClientSheet extends StatelessWidget {
-  const _DuplicateClientSheet({required this.client});
-
-  final ClientRecord client;
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: 400,
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
-        ),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Client already exists',
-                    style: TextStyle(
-                      color: AuthColors.textMain,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close, color: AuthColors.textSub),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              client.name,
-              style: const TextStyle(
-                color: AuthColors.textSub,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.visibility_outlined, color: AuthColors.textSub),
-              title: const Text(
-                'View existing client',
-                style: TextStyle(color: AuthColors.textMain),
-              ),
-              onTap: () =>
-                  Navigator.pop(context, _ExistingClientAction.viewExisting),
-            ),
-            Divider(color: AuthColors.textMainWithOpacity(0.1)),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.close, color: AuthColors.textDisabled),
-              title: const Text(
-                'Cancel',
-                style: TextStyle(color: AuthColors.textSub),
-              ),
-              onTap: () =>
-                  Navigator.pop(context, _ExistingClientAction.cancel),
-            ),
           ],
         ),
       ),
@@ -2011,14 +1754,14 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
             maxHeight: MediaQuery.of(context).size.height * 0.8,
           ),
           padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: bottomInset + 20,
+            left: AppSpacing.paddingXL,
+            right: AppSpacing.paddingXL,
+            top: AppSpacing.paddingXL,
+            bottom: bottomInset + AppSpacing.paddingXL,
           ),
           decoration: BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
             border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
           ),
           child: SingleChildScrollView(
@@ -2043,7 +1786,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             Align(
               alignment: Alignment.centerLeft,
               child: Wrap(
@@ -2070,7 +1813,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                         .toList(),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             TextField(
               controller: _nameController,
               style: const TextStyle(color: AuthColors.textMain),
@@ -2085,7 +1828,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             if (widget.entry.displayPhones.length > 1)
               DropdownButtonFormField<String>(
                 initialValue: _selectedPhone,
@@ -2118,10 +1861,10 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
             else
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.paddingLG),
                 decoration: BoxDecoration(
                   color: AuthColors.backgroundAlt,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2133,7 +1876,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                         fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.paddingXS),
                     Text(
                       widget.entry.primaryDisplayPhone,
                       style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
@@ -2142,7 +1885,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 ),
               ),
             if (_requiresDescription) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.paddingLG),
               TextField(
                 controller: _descriptionController,
                 maxLines: 2,
@@ -2161,7 +1904,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
               ),
             ],
             if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.paddingSM),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
@@ -2170,7 +1913,7 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 ),
               ),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -2178,9 +1921,9 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AuthColors.successVariant,
                   foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   ),
                 ),
                 child: _isSaving
@@ -2309,14 +2052,14 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
             maxHeight: MediaQuery.of(context).size.height * 0.8,
           ),
           padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: bottomInset + 20,
+            left: AppSpacing.paddingXL,
+            right: AppSpacing.paddingXL,
+            top: AppSpacing.paddingXL,
+            bottom: bottomInset + AppSpacing.paddingXL,
           ),
           decoration: BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
             border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
           ),
           child: SingleChildScrollView(
@@ -2342,7 +2085,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                     ),
                   ],
                 ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
                 TextField(
                   controller: _nameController,
                   style: const TextStyle(color: AuthColors.textMain),
@@ -2357,7 +2100,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
                 const Text(
                   'Tag',
                   style: TextStyle(
@@ -2365,7 +2108,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.paddingSM),
                 _TagSelector(
                   availableTags: widget.availableTags,
                   selectedTag: _selectedTag,
@@ -2373,7 +2116,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                     setState(() => _selectedTag = tag);
                   },
                 ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             if (widget.entry.displayPhones.length > 1)
               DropdownButtonFormField<String>(
                 initialValue: _selectedPhone,
@@ -2399,10 +2142,10 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                 else
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     decoration: BoxDecoration(
                       color: AuthColors.backgroundAlt,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2414,7 +2157,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                             fontSize: 12,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: AppSpacing.paddingXS),
                         Text(
                           widget.entry.primaryDisplayPhone,
                           style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
@@ -2423,13 +2166,13 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                     ),
                   ),
                 if (_errorMessage != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.paddingSM),
                   Text(
                     _errorMessage!,
                     style: const TextStyle(color: AuthColors.error),
                   ),
                 ],
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.paddingXXL),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -2437,9 +2180,9 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AuthColors.primary,
                       foregroundColor: AuthColors.textMain,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                       ),
                     ),
                     child: _isSaving
@@ -2512,8 +2255,8 @@ class _TagSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: AppSpacing.paddingSM,
+      runSpacing: AppSpacing.paddingSM,
       children: availableTags.map((tag) {
         final isSelected = selectedTag == tag;
         return ChoiceChip(

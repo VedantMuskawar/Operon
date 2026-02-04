@@ -44,8 +44,9 @@ class ReceivableAging {
     final current = _toDouble(map['current']);
     final days31to60 = _toDouble(map['days31to60']);
     final days61to90 = _toDouble(map['days61to90']);
-    final daysOver90 = _toDouble(map['daysOver90']);
-    final knownKeys = {'current', 'days31to60', 'days61to90', 'daysOver90'};
+    // Backend writes "over90"; accept both for compatibility.
+    final daysOver90 = _toDouble(map['daysOver90'] ?? map['over90']);
+    final knownKeys = {'current', 'days31to60', 'days61to90', 'daysOver90', 'over90'};
     final values = <String, double>{};
     for (final e in map.entries) {
       if (knownKeys.contains(e.key)) continue;
@@ -103,31 +104,67 @@ class TransactionAnalytics {
     );
   }
 
+  /// Extract monthly/daily/total from byType.debit or byType.credit when present.
+  static Map<String, double> _byTypeSeries(Map<String, dynamic>? json, String type, String period) {
+    final byType = json?['byType'];
+    if (byType is! Map) return {};
+    final typeData = byType[type];
+    if (typeData is! Map) return {};
+    final series = typeData[period];
+    return _parseNumberMap(series);
+  }
+
+  static double _byTypeTotal(Map<String, dynamic>? json, String type) {
+    final byType = json?['byType'];
+    if (byType is! Map) return 0.0;
+    final typeData = byType[type];
+    if (typeData is! Map) return 0.0;
+    final total = typeData['total'];
+    return total is num ? total.toDouble() : 0.0;
+  }
+
   factory TransactionAnalytics.fromJson(Map<String, dynamic> json) {
-    final generatedAtRaw = json['generatedAt'];
+    // Backend may write "lastUpdated" or "generatedAt".
+    final generatedAtRaw = json['generatedAt'] ?? json['lastUpdated'];
     final generatedAt = generatedAtRaw is Timestamp
         ? generatedAtRaw.toDate()
         : (generatedAtRaw is DateTime ? generatedAtRaw : null);
 
-    final totalIncome = (json['totalIncome'] is num)
+    var totalIncome = (json['totalIncome'] is num)
         ? (json['totalIncome'] as num).toDouble()
         : 0.0;
-    final totalReceivables = (json['totalReceivables'] is num)
+    var totalReceivables = (json['totalReceivables'] is num)
         ? (json['totalReceivables'] as num).toDouble()
         : 0.0;
     final netReceivables = json['netReceivables'] != null && json['netReceivables'] is num
         ? (json['netReceivables'] as num).toDouble()
         : null;
 
+    var incomeDaily = _parseNumberMap(json['incomeDaily']);
+    var incomeMonthly = _parseNumberMap(json['incomeMonthly']);
+    var receivablesDaily = _parseNumberMap(json['receivablesDaily']);
+    var receivablesMonthly = _parseNumberMap(json['receivablesMonthly']);
+
+    // Fallback: document may have empty top-level income/receivables but full byType.debit/credit (e.g. from transaction-rebuild).
+    if (incomeDaily.isEmpty) incomeDaily = _byTypeSeries(json, 'debit', 'daily');
+    if (incomeMonthly.isEmpty) incomeMonthly = _byTypeSeries(json, 'debit', 'monthly');
+    if (totalIncome == 0.0) totalIncome = _byTypeTotal(json, 'debit');
+    if (receivablesDaily.isEmpty) receivablesDaily = _byTypeSeries(json, 'credit', 'daily');
+    if (receivablesMonthly.isEmpty) receivablesMonthly = _byTypeSeries(json, 'credit', 'monthly');
+    if (totalReceivables <= 0.0) {
+      final creditTotal = _byTypeTotal(json, 'credit');
+      if (creditTotal > 0.0) totalReceivables = creditTotal;
+    }
+
     final receivableAging = ReceivableAging.fromMap(
       json['receivableAging'] as Map<String, dynamic>?,
     );
 
     return TransactionAnalytics(
-      incomeDaily: _parseNumberMap(json['incomeDaily']),
-      receivablesDaily: _parseNumberMap(json['receivablesDaily']),
-      incomeMonthly: _parseNumberMap(json['incomeMonthly']),
-      receivablesMonthly: _parseNumberMap(json['receivablesMonthly']),
+      incomeDaily: incomeDaily,
+      receivablesDaily: receivablesDaily,
+      incomeMonthly: incomeMonthly,
+      receivablesMonthly: receivablesMonthly,
       receivableAging: receivableAging,
       totalIncome: totalIncome,
       totalReceivables: totalReceivables,

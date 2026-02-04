@@ -422,6 +422,30 @@ class TransactionsDataSource {
     });
   }
 
+  /// Merge metadata into an existing transaction (e.g. cashVoucherPhotoUrl).
+  Future<void> updateTransactionMetadata(
+    String transactionId,
+    Map<String, dynamic> metadataPatch,
+  ) async {
+    if (transactionId.isEmpty || transactionId.trim().isEmpty) {
+      throw ArgumentError('Transaction ID cannot be empty');
+    }
+    final ref = _transactionsRef().doc(transactionId.trim());
+    final doc = await ref.get();
+    if (!doc.exists || doc.data() == null) {
+      throw ArgumentError('Transaction not found: $transactionId');
+    }
+    final data = doc.data()!;
+    final currentMetadata = Map<String, dynamic>.from(
+      data['metadata'] as Map<String, dynamic>? ?? {},
+    );
+    currentMetadata.addAll(metadataPatch);
+    await ref.update({
+      'metadata': currentMetadata,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   /// Get all client payment transactions (income)
   Future<List<Transaction>> getClientPayments({
     required String organizationId,

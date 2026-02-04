@@ -4,6 +4,7 @@ import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/payment_accounts/payment_accounts_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -32,7 +33,7 @@ class PaymentAccountsPage extends StatelessWidget {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -43,7 +44,7 @@ class PaymentAccountsPage extends StatelessWidget {
                 onPressed: () => _openAccountDialog(context),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             BlocBuilder<PaymentAccountsCubit, PaymentAccountsState>(
               builder: (context, state) {
                 if (state.status == ViewStatus.loading) {
@@ -51,7 +52,7 @@ class PaymentAccountsPage extends StatelessWidget {
                 }
                 if (state.accounts.isEmpty) {
                   return const Padding(
-                    padding: EdgeInsets.only(top: 40),
+                    padding: EdgeInsets.only(top: AppSpacing.paddingXXXL * 1.25),
                     child: Text(
                       'No payment accounts yet. Tap "Add Payment Account" to create one.',
                       style: TextStyle(
@@ -67,7 +68,7 @@ class PaymentAccountsPage extends StatelessWidget {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: state.accounts.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
                     itemBuilder: (context, index) {
                       final account = state.accounts[index];
                       return AnimationConfiguration.staggeredList(
@@ -212,7 +213,7 @@ class _AccountDataListItem extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: AuthColors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
       ),
       child: DataList(
         title: account.name,
@@ -229,7 +230,7 @@ class _AccountDataListItem extends StatelessWidget {
               color: _getStatusColor(),
               size: 8,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             IconButton(
               icon: Icon(
                 account.isPrimary ? Icons.star : Icons.star_border,
@@ -241,7 +242,7 @@ class _AccountDataListItem extends StatelessWidget {
               constraints: const BoxConstraints(),
               tooltip: account.isPrimary ? 'Remove Primary' : 'Set Primary',
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.paddingSM),
             IconButton(
               icon: const Icon(
                 Icons.edit_outlined,
@@ -252,7 +253,7 @@ class _AccountDataListItem extends StatelessWidget {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.paddingSM),
             IconButton(
               icon: const Icon(
                 Icons.delete_outline,
@@ -341,7 +342,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                           ? 'Enter account name'
                           : null,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.paddingMD),
                 DropdownButtonFormField<PaymentAccountType>(
                   initialValue: _type,
                   dropdownColor: AuthColors.surface,
@@ -358,21 +359,21 @@ class _AccountDialogState extends State<_AccountDialog> {
                   }).toList(),
                 ),
                 if (_type == PaymentAccountType.bank) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   TextFormField(
                     controller: _accountNumberController,
                     style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('Account Number'),
                     keyboardType: TextInputType.number,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   TextFormField(
                     controller: _ifscCodeController,
                     style: const TextStyle(color: AuthColors.textMain),
                     decoration: _inputDecoration('IFSC Code'),
                     textCapitalization: TextCapitalization.characters,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   TextFormField(
                     controller: _upiIdController,
                     style: const TextStyle(color: AuthColors.textMain),
@@ -380,12 +381,12 @@ class _AccountDialogState extends State<_AccountDialog> {
                     onChanged: (_) => setState(() {}),
                   ),
                   if (_upiIdController.text.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.paddingSM),
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(AppSpacing.paddingMD),
                       decoration: BoxDecoration(
                         color: AuthColors.surface,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                         border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
                       ),
                       child: const Row(
@@ -395,7 +396,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                             color: AuthColors.primary,
                             size: 16,
                           ),
-                          SizedBox(width: 8),
+                          SizedBox(width: AppSpacing.paddingSM),
                           Expanded(
                             child: Text(
                               'QR code will be auto-generated from UPI ID',
@@ -411,7 +412,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                   ],
                 ],
                 if (_type == PaymentAccountType.upi) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.paddingMD),
                   TextFormField(
                     controller: _upiIdController,
                     style: const TextStyle(color: AuthColors.textMain),
@@ -421,12 +422,12 @@ class _AccountDialogState extends State<_AccountDialog> {
                             ? 'Enter UPI ID'
                             : null,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.paddingSM),
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(AppSpacing.paddingMD),
                     decoration: BoxDecoration(
                       color: AuthColors.surface,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
                     ),
                     child: const Row(
@@ -436,7 +437,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                           color: AuthColors.primary,
                           size: 16,
                         ),
-                        SizedBox(width: 8),
+                        SizedBox(width: AppSpacing.paddingSM),
                         Expanded(
                           child: Text(
                             'QR code will be auto-generated from UPI ID',
@@ -450,7 +451,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.paddingMD),
                 SwitchListTile(
                   title: const Text(
                     'Active',
@@ -544,7 +545,7 @@ class _AccountDialogState extends State<_AccountDialog> {
       fillColor: AuthColors.surface,
       labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );

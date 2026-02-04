@@ -21,6 +21,17 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
+    # Const-related rules for better performance
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_const_constructors_in_immutables: true
+    
+    # Code organization rules
+    # Note: avoid_returning_widgets may require flutter_custom_lints package
+    # If this rule is not recognized, add flutter_custom_lints to dev_dependencies
+    avoid_returning_widgets: true  # Encourages breaking down large build methods
+    
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 

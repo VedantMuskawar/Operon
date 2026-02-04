@@ -12,6 +12,7 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -214,7 +215,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               children: [
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     child: Form(
             key: _formKey,
             child: Column(
@@ -222,7 +223,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               children: [
                 // Client Selection
                 _buildClientSelection(state),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.paddingXL),
 
                 // Current Balance (if client selected)
                 if (state.selectedClientId != null && state.currentBalance != null)
@@ -230,15 +231,15 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
 
                 // Payment Amount
                 _buildAmountField(),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.paddingXL),
 
                 // Payment Accounts
                 _buildPaymentAccountsSection(state),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.paddingXL),
 
                 // Payment Date
                 _buildDateField(),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppSpacing.paddingXL),
 
                 // Receipt Photo
                 _buildReceiptPhotoSection(state),
@@ -267,12 +268,12 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     final hasClient = state.selectedClientId != null;
     return InkWell(
       onTap: _selectClient,
-      borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.paddingLG),
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(
             color: hasClient ? AuthColors.textMainWithOpacity(0.24) : AuthColors.textMainWithOpacity(0.12),
           ),
@@ -283,7 +284,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               Icons.person,
               color: hasClient ? AuthColors.textMain : AuthColors.textSub,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,10 +309,10 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
 
   Widget _buildCurrentBalance(double balance) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: balance >= 0 ? AuthColors.success.withOpacity(0.1) : AuthColors.error.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(
           color: balance >= 0 ? AuthColors.success.withOpacity(0.3) : AuthColors.error.withOpacity(0.3),
         ),
@@ -322,7 +323,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
             balance >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
             color: balance >= 0 ? AuthColors.success : AuthColors.error,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,7 +332,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                   'Current Balance',
                   style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   _formatCurrency(balance.abs()),
                   style: TextStyle(
@@ -360,15 +361,15 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         filled: true,
         fillColor: AuthColors.surface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           borderSide: const BorderSide(color: AuthColors.primary, width: 2),
         ),
       ),
@@ -388,18 +389,18 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   Widget _buildDateField() {
     return InkWell(
       onTap: _selectDate,
-      borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.paddingLG),
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
         ),
         child: Row(
           children: [
             const Icon(Icons.calendar_today, color: AuthColors.textSub),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,7 +409,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                     'Payment Date',
                     style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.paddingXS),
                   Text(
                     _selectedDate != null
                         ? '${_selectedDate!.day} ${_getMonthName(_selectedDate!.month)} ${_selectedDate!.year}'
@@ -433,7 +434,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
           'Receipt Photo (Optional)',
           style: TextStyle(color: AuthColors.textSub, fontSize: 14),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.paddingMD),
         if (state.receiptPhoto != null)
           Stack(
             children: [
@@ -441,11 +442,11 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 height: 200,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   child: Image.file(
                     File(state.receiptPhoto!),
                     fit: BoxFit.cover,
@@ -468,20 +469,20 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         else
           InkWell(
             onTap: _pickReceiptPhoto,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
             child: Container(
               height: 120,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: AuthColors.surface,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 border: Border.fromBorderSide(BorderSide(color: AuthColors.textMainWithOpacity(0.12))),
               ),
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_photo_alternate, color: AuthColors.textSub, size: 40),
-                  SizedBox(height: 8),
+                  SizedBox(height: AppSpacing.paddingSM),
                   Text(
                     'Add Receipt Photo',
                     style: TextStyle(color: AuthColors.textSub),
@@ -548,7 +549,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -590,9 +591,9 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       style: ElevatedButton.styleFrom(
         backgroundColor: AuthColors.primary,
         disabledBackgroundColor: AuthColors.surface,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         ),
       ),
       child: state.isSubmitting
@@ -643,7 +644,7 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.8,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.paddingXL),
       decoration: const BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
@@ -653,17 +654,17 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
           Container(
             width: 42,
             height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
+            margin: const EdgeInsets.only(bottom: AppSpacing.paddingLG),
             decoration: BoxDecoration(
               color: AuthColors.textMainWithOpacity(0.24),
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
             ),
           ),
           const Text(
             'Select Client',
             style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.paddingXL),
           TextField(
             controller: _searchController,
             autofocus: true,
@@ -684,12 +685,12 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
               filled: true,
               fillColor: AuthColors.backgroundAlt,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 borderSide: BorderSide.none,
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           Expanded(
             child: BlocBuilder<ClientsCubit, ClientsState>(
               builder: (context, state) {
@@ -806,12 +807,12 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
     if (!widget.isSelected) {
       return InkWell(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
           decoration: BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
           ),
           child: Row(
@@ -821,7 +822,7 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
                 _getAccountTypeIcon(widget.account.type),
                 style: const TextStyle(fontSize: 18),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Text(
                 widget.account.name,
                 style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
@@ -833,10 +834,10 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
           color: AuthColors.primaryWithOpacity(0.5),
           width: 2,
@@ -853,7 +854,7 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
                 _getAccountTypeIcon(widget.account.type),
                 style: const TextStyle(fontSize: 18),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Expanded(
                 child: Text(
                   widget.account.name,
@@ -868,7 +869,7 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.paddingSM),
           SizedBox(
             width: 150,
             child: TextFormField(
@@ -882,18 +883,18 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
                 filled: true,
                 fillColor: AuthColors.backgroundAlt,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   borderSide: BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   borderSide: const BorderSide(color: AuthColors.primary, width: 2),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
               ),
               onChanged: (value) {
                 final amount = double.tryParse(value.replaceAll(',', '')) ?? 0.0;

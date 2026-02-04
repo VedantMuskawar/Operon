@@ -7,6 +7,7 @@ import 'package:dash_mobile/domain/entities/organization_user.dart';
 import 'package:dash_mobile/presentation/blocs/users/users_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/roles/roles_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -41,7 +42,7 @@ class UsersPage extends StatelessWidget {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -56,9 +57,9 @@ class UsersPage extends StatelessWidget {
             else
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.paddingMD),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   color: AuthColors.textMainWithOpacity(0.13),
                 ),
                 child: const Text(
@@ -66,7 +67,7 @@ class UsersPage extends StatelessWidget {
                   style: TextStyle(color: AuthColors.textSub),
                 ),
               ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.paddingXL),
             BlocBuilder<UsersCubit, UsersState>(
               builder: (context, state) {
                 if (state.status == ViewStatus.loading) {
@@ -87,7 +88,7 @@ class UsersPage extends StatelessWidget {
                 return Column(
                   children: [
                     for (int i = 0; i < state.users.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 12),
+                      if (i > 0) const SizedBox(height: AppSpacing.paddingMD),
                       _UserTile(
                         user: state.users[i],
                         canManage: canManageUsers,
@@ -153,14 +154,14 @@ class _UserTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [AuthColors.surface, AuthColors.background],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
@@ -170,12 +171,12 @@ class _UserTile extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: AuthColors.textMainWithOpacity(0.1),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
             ),
             alignment: Alignment.center,
             child: const Icon(Icons.person_outline, color: AuthColors.textMain),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.paddingMD),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,12 +188,12 @@ class _UserTile extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   user.phone,
                   style: const TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   user.roleTitle,
                   style: const TextStyle(color: AuthColors.textDisabled, fontSize: 12),
@@ -337,7 +338,7 @@ class _UserDialogState extends State<_UserDialog> {
                         ? 'Enter name'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _phoneController,
                 style: const TextStyle(color: AuthColors.textMain),
@@ -348,7 +349,7 @@ class _UserDialogState extends State<_UserDialog> {
                         ? 'Enter phone number'
                         : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<OrganizationRole>(
                 initialValue: _currentRole(roles),
                 dropdownColor: AuthColors.surface,
@@ -373,7 +374,7 @@ class _UserDialogState extends State<_UserDialog> {
               ),
               if (_shouldShowEmployeeDropdown(roles))
                 Padding(
-                  padding: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.only(top: AppSpacing.paddingMD),
                   child: _buildEmployeeDropdown(roles),
                 ),
             ],
@@ -443,16 +444,16 @@ class _UserDialogState extends State<_UserDialog> {
       return const Align(
         alignment: Alignment.centerLeft,
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.symmetric(vertical: AppSpacing.paddingSM),
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
       );
     }
     if (_employees.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.paddingMD),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           color: AuthColors.surface,
           border: Border.all(
             color: AuthColors.textMain.withOpacity(0.1),
@@ -492,7 +493,7 @@ class _UserDialogState extends State<_UserDialog> {
       fillColor: AuthColors.surface,
       labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
     );

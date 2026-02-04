@@ -198,6 +198,17 @@ class TransactionsRepository {
     );
   }
 
+  /// Merge metadata into an existing transaction (e.g. cashVoucherPhotoUrl).
+  Future<void> updateTransactionMetadata(
+    String transactionId,
+    Map<String, dynamic> metadataPatch,
+  ) {
+    return _dataSource.updateTransactionMetadata(
+      transactionId,
+      metadataPatch,
+    );
+  }
+
   /// Get cash ledger data (order transactions, payments, purchases, expenses)
   Future<Map<String, List<Transaction>>> getCashLedgerData({
     required String organizationId,

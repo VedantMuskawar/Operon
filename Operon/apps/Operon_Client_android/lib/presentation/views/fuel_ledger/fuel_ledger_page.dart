@@ -5,6 +5,7 @@ import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/views/fuel_ledger/record_fuel_purchase_dialog.dart';
 import 'package:dash_mobile/presentation/views/fuel_ledger/link_trips_dialog.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -180,14 +181,14 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                   child: _isLoading
                       ? const Center(
                           child: Padding(
-                            padding: EdgeInsets.all(40),
+                            padding: EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
                             child: CircularProgressIndicator(),
                           ),
                         )
                       : _error != null
                           ? Center(
                               child: Padding(
-                                padding: const EdgeInsets.all(40),
+                                padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
                                 child: Column(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -197,13 +198,13 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                               size: 64,
                               color: Colors.redAccent.withOpacity(0.7),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.paddingLG),
                             Text(
                               _error!,
                               style: const TextStyle(color: Colors.red),
                               textAlign: TextAlign.center,
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.paddingLG),
                             ElevatedButton(
                               onPressed: _loadFuelPurchases,
                               style: ElevatedButton.styleFrom(
@@ -219,7 +220,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                   : _fuelPurchases.isEmpty
                       ? Center(
                           child: Padding(
-                            padding: const EdgeInsets.all(40),
+                            padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -229,7 +230,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                   size: 64,
                                   color: AuthColors.textDisabled,
                                 ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: AppSpacing.paddingLG),
                                 Text(
                                   'No fuel purchases found',
                                   style: TextStyle(
@@ -237,7 +238,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                                     fontSize: 16,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: AppSpacing.paddingSM),
                                 Text(
                                   'Tap the button below to record a fuel purchase',
                                   style: TextStyle(
@@ -293,12 +294,12 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                       ),
                     );
                   },
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingLG),
                     decoration: BoxDecoration(
                       color: AuthColors.legacyAccent,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                       boxShadow: [
                         BoxShadow(
                           color: const Color(0xFF6F4BFF).withOpacity(0.4),
@@ -311,7 +312,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.add, color: AuthColors.textMain, size: 24),
-                        SizedBox(width: 8),
+                        SizedBox(width: AppSpacing.paddingSM),
                         Text(
                           'Record Fuel Purchase',
                           style: TextStyle(
@@ -353,7 +354,7 @@ class _FuelPurchasesTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 100),
+      margin: const EdgeInsets.only(bottom: AppSpacing.paddingXXXL * 3.125),
       constraints: const BoxConstraints(minWidth: 840),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -364,7 +365,7 @@ class _FuelPurchasesTable extends StatelessWidget {
             AuthColors.background,
           ],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Table(
@@ -475,7 +476,7 @@ class _TableHeaderCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingLG),
       child: Text(
         text,
         style: const TextStyle(
@@ -514,10 +515,10 @@ class _TableDataCell extends StatelessWidget {
 
     if (hasBadge) {
       content = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
         decoration: BoxDecoration(
           color: const Color(0xFF6F4BFF).withOpacity(0.2),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
           border: Border.all(
             color: const Color(0xFF6F4BFF).withOpacity(0.5),
           ),
@@ -534,7 +535,7 @@ class _TableDataCell extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       child: Align(
         alignment: alignment,
         child: content,
@@ -555,13 +556,13 @@ class _TableActionCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingSM),
       child: Center(
         child: TextButton(
           onPressed: onLinkTrips,
           style: TextButton.styleFrom(
             foregroundColor: const Color(0xFF6F4BFF),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.gapSM),
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
@@ -569,7 +570,7 @@ class _TableActionCell extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.link, size: 14),
-              const SizedBox(width: 4),
+              const SizedBox(width: AppSpacing.paddingXS),
               Text(
                 linkedTripsCount > 0 ? 'Update' : 'Link',
                 style: const TextStyle(fontSize: 11),

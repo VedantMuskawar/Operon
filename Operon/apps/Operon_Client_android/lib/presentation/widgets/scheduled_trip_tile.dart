@@ -4,6 +4,7 @@ import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -287,10 +288,10 @@ class ScheduledTripTile extends StatelessWidget {
     final hasDM = dmNumber != null;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: statusColor, // Use solid status color for background
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
@@ -306,7 +307,7 @@ class ScheduledTripTile extends StatelessWidget {
           // Tappable content area
           InkWell(
             onTap: onOpenDetails,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -326,7 +327,7 @@ class ScheduledTripTile extends StatelessWidget {
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppSpacing.paddingXS / 2),
                           Row(
                             children: [
                               const Icon(
@@ -334,7 +335,7 @@ class ScheduledTripTile extends StatelessWidget {
                                 size: 12,
                                 color: Colors.white60,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: AppSpacing.paddingXS),
                               Expanded(
                                 child: Text(
                                   zoneText,
@@ -350,13 +351,13 @@ class ScheduledTripTile extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.paddingSM),
                     // Vehicle and Slot info
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1B1B2C),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                         border: Border.all(
                           color: Colors.white.withOpacity(0.1),
                           width: 1,
@@ -372,7 +373,7 @@ class ScheduledTripTile extends StatelessWidget {
                                 size: 12,
                                 color: Colors.white70,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: AppSpacing.paddingXS),
                               Text(
                                 vehicleNumber,
                                 style: const TextStyle(
@@ -383,7 +384,7 @@ class ScheduledTripTile extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppSpacing.paddingXS / 2),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -392,7 +393,7 @@ class ScheduledTripTile extends StatelessWidget {
                                 size: 12,
                                 color: Colors.white70,
                               ),
-                              const SizedBox(width: 4),
+                              const SizedBox(width: AppSpacing.paddingXS),
                               Text(
                                 'Slot $slot',
                                 style: const TextStyle(
@@ -408,15 +409,15 @@ class ScheduledTripTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpacing.paddingMD),
                 // Product and quantity info
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1B1B2C).withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -426,7 +427,7 @@ class ScheduledTripTile extends StatelessWidget {
                             size: 12,
                             color: Colors.white70,
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: AppSpacing.paddingXS),
                           Text(
                             productName,
                             style: const TextStyle(
@@ -438,12 +439,12 @@ class ScheduledTripTile extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: AppSpacing.gapSM),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS),
                       decoration: BoxDecoration(
                         color: const Color(0xFF4CAF50).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                       ),
                       child: Text(
                         'Qty: $fixedQuantityPerTrip',
@@ -466,7 +467,7 @@ class ScheduledTripTile extends StatelessWidget {
               orderStatus.toLowerCase() == 'dispatched' ||
               orderStatus.toLowerCase() == 'delivered' ||
               orderStatus.toLowerCase() == 'returned') ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.paddingMD),
             Column(
               children: [
                 // Row 1: DM button (full width) - Always show DM number if it exists
@@ -490,7 +491,7 @@ class ScheduledTripTile extends StatelessWidget {
                 if (hasDM || (orderStatus.toLowerCase() != 'dispatched' && 
                              orderStatus.toLowerCase() != 'delivered' &&
                              orderStatus.toLowerCase() != 'returned'))
-                  const SizedBox(height: 6),
+                  const SizedBox(height: AppSpacing.gapSM),
                 // Row 2: Call and Cancel DM / Reschedule
                 // Always show Call button for all statuses including delivered and returned
                 Row(
@@ -506,7 +507,7 @@ class ScheduledTripTile extends StatelessWidget {
                     if (orderStatus.toLowerCase() != 'dispatched' && 
                         orderStatus.toLowerCase() != 'delivered' &&
                         orderStatus.toLowerCase() != 'returned') ...[
-                      const SizedBox(width: 6),
+                      const SizedBox(width: AppSpacing.gapSM),
                       Expanded(
                         child: _ActionButton(
                           icon: hasDM ? Icons.cancel_outlined : Icons.schedule,
@@ -544,19 +545,19 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.gapSM),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: Colors.white, size: 14),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.paddingXS),
             Flexible(
               child: Text(
                 label,

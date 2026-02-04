@@ -17,9 +17,19 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
         _vendorsRepository = vendorsRepository,
         _organizationId = organizationId,
         super(CashLedgerState(
-          startDate: DateTime.now(),
-          endDate: DateTime.now(),
+          startDate: _getTodayStart(),
+          endDate: _getTodayEnd(),
         ));
+
+  static DateTime _getTodayStart() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  static DateTime _getTodayEnd() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, 23, 59, 59);
+  }
 
   final TransactionsRepository _transactionsRepository;
   final VendorsRepository _vendorsRepository;
@@ -127,6 +137,22 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
 
   void search(String query) {
     emit(state.copyWith(searchQuery: query));
+  }
+
+  /// Update date range and reload data with new filter
+  Future<void> setDateRange(DateTime? startDate, DateTime? endDate) async {
+    final today = DateTime.now();
+    final start = startDate != null
+        ? DateTime(startDate.year, startDate.month, startDate.day)
+        : state.startDate ?? DateTime(today.year, today.month, today.day);
+    final end = endDate != null
+        ? DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59)
+        : state.endDate ?? DateTime(today.year, today.month, today.day, 23, 59, 59);
+    
+    await load(
+      startDate: start,
+      endDate: end,
+    );
   }
 
   Future<void> refresh() async {

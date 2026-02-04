@@ -6,9 +6,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:image_picker_for_web/image_picker_for_web.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Register image_picker web implementation so pickImage has a handler on web
+  ImagePickerPlugin.registerWith(webPluginRegistrar);
   
   try {
     await Firebase.initializeApp(

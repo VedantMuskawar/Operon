@@ -1,4 +1,6 @@
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 
 class QuickNavBar extends StatelessWidget {
@@ -35,16 +37,27 @@ class QuickNavBar extends StatelessWidget {
 
     return SafeArea(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingSM),
         decoration: BoxDecoration(
-          color: AppColors.cardBackground.withOpacity(0.95),
+          color: AuthColors.surface.withOpacity(0.95),
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
           border: Border.all(
-            color: AppColors.borderDefault,
+            color: AuthColors.textMainWithOpacity(0.1),
             width: 1,
           ),
-          boxShadow: AppShadows.cardElevated,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -117,8 +130,8 @@ class _NavBarItemState extends State<_NavBarItem>
     );
 
     _colorAnimation = ColorTween(
-      begin: AppColors.textTertiary,
-      end: AppColors.primary,
+      begin: AuthColors.textDisabled,
+      end: AuthColors.primary,
     ).animate(
       CurvedAnimation(
         parent: _controller,
@@ -159,11 +172,11 @@ class _NavBarItemState extends State<_NavBarItem>
         animation: _controller,
         builder: (context, child) {
           return Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
             decoration: BoxDecoration(
               color: widget.isActive
-                  ? AppColors.primary.withOpacity(0.2 * _fadeAnimation.value)
-                  : Colors.transparent,
+                  ? AuthColors.primary.withOpacity(0.2 * _fadeAnimation.value)
+                  : AuthColors.background.withOpacity(0),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             ),
             child: Column(
@@ -185,7 +198,7 @@ class _NavBarItemState extends State<_NavBarItem>
                       width: 4,
                       height: 4,
                       decoration: const BoxDecoration(
-                        color: AppColors.primary,
+                        color: AuthColors.primary,
                         shape: BoxShape.circle,
                       ),
                     ),

@@ -13,6 +13,7 @@ import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/credit_salary_dialog.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/record_bonus_dialog.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/employee_wages_analytics_page.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -331,7 +332,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                     children: [
                       Expanded(
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(AppSpacing.paddingLG),
                           child: Builder(
               builder: (context) {
                 final media = MediaQuery.of(context);
@@ -354,7 +355,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                         );
                       },
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.paddingLG),
                     SizedBox(
                       height: pageViewHeight,
                       child: PageView(
@@ -406,7 +407,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                       onCreditSalary: _openCreditSalaryDialog,
                                       onRecordBonus: _openRecordBonusDialog,
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: AppSpacing.paddingLG),
                                     // Row 2: Date range (left of search) + Search + Sort
                                     Row(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,7 +437,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                             },
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
+                                        const SizedBox(width: AppSpacing.paddingMD),
                                         Expanded(
                                           flex: 3,
                                           child: TextField(
@@ -455,18 +456,18 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                               filled: true,
                                               fillColor: AuthColors.surface,
                                               border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(14),
+                                                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                                                 borderSide: BorderSide.none,
                                               ),
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
+                                        const SizedBox(width: AppSpacing.paddingSM),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingSM),
                                           decoration: BoxDecoration(
                                             color: AuthColors.surface,
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                                             border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
                                           ),
                                           child: DropdownButtonHideUnderline(
@@ -492,7 +493,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: AppSpacing.paddingLG),
                                     if (filtered.isEmpty && _query.isNotEmpty)
                                       _EmptySearchState(query: _query)
                                     else if (filtered.isEmpty)
@@ -512,7 +513,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                             ),
                                           ),
                                           if (usePagination) ...[
-                                            const SizedBox(height: 12),
+                                            const SizedBox(height: AppSpacing.paddingMD),
                                             _PaginationControls(
                                               currentPage: _wagesCurrentPage,
                                               totalPages: _getTotalPages(filtered.length),
@@ -583,11 +584,11 @@ class _AndroidWagesStatsRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _MiniStat(label: 'Total Amount', value: formatted, color: AuthColors.warning),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.paddingSM),
               Row(
                 children: [
                   _MiniStat(label: 'Salary', value: salaryCount.toString(), color: AuthColors.successVariant),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.paddingMD),
                   _MiniStat(label: 'Bonuses', value: bonusCount.toString(), color: AuthColors.info),
                 ],
               ),
@@ -606,12 +607,12 @@ class _AndroidWagesStatsRow extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AuthColors.primary,
                   foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.gapSM),
             SizedBox(
               width: 140,
               child: ElevatedButton.icon(
@@ -621,8 +622,8 @@ class _AndroidWagesStatsRow extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AuthColors.accentPurple,
                   foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
                 ),
               ),
             ),
@@ -643,19 +644,19 @@ class _MiniStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.gapSM),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 6),
+          const SizedBox(width: AppSpacing.gapSM),
           Text(value, style: const TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(width: 4),
+          const SizedBox(width: AppSpacing.paddingXS),
           Text(label, style: const TextStyle(color: AuthColors.textSub, fontSize: 11)),
         ],
       ),
@@ -686,7 +687,7 @@ class _PageIndicator extends StatelessWidget {
             onTap: () => onPageTap(index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
+              margin: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXS),
               width: isActive ? 24 : 8,
               height: 8,
               decoration: BoxDecoration(
@@ -708,12 +709,12 @@ class _LoadingState extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Center(
       child: Padding(
-        padding: EdgeInsets.all(40),
+        padding: EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(),
-            SizedBox(height: 24),
+            SizedBox(height: AppSpacing.paddingXXL),
             const Text(
               'Loading employee wages...',
               style: TextStyle(color: AuthColors.textSub, fontSize: 16),
@@ -738,23 +739,23 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.error_outline, size: 64, color: AuthColors.error.withValues(alpha: 0.7)),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             const Text(
               'Failed to load employee wages',
               style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.paddingSM),
             Text(
               message,
               style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Retry'),
@@ -762,8 +763,8 @@ class _ErrorState extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AuthColors.primary,
                 foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXXL, vertical: AppSpacing.paddingMD),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
               ),
             ),
           ],
@@ -782,7 +783,7 @@ class _EmptyTransactionsState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -795,18 +796,18 @@ class _EmptyTransactionsState extends StatelessWidget {
               ),
               child: const Icon(Icons.payments_outlined, size: 40, color: AuthColors.primary),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             const Text(
               'No wages transactions yet',
               style: TextStyle(color: AuthColors.textMain, fontSize: 20, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.paddingSM),
             const Text(
               'Start by crediting salary to your employees',
               style: TextStyle(color: AuthColors.textSub, fontSize: 14),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.paddingXXL),
             ElevatedButton.icon(
               icon: const Icon(Icons.payments, size: 20),
               label: const Text('Credit Salary'),
@@ -814,8 +815,8 @@ class _EmptyTransactionsState extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AuthColors.primary,
                 foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXXL, vertical: AppSpacing.paddingLG),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
               ),
             ),
           ],
@@ -834,17 +835,17 @@ class _EmptySearchState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.search_off, size: 64, color: AuthColors.textSub.withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             const Text(
               'No results found',
               style: TextStyle(color: AuthColors.textMain, fontSize: 20, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.paddingSM),
             Text(
               'No transactions match "$query"',
               style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
@@ -898,8 +899,8 @@ class _WagesDataTable extends StatelessWidget {
           final label = isSalary ? 'Salary' : (tx.category == TransactionCategory.bonus ? 'Bonus' : tx.category.name);
           final color = isSalary ? AuthColors.primary : AuthColors.accentPurple;
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(AppSpacing.radiusXS)),
             child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 11)),
           );
         },
@@ -956,10 +957,10 @@ class _PaginationControls extends StatelessWidget {
     final start = (currentPage * itemsPerPage) + 1;
     final end = ((currentPage + 1) * itemsPerPage).clamp(0, totalItems);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
@@ -975,7 +976,7 @@ class _PaginationControls extends StatelessWidget {
                 color: currentPage == 0 ? AuthColors.textDisabled : AuthColors.textSub,
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
                 child: Text('${currentPage + 1} / $totalPages', style: const TextStyle(color: AuthColors.textMain, fontSize: 13)),
               ),
               IconButton(

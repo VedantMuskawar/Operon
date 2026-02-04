@@ -173,14 +173,15 @@ class ExpensesCubit extends Cubit<ExpensesState> {
     }
   }
 
-  /// Create a salary debit expense
-  Future<void> createSalaryDebit({
+  /// Create a salary debit expense. Returns the created transaction ID, or null on failure.
+  Future<String?> createSalaryDebit({
     required String employeeId,
     required double amount,
     required String paymentAccountId,
     required DateTime date,
     String? description,
     String? referenceNumber,
+    String? employeeName,
   }) async {
     emit(state.copyWith(status: ViewStatus.loading, message: null));
     try {
@@ -202,15 +203,20 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         paymentAccountId: paymentAccountId,
         description: description,
         referenceNumber: referenceNumber,
+        metadata: employeeName != null && employeeName.isNotEmpty
+            ? {'employeeName': employeeName}
+            : null,
       );
 
-      await _transactionsDataSource.createTransaction(transaction);
+      final transactionId = await _transactionsDataSource.createTransaction(transaction);
       await load();
+      return transactionId;
     } catch (e) {
       emit(state.copyWith(
         status: ViewStatus.failure,
         message: 'Unable to create salary payment: $e',
       ));
+      return null;
     }
   }
 

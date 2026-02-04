@@ -3,8 +3,9 @@ import 'dart:typed_data';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar;
-import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal, OperonPdfPreviewModal;
-import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, generateLedgerPdf, LedgerRowData;
+import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal;
+import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, LedgerRowData;
+import 'package:dash_web/presentation/widgets/ledger_preview_dialog.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
@@ -12,8 +13,10 @@ import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/domain/entities/wage_type.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/detail_modal_base.dart';
+import 'package:dash_web/presentation/widgets/salary_voucher_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 
 /// Modal dialog for displaying employee details
@@ -892,27 +895,23 @@ class _LedgerTable extends StatelessWidget {
         }
       }
 
-      // Generate PDF
-      final pdfBytes = await generateLedgerPdf(
-        ledgerType: LedgerType.employeeLedger,
-        entityName: employeeName,
-        transactions: ledgerRows,
-        openingBalance: openingBal,
-        companyHeader: dmSettings.header,
-        startDate: dateRange.start,
-        endDate: dateRange.end,
-        logoBytes: logoBytes,
-      );
-
-      // Close loading dialog
+      // Close loading dialog and show ledger view (view first; Print generates PDF)
       if (!context.mounted) return;
       Navigator.of(context).pop();
 
-      // Show PDF preview modal
-      await OperonPdfPreviewModal.show(
+      await showDialog<void>(
         context: context,
-        pdfBytes: pdfBytes,
-        title: 'Ledger of $employeeName',
+        builder: (context) => LedgerPreviewDialog(
+          ledgerType: LedgerType.employeeLedger,
+          entityName: employeeName,
+          transactions: ledgerRows,
+          openingBalance: openingBal,
+          companyHeader: dmSettings.header,
+          startDate: dateRange.start,
+          endDate: dateRange.end,
+          logoBytes: logoBytes,
+          title: 'Ledger of $employeeName',
+        ),
       );
     } catch (e) {
       if (context.mounted) {
@@ -1011,6 +1010,14 @@ class _LedgerTable extends StatelessWidget {
                 final isCredit = type == 'credit';
                 final credit = isCredit ? amount : 0.0;
                 final debit = !isCredit ? amount : 0.0;
+                final txId = tx['transactionId'] as String? ?? tx['id'] as String?;
+                final metadata = tx['metadata'] as Map<String, dynamic>?;
+                final voucherUrl = metadata?['cashVoucherPhotoUrl']?.toString();
+                final showVoucher = category == 'salaryDebit' &&
+                    txId != null &&
+                    txId.isNotEmpty &&
+                    voucherUrl != null &&
+                    voucherUrl.isNotEmpty;
 
                 return _LedgerTableRow(
                   date: date,
@@ -1022,6 +1029,8 @@ class _LedgerTable extends StatelessWidget {
                   remarks: '-',
                   formatCurrency: formatCurrency,
                   formatDate: formatDate,
+                  transactionId: txId,
+                  showVoucher: showVoucher,
                 );
               }),
             ],
@@ -1092,6 +1101,8 @@ class _LedgerTableRow extends StatelessWidget {
     required this.remarks,
     required this.formatCurrency,
     required this.formatDate,
+    this.transactionId,
+    this.showVoucher = false,
   });
 
   final dynamic date;
@@ -1103,6 +1114,8 @@ class _LedgerTableRow extends StatelessWidget {
   final String remarks;
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
+  final String? transactionId;
+  final bool showVoucher;
 
   static const _cellStyle = TextStyle(
     color: AuthColors.textMain,
@@ -1128,7 +1141,18 @@ class _LedgerTableRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             alignment: Alignment.center,
-            child: Text(remarks, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: showVoucher && transactionId != null
+                ? TextButton(
+                    onPressed: () => showSalaryVoucherModal(context, transactionId!),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AuthColors.primary,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('View voucher', style: TextStyle(fontSize: 12)),
+                  )
+                : Text(remarks, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
         ),
       ],

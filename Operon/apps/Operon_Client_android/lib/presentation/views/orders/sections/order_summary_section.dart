@@ -1,8 +1,11 @@
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:dash_mobile/presentation/blocs/create_order/create_order_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
+import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -78,7 +81,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
     if (state.selectedItems.isEmpty) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32.0),
+          padding: EdgeInsets.all(AppSpacing.paddingXXXL),
           child: Text(
             'Add products in Section 1 to see order summary',
             style: TextStyle(color: Colors.white70),
@@ -103,33 +106,29 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Order Summary',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.paddingXL),
           // Product Summary Table
           _buildProductTable(state.selectedItems),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           // Advance Payment
           _buildAdvancePaymentSection(),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           // Priority
           _buildPrioritySection(),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.paddingLG),
           // GST Toggle
           _buildGstToggleSection(),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppSpacing.paddingXL),
           // Total Summary
           _buildTotalSummary(totalSubtotal, totalGst, totalAmount),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
           // Create Order Button
           _buildCreateOrderButton(),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.paddingXXL),
         ],
       ),
     );
@@ -137,15 +136,15 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
 
   Widget _buildProductTable(List<dynamic> items) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -163,9 +162,9 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
           children: [
             // Header Row
             TableRow(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Colors.white24, width: 1.5),
+                  bottom: BorderSide(color: AuthColors.textMainWithOpacity(0.24), width: 1.5),
                 ),
               ),
               children: [
@@ -208,11 +207,11 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
 
   Widget _buildTableCell(String text, {bool isHeader = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD, horizontal: AppSpacing.paddingSM),
       child: Text(
         text,
         style: TextStyle(
-          color: isHeader ? Colors.white70 : Colors.white,
+          color: isHeader ? AuthColors.textSub : AuthColors.textMain,
           fontSize: isHeader ? 12 : 13,
           fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
         ),
@@ -225,11 +224,11 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
 
   Widget _buildAdvancePaymentSection() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,40 +249,39 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 activeColor: const Color(0xFF6F4BFF),
                 checkColor: Colors.white,
               ),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Advance Payment',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  style: AppTypography.withColor(
+                    AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+                    AuthColors.textMain,
                   ),
                 ),
               ),
             ],
           ),
           if (_hasAdvancePayment) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.paddingLG),
             TextField(
               controller: _advanceAmountController,
               enabled: true,
-              style: const TextStyle(color: Colors.white),
+              style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
                 labelText: 'Amount (₹)',
-                labelStyle: const TextStyle(color: Colors.white70),
+                labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                 filled: true,
                 fillColor: const Color(0xFF13131E),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                  borderSide: BorderSide(color: AuthColors.accentPurple, width: 2),
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -292,26 +290,26 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.paddingMD),
             DropdownButtonFormField<String>(
               initialValue: _selectedPaymentAccountId,
               isExpanded: true,
               dropdownColor: const Color(0xFF1B1B2C),
               decoration: InputDecoration(
                 labelText: 'Payment Account',
-                labelStyle: const TextStyle(color: Colors.white70),
+                labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                 filled: true,
                 fillColor: const Color(0xFF13131E),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF6F4BFF), width: 2),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                  borderSide: BorderSide(color: AuthColors.accentPurple, width: 2),
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -319,7 +317,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                   vertical: 12,
                 ),
               ),
-              style: const TextStyle(color: Colors.white),
+              style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
               items: _buildPaymentAccountItems(),
               onChanged: (value) {
                 if (value != null && value != 'loading' && value != 'none') {
@@ -362,8 +360,8 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
         value: 'cash',
         child: Row(
           children: [
-            Icon(Icons.money, size: 18, color: Colors.white70),
-            SizedBox(width: 8),
+            Icon(Icons.money, size: 18, color: AuthColors.textSub),
+            SizedBox(width: AppSpacing.paddingSM),
             Text('Cash'),
           ],
         ),
@@ -377,9 +375,9 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
               Icon(
                 _getAccountIcon(account.type),
                 size: 18,
-                color: Colors.white70,
+                color: AuthColors.textSub,
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.paddingSM),
               Expanded(
                 child: Text(
                   account.name,
@@ -387,14 +385,11 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 ),
               ),
               if (account.isPrimary)
-                const Padding(
-                  padding: EdgeInsets.only(left: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: AppSpacing.paddingXS),
                   child: Text(
                     '(Primary)',
-                    style: TextStyle(
-                      color: Color(0xFF6F4BFF),
-                      fontSize: 11,
-                    ),
+                    style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.accentPurple),
                   ),
                 ),
             ],
@@ -406,34 +401,33 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
 
   Widget _buildPrioritySection() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Priority',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+            style: AppTypography.withColor(
+              AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+              AuthColors.textMain,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           Row(
             children: [
               Expanded(
                 child: _buildPriorityOption(
                   'Normal',
                   'normal',
-                  const Color(0xFFC0C0C0), // Silver
+                  AuthColors.textSub, // Silver (closest to 0xFFC0C0C0)
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: _buildPriorityOption(
                   'Priority',
@@ -457,12 +451,12 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG, horizontal: AppSpacing.paddingLG),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.2) : const Color(0xFF13131E),
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? color.withOpacity(0.2) : AuthColors.backgroundAlt,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
-            color: isSelected ? color : Colors.white24,
+            color: isSelected ? color : AuthColors.textMainWithOpacity(0.24),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -486,13 +480,15 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                     : null,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.paddingSM),
             Text(
               label,
-              style: TextStyle(
-                color: isSelected ? color : Colors.white70,
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              style: AppTypography.withColor(
+                AppTypography.withWeight(
+                  AppTypography.body,
+                  isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                isSelected ? color : AuthColors.textSub,
               ),
             ),
           ],
@@ -503,11 +499,11 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
 
   Widget _buildGstToggleSection() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Row(
         children: [
@@ -521,14 +517,11 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
             activeColor: const Color(0xFF6F4BFF),
             checkColor: Colors.white,
           ),
-          const SizedBox(width: 8),
-          const Expanded(
+            const SizedBox(width: AppSpacing.paddingSM),
+          Expanded(
             child: Text(
               'Include GST in order',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
+              style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
             ),
           ),
         ],
@@ -538,14 +531,14 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
 
   Widget _buildTotalSummary(double subtotal, double gst, double total) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF1E1E2F), Color(0xFF13131E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(color: const Color(0xFF6F4BFF), width: 2),
       ),
       child: Column(
@@ -554,12 +547,12 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.gapSM),
                 decoration: BoxDecoration(
                   color: _includeGst
                       ? Colors.green.withOpacity(0.15)
                       : Colors.red.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
                     color: _includeGst
                         ? Colors.green.withOpacity(0.35)
@@ -568,47 +561,39 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 ),
                 child: Text(
                   _includeGst ? 'GST Included' : 'GST Excluded',
-                  style: TextStyle(
-                    color: _includeGst ? Colors.greenAccent : Colors.redAccent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                  style: AppTypography.withColor(
+                    AppTypography.withWeight(AppTypography.labelSmall, FontWeight.w600),
+                    _includeGst ? AuthColors.successVariant : AuthColors.error,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.paddingMD),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Subtotal:',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
+                style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
               ),
               Text(
                 '₹${subtotal.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                style: AppTypography.withColor(
+                  AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+                  AuthColors.textMain,
                 ),
               ),
             ],
           ),
           if (_includeGst && gst > 0) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.paddingSM),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Total GST:',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
                 ),
                 Text(
                   '₹${gst.toStringAsFixed(2)}',
@@ -621,26 +606,24 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
               ],
             ),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           const Divider(color: Colors.white24),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.paddingMD),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Total Amount:',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                style: AppTypography.withColor(
+                  AppTypography.withWeight(AppTypography.h3, FontWeight.w700),
+                  AuthColors.textMain,
                 ),
               ),
               Text(
                 '₹${total.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: Color(0xFF6F4BFF),
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                style: AppTypography.withColor(
+                  AppTypography.withWeight(AppTypography.h2, FontWeight.w700),
+                  AuthColors.accentPurple,
                 ),
               ),
             ],
@@ -661,9 +644,9 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
               },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF6F4BFF),
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           ),
         ),
         child: _isCreatingOrder
@@ -675,12 +658,11 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Text(
+            : Text(
                 'Create Order',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                style: AppTypography.withColor(
+                  AppTypography.withWeight(AppTypography.h4, FontWeight.w600),
+                  AuthColors.textMain,
                 ),
               ),
       ),
