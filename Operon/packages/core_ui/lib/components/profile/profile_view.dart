@@ -17,6 +17,8 @@ class ProfileView extends StatelessWidget {
     required this.onChangeOrg,
     required this.onLogout,
     this.onOpenUsers,
+    this.extraActions,
+    /// @deprecated Use [extraActions] instead. This parameter is kept for backward compatibility.
     this.trailingSection,
   });
 
@@ -27,102 +29,285 @@ class ProfileView extends StatelessWidget {
   final VoidCallback onChangeOrg;
   final VoidCallback onLogout;
   final VoidCallback? onOpenUsers;
-  /// Optional widget shown after quick actions, before Logout (e.g. Caller ID switch on Android).
+  /// Optional list of widgets shown after quick actions, before Logout (e.g. Caller ID switch on Android).
+  /// Prefer this over [trailingSection] for multiple widgets.
+  final List<Widget>? extraActions;
+  /// @deprecated Use [extraActions] instead. Optional widget shown after quick actions, before Logout.
   final Widget? trailingSection;
 
   @override
   Widget build(BuildContext context) {
     // Use FutureBuilder if fetchUserName is provided, otherwise use actualUserName or fallback
     Widget nameWidget;
+    
+    // Helper to get initial display name for immediate display (without phone fallback)
+    String getInitialDisplayName() {
+      debugPrint('[ProfileView] getInitialDisplayName - actualUserName: $actualUserName');
+      debugPrint('[ProfileView] getInitialDisplayName - user.displayName: ${user?.displayName}');
+      
+      if (actualUserName != null && actualUserName!.isNotEmpty) {
+        debugPrint('[ProfileView] Using actualUserName: $actualUserName');
+        return actualUserName!;
+      }
+      final displayName = user?.displayName;
+      if (displayName != null && displayName.isNotEmpty) {
+        debugPrint('[ProfileView] Using user.displayName: $displayName');
+        return displayName;
+      }
+      debugPrint('[ProfileView] Using fallback: User');
+      return 'User';
+    }
+    
     if (fetchUserName != null) {
+      debugPrint('[ProfileView] fetchUserName provided, using FutureBuilder');
       nameWidget = FutureBuilder<String?>(
         future: fetchUserName!(),
         builder: (context, snapshot) {
-          final displayName = snapshot.data ?? 
+          debugPrint('[ProfileView] FutureBuilder state: ${snapshot.connectionState}');
+          debugPrint('[ProfileView] FutureBuilder data: ${snapshot.data}');
+          debugPrint('[ProfileView] FutureBuilder error: ${snapshot.error}');
+          
+          // Show loading state with initial name (without phone fallback)
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            final initialName = getInitialDisplayName();
+            debugPrint('[ProfileView] Loading state - showing initial name: $initialName');
+            return _buildProfileContent(
+              context,
+              displayName: initialName,
+              isLoading: true,
+            );
+          }
+          
+          // Use fetched name, fallback to actualUserName, then user.displayName
+          String displayName = snapshot.data ?? 
                               actualUserName ?? 
                               user?.displayName ?? 
-                              'User';
+                              '';
+          
+          debugPrint('[ProfileView] Final displayName before validation: $displayName');
+          debugPrint('[ProfileView] snapshot.data: ${snapshot.data}');
+          debugPrint('[ProfileView] actualUserName: $actualUserName');
+          debugPrint('[ProfileView] user?.displayName: ${user?.displayName}');
+          
+          // Only use 'User' as fallback, don't use phone number
+          if (displayName.isEmpty || displayName == 'Unnamed') {
+            debugPrint('[ProfileView] DisplayName is empty or Unnamed, using fallback: User');
+            displayName = 'User';
+          }
+          
+          debugPrint('[ProfileView] Final displayName: $displayName');
           return _buildProfileContent(context, displayName: displayName);
         },
       );
     } else {
-      final displayName = actualUserName ?? 
-                          user?.displayName ?? 
-                          'User';
+      debugPrint('[ProfileView] fetchUserName not provided, using direct display');
+      String displayName = getInitialDisplayName();
+      debugPrint('[ProfileView] Direct displayName: $displayName');
       nameWidget = _buildProfileContent(context, displayName: displayName);
     }
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
-        child: nameWidget,
-      ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+      child: nameWidget,
     );
   }
 
   Widget _buildProfileContent(
     BuildContext context, {
     required String displayName,
+    bool isLoading = false,
   }) {
+    // Get organization name if available
+    String? orgName;
+    if (organization != null) {
+      try {
+        orgName = organization.name as String?;
+      } catch (_) {
+        try {
+          orgName = organization['name'] as String?;
+        } catch (_) {}
+      }
+    }
+
+    // Get phone number if available
+    final phoneNumber = user?.phoneNumber;
+    final maskedPhone = (phoneNumber != null && phoneNumber.length >= 10)
+        ? '${phoneNumber.substring(0, 2)}****${phoneNumber.substring(phoneNumber.length - 4)}'
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Simplified Profile Header
+        // Avatar and Name Row
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Avatar
+            // Avatar with gradient
             Container(
-              width: 56,
-              height: 56,
-              decoration: const BoxDecoration(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AuthColors.primary,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AuthColors.primary,
+                    AuthColors.primary.withValues(alpha: 0.75),
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AuthColors.primary.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                    spreadRadius: 0,
+                  ),
+                ],
               ),
               child: const Icon(
                 Icons.person,
                 color: Colors.white,
-                size: 28,
+                size: 36,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 20),
+            // Name and details column
             Expanded(
-              child: Text(
-                displayName,
-                style: const TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'SF Pro Display',
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // User Name - Large and prominent
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          displayName,
+                          style: const TextStyle(
+                            color: AuthColors.textMain,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'SF Pro Display',
+                            height: 1.3,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isLoading)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AuthColors.textSub,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (orgName != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.business_outlined,
+                          size: 14,
+                          color: AuthColors.textSub.withValues(alpha: 0.8),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            orgName,
+                            style: TextStyle(
+                              color: AuthColors.textSub,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              fontFamily: 'SF Pro Display',
+                              height: 1.4,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (maskedPhone != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.phone_outlined,
+                          size: 13,
+                          color: AuthColors.textSub.withValues(alpha: 0.7),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          maskedPhone,
+                          style: TextStyle(
+                            color: AuthColors.textSub.withValues(alpha: 0.9),
+                            fontSize: 13,
+                            fontFamily: 'SF Pro Display',
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
         ),
         
-        const SizedBox(height: 32),
+        const SizedBox(height: 24),
         
-        // Quick Actions
-        _ProfileAction(
-          icon: Icons.swap_horiz,
-          label: 'Change Organization',
-          onTap: onChangeOrg,
+        // Quick Actions Section
+        Column(
+          children: [
+            _ProfileAction(
+              icon: Icons.swap_horiz_rounded,
+              label: 'Change Organization',
+              onTap: onChangeOrg,
+            ),
+            if (onOpenUsers != null) ...[
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AuthColors.textMainWithOpacity(0.08),
+                indent: 64,
+                endIndent: 0,
+              ),
+              _ProfileAction(
+                icon: Icons.people_outline_rounded,
+                label: 'Users',
+                onTap: onOpenUsers!,
+              ),
+            ],
+          ],
         ),
-        if (onOpenUsers != null)
-          _ProfileAction(
-            icon: Icons.group_add_outlined,
-            label: 'Users',
-            onTap: onOpenUsers!,
-          ),
+        
+        if (extraActions != null && extraActions!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...extraActions!,
+        ],
+        // Keep trailingSection for backward compatibility
         if (trailingSection != null) ...[
           const SizedBox(height: 16),
           trailingSection!,
         ],
+        
         const SizedBox(height: 24),
+        
         // Logout Button
         DashButton(
           label: 'Logout',
           onPressed: onLogout,
+          icon: Icons.logout,
         ),
       ],
     );
@@ -142,37 +327,64 @@ class _ProfileAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: onTap != null ? AuthColors.textMain : AuthColors.textDisabled,
-              size: 22,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: onTap != null ? AuthColors.textMain : AuthColors.textDisabled,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: 'SF Pro Display',
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        splashColor: AuthColors.primary.withValues(alpha: 0.1),
+        highlightColor: AuthColors.primary.withValues(alpha: 0.05),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: onTap != null
+                      ? AuthColors.primary.withValues(alpha: 0.12)
+                      : AuthColors.textMainWithOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: onTap != null
+                      ? Border.all(
+                          color: AuthColors.primary.withValues(alpha: 0.2),
+                          width: 1,
+                        )
+                      : null,
+                ),
+                child: Icon(
+                  icon,
+                  color: onTap != null 
+                      ? AuthColors.primary 
+                      : AuthColors.textDisabled,
+                  size: 22,
                 ),
               ),
-            ),
-            if (onTap != null)
-              const Icon(
-                Icons.chevron_right,
-                color: AuthColors.textSub,
-                size: 20,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: onTap != null 
+                        ? AuthColors.textMain 
+                        : AuthColors.textDisabled,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'SF Pro Display',
+                    height: 1.4,
+                    letterSpacing: -0.2,
+                  ),
+                ),
               ),
-          ],
+              if (onTap != null)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AuthColors.textSub.withValues(alpha: 0.7),
+                  size: 22,
+                ),
+            ],
+          ),
         ),
       ),
     );

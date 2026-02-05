@@ -11,6 +11,10 @@ import 'package:image_picker_for_web/image_picker_for_web.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Configure path-based routing (not hash-based) to avoid #/home issues with print route
+  // This ensures URLs like /print-dm/5004 don't get hash fragments appended
+  usePathUrlStrategy();
   // Register image_picker web implementation so pickImage has a handler on web
   ImagePickerPlugin.registerWith(webPluginRegistrar);
   

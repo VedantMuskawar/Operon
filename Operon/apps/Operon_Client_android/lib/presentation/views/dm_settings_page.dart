@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
@@ -452,9 +453,9 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                   heroTag: 'nav_map',
                 ),
                 NavBarItem(
-                  icon: Icons.dashboard_rounded,
-                  label: 'Analytics',
-                  heroTag: 'nav_analytics',
+                  icon: Icons.event_available_rounded,
+                  label: 'Cash Ledger',
+                  heroTag: 'nav_cash_ledger',
                 ),
               ],
               currentIndex: -1,
@@ -528,10 +529,13 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   child: _logoImageUrl != null
-                      ? Image.network(
-                          _logoImageUrl!,
+                      ? CachedNetworkImage(
+                          imageUrl: _logoImageUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
                             Icons.image,
                             color: AuthColors.textSub,
                           ),

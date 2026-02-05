@@ -431,14 +431,26 @@ class _ContactPageState extends State<_ContactPageContent> {
     }
   }
 
+  /// Batch futures to limit concurrency and prevent overwhelming the network
+  Future<List<T>> _batchFutures<T>(List<Future<T>> futures, {int batchSize = 10}) async {
+    final results = <T>[];
+    for (int i = 0; i < futures.length; i += batchSize) {
+      final batch = futures.skip(i).take(batchSize).toList();
+      final batchResults = await Future.wait(batch);
+      results.addAll(batchResults);
+    }
+    return results;
+  }
+
   Future<ClientRecord?> _findExistingClient(ContactEntry entry) async {
-    // Optimize: Check all phones in parallel instead of sequentially
+    // Optimize: Check all phones in parallel but limit concurrency
     final futures = entry.displayPhones
         .map((phone) => _clientService.findClientByPhone(phone))
         .toList();
     
     try {
-      final results = await Future.wait(futures);
+      // Process futures in batches to limit concurrent network requests
+      final results = await _batchFutures(futures, batchSize: 10);
       for (final result in results) {
         if (result != null) {
           return result;

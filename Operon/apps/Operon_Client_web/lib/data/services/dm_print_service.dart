@@ -30,6 +30,54 @@ class DmViewPayload {
   final Uint8List? qrCodeBytes;
 }
 
+/// Payload for print data stored in sessionStorage (Web optimization)
+class PrintDataPayload {
+  PrintDataPayload({
+    required this.dmData,
+    required this.viewPayload,
+    required this.htmlString,
+  });
+
+  final Map<String, dynamic> dmData;
+  final DmViewPayload viewPayload;
+  final String htmlString;
+
+  Map<String, dynamic> toJson() => {
+    'dmData': dmData,
+    'viewPayload': {
+      'dmSettings': viewPayload.dmSettings.toJson(),
+      'paymentAccount': viewPayload.paymentAccount,
+      // Note: logoBytes and qrCodeBytes are in HTML as base64, don't store separately
+    },
+    'htmlString': htmlString,
+  };
+
+  static PrintDataPayload? fromJson(Map<String, dynamic> json) {
+    try {
+      final dmSettingsJson = json['viewPayload']?['dmSettings'] as Map<String, dynamic>?;
+      if (dmSettingsJson == null) return null;
+      
+      final dmSettings = DmSettings.fromJson(dmSettingsJson);
+      final viewPayload = DmViewPayload(
+        dmSettings: dmSettings,
+        paymentAccount: json['viewPayload']?['paymentAccount'] as Map<String, dynamic>?,
+        // logoBytes and qrCodeBytes are embedded in HTML, not stored separately
+        logoBytes: null,
+        qrCodeBytes: null,
+      );
+      
+      return PrintDataPayload(
+        dmData: json['dmData'] as Map<String, dynamic>,
+        viewPayload: viewPayload,
+        htmlString: json['htmlString'] as String,
+      );
+    } catch (e) {
+      print('[PrintDataPayload] Error parsing from JSON: $e');
+      return null;
+    }
+  }
+}
+
 /// Service for printing Delivery Memos (DM)
 class DmPrintService with PrintViewDataMixin {
   DmPrintService({
@@ -181,16 +229,21 @@ class DmPrintService with PrintViewDataMixin {
   }
 
   /// Fetch DM document by dmNumber or dmId, or convert from trip data
+  /// If organizationId is null, queries without organization filter (for print route)
   Future<Map<String, dynamic>?> fetchDmByNumberOrId({
-    required String organizationId,
+    String? organizationId,
     int? dmNumber,
     String? dmId,
     Map<String, dynamic>? tripData,
   }) async {
     try {
       Query queryRef = FirebaseFirestore.instance
-          .collection('DELIVERY_MEMOS')
-          .where('organizationId', isEqualTo: organizationId);
+          .collection('DELIVERY_MEMOS');
+
+      // Add organization filter only if provided
+      if (organizationId != null && organizationId.isNotEmpty) {
+        queryRef = queryRef.where('organizationId', isEqualTo: organizationId);
+      }
 
       if (dmNumber != null) {
         queryRef = queryRef.where('dmNumber', isEqualTo: dmNumber);
@@ -356,6 +409,37 @@ class DmPrintService with PrintViewDataMixin {
       qrCodeBytes: payload.qrCodeBytes,
     );
     return _htmlToPdf(htmlString);
+  }
+
+  /// Generate HTML string for DM (public method for browser print)
+  /// Respects custom template preference (lakshmee_v1) if set
+  String generateDmHtmlForPrint({
+    required Map<String, dynamic> dmData,
+    required DmSettings dmSettings,
+    Map<String, dynamic>? paymentAccount,
+    Uint8List? logoBytes,
+    Uint8List? qrCodeBytes,
+  }) {
+    // Check if custom template (lakshmee) is preferred
+    if (dmSettings.templateType == DmTemplateType.custom &&
+        dmSettings.customTemplateId == 'lakshmee_v1') {
+      return _generateLakshmeeHtml(
+        dmData: dmData,
+        dmSettings: dmSettings,
+        paymentAccount: paymentAccount,
+        logoBytes: logoBytes,
+        qrCodeBytes: qrCodeBytes,
+      );
+    }
+    
+    // Use universal template for all other cases
+    return _generateDmHtml(
+      dmData: dmData,
+      dmSettings: dmSettings,
+      paymentAccount: paymentAccount,
+      logoBytes: logoBytes,
+      qrCodeBytes: qrCodeBytes,
+    );
   }
 
   /// Generate HTML string for DM
@@ -648,6 +732,9 @@ class DmPrintService with PrintViewDataMixin {
         background: white;
         color: black;
       }
+      .no-print {
+        display: none !important;
+      }
       .dm-container {
         border: 2px solid #000;
         background: white;
@@ -694,12 +781,116 @@ class DmPrintService with PrintViewDataMixin {
         filter: grayscale(100%) contrast(120%);
       }
     }
+    /* Header styles (no-print) */
+    .print-header {
+      background: rgba(20,20,22,0.8);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: padding 160ms ease;
+    }
+    .print-header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .print-header-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #0A84FF, #0066CC);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: white;
+      box-shadow: 0 8px 20px rgba(10,132,255,0.25);
+    }
+    .print-header-title {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .print-header-subtitle {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #a1a1aa;
+      font-weight: 400;
+    }
+    .print-header-buttons {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .print-header-btn {
+      border-radius: 12px;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 200ms ease;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .print-header-btn-print {
+      background: linear-gradient(135deg, #0A84FF, #0066CC);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #ffffff;
+      box-shadow: 0 8px 20px rgba(10,132,255,0.25);
+    }
+    .print-header-btn-print:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px rgba(10,132,255,0.35);
+    }
+    .print-header-btn-close {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #f5f5f7;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    }
+    .print-header-btn-close:hover {
+      background: rgba(255,255,255,0.15);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.35);
+    }
   </style>
   <script>
-    // Print function is triggered from Flutter modal, not auto on load
+    function handleClose() {
+      if (window.opener) {
+        window.close();
+      } else {
+        window.history.back();
+      }
+    }
   </script>
 </head>
 <body>
+  <!-- Header with Print and Close buttons (hidden when printing) -->
+  <div class="no-print print-header">
+    <div class="print-header-left">
+      <div class="print-header-icon">🚚</div>
+      <div>
+        <h1 class="print-header-title">Delivery Memo #$dmNumber</h1>
+        <p class="print-header-subtitle">Print Preview & Document Management</p>
+      </div>
+    </div>
+    <div class="print-header-buttons">
+      <button class="print-header-btn print-header-btn-print" onclick="window.print()">🖨️ Print</button>
+      <button class="print-header-btn print-header-btn-close" onclick="handleClose()">← Back</button>
+    </div>
+  </div>
+  
   <div class="dm-container">
   <!-- Header -->
   <div class="header">
@@ -955,6 +1146,726 @@ class DmPrintService with PrintViewDataMixin {
     );
   }
 
+  /// Generate Lakshmee template HTML (matches PaveBoard's PrintDM.jsx design)
+  String _generateLakshmeeHtml({
+    required Map<String, dynamic> dmData,
+    required DmSettings dmSettings,
+    Map<String, dynamic>? paymentAccount,
+    Uint8List? logoBytes,
+    Uint8List? qrCodeBytes,
+  }) {
+    // Extract data from dmData
+    final dmNumber = dmData['dmNumber'] as int? ?? 0;
+    final clientName = dmData['clientName'] as String? ?? 'N/A';
+    final clientPhoneRaw = dmData['clientPhone'] as String?;
+    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty) 
+        ? clientPhoneRaw.trim() 
+        : 'N/A';
+    
+    // Extract address
+    final deliveryZone = dmData['deliveryZone'] as Map<String, dynamic>?;
+    String address = 'N/A';
+    String regionName = 'N/A';
+    if (deliveryZone != null) {
+      final city = deliveryZone['city_name'] ?? deliveryZone['city'] ?? '';
+      final region = deliveryZone['region'] ?? '';
+      final area = deliveryZone['area'] ?? '';
+      
+      final addressParts = <String>[];
+      if (area.isNotEmpty) addressParts.add(area);
+      if (city.isNotEmpty) addressParts.add(city);
+      if (region.isNotEmpty) {
+        addressParts.add(region);
+        regionName = region;
+      }
+      
+      address = addressParts.isNotEmpty ? addressParts.join(', ') : 'N/A';
+    } else {
+      address = dmData['clientAddress'] as String? ?? 'N/A';
+      regionName = dmData['regionName'] as String? ?? 'N/A';
+    }
+    
+    // Extract date
+    final scheduledDate = dmData['scheduledDate'];
+    DateTime? date;
+    if (scheduledDate != null) {
+      if (scheduledDate is Map && scheduledDate.containsKey('_seconds')) {
+        date = DateTime.fromMillisecondsSinceEpoch(
+          (scheduledDate['_seconds'] as int) * 1000,
+        );
+      } else if (scheduledDate is DateTime) {
+        date = scheduledDate;
+      }
+    }
+    final dateText = date != null
+        ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
+        : 'N/A';
+    
+    // Extract driver and vehicle info
+    final driverName = dmData['driverName'] as String? ?? 'N/A';
+    final vehicleNumber = dmData['vehicleNumber'] as String? ?? 'N/A';
+    
+    // Extract product info (for single product DMs)
+    final productName = dmData['productName'] as String? ?? 'N/A';
+    final productQuant = (dmData['productQuant'] as num?)?.toDouble() ?? 0.0;
+    final productUnitPrice = (dmData['productUnitPrice'] as num?)?.toDouble() ?? 0.0;
+    final total = productQuant * productUnitPrice;
+    
+    // Extract payment info - handle both bool and string values from Firestore
+    final paymentStatusValue = dmData['paymentStatus'];
+    final paymentStatus = paymentStatusValue is bool
+        ? paymentStatusValue
+        : (paymentStatusValue is String
+            ? paymentStatusValue.toLowerCase() == 'true' || 
+              paymentStatusValue.toLowerCase() == 'paid'
+            : false);
+    final toAccount = dmData['toAccount'] as String?;
+    final paySchedule = dmData['paySchedule'] as String?;
+    String paymentMode = 'N/A';
+    if (paymentStatus && toAccount != null) {
+      paymentMode = toAccount;
+    } else if (paySchedule == 'POD') {
+      paymentMode = 'Cash';
+    } else if (paySchedule == 'PL') {
+      paymentMode = 'Credit';
+    } else if (paySchedule != null) {
+      paymentMode = paySchedule;
+    }
+    
+    // Convert images to base64
+    String? logoDataUri;
+    if (logoBytes != null && logoBytes.isNotEmpty) {
+      logoDataUri = 'data:image/png;base64,${base64Encode(logoBytes)}';
+    }
+    
+    String? qrDataUri;
+    String? qrLabel;
+    if (qrCodeBytes != null && qrCodeBytes.isNotEmpty &&
+        dmSettings.paymentDisplay == DmPaymentDisplay.qrCode) {
+      qrDataUri = 'data:image/png;base64,${base64Encode(qrCodeBytes)}';
+      final paymentLabel = paymentAccount?['label'] as String?;
+      if (paymentLabel != null && paymentLabel.isNotEmpty) {
+        qrLabel = paymentLabel;
+      } else if (dmSettings.header.name.isNotEmpty) {
+        qrLabel = dmSettings.header.name;
+      } else {
+        qrLabel = 'Lakshmee Intelligent Technologies';
+      }
+    }
+    
+    // Company info from DM settings
+    final companyName = dmSettings.header.name.isNotEmpty
+        ? dmSettings.header.name.toUpperCase()
+        : 'LAKSHMEE INTELLIGENT TECHNOLOGIES';
+    final companyAddress = dmSettings.header.address.isNotEmpty
+        ? dmSettings.header.address
+        : 'B-24/2, M.I.D.C., CHANDRAPUR - 442406';
+    final companyPhone = dmSettings.header.phone.isNotEmpty
+        ? dmSettings.header.phone
+        : 'Ph: +91 8149448822 | +91 9420448822';
+    final jurisdictionNote = dmSettings.footer.customText?.isNotEmpty == true
+        ? dmSettings.footer.customText!
+        : 'Note: Subject to Chandrapur Jurisdiction';
+    
+    // Build Lakshmee HTML (matches PaveBoard's PrintDM.jsx)
+    final html = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      font-family: 'Inter', 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+      color: black;
+    }
+    .no-print {
+      display: none !important;
+    }
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 0;
+        background: white !important;
+        overflow: visible !important;
+      }
+      .print-preview-container {
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        overflow: visible !important;
+      }
+      .page-shadow {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        margin: 5mm auto !important;
+        padding: 0 !important;
+        width: 200mm !important;
+        height: 287mm !important;
+        display: block !important;
+        overflow: visible !important;
+      }
+      .page {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        width: 200mm !important;
+        height: 287mm !important;
+        margin: 0 !important;
+        padding: 5mm !important;
+        display: block !important;
+        overflow: visible !important;
+      }
+      .wrapper {
+        width: 190mm !important;
+        height: 277mm !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        overflow: visible !important;
+      }
+      .ticket {
+        width: 190mm !important;
+        height: 138mm !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin: 0 auto !important;
+        overflow: visible !important;
+      }
+      img {
+        max-width: 100% !important;
+        height: auto !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+    /* Header styles (no-print) */
+    .print-header {
+      background: rgba(20,20,22,0.8);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: padding 160ms ease;
+    }
+    .print-header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .print-header-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #0A84FF, #0066CC);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: white;
+      box-shadow: 0 8px 20px rgba(10,132,255,0.25);
+    }
+    .print-header-title {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+    .print-header-subtitle {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #a1a1aa;
+      font-weight: 400;
+    }
+    .print-header-buttons {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .print-header-btn {
+      border-radius: 12px;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 200ms ease;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .print-header-btn-print {
+      background: linear-gradient(135deg, #0A84FF, #0066CC);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: #ffffff;
+      box-shadow: 0 8px 20px rgba(10,132,255,0.25);
+    }
+    .print-header-btn-print:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px rgba(10,132,255,0.35);
+    }
+    .print-header-btn-close {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #f5f5f7;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    }
+    .print-header-btn-close:hover {
+      background: rgba(255,255,255,0.15);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.35);
+    }
+    .print-preview-container {
+      width: 210mm;
+      height: 297mm;
+      background-color: white;
+      color: black;
+      font-family: 'Inter', sans-serif;
+      print-color-adjust: exact;
+      overflow: hidden;
+      margin: auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
+      border-radius: 2px;
+      position: relative;
+      padding: 5mm;
+    }
+    .page-shadow {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 190mm;
+      margin: auto;
+      gap: 1mm;
+      height: 277mm;
+      padding: 0mm;
+    }
+    .page {
+      width: 200mm;
+      max-width: 200mm;
+      height: 138mm;
+      padding: 4mm 5mm;
+      border: 1px solid black;
+      box-sizing: border-box;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1px;
+      font-family: 'Inter', sans-serif;
+      position: relative;
+      z-index: 1;
+      background-color: #fff;
+    }
+    .ticket {
+      width: 200mm;
+      max-width: 200mm;
+      height: 138mm;
+      padding: 4mm 5mm;
+      border: 1px solid black;
+      box-sizing: border-box;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1px;
+      font-family: 'Inter', sans-serif;
+      position: relative;
+      z-index: 1;
+      background-color: #fff;
+    }
+    .ticket.duplicate {
+      background-color: #e0e0e0;
+    }
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      opacity: 0.1;
+      z-index: 0;
+      pointer-events: none;
+      user-select: none;
+    }
+    .flag-text {
+      text-align: center;
+      font-size: 11px;
+      font-weight: bold;
+      color: #b22222;
+      margin-bottom: 2px;
+    }
+    .branding {
+      text-align: center;
+      line-height: 1.4;
+      background-color: #f1f1f1;
+      padding: 6px 0;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      margin-bottom: 2px;
+    }
+    .company-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #000;
+    }
+    .contact-details {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 16px;
+      font-weight: bold;
+      margin-top: 2px;
+    }
+    .memo-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #000;
+    }
+    .meta-right {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .main-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 2px;
+    }
+    .left-column {
+      flex: 0 0 190px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .right-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .qr-section-large {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .qr-code-large {
+      width: 180px;
+      height: 180px;
+      border: 3px solid #000;
+      background-color: #f8f8f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: #666;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .qr-image-large {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border: none;
+      box-sizing: border-box;
+    }
+    .qr-label-large {
+      font-size: 14px;
+      font-weight: bold;
+      color: #000;
+      text-align: center;
+    }
+    .qr-amount-large {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1f2937;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .info-box {
+      display: flex;
+      justify-content: space-between;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 4px 6px;
+      gap: 6px;
+      background-color: #fafafa;
+    }
+    .info-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      font-size: 14px;
+    }
+    .product-table {
+      border: 1px solid black;
+      padding: 3px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background-color: #fff;
+      border-radius: 4px;
+    }
+    .table-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dashed #ccc;
+      padding-bottom: 1px;
+      padding-top: 2px;
+      font-size: 14px;
+    }
+    .table-row-total {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      border-top: 1px solid #000;
+      padding-top: 3px;
+      margin-top: 2px;
+      font-size: 15px;
+    }
+    .jurisdiction-note {
+      font-size: 14px;
+      text-align: center;
+      margin-top: 3px;
+      color: #444;
+      font-style: italic;
+    }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 2px;
+      gap: 4px;
+    }
+    .signature {
+      flex: 1;
+      font-size: 13px;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .signature-line {
+      margin-top: 2px;
+      border-top: 1px solid black;
+      width: 100%;
+    }
+    .cut-line {
+      width: 100%;
+      text-align: center;
+      margin: 0.5mm 0;
+    }
+    .cut-line hr {
+      border-top: 1px dashed #555;
+      margin: 0px 0;
+    }
+    .cut-line-text {
+      font-size: 5px;
+      color: #888;
+    }
+  </style>
+  <script>
+    function handleClose() {
+      if (window.opener) {
+        window.close();
+      } else {
+        window.history.back();
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Header with Print and Close buttons (hidden when printing) -->
+  <div class="no-print print-header">
+    <div class="print-header-left">
+      <div class="print-header-icon">🚚</div>
+      <div>
+        <h1 class="print-header-title">Delivery Memo #$dmNumber</h1>
+        <p class="print-header-subtitle">Print Preview & Document Management</p>
+      </div>
+    </div>
+    <div class="print-header-buttons">
+      <button class="print-header-btn print-header-btn-print" onclick="window.print()">🖨️ Print</button>
+      <button class="print-header-btn print-header-btn-close" onclick="handleClose()">← Back</button>
+    </div>
+  </div>
+  
+  <div class="print-preview-container">
+    <div class="page-shadow">
+      <!-- Original Ticket -->
+      <div class="page">
+        <div class="ticket">
+          ${logoDataUri != null ? '<img src="$logoDataUri" alt="Watermark" class="watermark" />' : ''}
+          <div class="flag-text">🚩 जय श्री राम 🚩</div>
+          <div class="branding">
+            <div class="company-name">${_escapeHtml(companyName)}</div>
+            <div class="contact-details">${_escapeHtml(companyAddress)}</div>
+            <div class="contact-details">${_escapeHtml(companyPhone)}</div>
+          </div>
+          <hr style="border-top: 2px solid #000; margin: 6px 0;" />
+          <div class="title-row">
+            <div class="memo-title">🚚 Delivery Memo</div>
+            <div class="meta-right">DM No. #$dmNumber</div>
+          </div>
+          <div class="main-content">
+            <div class="left-column">
+              <div class="qr-section-large">
+                <div class="qr-code-large">
+                  ${qrDataUri != null ? '<img src="$qrDataUri" alt="Payment QR Code" class="qr-image-large" />' : '<div style="font-size: 22px; color: #666;">QR Code</div>'}
+                </div>
+                <div class="qr-label-large">${_escapeHtml(qrLabel ?? companyName)}</div>
+                <div class="qr-amount-large">Scan to pay ₹${_formatCurrency(total)}</div>
+              </div>
+            </div>
+            <div class="right-column">
+              <div class="info-box">
+                <div class="info-col">
+                  <div><strong>Client:</strong> <strong>${_escapeHtml(clientName)}</strong></div>
+                  <div><strong>Address:</strong> ${_escapeHtml(address)}, ${_escapeHtml(regionName)}</div>
+                  <div><strong>Phone:</strong> <strong>${_escapeHtml(clientPhone)}</strong></div>
+                </div>
+                <div class="info-col">
+                  <div><strong>Date:</strong> $dateText</div>
+                  <div><strong>Vehicle:</strong> ${_escapeHtml(vehicleNumber)}</div>
+                  <div><strong>Driver:</strong> ${_escapeHtml(driverName)}</div>
+                </div>
+              </div>
+              <div class="product-table">
+                <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
+                <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>₹${_formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>₹${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="jurisdiction-note">
+            ${_escapeHtml(jurisdictionNote)}
+          </div>
+          <div class="footer">
+            <div class="signature">
+              <div>Received By</div>
+              <div class="signature-line"></div>
+            </div>
+            <div class="signature">
+              <div>Authorized Signature</div>
+              <div class="signature-line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Cut Line -->
+      <div class="cut-line">
+        <hr />
+        <div class="cut-line-text">✂️ Cut Here</div>
+      </div>
+      
+      <!-- Duplicate Ticket -->
+      <div class="page">
+        <div class="ticket duplicate">
+          ${logoDataUri != null ? '<img src="$logoDataUri" alt="Watermark" class="watermark" />' : ''}
+          <div class="flag-text">🚩 जय श्री राम 🚩</div>
+          <div class="branding">
+            <div class="company-name">${_escapeHtml(companyName)}</div>
+            <div class="contact-details">${_escapeHtml(companyAddress)}</div>
+            <div class="contact-details">${_escapeHtml(companyPhone)}</div>
+          </div>
+          <hr style="border-top: 2px solid #000; margin: 6px 0;" />
+          <div class="title-row">
+            <div class="memo-title">🚚 Delivery Memo (Duplicate)</div>
+            <div class="meta-right">DM No. #$dmNumber</div>
+          </div>
+          <div class="main-content">
+            <div class="left-column">
+              <div class="qr-section-large">
+                <div class="qr-code-large">
+                  ${qrDataUri != null ? '<img src="$qrDataUri" alt="Payment QR Code" class="qr-image-large" />' : '<div style="font-size: 22px; color: #666;">QR Code</div>'}
+                </div>
+                <div class="qr-label-large">${_escapeHtml(qrLabel ?? companyName)}</div>
+                <div class="qr-amount-large">Scan to pay ₹${_formatCurrency(total)}</div>
+              </div>
+            </div>
+            <div class="right-column">
+              <div class="info-box">
+                <div class="info-col">
+                  <div><strong>Client:</strong> <strong>${_escapeHtml(clientName)}</strong></div>
+                  <div><strong>Address:</strong> ${_escapeHtml(address)}, ${_escapeHtml(regionName)}</div>
+                  <div><strong>Phone:</strong> <strong>${_escapeHtml(clientPhone)}</strong></div>
+                </div>
+                <div class="info-col">
+                  <div><strong>Date:</strong> $dateText</div>
+                  <div><strong>Vehicle:</strong> ${_escapeHtml(vehicleNumber)}</div>
+                  <div><strong>Driver:</strong> ${_escapeHtml(driverName)}</div>
+                </div>
+              </div>
+              <div class="product-table">
+                <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
+                <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>₹${_formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>₹${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="jurisdiction-note">
+            ${_escapeHtml(jurisdictionNote)}
+          </div>
+          <div class="footer">
+            <div class="signature">
+              <div>Received By</div>
+              <div class="signature-line"></div>
+            </div>
+            <div class="signature">
+              <div>Authorized Signature</div>
+              <div class="signature-line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+''';
+    
+    return html;
+  }
+
   /// Convert number to words (for amount in words)
   String _numberToWords(double amount) {
     if (amount < 1) {
@@ -1028,4 +1939,212 @@ class DmPrintService with PrintViewDataMixin {
         ? '${_convertNumberToWords(crore)} Crore ${_convertNumberToWords(remainder)}'
         : '${_convertNumberToWords(crore)} Crore';
   }
+
+  /// Prepare all print data: fetch DM, load view payload, generate HTML
+  /// Returns payload with all data needed for printing
+  Future<PrintDataPayload> preparePrintData({
+    required int dmNumber,
+    Map<String, dynamic>? dmData, // Optional: if already fetched
+  }) async {
+    print('[DmPrintService] Preparing print data for DM $dmNumber');
+    
+    // Fetch DM data if not provided
+    Map<String, dynamic>? finalDmData = dmData;
+    if (finalDmData == null) {
+      print('[DmPrintService] Fetching DM data by number: $dmNumber');
+      finalDmData = await fetchDmByNumberOrId(
+        organizationId: null, // Query without orgId filter
+        dmNumber: dmNumber,
+        dmId: null,
+        tripData: null,
+      );
+      
+      if (finalDmData == null) {
+        throw Exception('DM not found for number: $dmNumber');
+      }
+    }
+    
+    // Extract organizationId from DM data
+    final orgId = finalDmData['organizationId'] as String? ?? 
+                  finalDmData['orgID'] as String?;
+    
+    if (orgId == null || orgId.isEmpty) {
+      throw Exception('Organization ID not found in DM data');
+    }
+    
+    print('[DmPrintService] Organization ID: $orgId');
+    
+    // Fetch related order data (like PrintDMPage does)
+    final orderId = finalDmData['orderID'] as String?;
+    if (orderId != null && orderId.isNotEmpty) {
+      print('[DmPrintService] Fetching related order data for orderID: $orderId');
+      final orderData = await _fetchRelatedOrder(orderId, orgId);
+      if (orderData != null) {
+        print('[DmPrintService] Order data fetched, merging phone/driver info');
+        // Merge phone/driver data from order into DM data
+        finalDmData['clientPhone'] = orderData['clientPhoneNumber'] as String? ?? 
+                                    finalDmData['clientPhone'] as String?;
+        finalDmData['driverName'] = orderData['driverName'] as String? ?? 
+                                   finalDmData['driverName'] as String?;
+        finalDmData['driverPhone'] = orderData['driverPhone'] as String? ?? 
+                                    finalDmData['driverPhone'] as String?;
+      }
+    }
+    
+    // Load view payload (settings, payment account, QR code, logo)
+    print('[DmPrintService] Loading DM view data...');
+    final viewPayload = await loadDmViewData(
+      organizationId: orgId,
+      dmData: finalDmData,
+    );
+    
+    // Generate HTML string
+    print('[DmPrintService] Generating HTML for print...');
+    final htmlString = generateDmHtmlForPrint(
+      dmData: finalDmData,
+      dmSettings: viewPayload.dmSettings,
+      paymentAccount: viewPayload.paymentAccount,
+      logoBytes: viewPayload.logoBytes,
+      qrCodeBytes: viewPayload.qrCodeBytes,
+    );
+    
+    print('[DmPrintService] Print data prepared successfully (HTML length: ${htmlString.length} chars)');
+    
+    return PrintDataPayload(
+      dmData: finalDmData,
+      viewPayload: viewPayload,
+      htmlString: htmlString,
+    );
+  }
+
+  /// Fetch related order data from SCH_ORDERS collection
+  Future<Map<String, dynamic>?> _fetchRelatedOrder(String orderId, String orgId) async {
+    try {
+      final orderQuery = FirebaseFirestore.instance
+          .collection('SCH_ORDERS')
+          .where('orderID', isEqualTo: orderId)
+          .where('orgID', isEqualTo: orgId)
+          .limit(1);
+      
+      final orderSnap = await orderQuery.get();
+      
+      if (orderSnap.docs.isNotEmpty) {
+        final orderData = orderSnap.docs.first.data();
+        // Convert Firestore Timestamp to Map format
+        final convertedData = <String, dynamic>{};
+        orderData.forEach((key, value) {
+          if (value is Timestamp) {
+            convertedData[key] = {
+              '_seconds': value.seconds,
+              '_nanoseconds': value.nanoseconds,
+            };
+          } else {
+            convertedData[key] = value;
+          }
+        });
+        return convertedData;
+      }
+      return null;
+    } catch (e) {
+      print('[DmPrintService] Error fetching related order: $e');
+      // Silently fail - order data is optional
+      return null;
+    }
+  }
+
+  /// Store print data in sessionStorage for instant print flow
+  void storePrintDataInSession({
+    required int dmNumber,
+    required Map<String, dynamic> dmData,
+    required DmViewPayload viewPayload,
+    required String htmlString,
+  }) {
+    try {
+      final payload = PrintDataPayload(
+        dmData: dmData,
+        viewPayload: viewPayload,
+        htmlString: htmlString,
+      );
+      
+      final jsonData = payload.toJson();
+      final jsonString = jsonEncode(jsonData);
+      final storageKey = 'temp_print_data_$dmNumber';
+      
+      html.window.sessionStorage[storageKey] = jsonString;
+      print('[DmPrintService] Stored print data in sessionStorage with key: $storageKey (size: ${jsonString.length} bytes)');
+    } catch (e) {
+      print('[DmPrintService] ERROR storing print data in sessionStorage: $e');
+      // Don't throw - sessionStorage failure should fall back to Firestore fetch
+    }
+  }
+
+  /// Retrieve print data from sessionStorage
+  PrintDataPayload? getPrintDataFromSession(int dmNumber) {
+    try {
+      final storageKey = 'temp_print_data_$dmNumber';
+      final jsonString = html.window.sessionStorage[storageKey];
+      
+      if (jsonString == null || jsonString.isEmpty) {
+        print('[DmPrintService] No cached print data found in sessionStorage for DM $dmNumber');
+        return null;
+      }
+      
+      final jsonData = jsonDecode(jsonString) as Map<String, dynamic>;
+      final payload = PrintDataPayload.fromJson(jsonData);
+      
+      if (payload != null) {
+        print('[DmPrintService] Retrieved print data from sessionStorage for DM $dmNumber');
+        // Clean up after retrieval (one-time use)
+        html.window.sessionStorage.remove(storageKey);
+      } else {
+        print('[DmPrintService] Failed to parse cached print data from sessionStorage');
+      }
+      
+      return payload;
+    } catch (e) {
+      print('[DmPrintService] ERROR retrieving print data from sessionStorage: $e');
+      return null;
+    }
+  }
+
+  /// Unified print flow: fetch data, generate HTML, store in sessionStorage, then open window
+  /// This enables instant print dialog when PrintDMPage loads (no double Firestore fetch)
+  Future<void> printDeliveryMemo(int dmNumber) async {
+    try {
+      print('[DmPrintService] Starting unified print flow for DM $dmNumber');
+      
+      // Prepare all print data (fetch DM, load view payload, generate HTML)
+      final printData = await preparePrintData(dmNumber: dmNumber);
+      
+      // Store in sessionStorage for instant access in PrintDMPage
+      storePrintDataInSession(
+        dmNumber: dmNumber,
+        dmData: printData.dmData,
+        viewPayload: printData.viewPayload,
+        htmlString: printData.htmlString,
+      );
+      
+      // Open print window - PrintDMPage will use cached data from sessionStorage
+      final url = '/print-dm/$dmNumber';
+      print('[DmPrintService] Opening print window for DM $dmNumber at URL: $url');
+      
+      final printWindow = html.window.open(
+        url,
+        '_blank',
+        'width=900,height=700,scrollbars=yes,resizable=yes',
+      );
+      
+      if (printWindow == null) {
+        print('[DmPrintService] ERROR: Popup blocked');
+        throw Exception('Popup blocked. Please allow popups for this site to print delivery memos.');
+      }
+      
+      print('[DmPrintService] Print window opened successfully');
+    } catch (e, stackTrace) {
+      print('[DmPrintService] ERROR in print flow: $e');
+      print('[DmPrintService] Stack trace: $stackTrace');
+      throw Exception('Failed to prepare print: $e');
+    }
+  }
+
 }

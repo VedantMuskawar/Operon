@@ -718,6 +718,10 @@ class _PendingOrdersSectionState extends State<_PendingOrdersSection> {
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
   String? _currentOrgId;
+  
+  // Cache filtered results and order IDs to avoid unnecessary filtering
+  List<Map<String, dynamic>> _cachedClientOrders = [];
+  List<String> _cachedOrderIds = [];
 
   @override
   void initState() {
@@ -753,11 +757,26 @@ class _PendingOrdersSectionState extends State<_PendingOrdersSection> {
     await _ordersSubscription?.cancel();
     _ordersSubscription = repository.watchPendingOrders(orgId).listen(
       (allOrders) {
-        // Filter orders by clientId
-        final clientOrders = allOrders.where((order) {
-          final orderClientId = order['clientId'] as String?;
-          return orderClientId == widget.clientId;
-        }).toList();
+        // Check if orders list actually changed by comparing IDs
+        final newOrderIds = allOrders.map((o) => o['id'] as String? ?? '').toList();
+        final ordersChanged = newOrderIds.length != _cachedOrderIds.length ||
+            !newOrderIds.every((id) => _cachedOrderIds.contains(id)) ||
+            !_cachedOrderIds.every((id) => newOrderIds.contains(id));
+        
+        // Only filter when orders list changed
+        List<Map<String, dynamic>> clientOrders;
+        if (ordersChanged) {
+          // Filter orders by clientId
+          clientOrders = allOrders.where((order) {
+            final orderClientId = order['clientId'] as String?;
+            return orderClientId == widget.clientId;
+          }).toList();
+          _cachedClientOrders = clientOrders;
+          _cachedOrderIds = newOrderIds;
+        } else {
+          // Use cached filtered result
+          clientOrders = _cachedClientOrders;
+        }
 
         if (mounted) {
           setState(() {
@@ -1021,14 +1040,12 @@ class _ClientDMsSection extends StatelessWidget {
       tripData: null,
     );
     if (dmData == null || !context.mounted) return;
-    showDialog<void>(
+    await DmPrintDialog.show(
       context: context,
-      builder: (_) => DmPrintDialog(
-        dmPrintService: printService,
-        organizationId: organizationId,
-        dmData: dmData,
-        dmNumber: dmNumber,
-      ),
+      dmPrintService: printService,
+      organizationId: organizationId,
+      dmData: dmData,
+      dmNumber: dmNumber,
     );
   }
 
@@ -1893,8 +1910,6 @@ class _LedgerTableHeader extends StatelessWidget {
           Expanded(flex: 1, child: Text('Debit', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
           Expanded(flex: 1, child: Text('Credit', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
           Expanded(flex: 1, child: Text('Balance', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Type', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
-          Expanded(flex: 2, child: Text('Remarks', style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textSub), textAlign: TextAlign.center)),
         ],
       ),
     );
@@ -2049,26 +2064,6 @@ class _LedgerTableRow extends StatelessWidget {
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Text(
-              row.type.isEmpty ? '-' : row.type,
-              style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textMain),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              row.remarks,
-              style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.textMain),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

@@ -4,6 +4,33 @@ import 'package:core_ui/theme/auth_colors.dart';
 import 'package:core_utils/core_utils.dart' show PdfBuilder;
 import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+
+/// Helper class for dashed line painter
+class DashedLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF888888)
+      ..strokeWidth = 1;
+    
+    const dashWidth = 5.0;
+    const dashSpace = 3.0;
+    double startX = 0;
+    
+    while (startX < size.width) {
+      canvas.drawLine(
+        Offset(startX, 0),
+        Offset(startX + dashWidth, 0),
+        paint,
+      );
+      startX += dashWidth + dashSpace;
+    }
+  }
+  
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
+}
 
 /// Native Flutter widget that displays Delivery Memo content (Web).
 /// Uses the same data source as the PDF generator for visual parity.
@@ -39,6 +66,61 @@ class DeliveryMemoDocument extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Check if custom template is selected
+    final isCustomTemplate = payload.dmSettings.templateType == DmTemplateType.custom &&
+        payload.dmSettings.customTemplateId != null &&
+        payload.dmSettings.customTemplateId!.trim().isNotEmpty;
+    
+    // If custom template, show custom template preview
+    if (isCustomTemplate) {
+      final customTemplateId = payload.dmSettings.customTemplateId!.trim();
+      if (customTemplateId == 'lakshmee_v1') {
+        return _buildLakshmeePreview();
+      }
+      // For other custom templates, show message
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          border: Border.all(
+            color: AuthColors.info,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.description_outlined,
+              size: 64,
+              color: AuthColors.info,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Custom Template: $customTemplateId',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AuthColors.textMain,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Preview is not available for this custom template.\nThe PDF will use the custom template when you print.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AuthColors.textSub,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Universal template preview
     final dmNumber = dmData['dmNumber'] as int? ??
         (dmData['dmNumber'] as num?)?.toInt() ??
         0;
@@ -771,6 +853,545 @@ class DeliveryMemoDocument extends StatelessWidget {
           fontSize: 9,
           color: AuthColors.textSub,
         ),
+      ),
+    );
+  }
+
+  /// Build Lakshmee template preview (lakshmee_v1)
+  Widget _buildLakshmeePreview() {
+    // Parse data similar to DmPrintData.fromMap
+    final dmNumber = dmData['dmNumber'] as int? ??
+        (dmData['dmNumber'] as num?)?.toInt() ??
+        0;
+    final deliveryDateData = dmData['deliveryDate'] ?? dmData['scheduledDate'];
+    final deliveryDate = _parseDate(deliveryDateData);
+    
+    final clientName = dmData['clientName'] as String? ?? 'N/A';
+    final clientPhone = dmData['clientPhone'] as String? ??
+        dmData['clientPhoneNumber'] as String? ??
+        dmData['customerNumber'] as String? ??
+        'N/A';
+    
+    final vehicleNumber = dmData['vehicleNumber'] as String? ?? 'N/A';
+    final driverName = dmData['driverName'] as String? ?? 'N/A';
+    
+    final itemsData = dmData['items'];
+    final rawItems = itemsData is List
+        ? itemsData
+        : (itemsData != null ? [itemsData] : []);
+    final firstItem = rawItems.isNotEmpty && rawItems.first is Map<String, dynamic>
+        ? rawItems.first as Map<String, dynamic>
+        : <String, dynamic>{};
+    final productName = firstItem['productName'] as String? ??
+        firstItem['name'] as String? ??
+        'N/A';
+    final quantity = (firstItem['fixedQuantityPerTrip'] as num?)?.toInt() ??
+        (firstItem['totalQuantity'] as num?)?.toInt() ??
+        (firstItem['quantity'] as num?)?.toInt() ??
+        0;
+    final unitPrice = (firstItem['unitPrice'] as num?)?.toDouble() ??
+        (firstItem['price'] as num?)?.toDouble() ??
+        0.0;
+    
+    double totalAmount = 0.0;
+    final tripPricingData = dmData['tripPricing'];
+    if (tripPricingData is Map<String, dynamic>) {
+      totalAmount = (tripPricingData['total'] as num?)?.toDouble() ?? 0.0;
+    }
+    if (totalAmount == 0.0) {
+      totalAmount = quantity * unitPrice;
+    }
+    
+    // Handle paymentStatus - could be bool or string
+    final paymentStatusValue = dmData['paymentStatus'];
+    final paymentStatus = paymentStatusValue is bool
+        ? paymentStatusValue
+        : (paymentStatusValue is String
+            ? paymentStatusValue.toLowerCase() == 'true' || paymentStatusValue.toLowerCase() == 'paid'
+            : false);
+    // Use paymentType from trip/dmData - if pay_later show "Pay Later", if pay_on_delivery show "Pay Now"
+    final paymentType = dmData['paymentType'] as String?;
+    String paymentMode = 'N/A';
+    if (paymentType != null) {
+      final lowerPaymentType = paymentType.toLowerCase();
+      if (lowerPaymentType == 'pay_later') {
+        paymentMode = 'Pay Later';
+      } else if (lowerPaymentType == 'pay_on_delivery') {
+        paymentMode = 'Pay Now';
+      } else {
+        paymentMode = paymentType;
+      }
+    } else {
+      // Fallback to old logic if paymentType is not available
+      final toAccount = dmData['toAccount'] as String?;
+      final paySchedule = dmData['paySchedule'] as String?;
+      if (paymentStatus && toAccount != null) {
+        paymentMode = toAccount;
+      } else if (paySchedule == 'POD') {
+        paymentMode = 'Cash';
+      } else if (paySchedule == 'PL') {
+        paymentMode = 'Credit';
+      } else if (paySchedule != null) {
+        paymentMode = paySchedule;
+      }
+    }
+    
+    final paymentAccountName = payload.paymentAccount?['name'] as String?;
+    final accountName = paymentAccountName ??
+        (payload.dmSettings.header.name.isNotEmpty
+            ? payload.dmSettings.header.name
+            : 'Lakshmee Intelligent Technologies');
+    
+    final address = dmData['address'] as String?;
+    final regionName = dmData['regionName'] as String?;
+    final formattedAddress = '${address ?? "-"}, ${regionName ?? ""}'.trim();
+    final displayAddress = (formattedAddress.isEmpty || formattedAddress == ',') ? 'N/A' : formattedAddress;
+    
+    // Get company info from DM settings
+    final companyTitle = payload.dmSettings.header.name.isNotEmpty
+        ? payload.dmSettings.header.name.toUpperCase()
+        : 'LAKSHMEE INTELLIGENT TECHNOLOGIES';
+    final companyAddress = payload.dmSettings.header.address.isNotEmpty
+        ? payload.dmSettings.header.address
+        : 'B-24/2, M.I.D.C., CHANDRAPUR - 442406';
+    final companyPhone = payload.dmSettings.header.phone.isNotEmpty
+        ? payload.dmSettings.header.phone
+        : 'Ph: +91 8149448822 | +91 9420448822';
+    final jurisdictionNote = payload.dmSettings.footer.customText?.isNotEmpty == true
+        ? payload.dmSettings.footer.customText!
+        : 'Note: Subject to Chandrapur Jurisdiction';
+    
+    // Format currency
+    String formatCurrency(double amount) {
+      return amount.toStringAsFixed(0).replaceAllMapped(
+        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+        (Match m) => '${m[1]},',
+      );
+    }
+    
+    // Format date
+    String formatDate(DateTime date) {
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    }
+    
+    // Show QR code if available and payment display is QR code
+    final showQrCode = payload.dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
+    final qrCodeBytes = showQrCode ? payload.qrCodeBytes : null;
+    
+    // Build a single ticket widget (reusable for original and duplicate)
+    Widget buildTicket({required bool isDuplicate}) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.black, width: 1),
+          color: isDuplicate ? const Color(0xFFE0E0E0) : Colors.white,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Flag text
+            Center(
+              child: Text(
+                '🚩 जय श्री राम 🚩',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // Company branding header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F1F1),
+                border: Border.all(color: const Color(0xFFBBBBBB), width: 1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    companyTitle,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    companyAddress,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    companyPhone,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            // Divider
+            Container(
+              height: 2,
+              color: Colors.black,
+            ),
+            const SizedBox(height: 6),
+            // Title row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isDuplicate ? '🚚 Delivery Memo (Duplicate)' : '🚚 Delivery Memo',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                Text(
+                  'DM No. #$dmNumber',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          const SizedBox(height: 8),
+          // Main content
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left column: QR Section
+              if (qrCodeBytes != null && qrCodeBytes.isNotEmpty) ...[
+                SizedBox(
+                  width: 180,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black, width: 3),
+                          color: const Color(0xFFF8F8F8),
+                        ),
+                        padding: const EdgeInsets.all(10),
+                        child: Image.memory(
+                          qrCodeBytes,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        accountName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Scan to pay ₹${formatCurrency(totalAmount)}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
+              // Right column: Info + Table
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Info box
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: const Color(0xFFCCCCCC), width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                        color: const Color(0xFFFAFAFA),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(fontSize: 14, color: Colors.black),
+                                    children: [
+                                      const TextSpan(text: 'Client: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      TextSpan(text: clientName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(fontSize: 14, color: Colors.black),
+                                    children: [
+                                      const TextSpan(text: 'Address: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      TextSpan(text: displayAddress),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(fontSize: 14, color: Colors.black),
+                                    children: [
+                                      const TextSpan(text: 'Phone: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      TextSpan(text: clientPhone, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(fontSize: 14, color: Colors.black),
+                                    children: [
+                                      const TextSpan(text: 'Date: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      TextSpan(text: formatDate(deliveryDate)),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(fontSize: 14, color: Colors.black),
+                                    children: [
+                                      const TextSpan(text: 'Vehicle: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      TextSpan(text: vehicleNumber),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(fontSize: 14, color: Colors.black),
+                                    children: [
+                                      const TextSpan(text: 'Driver: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      TextSpan(text: driverName),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // Product table
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black, width: 1),
+                        borderRadius: BorderRadius.circular(4),
+                        color: Colors.white,
+                      ),
+                      child: Column(
+                        children: [
+                          _buildLakshmeeTableRow('📦 Product', productName, isTotal: false),
+                          _buildLakshmeeTableRow('🔢 Quantity', quantity.toString(), isTotal: false),
+                          _buildLakshmeeTableRow('💰 Unit Price', '₹${formatCurrency(unitPrice)}', isTotal: false),
+                          Container(
+                            margin: const EdgeInsets.only(top: 2),
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            decoration: const BoxDecoration(
+                              border: Border(top: BorderSide(color: Colors.black, width: 1)),
+                            ),
+                            child: _buildLakshmeeTableRow('🧾 Total', '₹${formatCurrency(totalAmount)}', isTotal: true),
+                          ),
+                          _buildLakshmeeTableRow('💳 Payment Mode', paymentMode, isTotal: false),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+            const SizedBox(height: 8),
+            // Jurisdiction note
+            Center(
+              child: Text(
+                jurisdictionNote,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Footer signatures
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Received By',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        height: 1,
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          border: Border(top: BorderSide(color: Colors.black, width: 1)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Authorized Signature',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        height: 1,
+                        width: double.infinity,
+                        decoration: const BoxDecoration(
+                          border: Border(top: BorderSide(color: Colors.black, width: 1)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Return both tickets with cut line divider - wrapped in SingleChildScrollView to prevent overflow
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // First ticket (Original)
+          buildTicket(isDuplicate: false),
+          // Cut line divider
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              children: [
+                Container(
+                  height: 1,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: const Color(0xFF888888),
+                        width: 1,
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                  ),
+                  child: CustomPaint(
+                    painter: DashedLinePainter(),
+                    size: const Size(double.infinity, 1),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  '✂️ Cut Here',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF888888),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          // Second ticket (Duplicate)
+          buildTicket(isDuplicate: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLakshmeeTableRow(String label, String value, {required bool isTotal}) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: isTotal ? 3 : 2),
+      decoration: isTotal
+          ? const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Colors.black, width: 1),
+              ),
+            )
+          : BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: const Color(0xFFCCCCCC),
+                  width: 1,
+                ),
+              ),
+            ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 15 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: isTotal ? 15 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }

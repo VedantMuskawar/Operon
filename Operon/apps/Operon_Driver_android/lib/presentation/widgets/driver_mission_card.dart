@@ -158,7 +158,7 @@ class DriverMissionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: AuthColors.background.withOpacity(0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -185,7 +185,7 @@ class DriverMissionCard extends StatelessWidget {
                           Text(
                             clientName,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                             ),
@@ -197,14 +197,14 @@ class DriverMissionCard extends StatelessWidget {
                               const Icon(
                                 Icons.location_on_outlined,
                                 size: 12,
-                                color: Colors.white60,
+                                color: AuthColors.textSub,
                               ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
                                   locationText,
                                   style: const TextStyle(
-                                    color: Colors.white60,
+                                    color: AuthColors.textSub,
                                     fontSize: 11,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -220,10 +220,10 @@ class DriverMissionCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C),
+                        color: AuthColors.surface,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
+                          color: AuthColors.textMainWithOpacity(0.1),
                           width: 1,
                         ),
                       ),
@@ -235,13 +235,13 @@ class DriverMissionCard extends StatelessWidget {
                               const Icon(
                                 Icons.directions_car,
                                 size: 12,
-                                color: Colors.white70,
+                                color: AuthColors.textMain,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 vehicleNumber ?? 'N/A',
                                 style: const TextStyle(
-                                  color: Colors.white70,
+                                  color: AuthColors.textMain,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -261,7 +261,7 @@ class DriverMissionCard extends StatelessWidget {
                               Text(
                                 slot != null ? 'Slot $slot' : slotName ?? 'N/A',
                                 style: const TextStyle(
-                                  color: Colors.white70,
+                                  color: AuthColors.textMain,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -290,7 +290,7 @@ class DriverMissionCard extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.3),
+                        color: AuthColors.info.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -299,13 +299,13 @@ class DriverMissionCard extends StatelessWidget {
                           const Icon(
                             Icons.receipt_long,
                             size: 14,
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             'DM-$dmNumber',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -314,7 +314,7 @@ class DriverMissionCard extends StatelessWidget {
                           const Icon(
                             Icons.print_outlined,
                             size: 12,
-                            color: Colors.white70,
+                            color: AuthColors.textMain,
                           ),
                         ],
                       ),
@@ -324,7 +324,7 @@ class DriverMissionCard extends StatelessWidget {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.3),
+                      color: AuthColors.warning.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Row(
@@ -333,7 +333,7 @@ class DriverMissionCard extends StatelessWidget {
                         Icon(
                           Icons.warning_outlined,
                           size: 14,
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                         ),
                         SizedBox(width: 4),
                         Text(
@@ -359,7 +359,7 @@ class DriverMissionCard extends StatelessWidget {
                 child: _ActionButton(
                   icon: Icons.phone_outlined,
                   label: 'Call',
-                  color: Colors.green.withOpacity(0.3),
+                  color: AuthColors.success.withOpacity(0.3),
                   onTap: () => _callClient(context),
                 ),
               ),
@@ -368,7 +368,7 @@ class DriverMissionCard extends StatelessWidget {
                 child: _ActionButton(
                   icon: Icons.map,
                   label: 'Map',
-                  color: Colors.blue.withOpacity(0.3),
+                  color: AuthColors.info.withOpacity(0.3),
                   onTap: () => _openMap(context),
                 ),
               ),
@@ -408,7 +408,7 @@ class _ActionButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 14),
+            Icon(icon, color: AuthColors.textMain, size: 14),
             const SizedBox(width: 4),
             Flexible(
               child: Text(

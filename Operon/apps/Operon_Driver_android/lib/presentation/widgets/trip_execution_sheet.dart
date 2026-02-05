@@ -100,6 +100,7 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
   XFile? _selectedImage;
   bool _isUploading = false;
   bool _isProcessing = false;
+  String? _lastValidatedText; // Track validation state to avoid unnecessary rebuilds
 
   // Computed properties (memoized - only recalculate when trip prop changes)
   String get _tripStatus => getTripStatus(widget.trip);
@@ -128,11 +129,21 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
   void initState() {
     super.initState();
     // Listen to reading controller changes to update slide button state
+    // Only rebuild when validation state actually changes
     _readingController.addListener(() {
-      if (mounted) {
-        setState(() {
-          // Trigger rebuild to update slide button enabled state
-        });
+      if (!mounted) return;
+      final currentText = _readingController.text.trim();
+      final isValid = _askMeterReadings
+          ? (currentText.isNotEmpty &&
+              double.tryParse(currentText) != null &&
+              (double.tryParse(currentText) ?? -1) >= 0)
+          : true;
+      final isValidString = isValid.toString();
+      
+      // Only rebuild if validation state changed
+      if (_lastValidatedText != isValidString) {
+        _lastValidatedText = isValidString;
+        setState(() {});
       }
     });
   }
@@ -304,8 +315,8 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
                 icon: const Icon(Icons.print_outlined, size: 18),
                 label: const Text('Print DM'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                  side: const BorderSide(color: Colors.blue),
+                  foregroundColor: AuthColors.info,
+                  side: const BorderSide(color: AuthColors.info),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
               ),

@@ -2,7 +2,6 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/delivery_zones/delivery_zones_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/loading/loading_skeleton.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
@@ -233,9 +232,36 @@ class _ZonesPageState extends State<ZonesPage> {
                   ),
                 ),
               ),
-              QuickNavBar(
-                currentIndex: 4,
-                onTap: (value) => context.go('/home', extra: value),
+              FloatingNavBar(
+                items: const [
+                  NavBarItem(
+                    icon: Icons.home_rounded,
+                    label: 'Home',
+                    heroTag: 'nav_home',
+                  ),
+                  NavBarItem(
+                    icon: Icons.pending_actions_rounded,
+                    label: 'Pending',
+                    heroTag: 'nav_pending',
+                  ),
+                  NavBarItem(
+                    icon: Icons.schedule_rounded,
+                    label: 'Schedule',
+                    heroTag: 'nav_schedule',
+                  ),
+                  NavBarItem(
+                    icon: Icons.map_rounded,
+                    label: 'Map',
+                    heroTag: 'nav_map',
+                  ),
+                  NavBarItem(
+                    icon: Icons.event_available_rounded,
+                    label: 'Cash Ledger',
+                    heroTag: 'nav_cash_ledger',
+                  ),
+                ],
+                currentIndex: -1,
+                onItemTapped: (value) => context.go('/home', extra: value),
               ),
             ],
           ),

@@ -80,13 +80,45 @@ class CashLedgerState extends BaseState {
 
   double get totalOrderTransactions =>
       orderTransactions.fold(0.0, (sum, tx) => sum + tx.amount);
+  // For order transactions, only debit (actual payments) counts as income
+  double get totalOrderIncome =>
+      orderTransactions
+          .where((tx) => tx.type == TransactionType.debit)
+          .fold(0.0, (sum, tx) => sum + tx.amount);
   double get totalPayments => payments.fold(0.0, (sum, tx) => sum + tx.amount);
   double get totalPurchases => purchases.fold(0.0, (sum, tx) => sum + tx.amount);
   double get totalExpenses => expenses.fold(0.0, (sum, tx) => sum + tx.amount);
 
-  double get totalIncome => totalOrderTransactions + totalPayments;
+  double get totalIncome => totalOrderIncome + totalPayments;
   double get totalOutcome => totalPurchases + totalExpenses;
   double get netBalance => totalIncome - totalOutcome;
+
+  /// Calculate total credit and debit from all transactions
+  double get totalCredit {
+    return allRows
+        .where((tx) => tx.type == TransactionType.credit)
+        .fold(0.0, (sum, tx) {
+      // For grouped transactions, use cumulative credit from metadata
+      final transactionCount = tx.metadata?['transactionCount'] as int?;
+      if (transactionCount != null && transactionCount > 1) {
+        return sum + ((tx.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0);
+      }
+      return sum + tx.amount;
+    });
+  }
+
+  double get totalDebit {
+    return allRows
+        .where((tx) => tx.type == TransactionType.debit)
+        .fold(0.0, (sum, tx) {
+      // For grouped transactions, use cumulative debit from metadata
+      final transactionCount = tx.metadata?['transactionCount'] as int?;
+      if (transactionCount != null && transactionCount > 1) {
+        return sum + ((tx.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0);
+      }
+      return sum + tx.amount;
+    });
+  }
 
   /// Per-account income and expense for display below the table.
   List<PaymentAccountSummary> get paymentAccountDistribution {
@@ -104,8 +136,12 @@ class CashLedgerState extends BaseState {
         expense: cur.expense + expense,
       );
     }
+    // For order transactions, only debit (actual payments) counts as income
     for (final t in orderTransactions) {
-      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
+      if (t.type == TransactionType.debit) {
+        add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
+      }
+      // Credit transactions (clientCredit/PayLater) don't count as income
     }
     for (final t in payments) {
       add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);

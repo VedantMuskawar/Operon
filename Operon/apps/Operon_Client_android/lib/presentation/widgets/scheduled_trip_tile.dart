@@ -78,14 +78,12 @@ class ScheduledTripTile extends StatelessWidget {
       tripData: trip,
     );
     if (dmData == null || !context.mounted) return;
-    showDialog<void>(
+    await DmPrintDialog.show(
       context: context,
-      builder: (_) => DmPrintDialog(
-        dmPrintService: printService,
-        organizationId: org.id,
-        dmData: dmData,
-        dmNumber: dmNumber,
-      ),
+      dmPrintService: printService,
+      organizationId: org.id,
+      dmData: dmData,
+      dmNumber: dmNumber,
     );
   }
 

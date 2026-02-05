@@ -4,6 +4,25 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:core_models/core_models.dart';
 
 // ---------------------------------------------------------------------------
+// Helper functions
+// ---------------------------------------------------------------------------
+
+/// Removes emojis and replaces Hindi text with English for PDF compatibility
+String _sanitizeTextForPdf(String text) {
+  // Replace Hindi flag text with English first (before removing emojis)
+  String cleaned = text.replaceAll('जय श्री राम', 'Jai Shri Ram');
+  
+  // Remove emojis (comprehensive Unicode ranges for emojis)
+  // This covers: emoji symbols, emoticons, transport symbols, flags, etc.
+  cleaned = cleaned.replaceAll(RegExp(
+    r'[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{200D}]|[\u{FE0F}]|[\u{1F900}-\u{1F9FF}]',
+    unicode: true,
+  ), '');
+  
+  return cleaned.trim();
+}
+
+// ---------------------------------------------------------------------------
 // Data models for Lakshmee DM template
 // ---------------------------------------------------------------------------
 
@@ -130,18 +149,38 @@ class DmPrintData {
       );
     }
 
-    final paymentStatus = dmData['paymentStatus'] as bool? ?? false;
+    // Handle paymentStatus - could be bool or string
+    final paymentStatusValue = dmData['paymentStatus'];
+    final paymentStatus = paymentStatusValue is bool
+        ? paymentStatusValue
+        : (paymentStatusValue is String
+            ? paymentStatusValue.toLowerCase() == 'true' || paymentStatusValue.toLowerCase() == 'paid'
+            : false);
     final toAccount = dmData['toAccount'] as String?;
     final paySchedule = dmData['paySchedule'] as String?;
+    // Use paymentType from trip/dmData - if pay_later show "Pay Later", if pay_on_delivery show "Pay Now"
+    final paymentType = dmData['paymentType'] as String?;
     String paymentMode = 'N/A';
-    if (paymentStatus && toAccount != null) {
-      paymentMode = toAccount;
-    } else if (paySchedule == 'POD') {
-      paymentMode = 'Cash';
-    } else if (paySchedule == 'PL') {
-      paymentMode = 'Credit';
-    } else if (paySchedule != null) {
-      paymentMode = paySchedule;
+    if (paymentType != null) {
+      final lowerPaymentType = paymentType.toLowerCase();
+      if (lowerPaymentType == 'pay_later') {
+        paymentMode = 'Pay Later';
+      } else if (lowerPaymentType == 'pay_on_delivery') {
+        paymentMode = 'Pay Now';
+      } else {
+        paymentMode = paymentType;
+      }
+    } else {
+      // Fallback to old logic if paymentType is not available
+      if (paymentStatus && toAccount != null) {
+        paymentMode = toAccount;
+      } else if (paySchedule == 'POD') {
+        paymentMode = 'Cash';
+      } else if (paySchedule == 'PL') {
+        paymentMode = 'Credit';
+      } else if (paySchedule != null) {
+        paymentMode = paySchedule;
+      }
     }
 
     final accountName = paymentAccount?['name'] as String? ??
@@ -177,26 +216,42 @@ class LakshmeeTheme {
   const LakshmeeTheme({
     this.headerBackground = '#f1f1f1',
     this.headerBorder = '#bbbbbb',
-    this.bodyText = '#333333',
-    this.mutedText = '#444444',
+    this.bodyText = '#000000',
+    this.mutedText = '#000000',
     this.infoBoxBorder = '#cccccc',
     this.infoBoxBackground = '#fafafa',
     this.qrBoxBackground = '#f8f8f8',
-    this.amountText = '#1f2937',
+    this.amountText = '#000000',
+    this.flagTextColor = '#000000',
+    this.duplicateBackground = '#e0e0e0',
+    this.cutLineColor = '#888888',
+    this.fontSizeCompanyName = 20,
+    this.fontSizeContact = 14,
+    this.fontSizeFlag = 11,
     this.fontSizeTitle = 16,
+    this.fontSizeDmNumber = 15,
+    this.fontSizeInfo = 14,
+    this.fontSizeTable = 14,
+    this.fontSizeTableTotal = 15,
+    this.fontSizeJurisdiction = 14,
+    this.fontSizeSignature = 13,
+    this.fontSizeCutLine = 5,
     this.fontSizeSubtitle = 11,
     this.fontSizeBody = 11,
     this.fontSizeTableLabel = 12,
     this.fontSizeDeliveryMemo = 13,
-    this.fontSizeDmNumber = 12,
     this.borderRadius = 4,
     this.dividerThickness = 2,
     this.borderWidth = 1,
     this.qrBoxBorderWidth = 3,
+    this.qrCodeSize = 180,
+    this.ticketWidth = 200,
+    this.ticketHeight = 138,
     this.companyTitle = 'LAKSHMEE INTELLIGENT TECHNOLOGIES',
     this.companyAddress = 'B-24/2, M.I.D.C., CHANDRAPUR - 442406',
     this.companyPhone = 'Ph: +91 8149448822 | +91 9420448822',
     this.jurisdictionNote = 'Note: Subject to Chandrapur Jurisdiction',
+    this.flagText = '🚩 जय श्री राम 🚩',
   });
 
   final String headerBackground;
@@ -207,20 +262,36 @@ class LakshmeeTheme {
   final String infoBoxBackground;
   final String qrBoxBackground;
   final String amountText;
+  final String flagTextColor;
+  final String duplicateBackground;
+  final String cutLineColor;
+  final int fontSizeCompanyName;
+  final int fontSizeContact;
+  final int fontSizeFlag;
   final int fontSizeTitle;
+  final int fontSizeDmNumber;
+  final int fontSizeInfo;
+  final int fontSizeTable;
+  final int fontSizeTableTotal;
+  final int fontSizeJurisdiction;
+  final int fontSizeSignature;
+  final int fontSizeCutLine;
   final int fontSizeSubtitle;
   final int fontSizeBody;
   final int fontSizeTableLabel;
   final int fontSizeDeliveryMemo;
-  final int fontSizeDmNumber;
   final double borderRadius;
   final double dividerThickness;
   final double borderWidth;
   final double qrBoxBorderWidth;
+  final double qrCodeSize;
+  final double ticketWidth;
+  final double ticketHeight;
   final String companyTitle;
   final String companyAddress;
   final String companyPhone;
   final String jurisdictionNote;
+  final String flagText;
 
   static const LakshmeeTheme defaultTheme = LakshmeeTheme();
 }
@@ -250,6 +321,7 @@ Future<Uint8List> generateCustomDmPdf({
         paymentAccount: paymentAccount,
         qrCodeBytes: qrCodeBytes,
         watermarkBytes: watermarkBytes,
+        logoBytes: logoBytes,
       );
     default:
       // Fallback to universal template if template ID not found
@@ -258,120 +330,104 @@ Future<Uint8List> generateCustomDmPdf({
 }
 
 /// Generate Lakshmee Intelligent Technologies custom DM template
-/// Replicates the design from PrintDM.jsx (single copy, A4 landscape)
+/// Replicates the design from PrintDM.jsx (A4 portrait with two tickets: original + duplicate)
 Future<Uint8List> generateLakshmeeTemplate({
   required Map<String, dynamic> dmData,
   required DmSettings dmSettings,
   Map<String, dynamic>? paymentAccount,
   Uint8List? qrCodeBytes,
   Uint8List? watermarkBytes,
+  Uint8List? logoBytes,
 }) async {
   final data = DmPrintData.fromMap(dmData, paymentAccount);
-  const theme = LakshmeeTheme.defaultTheme;
+  
+  // Create theme with DM settings values
+  final theme = LakshmeeTheme(
+    companyTitle: dmSettings.header.name.isNotEmpty
+        ? dmSettings.header.name.toUpperCase()
+        : LakshmeeTheme.defaultTheme.companyTitle,
+    companyAddress: dmSettings.header.address.isNotEmpty
+        ? dmSettings.header.address
+        : LakshmeeTheme.defaultTheme.companyAddress,
+    companyPhone: dmSettings.header.phone.isNotEmpty
+        ? dmSettings.header.phone
+        : LakshmeeTheme.defaultTheme.companyPhone,
+    jurisdictionNote: dmSettings.footer.customText?.isNotEmpty == true
+        ? dmSettings.footer.customText!
+        : LakshmeeTheme.defaultTheme.jurisdictionNote,
+  );
+  
+  // Respect payment display setting
+  final showQrCode = dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
+  final finalQrCodeBytes = showQrCode ? qrCodeBytes : null;
+  
   final pdf = pw.Document();
 
-  final hasQr = qrCodeBytes != null && qrCodeBytes.isNotEmpty;
-  final showPaymentSection = hasQr || paymentAccount != null;
+  // A4 portrait: 210mm x 297mm
+  // Page wrapper: 190mm x 277mm (after 5mm padding on all sides)
+  // Each ticket: 200mm x 138mm
 
   pdf.addPage(
     pw.Page(
-      pageFormat: PdfPageFormat.a4.landscape,
+      pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(0),
       build: (context) {
         return pw.Container(
-          width: PdfPageFormat.a4.landscape.width,
-          height: PdfPageFormat.a4.landscape.height,
+          width: PdfPageFormat.a4.width,
+          height: PdfPageFormat.a4.height,
           padding: const pw.EdgeInsets.all(5 * PdfPageFormat.mm),
           decoration: const pw.BoxDecoration(color: PdfColors.white),
           child: pw.Container(
-            width: PdfPageFormat.a4.landscape.width - 10 * PdfPageFormat.mm,
-            height: PdfPageFormat.a4.landscape.height - 10 * PdfPageFormat.mm,
+            width: 190 * PdfPageFormat.mm,
+            height: 277 * PdfPageFormat.mm,
             margin: const pw.EdgeInsets.symmetric(horizontal: 0),
-            child: pw.Container(
-              width: double.infinity,
-              height: double.infinity,
-              padding: const pw.EdgeInsets.symmetric(
-                vertical: 4 * PdfPageFormat.mm,
-                horizontal: 5 * PdfPageFormat.mm,
-              ),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(
-                  color: PdfColors.black,
-                  width: theme.borderWidth,
+            child: pw.Column(
+              mainAxisAlignment: pw.MainAxisAlignment.center,
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                // First ticket (Original) - white background
+                _buildLakshmeeTicket(
+                  data: data,
+                  theme: theme,
+                  qrCodeBytes: finalQrCodeBytes,
+                  watermarkBytes: watermarkBytes,
+                  logoBytes: logoBytes,
+                  isDuplicate: false,
                 ),
-                color: PdfColors.white,
-              ),
-              child: pw.Stack(
-                children: [
-                  if (watermarkBytes != null)
-                    pw.Positioned.fill(
-                      child: pw.Opacity(
-                        opacity: 0.1,
-                        child: pw.Center(
-                          child: pw.Image(
-                            pw.MemoryImage(watermarkBytes),
-                            width: 500,
-                            fit: pw.BoxFit.contain,
-                          ),
-                        ),
-                      ),
-                    ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    mainAxisAlignment: pw.MainAxisAlignment.start,
+                // Cut line divider
+                pw.Container(
+                  width: double.infinity,
+                  margin: const pw.EdgeInsets.symmetric(vertical: 0.5 * PdfPageFormat.mm),
+                  child: pw.Column(
                     children: [
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.center,
-                        children: [
-                          _buildLakshmeeHeader(theme),
-                          pw.SizedBox(height: 3),
-                          pw.Divider(
-                            color: PdfColors.black,
-                            thickness: theme.dividerThickness,
-                            height: 0,
-                          ),
-                          pw.SizedBox(height: 4),
-                          _buildLakshmeeTitleRow(data.dmNumber, theme),
-                          pw.SizedBox(height: 4),
-                          pw.Row(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              if (showPaymentSection) ...[
-                                _buildLakshmeePaymentSection(
-                                  accountName: data.accountName,
-                                  total: data.total,
-                                  qrCodeBytes: qrCodeBytes,
-                                  theme: theme,
-                                ),
-                                pw.SizedBox(width: 8),
-                              ],
-                              pw.Expanded(
-                                flex: 2,
-                                child: pw.Column(
-                                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                                  mainAxisSize: pw.MainAxisSize.min,
-                                  children: [
-                                    _buildLakshmeeInfoGrid(data, theme),
-                                    pw.SizedBox(height: 3),
-                                    _buildLakshmeeProductTable(
-                                      data.productItems,
-                                      data.total,
-                                      data.paymentMode,
-                                      theme,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      pw.Divider(
+                        color: PdfColor.fromHex(theme.cutLineColor),
+                        thickness: 1,
+                        height: 0,
+                        borderStyle: pw.BorderStyle.dashed,
                       ),
-                      pw.SizedBox(height: 3),
-                      _buildLakshmeeFooter(theme),
+                      pw.SizedBox(height: 0.5),
+                      pw.Text(
+                        'Cut Here',
+                        style: pw.TextStyle(
+                          fontSize: theme.fontSizeCutLine.toDouble(),
+                          color: PdfColor.fromHex(theme.cutLineColor),
+                        ),
+                        textAlign: pw.TextAlign.center,
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                // Second ticket (Duplicate) - gray background
+                _buildLakshmeeTicket(
+                  data: data,
+                  theme: theme,
+                  qrCodeBytes: finalQrCodeBytes,
+                  watermarkBytes: watermarkBytes,
+                  logoBytes: logoBytes,
+                  isDuplicate: true,
+                ),
+              ],
             ),
           ),
         );
@@ -382,10 +438,102 @@ Future<Uint8List> generateLakshmeeTemplate({
   return pdf.save();
 }
 
-pw.Widget _buildLakshmeeHeader(LakshmeeTheme theme) {
+/// Builds a single ticket (reusable for original and duplicate)
+pw.Widget _buildLakshmeeTicket({
+  required DmPrintData data,
+  required LakshmeeTheme theme,
+  Uint8List? qrCodeBytes,
+  Uint8List? watermarkBytes,
+  Uint8List? logoBytes,
+  required bool isDuplicate,
+}) {
+  return pw.Container(
+    width: theme.ticketWidth * PdfPageFormat.mm,
+    height: theme.ticketHeight * PdfPageFormat.mm,
+    padding: const pw.EdgeInsets.symmetric(
+      vertical: 4 * PdfPageFormat.mm,
+      horizontal: 5 * PdfPageFormat.mm,
+    ),
+    decoration: pw.BoxDecoration(
+      border: pw.Border.all(
+        color: PdfColors.black,
+        width: theme.borderWidth,
+      ),
+      color: isDuplicate
+          ? PdfColor.fromHex(theme.duplicateBackground)
+          : PdfColors.white,
+    ),
+    child: pw.Stack(
+      children: [
+        // Watermark
+        if (watermarkBytes != null)
+          pw.Positioned.fill(
+            child: pw.Opacity(
+              opacity: 0.1,
+              child: pw.Center(
+                child: pw.Image(
+                  pw.MemoryImage(watermarkBytes),
+                  width: 500,
+                  fit: pw.BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+        // Content
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Flag text (sanitized for PDF - no emojis/Hindi)
+                pw.Center(
+                  child: pw.Text(
+                    _sanitizeTextForPdf(theme.flagText),
+                    style: pw.TextStyle(
+                      fontSize: theme.fontSizeFlag.toDouble(),
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromHex(theme.flagTextColor),
+                    ),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+                pw.SizedBox(height: 1),
+                // Company branding header
+                _buildLakshmeeHeader(theme, logoBytes: logoBytes),
+                pw.SizedBox(height: 1.5),
+                // Divider
+                pw.Divider(
+                  color: PdfColors.black,
+                  thickness: theme.dividerThickness,
+                  height: 0,
+                ),
+                pw.SizedBox(height: 1.5),
+                // Title row
+                _buildLakshmeeTitleRow(data.dmNumber, theme, isDuplicate: isDuplicate),
+                pw.SizedBox(height: 1),
+                // Main content (QR + Info + Table)
+                _buildLakshmeeMainContent(
+                  data: data,
+                  theme: theme,
+                  qrCodeBytes: qrCodeBytes,
+                ),
+              ],
+            ),
+            // Footer
+            _buildLakshmeeFooter(theme),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+pw.Widget _buildLakshmeeHeader(LakshmeeTheme theme, {Uint8List? logoBytes}) {
   return pw.Container(
     width: double.infinity,
-    padding: const pw.EdgeInsets.symmetric(vertical: 3, horizontal: 0),
+    padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
     decoration: pw.BoxDecoration(
       color: PdfColor.fromHex(theme.headerBackground),
       border: pw.Border.all(
@@ -394,54 +542,106 @@ pw.Widget _buildLakshmeeHeader(LakshmeeTheme theme) {
       ),
       borderRadius: pw.BorderRadius.circular(theme.borderRadius),
     ),
-    child: pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.center,
-      mainAxisSize: pw.MainAxisSize.min,
-      children: [
-        pw.Text(
-          theme.companyTitle,
-          style: pw.TextStyle(
-            fontSize: theme.fontSizeTitle.toDouble(),
-            fontWeight: pw.FontWeight.bold,
-            letterSpacing: 0.6,
-            color: PdfColors.black,
+    child: logoBytes != null
+        ? pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.center,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.Image(
+                pw.MemoryImage(logoBytes),
+                width: 40,
+                height: 40,
+                fit: pw.BoxFit.contain,
+              ),
+              pw.SizedBox(width: 8),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Text(
+                      theme.companyTitle,
+                      style: pw.TextStyle(
+                        fontSize: theme.fontSizeCompanyName.toDouble(),
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 0.8,
+                        color: PdfColors.black,
+                      ),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                    pw.SizedBox(height: 0.5),
+                    pw.Text(
+                      theme.companyAddress,
+                      style: pw.TextStyle(
+                        fontSize: theme.fontSizeContact.toDouble(),
+                        fontWeight: pw.FontWeight.normal,
+                        color: PdfColor.fromHex(theme.bodyText),
+                      ),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                    pw.SizedBox(height: 0.5),
+                    pw.Text(
+                      theme.companyPhone,
+                      style: pw.TextStyle(
+                        fontSize: theme.fontSizeContact.toDouble(),
+                        fontWeight: pw.FontWeight.normal,
+                        color: PdfColor.fromHex(theme.bodyText),
+                      ),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          )
+        : pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              pw.Text(
+                theme.companyTitle,
+                style: pw.TextStyle(
+                  fontSize: theme.fontSizeCompanyName.toDouble(),
+                  fontWeight: pw.FontWeight.bold,
+                  letterSpacing: 0.8,
+                  color: PdfColors.black,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+              pw.SizedBox(height: 0.5),
+              pw.Text(
+                theme.companyAddress,
+                style: pw.TextStyle(
+                  fontSize: theme.fontSizeContact.toDouble(),
+                  fontWeight: pw.FontWeight.normal,
+                  color: PdfColor.fromHex(theme.bodyText),
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+              pw.SizedBox(height: 0.5),
+              pw.Text(
+                theme.companyPhone,
+                style: pw.TextStyle(
+                  fontSize: theme.fontSizeContact.toDouble(),
+                  fontWeight: pw.FontWeight.normal,
+                  color: PdfColor.fromHex(theme.bodyText),
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+            ],
           ),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 1),
-        pw.Text(
-          theme.companyAddress,
-          style: pw.TextStyle(
-            fontSize: theme.fontSizeSubtitle.toDouble(),
-            fontWeight: pw.FontWeight.normal,
-            color: PdfColor.fromHex(theme.bodyText),
-          ),
-          textAlign: pw.TextAlign.center,
-        ),
-        pw.SizedBox(height: 1),
-        pw.Text(
-          theme.companyPhone,
-          style: pw.TextStyle(
-            fontSize: theme.fontSizeSubtitle.toDouble(),
-            fontWeight: pw.FontWeight.normal,
-            color: PdfColor.fromHex(theme.bodyText),
-          ),
-          textAlign: pw.TextAlign.center,
-        ),
-      ],
-    ),
   );
 }
 
-pw.Widget _buildLakshmeeTitleRow(int dmNumber, LakshmeeTheme theme) {
+pw.Widget _buildLakshmeeTitleRow(int dmNumber, LakshmeeTheme theme, {bool isDuplicate = false}) {
   return pw.Row(
     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
     crossAxisAlignment: pw.CrossAxisAlignment.center,
     children: [
       pw.Text(
-        'Delivery Memo',
+        isDuplicate ? 'Delivery Memo (Duplicate)' : 'Delivery Memo',
         style: pw.TextStyle(
-          fontSize: theme.fontSizeDeliveryMemo.toDouble(),
+          fontSize: theme.fontSizeTitle.toDouble(),
           fontWeight: pw.FontWeight.bold,
           color: PdfColors.black,
         ),
@@ -451,6 +651,46 @@ pw.Widget _buildLakshmeeTitleRow(int dmNumber, LakshmeeTheme theme) {
         style: pw.TextStyle(
           fontSize: theme.fontSizeDmNumber.toDouble(),
           fontWeight: pw.FontWeight.bold,
+        ),
+      ),
+    ],
+  );
+}
+
+pw.Widget _buildLakshmeeMainContent({
+  required DmPrintData data,
+  required LakshmeeTheme theme,
+  Uint8List? qrCodeBytes,
+}) {
+  return pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      // Left column: QR Section (190px ≈ 50mm)
+      pw.Container(
+        width: 50 * PdfPageFormat.mm,
+        child: _buildLakshmeePaymentSection(
+          accountName: data.accountName,
+          total: data.total,
+          qrCodeBytes: qrCodeBytes,
+          theme: theme,
+        ),
+      ),
+      pw.SizedBox(width: 2.5 * PdfPageFormat.mm),
+      // Right column: Info + Table
+      pw.Expanded(
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          mainAxisSize: pw.MainAxisSize.min,
+          children: [
+            _buildLakshmeeInfoGrid(data, theme),
+            pw.SizedBox(height: 0.5),
+            _buildLakshmeeProductTable(
+              data.productItems,
+              data.total,
+              data.paymentMode,
+              theme,
+            ),
+          ],
         ),
       ),
     ],
@@ -473,89 +713,79 @@ pw.Widget _buildLakshmeePaymentSection({
 
   if (hasQr) {
     final labelText = hasAccountName
-        ? (accountName.length > 20
-            ? '${accountName.substring(0, 20)}...'
-            : accountName)
-        : 'Scan to pay';
-    return pw.Container(
-      width: 80,
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        mainAxisSize: pw.MainAxisSize.min,
-        children: [
-          pw.Container(
-            width: 75,
-            height: 75,
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(
-                color: PdfColors.black,
-                width: theme.qrBoxBorderWidth,
-              ),
-              color: PdfColor.fromHex(theme.qrBoxBackground),
-            ),
-            padding: const pw.EdgeInsets.all(6),
-            child: pw.Image(
-              pw.MemoryImage(qrCodeBytes),
-              fit: pw.BoxFit.contain,
-            ),
-          ),
-          pw.SizedBox(height: 2),
-          pw.Text(
-            labelText,
-            style: pw.TextStyle(
-              fontSize: theme.fontSizeSubtitle.toDouble(),
-              fontWeight: pw.FontWeight.bold,
+        ? accountName
+        : 'Lakshmee Intelligent Technologies';
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      mainAxisSize: pw.MainAxisSize.min,
+      children: [
+        pw.Container(
+          width: theme.qrCodeSize,
+          height: theme.qrCodeSize,
+          decoration: pw.BoxDecoration(
+            border: pw.Border.all(
               color: PdfColors.black,
+              width: theme.qrBoxBorderWidth,
             ),
-            textAlign: pw.TextAlign.center,
-            maxLines: 1,
+            color: PdfColor.fromHex(theme.qrBoxBackground),
           ),
-          pw.SizedBox(height: 1.5),
-          pw.Text(
-            'Scan to pay $_pdfCurrencyPrefix${_formatCurrency(total)}',
-            style: pw.TextStyle(
-              fontSize: theme.fontSizeSubtitle.toDouble(),
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColor.fromHex(theme.amountText),
-            ),
-            textAlign: pw.TextAlign.center,
+          padding: const pw.EdgeInsets.all(10),
+          child: pw.Image(
+            pw.MemoryImage(qrCodeBytes),
+            fit: pw.BoxFit.contain,
           ),
-        ],
-      ),
+        ),
+        pw.SizedBox(height: 0.5),
+        pw.Text(
+          labelText,
+          style: pw.TextStyle(
+            fontSize: theme.fontSizeInfo.toDouble(),
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColors.black,
+          ),
+          textAlign: pw.TextAlign.center,
+          maxLines: 2,
+        ),
+        pw.SizedBox(height: 0.5),
+        pw.Text(
+          'Scan to pay Rs ${_formatCurrency(total)}',
+          style: pw.TextStyle(
+            fontSize: theme.fontSizeInfo.toDouble(),
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColor.fromHex(theme.amountText),
+          ),
+          textAlign: pw.TextAlign.center,
+        ),
+      ],
     );
   }
 
   if (hasAccountName) {
-    return pw.Container(
-      width: 80,
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        mainAxisSize: pw.MainAxisSize.min,
-        children: [
-          pw.Text(
-            accountName.length > 20
-                ? '${accountName.substring(0, 20)}...'
-                : accountName,
-            style: pw.TextStyle(
-              fontSize: theme.fontSizeSubtitle.toDouble(),
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColors.black,
-            ),
-            textAlign: pw.TextAlign.center,
-            maxLines: 2,
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      mainAxisSize: pw.MainAxisSize.min,
+      children: [
+        pw.Text(
+          accountName,
+          style: pw.TextStyle(
+            fontSize: theme.fontSizeInfo.toDouble(),
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColors.black,
           ),
-          pw.SizedBox(height: 2),
-          pw.Text(
-            'Pay $_pdfCurrencyPrefix${_formatCurrency(total)}',
-            style: pw.TextStyle(
-              fontSize: theme.fontSizeSubtitle.toDouble(),
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColor.fromHex(theme.amountText),
-            ),
-            textAlign: pw.TextAlign.center,
+          textAlign: pw.TextAlign.center,
+          maxLines: 2,
+        ),
+        pw.SizedBox(height: 0.5),
+        pw.Text(
+          'Pay Rs ${_formatCurrency(total)}',
+          style: pw.TextStyle(
+            fontSize: theme.fontSizeInfo.toDouble(),
+            fontWeight: pw.FontWeight.bold,
+            color: PdfColor.fromHex(theme.amountText),
           ),
-        ],
-      ),
+          textAlign: pw.TextAlign.center,
+        ),
+      ],
     );
   }
 
@@ -564,14 +794,14 @@ pw.Widget _buildLakshmeePaymentSection({
 
 pw.Widget _buildLakshmeeInfoGrid(DmPrintData data, LakshmeeTheme theme) {
   final labelStyle = pw.TextStyle(
-    fontSize: theme.fontSizeBody.toDouble(),
+    fontSize: theme.fontSizeInfo.toDouble(),
     fontWeight: pw.FontWeight.bold,
   );
   final valueStyle = pw.TextStyle(
-    fontSize: theme.fontSizeBody.toDouble(),
+    fontSize: theme.fontSizeInfo.toDouble(),
   );
   return pw.Container(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+    padding: const pw.EdgeInsets.symmetric(horizontal: 1.5, vertical: 1),
     decoration: pw.BoxDecoration(
       border: pw.Border.all(
         color: PdfColor.fromHex(theme.infoBoxBorder),
@@ -596,7 +826,7 @@ pw.Widget _buildLakshmeeInfoGrid(DmPrintData data, LakshmeeTheme theme) {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 0.5),
+              pw.SizedBox(height: 0.25),
               pw.RichText(
                 text: pw.TextSpan(
                   children: [
@@ -608,7 +838,7 @@ pw.Widget _buildLakshmeeInfoGrid(DmPrintData data, LakshmeeTheme theme) {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 0.5),
+              pw.SizedBox(height: 0.25),
               pw.RichText(
                 text: pw.TextSpan(
                   children: [
@@ -620,7 +850,7 @@ pw.Widget _buildLakshmeeInfoGrid(DmPrintData data, LakshmeeTheme theme) {
             ],
           ),
         ),
-        pw.SizedBox(width: 6),
+        pw.SizedBox(width: 1.5),
         pw.Expanded(
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -636,7 +866,7 @@ pw.Widget _buildLakshmeeInfoGrid(DmPrintData data, LakshmeeTheme theme) {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 0.5),
+              pw.SizedBox(height: 0.25),
               pw.RichText(
                 text: pw.TextSpan(
                   children: [
@@ -648,7 +878,7 @@ pw.Widget _buildLakshmeeInfoGrid(DmPrintData data, LakshmeeTheme theme) {
                   ],
                 ),
               ),
-              pw.SizedBox(height: 0.5),
+              pw.SizedBox(height: 0.25),
               pw.RichText(
                 text: pw.TextSpan(
                   children: [
@@ -682,7 +912,7 @@ pw.Widget _buildLakshmeeProductTable(
           unitPrice: 0.0,
         );
   return pw.Container(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1.5),
+    padding: const pw.EdgeInsets.symmetric(horizontal: 0.75, vertical: 1),
     decoration: pw.BoxDecoration(
       border: pw.Border.all(
         color: PdfColors.black,
@@ -707,13 +937,13 @@ pw.Widget _buildLakshmeeProductTable(
         ),
         _buildLakshmeeTableRow(
           'Unit Price',
-          '$_pdfCurrencyPrefix${_formatCurrency(first.unitPrice)}',
+          'Rs ${_formatCurrency(first.unitPrice)}',
           isTotal: false,
           theme: theme,
         ),
         _buildLakshmeeTableRow(
           'Total',
-          '$_pdfCurrencyPrefix${_formatCurrency(total)}',
+          'Rs ${_formatCurrency(total)}',
           isTotal: true,
           theme: theme,
         ),
@@ -736,14 +966,14 @@ pw.Widget _buildLakshmeeFooter(LakshmeeTheme theme) {
         child: pw.Text(
           theme.jurisdictionNote,
           style: pw.TextStyle(
-            fontSize: theme.fontSizeSubtitle.toDouble(),
+            fontSize: theme.fontSizeJurisdiction.toDouble(),
             color: PdfColor.fromHex(theme.mutedText),
-            // Avoid Helvetica-Oblique; standard PDF italic has no Unicode support
+            // Note: PDF standard fonts may not support italic, but we try
           ),
           textAlign: pw.TextAlign.center,
         ),
       ),
-      pw.SizedBox(height: 4),
+      pw.SizedBox(height: 0.5),
       pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         crossAxisAlignment: pw.CrossAxisAlignment.end,
@@ -756,10 +986,10 @@ pw.Widget _buildLakshmeeFooter(LakshmeeTheme theme) {
                 pw.Text(
                   'Received By',
                   style: pw.TextStyle(
-                    fontSize: theme.fontSizeSubtitle.toDouble(),
+                    fontSize: theme.fontSizeSignature.toDouble(),
                   ),
                 ),
-                pw.SizedBox(height: 2),
+                pw.SizedBox(height: 0.5),
                 pw.Container(
                   width: double.infinity,
                   decoration: pw.BoxDecoration(
@@ -775,7 +1005,7 @@ pw.Widget _buildLakshmeeFooter(LakshmeeTheme theme) {
               ],
             ),
           ),
-          pw.SizedBox(width: 2.8),
+          pw.SizedBox(width: 0.7),
           pw.Expanded(
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -784,10 +1014,10 @@ pw.Widget _buildLakshmeeFooter(LakshmeeTheme theme) {
                 pw.Text(
                   'Authorized Signature',
                   style: pw.TextStyle(
-                    fontSize: theme.fontSizeSubtitle.toDouble(),
+                    fontSize: theme.fontSizeSignature.toDouble(),
                   ),
                 ),
-                pw.SizedBox(height: 2),
+                pw.SizedBox(height: 0.5),
                 pw.Container(
                   width: double.infinity,
                   decoration: pw.BoxDecoration(
@@ -825,10 +1055,10 @@ pw.Widget _buildLakshmeeTableRow(
           ),
         ),
       ),
-      margin: const pw.EdgeInsets.only(top: 1),
+      margin: const pw.EdgeInsets.only(top: 0.5),
       padding: const pw.EdgeInsets.only(
-        top: 1.5,
-        bottom: 0.5,
+        top: 0.75,
+        bottom: 0.25,
         left: 0,
         right: 0,
       ),
@@ -838,14 +1068,14 @@ pw.Widget _buildLakshmeeTableRow(
           pw.Text(
             label,
             style: pw.TextStyle(
-              fontSize: theme.fontSizeTableLabel.toDouble(),
+              fontSize: theme.fontSizeTableTotal.toDouble(),
               fontWeight: pw.FontWeight.bold,
             ),
           ),
           pw.Text(
             value,
             style: pw.TextStyle(
-              fontSize: theme.fontSizeTableLabel.toDouble(),
+              fontSize: theme.fontSizeTableTotal.toDouble(),
               fontWeight: pw.FontWeight.bold,
             ),
           ),
@@ -855,8 +1085,8 @@ pw.Widget _buildLakshmeeTableRow(
   }
   return pw.Container(
     padding: const pw.EdgeInsets.only(
-      top: 1,
-      bottom: 0.5,
+      top: 0.5,
+      bottom: 0.25,
       left: 0,
       right: 0,
     ),
@@ -875,13 +1105,13 @@ pw.Widget _buildLakshmeeTableRow(
         pw.Text(
           label,
           style: pw.TextStyle(
-            fontSize: theme.fontSizeBody.toDouble(),
+            fontSize: theme.fontSizeTable.toDouble(),
           ),
         ),
         pw.Text(
           value,
           style: pw.TextStyle(
-            fontSize: theme.fontSizeBody.toDouble(),
+            fontSize: theme.fontSizeTable.toDouble(),
           ),
         ),
       ],
@@ -896,11 +1126,6 @@ String _formatCurrency(double amount) {
     (Match m) => '${m[1]},',
   );
 }
-
-/// Currency prefix for PDF text. Use "Rs " because standard PDF fonts do not
-/// support the Rupee symbol (U+20B9). Pass a Unicode font with fontFallback
-/// if you need "₹" in the output.
-const String _pdfCurrencyPrefix = 'Rs ';
 
 /// Format date in DD/MM/YYYY format (matching PrintDM.jsx)
 String _formatDate(DateTime date) {

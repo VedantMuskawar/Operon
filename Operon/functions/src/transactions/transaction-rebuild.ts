@@ -8,7 +8,7 @@ import {
 } from '../shared/constants';
 import { getFinancialContext } from '../shared/financial-year';
 import { getFirestore } from '../shared/firestore-helpers';
-import { getISOWeek, formatDate, formatMonth, cleanDailyData, getYearMonth } from '../shared/date-helpers';
+import { getISOWeek, formatDate, formatMonth, cleanDailyData, getYearMonth, getMonthsInRange } from '../shared/date-helpers';
 
 const db = getFirestore();
 
@@ -183,14 +183,21 @@ async function rebuildClientLedger(
 
 /**
  * Rebuild transaction analytics for a specific organization and financial year.
+ * Now writes to monthly documents instead of a single yearly document.
  * Exported for use by unified analytics rebuild.
  */
 export async function rebuildTransactionAnalyticsForOrg(
   organizationId: string,
   financialYear: string,
 ): Promise<void> {
-  const analyticsDocId = `${TRANSACTIONS_SOURCE_KEY}_${organizationId}_${financialYear}`;
-  const analyticsRef = db.collection(ANALYTICS_COLLECTION).doc(analyticsDocId);
+  // Calculate financial year date range from FY label (e.g., "FY2526" -> April 2025 to March 2026)
+  const match = financialYear.match(/FY(\d{2})(\d{2})/);
+  if (!match) {
+    throw new Error(`Invalid financial year format: ${financialYear}`);
+  }
+  const startYear = 2000 + parseInt(match[1], 10);
+  const fyStart = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0)); // April 1
+  const fyEnd = new Date(Date.UTC(startYear + 1, 3, 1, 0, 0, 0)); // April 1 next year
   
   // Get all transactions for this organization in this FY
   const transactionsSnapshot = await db
@@ -199,245 +206,180 @@ export async function rebuildTransactionAnalyticsForOrg(
     .where('financialYear', '==', financialYear)
     .get();
   
-  const incomeDaily: Record<string, number> = {};
-  const receivablesDaily: Record<string, number> = {};
-  const expenseDaily: Record<string, number> = {};
-  const incomeWeekly: Record<string, number> = {};
-  const receivablesWeekly: Record<string, number> = {};
-  const expenseWeekly: Record<string, number> = {};
-  const incomeMonthly: Record<string, number> = {};
-  const receivablesMonthly: Record<string, number> = {};
-  const expenseMonthly: Record<string, number> = {};
-  const byType: Record<string, { count: number; total: number; daily: Record<string, number>; weekly: Record<string, number>; monthly: Record<string, number> }> = {};
-  const byPaymentAccount: Record<string, { accountId: string; accountName: string; accountType: string; count: number; total: number; daily: Record<string, number>; weekly: Record<string, number>; monthly: Record<string, number> }> = {};
-  const byPaymentMethodType: Record<string, { count: number; total: number; daily: Record<string, number>; weekly: Record<string, number>; monthly: Record<string, number> }> = {};
-  const fuelPurchaseMonthly: Record<string, number> = {};
-  let fuelPurchaseYearly = 0;
-  const fuelByVehicleMonthly: Record<string, Record<string, number>> = {};
-  const fuelByVehicleYearly: Record<string, number> = {};
-  const fuelDistanceByVehicleMonthly: Record<string, Record<string, number>> = {};
-  const fuelDistanceByVehicleYearly: Record<string, number> = {};
-  const fuelAverageByVehicleMonthly: Record<string, Record<string, number>> = {};
-  const fuelAverageByVehicleYearly: Record<string, number> = {};
-  let totalPayableToVendors = 0;
-
-  let transactionCount = 0;
-  let completedTransactionCount = 0;
-
+  // Group transactions by month
+  const transactionsByMonth: Record<string, typeof transactionsSnapshot.docs> = {};
+  
   transactionsSnapshot.forEach((doc) => {
     const tx = doc.data();
-    const status = tx.status as string;
-    const category = tx.category as string;
-    const type = tx.type as string;
-    const amount = tx.amount as number;
-    const paymentAccountId = tx.paymentAccountId as string | undefined;
-    const paymentAccountType = tx.paymentAccountType as string | undefined;
-    
-    // All transactions in database are active (cancelled ones are deleted)
-    transactionCount++;
-    if (status === 'completed') {
-      completedTransactionCount++;
-    }
-    
-    const ledgerType = tx.ledgerType as string | undefined;
-    // Align with transaction-handlers: clientLedger debit = income, clientLedger credit = receivables
-    const isClientLedgerDebit = ledgerType === 'clientLedger' && type === 'debit';
-    const isClientLedgerCredit = ledgerType === 'clientLedger' && type === 'credit';
-    const isExpenseByCategory = category !== 'income';
-    const multiplier = 1; // All transactions here are non-cancelled
-    
-    // Get transaction date
     const createdAt = tx.createdAt as admin.firestore.Timestamp | undefined;
     const transactionDate = createdAt ? createdAt.toDate() : doc.createTime?.toDate() ?? new Date();
+    const monthKey = getYearMonth(transactionDate);
     
-    const dateString = formatDate(transactionDate);
-    const weekString = getISOWeek(transactionDate);
-    const monthString = formatMonth(transactionDate);
-    
-    // Income/receivables: same semantics as transaction-handlers (for Transaction Analytics UI)
-    if (isClientLedgerDebit) {
-      incomeDaily[dateString] = (incomeDaily[dateString] || 0) + (amount * multiplier);
-      incomeWeekly[weekString] = (incomeWeekly[weekString] || 0) + (amount * multiplier);
-      incomeMonthly[monthString] = (incomeMonthly[monthString] || 0) + (amount * multiplier);
+    if (!transactionsByMonth[monthKey]) {
+      transactionsByMonth[monthKey] = [];
     }
-    if (isClientLedgerCredit) {
-      receivablesDaily[dateString] = (receivablesDaily[dateString] || 0) + (amount * multiplier);
-      receivablesWeekly[weekString] = (receivablesWeekly[weekString] || 0) + (amount * multiplier);
-      receivablesMonthly[monthString] = (receivablesMonthly[monthString] || 0) + (amount * multiplier);
-    }
-    // Expense: category-based (for expense analytics)
-    if (isExpenseByCategory) {
-      expenseDaily[dateString] = (expenseDaily[dateString] || 0) + (amount * multiplier);
-      expenseWeekly[weekString] = (expenseWeekly[weekString] || 0) + (amount * multiplier);
-      expenseMonthly[monthString] = (expenseMonthly[monthString] || 0) + (amount * multiplier);
-    }
-    
-    // Update by type breakdown
-    if (!byType[type]) {
-      byType[type] = { count: 0, total: 0, daily: {}, weekly: {}, monthly: {} };
-    }
-    byType[type].count += multiplier;
-    byType[type].total += (amount * multiplier);
-    byType[type].daily[dateString] = (byType[type].daily[dateString] || 0) + (amount * multiplier);
-    byType[type].weekly[weekString] = (byType[type].weekly[weekString] || 0) + (amount * multiplier);
-    byType[type].monthly[monthString] = (byType[type].monthly[monthString] || 0) + (amount * multiplier);
-    
-    // Update by payment account breakdown
-    const accountId = paymentAccountId || 'cash';
-    if (!byPaymentAccount[accountId]) {
-      byPaymentAccount[accountId] = {
-        accountId,
-        accountName: accountId === 'cash' ? 'Cash' : accountId,
-        accountType: paymentAccountType || (accountId === 'cash' ? 'cash' : 'other'),
-        count: 0,
-        total: 0,
-        daily: {},
-        weekly: {},
-        monthly: {},
-      };
-    }
-    byPaymentAccount[accountId].count += multiplier;
-    byPaymentAccount[accountId].total += (amount * multiplier);
-    byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
-    byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
-    byPaymentAccount[accountId].monthly[monthString] = (byPaymentAccount[accountId].monthly[monthString] || 0) + (amount * multiplier);
-    
-    // Update by payment method type breakdown
-    const methodType = paymentAccountType || 'cash';
-    if (!byPaymentMethodType[methodType]) {
-      byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {}, monthly: {} };
-    }
-    byPaymentMethodType[methodType].count += multiplier;
-    byPaymentMethodType[methodType].total += (amount * multiplier);
-    byPaymentMethodType[methodType].daily[dateString] = (byPaymentMethodType[methodType].daily[dateString] || 0) + (amount * multiplier);
-    byPaymentMethodType[methodType].weekly[weekString] = (byPaymentMethodType[methodType].weekly[weekString] || 0) + (amount * multiplier);
-    byPaymentMethodType[methodType].monthly[monthString] = (byPaymentMethodType[methodType].monthly[monthString] || 0) + (amount * multiplier);
-
-    // Total payable to vendors: vendorLedger + type credit
-    if (ledgerType === 'vendorLedger' && type === 'credit') {
-      totalPayableToVendors += amount;
-    }
-
-    // Fuel purchases: metadata.purchaseType === 'fuel' or (category vendorPurchase + metadata.purchaseType fuel)
-    const metadata = (tx.metadata as Record<string, unknown>) || {};
-    const purchaseType = metadata.purchaseType as string | undefined;
-    const isFuelPurchase =
-      purchaseType === 'fuel' ||
-      (category === 'vendorPurchase' && purchaseType === 'fuel');
-
-    if (isFuelPurchase && amount > 0) {
-      const monthKey = getYearMonth(transactionDate);
-      fuelPurchaseMonthly[monthKey] = (fuelPurchaseMonthly[monthKey] || 0) + amount;
-      fuelPurchaseYearly += amount;
-
-      const vehicleNumber = (metadata.vehicleNumber as string) || 'unknown';
-      if (!fuelByVehicleMonthly[vehicleNumber]) {
-        fuelByVehicleMonthly[vehicleNumber] = {};
-        fuelByVehicleYearly[vehicleNumber] = 0;
-        fuelDistanceByVehicleMonthly[vehicleNumber] = {};
-        fuelDistanceByVehicleYearly[vehicleNumber] = 0;
-      }
-      fuelByVehicleMonthly[vehicleNumber][monthKey] =
-        (fuelByVehicleMonthly[vehicleNumber][monthKey] || 0) + amount;
-      fuelByVehicleYearly[vehicleNumber] += amount;
-
-      const linkedTrips = (metadata.linkedTrips as Array<{ distanceKm?: number }>) || [];
-      let totalDistance = 0;
-      for (const trip of linkedTrips) {
-        totalDistance += (trip.distanceKm as number) || 0;
-      }
-      if (totalDistance > 0) {
-        fuelDistanceByVehicleMonthly[vehicleNumber][monthKey] =
-          (fuelDistanceByVehicleMonthly[vehicleNumber][monthKey] || 0) + totalDistance;
-        fuelDistanceByVehicleYearly[vehicleNumber] += totalDistance;
-      }
-    }
-  });
-
-  // Compute fuel average (amount / distance = cost per km) per vehicle per month/year
-  for (const [vehicle, monthlyAmounts] of Object.entries(fuelByVehicleMonthly)) {
-    if (!fuelAverageByVehicleMonthly[vehicle]) {
-      fuelAverageByVehicleMonthly[vehicle] = {};
-    }
-    for (const [monthKey, amt] of Object.entries(monthlyAmounts)) {
-      const dist = fuelDistanceByVehicleMonthly[vehicle]?.[monthKey] || 0;
-      if (dist > 0) {
-        fuelAverageByVehicleMonthly[vehicle][monthKey] = amt / dist;
-      }
-    }
-  }
-  for (const [vehicle, yearlyAmt] of Object.entries(fuelByVehicleYearly)) {
-    const yearlyDist = fuelDistanceByVehicleYearly[vehicle] || 0;
-    if (yearlyDist > 0) {
-      fuelAverageByVehicleYearly[vehicle] = yearlyAmt / yearlyDist;
-    }
-  }
-  
-  // Clean daily data (keep only last 90 days)
-  const cleanedIncomeDaily = cleanDailyData(incomeDaily, 90);
-  const cleanedReceivablesDaily = cleanDailyData(receivablesDaily, 90);
-  const cleanedExpenseDaily = cleanDailyData(expenseDaily, 90);
-  
-  // Clean daily data for each breakdown
-  Object.keys(byType).forEach((type) => {
-    byType[type].daily = cleanDailyData(byType[type].daily, 90);
-  });
-  Object.keys(byPaymentAccount).forEach((accountId) => {
-    byPaymentAccount[accountId].daily = cleanDailyData(byPaymentAccount[accountId].daily, 90);
-  });
-  Object.keys(byPaymentMethodType).forEach((methodType) => {
-    byPaymentMethodType[methodType].daily = cleanDailyData(byPaymentMethodType[methodType].daily, 90);
+    transactionsByMonth[monthKey].push(doc);
   });
   
-  // Calculate totals (align with transaction-handlers for UI)
-  const totalIncome = Object.values(incomeMonthly).reduce((sum, val) => sum + (val || 0), 0);
-  const totalReceivables = Object.values(receivablesMonthly).reduce((sum, val) => sum + (val || 0), 0);
-  const netReceivables = totalReceivables - totalIncome;
-  const totalExpense = Object.values(expenseMonthly).reduce((sum, val) => sum + (val || 0), 0);
-  const netIncome = totalIncome - totalExpense;
+  // Process each month separately
+  const monthUpdates = Object.entries(transactionsByMonth).map(async ([monthKey, monthDocs]) => {
+    const analyticsDocId = `${TRANSACTIONS_SOURCE_KEY}_${organizationId}_${monthKey}`;
+    const analyticsRef = db.collection(ANALYTICS_COLLECTION).doc(analyticsDocId);
+    
+    const incomeDaily: Record<string, number> = {};
+    const receivablesDaily: Record<string, number> = {};
+    const expenseDaily: Record<string, number> = {};
+    const incomeWeekly: Record<string, number> = {};
+    const receivablesWeekly: Record<string, number> = {};
+    const expenseWeekly: Record<string, number> = {};
+    const byType: Record<string, { count: number; total: number; daily: Record<string, number>; weekly: Record<string, number> }> = {};
+    const byPaymentAccount: Record<string, { accountId: string; accountName: string; accountType: string; count: number; total: number; daily: Record<string, number>; weekly: Record<string, number> }> = {};
+    const byPaymentMethodType: Record<string, { count: number; total: number; daily: Record<string, number>; weekly: Record<string, number> }> = {};
+    const incomeByCategory: Record<string, number> = {};
+    const receivablesByCategory: Record<string, number> = {};
+    let totalPayableToVendors = 0;
+    let transactionCount = 0;
+    let completedTransactionCount = 0;
+    const receivableAging = {
+      current: 0,
+      days31to60: 0,
+      days61to90: 0,
+      over90: 0,
+    };
+    
+    monthDocs.forEach((doc) => {
+      const tx = doc.data();
+      const status = tx.status as string;
+      const category = tx.category as string;
+      const type = tx.type as string;
+      const amount = tx.amount as number;
+      const paymentAccountId = tx.paymentAccountId as string | undefined;
+      const paymentAccountType = tx.paymentAccountType as string | undefined;
+      
+      transactionCount++;
+      if (status === 'completed') {
+        completedTransactionCount++;
+      }
+      
+      const ledgerType = tx.ledgerType as string | undefined;
+      const isClientLedgerDebit = ledgerType === 'clientLedger' && type === 'debit';
+      const isClientLedgerCredit = ledgerType === 'clientLedger' && type === 'credit';
+      const isExpenseByCategory = category !== 'income';
+      const multiplier = 1;
+      
+      const createdAt = tx.createdAt as admin.firestore.Timestamp | undefined;
+      const transactionDate = createdAt ? createdAt.toDate() : doc.createTime?.toDate() ?? new Date();
+      
+      const dateString = formatDate(transactionDate);
+      const weekString = getISOWeek(transactionDate);
+      
+      if (isClientLedgerDebit) {
+        incomeDaily[dateString] = (incomeDaily[dateString] || 0) + (amount * multiplier);
+        incomeWeekly[weekString] = (incomeWeekly[weekString] || 0) + (amount * multiplier);
+        incomeByCategory[category] = (incomeByCategory[category] || 0) + (amount * multiplier);
+      }
+      if (isClientLedgerCredit) {
+        receivablesDaily[dateString] = (receivablesDaily[dateString] || 0) + (amount * multiplier);
+        receivablesWeekly[weekString] = (receivablesWeekly[weekString] || 0) + (amount * multiplier);
+        receivablesByCategory[category] = (receivablesByCategory[category] || 0) + (amount * multiplier);
+        receivableAging.current += amount;
+      }
+      if (isExpenseByCategory) {
+        expenseDaily[dateString] = (expenseDaily[dateString] || 0) + (amount * multiplier);
+        expenseWeekly[weekString] = (expenseWeekly[weekString] || 0) + (amount * multiplier);
+      }
+      
+      if (!byType[type]) {
+        byType[type] = { count: 0, total: 0, daily: {}, weekly: {} };
+      }
+      byType[type].count += multiplier;
+      byType[type].total += (amount * multiplier);
+      byType[type].daily[dateString] = (byType[type].daily[dateString] || 0) + (amount * multiplier);
+      byType[type].weekly[weekString] = (byType[type].weekly[weekString] || 0) + (amount * multiplier);
+      
+      const accountId = paymentAccountId || 'cash';
+      if (!byPaymentAccount[accountId]) {
+        byPaymentAccount[accountId] = {
+          accountId,
+          accountName: accountId === 'cash' ? 'Cash' : accountId,
+          accountType: paymentAccountType || (accountId === 'cash' ? 'cash' : 'other'),
+          count: 0,
+          total: 0,
+          daily: {},
+          weekly: {},
+        };
+      }
+      byPaymentAccount[accountId].count += multiplier;
+      byPaymentAccount[accountId].total += (amount * multiplier);
+      byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
+      byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
+      
+      const methodType = paymentAccountType || 'cash';
+      if (!byPaymentMethodType[methodType]) {
+        byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {} };
+      }
+      byPaymentMethodType[methodType].count += multiplier;
+      byPaymentMethodType[methodType].total += (amount * multiplier);
+      byPaymentMethodType[methodType].daily[dateString] = (byPaymentMethodType[methodType].daily[dateString] || 0) + (amount * multiplier);
+      byPaymentMethodType[methodType].weekly[weekString] = (byPaymentMethodType[methodType].weekly[weekString] || 0) + (amount * multiplier);
 
-  // Receivable aging: rebuild has no per-bucket dates, put total in current (UI accepts over90 key)
-  const receivableAging = {
-    current: totalReceivables,
-    days31to60: 0,
-    days61to90: 0,
-    over90: 0,
-  };
+      if (ledgerType === 'vendorLedger' && type === 'credit') {
+        totalPayableToVendors += amount;
+      }
+    });
+    
+    // Clean daily data
+    const cleanedIncomeDaily = cleanDailyData(incomeDaily, 90);
+    const cleanedReceivablesDaily = cleanDailyData(receivablesDaily, 90);
+    const cleanedExpenseDaily = cleanDailyData(expenseDaily, 90);
+    
+    Object.keys(byType).forEach((type) => {
+      byType[type].daily = cleanDailyData(byType[type].daily, 90);
+    });
+    Object.keys(byPaymentAccount).forEach((accountId) => {
+      byPaymentAccount[accountId].daily = cleanDailyData(byPaymentAccount[accountId].daily, 90);
+    });
+    Object.keys(byPaymentMethodType).forEach((methodType) => {
+      byPaymentMethodType[methodType].daily = cleanDailyData(byPaymentMethodType[methodType].daily, 90);
+    });
+    
+    // Calculate totals for this month
+    const totalIncome = Object.values(cleanedIncomeDaily).reduce((sum, val) => sum + (val || 0), 0);
+    const totalReceivables = Object.values(cleanedReceivablesDaily).reduce((sum, val) => sum + (val || 0), 0);
+    const netReceivables = totalReceivables - totalIncome;
+    const totalExpense = Object.values(cleanedExpenseDaily).reduce((sum, val) => sum + (val || 0), 0);
+    const netIncome = totalIncome - totalExpense;
 
-  // Update analytics document (same top-level fields as transaction-handlers for Transaction Analytics UI)
-  await analyticsRef.set({
-    source: TRANSACTIONS_SOURCE_KEY,
-    organizationId,
-    financialYear,
-    incomeDaily: cleanedIncomeDaily,
-    receivablesDaily: cleanedReceivablesDaily,
-    expenseDaily: cleanedExpenseDaily,
-    incomeWeekly,
-    receivablesWeekly,
-    expenseWeekly,
-    incomeMonthly,
-    receivablesMonthly,
-    expenseMonthly,
-    byType,
-    byPaymentAccount,
-    byPaymentMethodType,
-    totalIncome,
-    totalReceivables,
-    netReceivables,
-    receivableAging,
-    totalExpense,
-    netIncome,
-    transactionCount,
-    completedTransactionCount,
-    totalPayableToVendors,
-    fuelPurchaseMonthly: { values: fuelPurchaseMonthly },
-    fuelPurchaseYearly,
-    fuelByVehicleMonthly,
-    fuelByVehicleYearly,
-    fuelAverageByVehicleMonthly,
-    fuelAverageByVehicleYearly,
-    lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
+    await analyticsRef.set({
+      source: TRANSACTIONS_SOURCE_KEY,
+      organizationId,
+      month: monthKey,
+      financialYear,
+      incomeDaily: cleanedIncomeDaily,
+      receivablesDaily: cleanedReceivablesDaily,
+      expenseDaily: cleanedExpenseDaily,
+      incomeWeekly,
+      receivablesWeekly,
+      expenseWeekly,
+      incomeByCategory,
+      receivablesByCategory,
+      byType,
+      byPaymentAccount,
+      byPaymentMethodType,
+      totalIncome,
+      totalReceivables,
+      netReceivables,
+      receivableAging,
+      totalExpense,
+      netIncome,
+      transactionCount,
+      completedTransactionCount,
+      totalPayableToVendors,
+      lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+  
+  await Promise.all(monthUpdates);
 }
 
 /**

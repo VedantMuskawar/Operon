@@ -43,6 +43,10 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   // Cached — recomputed only when _orders or _selectedFixedQuantityFilter change
   List<Map<String, dynamic>> _cachedFilteredOrders = [];
   List<int> _cachedUniqueQuantities = [];
+  
+  // Cache trip counts per order to avoid recalculating on every stream update
+  Map<String, int> _orderTripCounts = {};
+  Set<String> _cachedOrderIds = {};
 
   @override
   void initState() {
@@ -55,8 +59,65 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     _cachedUniqueQuantities = _computeUniqueQuantities();
   }
 
+  /// Calculate trips for a single order
+  int _calculateOrderTrips(Map<String, dynamic> order) {
+    final items = order['items'] as List<dynamic>? ?? [];
+    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
+    final autoSchedule = order['autoSchedule'] as Map<String, dynamic>?;
+    
+    // Priority: 1. autoSchedule.totalTripsRequired, 2. Sum of item estimatedTrips, 3. Fallback
+    int totalEstimatedTrips = 0;
+    if (autoSchedule?['totalTripsRequired'] != null) {
+      totalEstimatedTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
+    } else {
+      // Fallback: Sum estimated trips from all items
+      for (final item in items) {
+        final itemMap = item as Map<String, dynamic>;
+        totalEstimatedTrips += (itemMap['estimatedTrips'] as int? ?? 0);
+      }
+      if (totalEstimatedTrips == 0 && firstItem != null) {
+        totalEstimatedTrips = firstItem['estimatedTrips'] as int? ?? 
+            (order['tripIds'] as List<dynamic>?)?.length ?? 0;
+      }
+    }
+    
+    return totalEstimatedTrips;
+  }
+
+  /// Calculate total trips count, using cached values when possible
+  int _calculateTotalTrips(List<Map<String, dynamic>> orders) {
+    int totalTrips = 0;
+    final newOrderIds = orders
+        .map((o) => o['id'] as String? ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    
+    // Check if orders list actually changed by comparing IDs using Set (O(n) instead of O(n²))
+    final ordersChanged = newOrderIds.length != _cachedOrderIds.length ||
+        !newOrderIds.every((id) => _cachedOrderIds.contains(id));
+    
+    if (ordersChanged) {
+      // Recalculate trip counts for all orders
+      _orderTripCounts.clear();
+      for (final order in orders) {
+        final orderId = order['id'] as String? ?? '';
+        if (orderId.isNotEmpty) {
+          _orderTripCounts[orderId] = _calculateOrderTrips(order);
+        }
+      }
+      _cachedOrderIds = newOrderIds;
+    }
+    
+    // Sum up cached trip counts
+    for (final orderId in newOrderIds) {
+      totalTrips += _orderTripCounts[orderId] ?? 0;
+    }
+    
+    return totalTrips;
+  }
+
   List<Map<String, dynamic>> _computeFilteredOrders() {
-    if (_selectedFixedQuantityFilter == null) return List.from(_orders);
+    if (_selectedFixedQuantityFilter == null) return _orders; // Return reference, no need to copy
     return _orders.where((order) {
       final items = order['items'] as List<dynamic>? ?? [];
       if (items.isEmpty) return false;
@@ -86,6 +147,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
       await _ordersSubscription?.cancel();
       _ordersSubscription = null;
       _currentOrgId = null;
+      _cachedOrderIds.clear();
+      _orderTripCounts.clear();
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -111,30 +174,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     await _ordersSubscription?.cancel();
     _ordersSubscription = repository.watchPendingOrders(orgId).listen(
       (orders) {
-        final tripsCount = orders.fold<int>(0, (total, order) {
-          final items = order['items'] as List<dynamic>? ?? [];
-          final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
-          final autoSchedule = order['autoSchedule'] as Map<String, dynamic>?;
-          
-          // Calculate total estimated trips using same logic as tile
-          // Priority: 1. autoSchedule.totalTripsRequired, 2. Sum of item estimatedTrips, 3. Fallback
-          int totalEstimatedTrips = 0;
-          if (autoSchedule?['totalTripsRequired'] != null) {
-            totalEstimatedTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
-          } else {
-            // Fallback: Sum estimated trips from all items
-            for (final item in items) {
-              final itemMap = item as Map<String, dynamic>;
-              totalEstimatedTrips += (itemMap['estimatedTrips'] as int? ?? 0);
-            }
-            if (totalEstimatedTrips == 0 && firstItem != null) {
-              totalEstimatedTrips = firstItem['estimatedTrips'] as int? ?? 
-                  (order['tripIds'] as List<dynamic>?)?.length ?? 0;
-            }
-          }
-          
-          return total + totalEstimatedTrips;
-        });
+        // Use cached calculation method that only recalculates when orders change
+        final tripsCount = _calculateTotalTrips(orders);
       
       if (mounted) {
         setState(() {
@@ -225,8 +266,14 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                             child: OrderTile(
                               key: ValueKey(order['id']),
                               order: order,
-                              onTripsUpdated: () => _subscribeToOrders(),
-                              onDeleted: () => _subscribeToOrders(),
+                              onTripsUpdated: () {
+                                // Stream subscription already handles real-time updates
+                                // No need to recreate subscription
+                              },
+                              onDeleted: () {
+                                // Stream subscription already handles real-time updates
+                                // No need to recreate subscription
+                              },
                             ),
                           );
                           return RepaintBoundary(

@@ -30,6 +30,7 @@ export 'components/home/home_tile.dart';
 export 'components/home/home_section_transition.dart';
 // Profile components
 export 'components/profile/profile_view.dart';
+export 'components/profile/unified_profile_sheet.dart';
 export 'layout/responsive_scaffold.dart';
 // Animation widgets
 export 'widgets/animated_list_view.dart';

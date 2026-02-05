@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:operon_auth_flow/operon_auth_flow.dart';
 import 'package:operon_driver_android/presentation/screens/home/driver_home_screen.dart';
 import 'package:operon_driver_android/presentation/views/driver_schedule_trips_page.dart';
+import 'package:operon_driver_android/presentation/widgets/user_ledger_table.dart';
 
 class DriverHomePage extends StatefulWidget {
   const DriverHomePage({super.key});
@@ -24,18 +25,15 @@ class _DriverHomePageState extends State<DriverHomePage> {
 
     return Scaffold(
       backgroundColor: AuthColors.background,
-      drawer: const _DriverProfileDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(
-              Icons.person_outline,
-              color: AuthColors.textMain,
-            ),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+        leading: IconButton(
+          icon: const Icon(
+            Icons.person_outline,
+            color: AuthColors.textMain,
           ),
+          onPressed: () => context.go('/profile'),
         ),
         title: const SizedBox.shrink(),
       ),
@@ -100,99 +98,35 @@ class _DriverHomeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Home stays intentionally minimal for now (tiles will come later).
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Home',
-              style: TextStyle(
-                color: AuthColors.textMain,
-                fontSize: 20,
-                fontFamily: 'SF Pro Display',
-                fontWeight: FontWeight.w700,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Profile is available from the top-left icon.',
-              style: TextStyle(
-                color: AuthColors.textSub,
-                fontSize: 14,
-                fontFamily: 'SF Pro Display',
-                height: 1.4,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DriverProfileDrawer extends StatelessWidget {
-  const _DriverProfileDrawer();
-
-  @override
-  Widget build(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    final orgState = context.read<OrganizationContextCubit>().state;
-
-    return Drawer(
-      backgroundColor: AuthColors.surface,
+    print('[DriverHomeTab] Building home tab');
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/branding/operon_driver_app_icon.png',
-                  width: 40,
-                  height: 40,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Operon Driver',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AuthColors.textMain,
-                      ),
-                ),
-              ],
+          const Text(
+            'Home',
+            style: TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 20,
+              fontFamily: 'SF Pro Display',
+              fontWeight: FontWeight.w700,
             ),
           ),
-          Expanded(
-            child: ProfileView(
-              user: authState.userProfile,
-              organization: orgState.organization,
-              onChangeOrg: () async {
-                Navigator.of(context).pop(); // close drawer
-                await context.read<OrganizationContextCubit>().clear();
-                if (!context.mounted) return;
-                context.go('/org-selection');
-              },
-              onLogout: () async {
-                Navigator.of(context).pop(); // close drawer
-                await context.read<OrganizationContextCubit>().clear();
-                if (!context.mounted) return;
-                context.read<AuthBloc>().add(const AuthReset());
-                context.go('/login');
-              },
-        // Driver app doesn’t expose admin pages (users/permissions) right now.
-              onOpenUsers: null,
+          const SizedBox(height: 12),
+          Text(
+            'View your transaction ledger below.',
+            style: TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 14,
+              fontFamily: 'SF Pro Display',
+              height: 1.4,
             ),
           ),
+          const SizedBox(height: 24),
+          const UserLedgerTable(),
         ],
       ),
     );
   }
 }
-

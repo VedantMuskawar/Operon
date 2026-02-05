@@ -25,7 +25,10 @@ class TransactionAnalyticsCubit extends Cubit<TransactionAnalyticsState> {
     }
     emit(state.copyWith(status: ViewStatus.loading, message: null));
     try {
-      final analytics = await _analyticsRepository.fetchTransactionAnalytics(orgId, fy);
+      final analytics = await _analyticsRepository.fetchTransactionAnalytics(
+        orgId,
+        financialYear: fy,
+      );
       emit(state.copyWith(
         status: ViewStatus.success,
         analytics: analytics,

@@ -5,7 +5,6 @@ import 'package:dash_mobile/presentation/blocs/financial_transactions/unified_fi
 import 'package:dash_mobile/presentation/views/financial_transactions/financial_transactions_analytics_view.dart';
 import 'package:dash_mobile/presentation/views/financial_transactions/financial_transactions_list_view.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -96,9 +95,36 @@ class _UnifiedFinancialTransactionsPageState
                   ],
                 ),
               ),
-              QuickNavBar(
+              FloatingNavBar(
+                items: const [
+                  NavBarItem(
+                    icon: Icons.home_rounded,
+                    label: 'Home',
+                    heroTag: 'nav_home',
+                  ),
+                  NavBarItem(
+                    icon: Icons.pending_actions_rounded,
+                    label: 'Pending',
+                    heroTag: 'nav_pending',
+                  ),
+                  NavBarItem(
+                    icon: Icons.schedule_rounded,
+                    label: 'Schedule',
+                    heroTag: 'nav_schedule',
+                  ),
+                  NavBarItem(
+                    icon: Icons.map_rounded,
+                    label: 'Map',
+                    heroTag: 'nav_map',
+                  ),
+                  NavBarItem(
+                    icon: Icons.event_available_rounded,
+                    label: 'Cash Ledger',
+                    heroTag: 'nav_cash_ledger',
+                  ),
+                ],
                 currentIndex: -1, // -1 means no selection when on this page
-                onTap: (value) => context.go('/home', extra: value),
+                onItemTapped: (value) => context.go('/home', extra: value),
               ),
             ],
           ),

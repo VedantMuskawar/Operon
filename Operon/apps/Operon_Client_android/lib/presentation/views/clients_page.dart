@@ -4,7 +4,6 @@ import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/views/clients_page/contact_page.dart';
 import 'package:dash_mobile/presentation/views/clients_page/client_analytics_page.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/presentation/utils/debouncer.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
@@ -199,9 +198,36 @@ class _ClientsPageState extends State<ClientsPage> {
                     ],
                   ),
                 ),
-                QuickNavBar(
+                FloatingNavBar(
+                  items: const [
+                    NavBarItem(
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                      heroTag: 'nav_home',
+                    ),
+                    NavBarItem(
+                      icon: Icons.pending_actions_rounded,
+                      label: 'Pending',
+                      heroTag: 'nav_pending',
+                    ),
+                    NavBarItem(
+                      icon: Icons.schedule_rounded,
+                      label: 'Schedule',
+                      heroTag: 'nav_schedule',
+                    ),
+                    NavBarItem(
+                      icon: Icons.map_rounded,
+                      label: 'Map',
+                      heroTag: 'nav_map',
+                    ),
+                    NavBarItem(
+                      icon: Icons.event_available_rounded,
+                      label: 'Cash Ledger',
+                      heroTag: 'nav_cash_ledger',
+                    ),
+                  ],
                   currentIndex: -1, // -1 means no selection when on this page
-                  onTap: (value) => context.go('/home', extra: value),
+                  onItemTapped: (value) => context.go('/home', extra: value),
                 ),
               ],
             ),

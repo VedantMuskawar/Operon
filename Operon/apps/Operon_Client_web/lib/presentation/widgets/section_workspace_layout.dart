@@ -219,12 +219,11 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
               ),
             ),
 
-            // Overlay when side sheets are open
-            if (_isProfileOpen || _isSettingsOpen || _contentPage != ContentPage.none)
+            // Overlay when settings or content pages are open (profile handles its own overlay)
+            if (_isSettingsOpen || _contentPage != ContentPage.none)
               Positioned.fill(
                 child: GestureDetector(
                   onTap: () => setState(() {
-                    _isProfileOpen = false;
                     _isSettingsOpen = false;
                     _contentPage = ContentPage.none;
                   }),
@@ -243,66 +242,49 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                 ),
               ),
 
-            // Profile Side Sheet
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              top: 0,
-              bottom: 0,
-              left: _isProfileOpen ? 0 : -media.size.width,
-              child: RepaintBoundary(
-                child: Container(
-                  width: (media.size.width * 0.65).clamp(280.0, 400.0),
-                  color: AuthColors.surface,
-                  child: Stack(
-                    children: [
-                      ProfileView(
-                        user: authState.userProfile,
-                        organization: organization,
-                        fetchUserName: (authState.userProfile?.id != null && organization?.id != null)
-                            ? () async {
-                                try {
-                                  final orgUser = await context.read<UsersRepository>().fetchCurrentUser(
-                                    orgId: organization!.id,
-                                    userId: authState.userProfile!.id,
-                                    phoneNumber: authState.userProfile!.phoneNumber,
-                                  );
-                                  // Return the name field from OrganizationUser (which maps from 'user_name' in DB)
-                                  return orgUser?.name;
-                                } catch (_) {
-                                  return null;
-                                }
-                              }
-                            : null,
-                        onChangeOrg: () {
-                          setState(() => _isProfileOpen = false);
-                          context.go('/org-selection');
-                        },
-                        onLogout: () {
-                          context.read<AuthBloc>().add(const AuthReset());
-                          context.go('/login');
-                        },
-                        onOpenUsers: canManageUsers
-                            ? () {
-                                setState(() => _isProfileOpen = false);
-                                _contentPage = ContentPage.users;
-                              }
-                            : null,
-                      ),
-                      Positioned(
-                        top: 16,
-                        right: 16,
-                        child: IconButton(
-                          onPressed: () => setState(() => _isProfileOpen = false),
-                          icon: const Icon(
-                            Icons.close,
-                            color: AuthColors.textMain,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+            // Unified Profile Sheet
+            UnifiedProfileSheet(
+              isOpen: _isProfileOpen,
+              onClose: () => setState(() => _isProfileOpen = false),
+              appName: 'Operon',
+              child: ProfileView(
+                user: authState.userProfile,
+                organization: organization,
+                fetchUserName: (authState.userProfile?.id != null && organization?.id != null)
+                    ? () async {
+                        try {
+                          final orgUser = await context.read<UsersRepository>().fetchCurrentUser(
+                            orgId: organization!.id,
+                            userId: authState.userProfile!.id,
+                            phoneNumber: authState.userProfile!.phoneNumber,
+                          );
+                          // Return the name field from OrganizationUser (which maps from 'user_name' in DB)
+                          final name = orgUser?.name;
+                          if (name != null && name.isNotEmpty && name != 'Unnamed') {
+                            return name;
+                          }
+                          // Fallback to user's displayName from auth
+                          return authState.userProfile?.displayName;
+                        } catch (e) {
+                          // On error, return user's displayName as fallback
+                          return authState.userProfile?.displayName;
+                        }
+                      }
+                    : null,
+                onChangeOrg: () {
+                  setState(() => _isProfileOpen = false);
+                  context.go('/org-selection');
+                },
+                onLogout: () {
+                  context.read<AuthBloc>().add(const AuthReset());
+                  context.go('/login');
+                },
+                onOpenUsers: canManageUsers
+                    ? () {
+                        setState(() => _isProfileOpen = false);
+                        _contentPage = ContentPage.users;
+                      }
+                    : null,
               ),
             ),
 

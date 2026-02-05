@@ -43,19 +43,39 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
 
   final Map<String, _CachedData> _cache = {};
 
+  /// Clear cache for a specific org and financial year, or all cache if orgId is null
+  void clearCache({String? orgId, String? financialYear}) {
+    if (orgId != null && financialYear != null) {
+      _cache.remove(_cacheKey(orgId, financialYear));
+    } else if (orgId != null) {
+      // Clear all cache entries for this org
+      _cache.removeWhere((key, value) => key.startsWith('${orgId}_'));
+    } else {
+      // Clear all cache
+      _cache.clear();
+    }
+  }
+
   /// Load transactions and clients only (initial load). Uses cache when same FY.
-  Future<void> loadInitial({required String orgId, String? financialYear}) async {
+  /// Set [forceReload] to true to bypass cache and force fresh data fetch.
+  Future<void> loadInitial({
+    required String orgId,
+    String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool forceReload = false,
+  }) async {
     final fy = financialYear ?? FinancialYearUtils.getCurrentFinancialYear();
     if (orgId.isEmpty) {
       emit(state.copyWith(status: ViewStatus.success, loadingTabs: {}));
       return;
     }
 
-    final cached = _cache[_cacheKey(orgId, fy)];
+    final cached = forceReload ? null : _cache[_cacheKey(orgId, fy)];
     final hasTransactions = cached?.transactions != null;
     final hasClients = cached?.clients != null;
 
-    if (hasTransactions && hasClients) {
+    if (!forceReload && hasTransactions && hasClients) {
       emit(state.copyWith(
         status: ViewStatus.success,
         transactions: cached!.transactions,
@@ -74,8 +94,18 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
 
     try {
       final results = await Future.wait([
-        hasTransactions ? Future.value(cached!.transactions) : _repo.fetchTransactionAnalytics(orgId, fy),
-        hasClients ? Future.value(cached!.clients) : _repo.fetchClientsAnalytics(organizationId: orgId, financialYear: fy),
+        hasTransactions ? Future.value(cached!.transactions) : _repo.fetchTransactionAnalytics(
+          orgId,
+          financialYear: fy,
+          startDate: startDate,
+          endDate: endDate,
+        ),
+        hasClients ? Future.value(cached!.clients) : _repo.fetchClientsAnalytics(
+          organizationId: orgId,
+          financialYear: fy,
+          startDate: startDate,
+          endDate: endDate,
+        ),
       ]);
 
       final transactions = results[0] as TransactionAnalytics?;
@@ -118,46 +148,52 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
 
   /// Load analytics for a specific tab on-demand. Uses cache when available.
   /// For Productions tab (5), also loads Deliveries so the overlay can be shown.
+  /// Set [forceReload] to true to bypass cache and force fresh data fetch.
   Future<void> loadTabData({
     required String orgId,
     required String financialYear,
     required int tabIndex,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool forceReload = false,
   }) async {
     if (orgId.isEmpty) return;
 
     final fy = financialYear;
-    final cached = _cache[_cacheKey(orgId, fy)];
+    final cached = forceReload ? null : _cache[_cacheKey(orgId, fy)];
 
     dynamic existing;
-    switch (tabIndex) {
-      case _tabTransactions:
-        existing = cached?.transactions;
-        break;
-      case _tabClients:
-        existing = cached?.clients;
-        break;
-      case _tabEmployees:
-        existing = cached?.employees;
-        break;
-      case _tabVendors:
-        existing = cached?.vendors;
-        break;
-      case _tabDeliveries:
-        existing = cached?.deliveries;
-        break;
-      case _tabProductions:
-        existing = cached?.productions;
-        break;
-      case _tabTripWages:
-        existing = cached?.tripWages;
-        break;
-      default:
-        return;
-    }
+    if (!forceReload) {
+      switch (tabIndex) {
+        case _tabTransactions:
+          existing = cached?.transactions;
+          break;
+        case _tabClients:
+          existing = cached?.clients;
+          break;
+        case _tabEmployees:
+          existing = cached?.employees;
+          break;
+        case _tabVendors:
+          existing = cached?.vendors;
+          break;
+        case _tabDeliveries:
+          existing = cached?.deliveries;
+          break;
+        case _tabProductions:
+          existing = cached?.productions;
+          break;
+        case _tabTripWages:
+          existing = cached?.tripWages;
+          break;
+        default:
+          return;
+      }
 
-    if (existing != null) {
-      _emitTabData(tabIndex, existing, null);
-      return;
+      if (existing != null) {
+        _emitTabData(tabIndex, existing, null);
+        return;
+      }
     }
 
     final loadingTabs = {...state.loadingTabs, tabIndex};
@@ -169,7 +205,12 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
     try {
       switch (tabIndex) {
         case _tabTransactions:
-          final r = await _repo.fetchTransactionAnalytics(orgId, fy);
+          final r = await _repo.fetchTransactionAnalytics(
+            orgId,
+            financialYear: fy,
+            startDate: startDate,
+            endDate: endDate,
+          );
           if (kDebugMode && r != null) {
             debugPrint('[AnalyticsDashboard] loadTabData(Transactions): totalIncome=${r.totalIncome} incomeMonthly=${r.incomeMonthly.keys.length} incomeDaily=${r.incomeDaily.keys.length}');
           }
@@ -177,7 +218,12 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
           _emitTabData(_tabTransactions, r, loadingTabs);
           break;
         case _tabClients:
-          final r = await _repo.fetchClientsAnalytics(organizationId: orgId, financialYear: fy);
+          final r = await _repo.fetchClientsAnalytics(
+            organizationId: orgId,
+            financialYear: fy,
+            startDate: startDate,
+            endDate: endDate,
+          );
           if (kDebugMode && r != null) {
             debugPrint('[AnalyticsDashboard] loadTabData(Clients): totalActive=${r.totalActiveClients} onboardingMonthly=${r.onboardingMonthly.keys.length}');
           }
@@ -185,24 +231,49 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
           _emitTabData(_tabClients, r, loadingTabs);
           break;
         case _tabEmployees:
-          final r = await _repo.fetchEmployeesAnalytics(orgId, fy);
+          final r = await _repo.fetchEmployeesAnalytics(
+            orgId,
+            financialYear: fy,
+            startDate: startDate,
+            endDate: endDate,
+          );
           _getOrCreateCache(orgId, fy).employees = r;
           _emitTabData(_tabEmployees, r, loadingTabs);
           break;
         case _tabVendors:
-          final r = await _repo.fetchVendorsAnalytics(orgId, fy);
+          final r = await _repo.fetchVendorsAnalytics(
+            orgId,
+            financialYear: fy,
+            startDate: startDate,
+            endDate: endDate,
+          );
           _getOrCreateCache(orgId, fy).vendors = r;
           _emitTabData(_tabVendors, r, loadingTabs);
           break;
         case _tabDeliveries:
-          final r = await _repo.fetchDeliveriesAnalytics(orgId, fy);
+          final r = await _repo.fetchDeliveriesAnalytics(
+            orgId,
+            financialYear: fy,
+            startDate: startDate,
+            endDate: endDate,
+          );
           _getOrCreateCache(orgId, fy).deliveries = r;
           _emitTabData(_tabDeliveries, r, loadingTabs);
           break;
         case _tabProductions:
           final results = await Future.wait([
-            _repo.fetchProductionsAnalytics(orgId, fy),
-            cached?.deliveries != null ? Future.value(cached!.deliveries) : _repo.fetchDeliveriesAnalytics(orgId, fy),
+            _repo.fetchProductionsAnalytics(
+              orgId,
+              financialYear: fy,
+              startDate: startDate,
+              endDate: endDate,
+            ),
+            cached?.deliveries != null ? Future.value(cached!.deliveries) : _repo.fetchDeliveriesAnalytics(
+              orgId,
+              financialYear: fy,
+              startDate: startDate,
+              endDate: endDate,
+            ),
           ]);
           final prod = results[0] as ProductionsAnalytics?;
           final del = results[1] as DeliveriesAnalytics?;
@@ -216,7 +287,12 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
           ));
           break;
         case _tabTripWages:
-          final r = await _repo.fetchTripWagesAnalytics(orgId, fy);
+          final r = await _repo.fetchTripWagesAnalytics(
+            orgId,
+            financialYear: fy,
+            startDate: startDate,
+            endDate: endDate,
+          );
           _getOrCreateCache(orgId, fy).tripWages = r;
           _emitTabData(_tabTripWages, r, loadingTabs);
           break;

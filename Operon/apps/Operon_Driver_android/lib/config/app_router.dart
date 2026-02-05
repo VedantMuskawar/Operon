@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:operon_auth_flow/operon_auth_flow.dart';
 import 'package:operon_driver_android/presentation/views/driver_home_page.dart';
 import 'package:operon_driver_android/presentation/views/organization_selection_page.dart';
+import 'package:operon_driver_android/presentation/views/profile_page.dart';
 
 GoRouter buildRouter() {
   return GoRouter(
@@ -50,6 +51,23 @@ GoRouter buildRouter() {
           key: state.pageKey,
           child: const DriverHomePage(),
         ),
+      ),
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (!orgState.hasSelection) {
+            return _page(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _page(
+            key: state.pageKey,
+            child: const ProfilePage(),
+          );
+        },
       ),
     ],
   );

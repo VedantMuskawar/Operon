@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:core_bloc/core_bloc.dart';
-import 'package:core_ui/core_ui.dart';
+import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashTheme, EmptyState, SkeletonLoader;
 import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/data/utils/analytics_trend_utils.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
@@ -15,9 +15,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
-/// Period for analytics: monthly (by month, FY) or daily (past 30 days).
-enum AnalyticsPeriod { monthly, daily }
-
 /// Unified analytics dashboard: tabs for Transactions, Clients, Employees, Vendors,
 /// Deliveries, Productions, and Trip Wages. Loads all types from ANALYTICS collection.
 class AnalyticsDashboardView extends StatefulWidget {
@@ -29,7 +26,18 @@ class AnalyticsDashboardView extends StatefulWidget {
 
 class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
   int _selectedTabIndex = 0;
-  AnalyticsPeriod _period = AnalyticsPeriod.monthly;
+  DateTime? _startDate;
+  DateTime? _endDate;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with current financial year start and end
+    final now = DateTime.now();
+    final fyStartYear = now.month >= 4 ? now.year : now.year - 1;
+    _startDate = DateTime(fyStartYear, 4, 1);
+    _endDate = DateTime(fyStartYear + 1, 3, 31);
+  }
 
   String _getFinancialYear() {
     final orgState = context.read<OrganizationContextCubit>().state;
@@ -40,14 +48,48 @@ class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
     return FinancialYearUtils.getCurrentFinancialYear();
   }
 
+  List<String> _getFinancialYearsForDateRange() {
+    if (_startDate == null || _endDate == null) {
+      return [_getFinancialYear()];
+    }
+    
+    final years = <String>{};
+    var current = DateTime(_startDate!.year, _startDate!.month, _startDate!.day);
+    final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day);
+    
+    while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
+      final fyStartYear = current.month >= 4 ? current.year : current.year - 1;
+      final first = (fyStartYear % 100).toString().padLeft(2, '0');
+      final second = ((fyStartYear + 1) % 100).toString().padLeft(2, '0');
+      years.add('FY$first$second');
+      
+      // Move to next month
+      if (current.month == 12) {
+        current = DateTime(current.year + 1, 1, 1);
+      } else {
+        current = DateTime(current.year, current.month + 1, 1);
+      }
+    }
+    
+    return years.toList()..sort();
+  }
+
   void _load() {
     final orgState = context.read<OrganizationContextCubit>().state;
     final orgId = orgState.organization?.id ?? '';
     if (orgId.isNotEmpty) {
-      context.read<AnalyticsDashboardCubit>().loadInitial(
-            orgId: orgId,
-            financialYear: _getFinancialYear(),
-          );
+      final fys = _getFinancialYearsForDateRange();
+      if (fys.isNotEmpty) {
+        if (kDebugMode) {
+          debugPrint('[AnalyticsDashboard] Loading data for orgId=$orgId, fys=$fys, dateRange=${_startDate} to ${_endDate}');
+        }
+        context.read<AnalyticsDashboardCubit>().loadInitial(
+              orgId: orgId,
+              financialYear: fys.first,
+              startDate: _startDate,
+              endDate: _endDate,
+            );
+      }
     }
   }
 
@@ -56,12 +98,106 @@ class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
     final orgState = context.read<OrganizationContextCubit>().state;
     final orgId = orgState.organization?.id ?? '';
     if (orgId.isNotEmpty) {
-      context.read<AnalyticsDashboardCubit>().loadTabData(
-            orgId: orgId,
-            financialYear: _getFinancialYear(),
-            tabIndex: index,
-          );
+      final fys = _getFinancialYearsForDateRange();
+      if (fys.isNotEmpty) {
+        context.read<AnalyticsDashboardCubit>().loadTabData(
+              orgId: orgId,
+              financialYear: fys.first,
+              tabIndex: index,
+              startDate: _startDate,
+              endDate: _endDate,
+            );
+      }
     }
+  }
+
+  Future<void> _selectDateRange(BuildContext context) async {
+    final initialRange = _startDate != null && _endDate != null
+        ? DateTimeRange(start: _startDate!, end: _endDate!)
+        : null;
+    
+    final picked = await _showAnalyticsDateRangeModal(
+      context,
+      initialRange: initialRange,
+    );
+
+    if (picked != null) {
+      // Only update if dates actually changed
+      final datesChanged = _startDate != picked.start || _endDate != picked.end;
+      
+      if (datesChanged) {
+        setState(() {
+          _startDate = picked.start;
+          _endDate = picked.end;
+        });
+        
+        // Reload data with new date range - reload all tabs
+        final orgState = context.read<OrganizationContextCubit>().state;
+        final orgId = orgState.organization?.id ?? '';
+        if (orgId.isNotEmpty) {
+          final fys = _getFinancialYearsForDateRange();
+          if (fys.isNotEmpty) {
+            if (kDebugMode) {
+              debugPrint('[AnalyticsDashboard] Reloading data for financial years: $fys');
+            }
+            // Force reload to bypass cache when date range changes
+            // Reload initial data
+            context.read<AnalyticsDashboardCubit>().loadInitial(
+                  orgId: orgId,
+                  financialYear: fys.first,
+                  startDate: _startDate,
+                  endDate: _endDate,
+                  forceReload: true,
+                );
+            // Reload current tab after a small delay to ensure state is updated
+            Future.microtask(() {
+              if (mounted) {
+                context.read<AnalyticsDashboardCubit>().loadTabData(
+                      orgId: orgId,
+                      financialYear: fys.first,
+                      tabIndex: _selectedTabIndex,
+                      startDate: _startDate,
+                      endDate: _endDate,
+                      forceReload: true,
+                    );
+              }
+            });
+          }
+        }
+      }
+    }
+  }
+
+  Future<DateTimeRange?> _showAnalyticsDateRangeModal(
+    BuildContext context, {
+    DateTimeRange? initialRange,
+  }) async {
+    final now = DateTime.now();
+    final firstDate = DateTime(2020, 1, 1);
+    final lastDate = DateTime(now.year + 1, 12, 31);
+
+    // Default to current financial year if no initial range
+    final fyStartYear = now.month >= 4 ? now.year : now.year - 1;
+    final defaultStart = initialRange?.start ?? DateTime(fyStartYear, 4, 1);
+    final defaultEnd = initialRange?.end ?? DateTime(fyStartYear + 1, 3, 31);
+
+    DateTimeRange selectedRange = DateTimeRange(
+      start: defaultStart,
+      end: defaultEnd,
+    );
+
+    return showDialog<DateTimeRange>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.7),
+      builder: (dialogContext) => _AnalyticsDateRangeModalDialog(
+        initialRange: selectedRange,
+        firstDate: firstDate,
+        lastDate: lastDate,
+        onCancel: () => Navigator.of(dialogContext).pop(),
+        onConfirm: (range) => Navigator.of(dialogContext).pop(range),
+      ),
+    );
   }
 
   @override
@@ -122,8 +258,9 @@ class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
         }
 
         return _AnalyticsTabContent(
-                period: _period,
-                onPeriodChanged: (p) => setState(() => _period = p),
+                startDate: _startDate,
+                endDate: _endDate,
+                onDateRangeSelected: _selectDateRange,
                 selectedTabIndex: _selectedTabIndex,
                 onTabChanged: _onTabSelected,
               );
@@ -133,15 +270,17 @@ class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
 }
 
 class _AnalyticsTabContent extends StatelessWidget {
-  const _AnalyticsTabContent({
-    required this.period,
-    required this.onPeriodChanged,
+  _AnalyticsTabContent({
+    required this.startDate,
+    required this.endDate,
+    required this.onDateRangeSelected,
     required this.selectedTabIndex,
     required this.onTabChanged,
   });
 
-  final AnalyticsPeriod period;
-  final ValueChanged<AnalyticsPeriod> onPeriodChanged;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final ValueChanged<BuildContext> onDateRangeSelected;
   final int selectedTabIndex;
   final ValueChanged<int> onTabChanged;
 
@@ -155,14 +294,20 @@ class _AnalyticsTabContent extends StatelessWidget {
     (icon: Icons.paid_outlined, label: 'Trip Wages'),
   ];
 
+  bool _shouldShowDailyView() {
+    if (startDate == null || endDate == null) return false;
+    final daysDifference = endDate!.difference(startDate!).inDays;
+    return daysDifference <= 30;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AnalyticsDashboardCubit>().state;
-    final isDaily = period == AnalyticsPeriod.daily;
+    final isDaily = _shouldShowDailyView();
     final showDailyEmptyState = isDaily && selectedTabIndex != 0;
 
     if (kDebugMode) {
-      debugPrint('[AnalyticsDashboard UI] period=${period.name} selectedTabIndex=$selectedTabIndex '
+      debugPrint('[AnalyticsDashboard UI] startDate=$startDate endDate=$endDate isDaily=$isDaily selectedTabIndex=$selectedTabIndex '
           'hasTransactions=${state.transactions != null} hasClients=${state.clients != null} '
           'hasEmployees=${state.employees != null} hasVendors=${state.vendors != null} '
           'hasDeliveries=${state.deliveries != null} hasProductions=${state.productions != null} '
@@ -175,8 +320,9 @@ class _AnalyticsTabContent extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
           child: Center(
             child: _AnalyticsSingleRowNavBar(
-              period: period,
-              onPeriodChanged: onPeriodChanged,
+              startDate: startDate,
+              endDate: endDate,
+              onDateRangeSelected: () => onDateRangeSelected(context),
               selectedTabIndex: selectedTabIndex,
               onTabChanged: onTabChanged,
               tabs: _tabs,
@@ -188,7 +334,7 @@ class _AnalyticsTabContent extends StatelessWidget {
               ? SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
                   child: _EmptySection(
-                    message: 'Daily breakdown is available for Transactions only. Switch to Monthly to see this category.',
+                    message: 'Daily breakdown is available for Transactions only. Select a date range of 30 days or less to see this category.',
                     icon: Icons.today,
                   ),
                 )
@@ -202,8 +348,11 @@ class _AnalyticsTabContent extends StatelessWidget {
                       emptyIcon: Icons.receipt_long,
                       child: state.transactions != null
                           ? TransactionAnalyticsContent(
+                              key: ValueKey('transactions_${startDate?.millisecondsSinceEpoch}_${endDate?.millisecondsSinceEpoch}_${selectedTabIndex}'),
                               analytics: state.transactions!,
-                              isDailyView: period == AnalyticsPeriod.daily,
+                              isDailyView: isDaily,
+                              startDate: startDate,
+                              endDate: endDate,
                             )
                           : null,
                     ),
@@ -343,18 +492,20 @@ class _AnalyticsTabShimmer extends StatelessWidget {
   }
 }
 
-/// Single-row nav bar: Monthly | Daily | Transactions | Clients | ... (production-style dark pill bar, scrollable).
+/// Single-row nav bar: Date Range | Transactions | Clients | ... (production-style dark pill bar, scrollable).
 class _AnalyticsSingleRowNavBar extends StatelessWidget {
-  const _AnalyticsSingleRowNavBar({
-    required this.period,
-    required this.onPeriodChanged,
+  _AnalyticsSingleRowNavBar({
+    required this.startDate,
+    required this.endDate,
+    required this.onDateRangeSelected,
     required this.selectedTabIndex,
     required this.onTabChanged,
     required this.tabs,
   });
 
-  final AnalyticsPeriod period;
-  final ValueChanged<AnalyticsPeriod> onPeriodChanged;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final VoidCallback onDateRangeSelected;
   final int selectedTabIndex;
   final ValueChanged<int> onTabChanged;
   final List<({IconData icon, String label})> tabs;
@@ -395,18 +546,10 @@ class _AnalyticsSingleRowNavBar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _AnalyticsNavPill(
-              icon: Icons.calendar_month,
-              label: 'Monthly',
-              isSelected: period == AnalyticsPeriod.monthly,
-              onTap: () => onPeriodChanged(AnalyticsPeriod.monthly),
-            ),
-            const SizedBox(width: 4),
-            _AnalyticsNavPill(
-              icon: Icons.today,
-              label: 'Daily',
-              isSelected: period == AnalyticsPeriod.daily,
-              onTap: () => onPeriodChanged(AnalyticsPeriod.daily),
+            _DateRangePill(
+              startDate: startDate,
+              endDate: endDate,
+              onTap: onDateRangeSelected,
             ),
             const SizedBox(width: 12),
             Container(
@@ -432,6 +575,389 @@ class _AnalyticsSingleRowNavBar extends StatelessWidget {
               );
             }),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalyticsDateRangeModalDialog extends StatefulWidget {
+  const _AnalyticsDateRangeModalDialog({
+    required this.initialRange,
+    required this.firstDate,
+    required this.lastDate,
+    required this.onCancel,
+    required this.onConfirm,
+  });
+
+  final DateTimeRange initialRange;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final VoidCallback onCancel;
+  final ValueChanged<DateTimeRange> onConfirm;
+
+  @override
+  State<_AnalyticsDateRangeModalDialog> createState() => _AnalyticsDateRangeModalDialogState();
+}
+
+class _AnalyticsDateRangeModalDialogState extends State<_AnalyticsDateRangeModalDialog> {
+  late DateTimeRange _selectedRange;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRange = widget.initialRange;
+  }
+
+  String _formatDate(DateTime date) {
+    return DateFormat('MMM dd, yyyy').format(date);
+  }
+
+  Future<void> _selectStartDate() async {
+    final maxDate = _selectedRange.end;
+    
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedRange.start,
+      firstDate: widget.firstDate,
+      lastDate: maxDate.isAfter(widget.lastDate) ? widget.lastDate : maxDate,
+      builder: (context, child) {
+        return Theme(
+          data: DashTheme.light(),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedRange = DateTimeRange(
+          start: picked,
+          end: _selectedRange.end.isBefore(picked) ? picked : _selectedRange.end,
+        );
+      });
+    }
+  }
+
+  Future<void> _selectEndDate() async {
+    final minDate = _selectedRange.start;
+    
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedRange.end.isBefore(_selectedRange.start)
+          ? _selectedRange.start
+          : _selectedRange.end,
+      firstDate: minDate,
+      lastDate: widget.lastDate,
+      builder: (context, child) {
+        return Theme(
+          data: DashTheme.light(),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedRange = DateTimeRange(
+          start: _selectedRange.start,
+          end: picked,
+        );
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(20),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500),
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 40,
+              offset: const Offset(0, 20),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AuthColors.background,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.date_range,
+                    color: AuthColors.primary,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Select Date Range',
+                      style: TextStyle(
+                        color: AuthColors.textMain,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close,
+                      color: AuthColors.textSub,
+                      size: 20,
+                    ),
+                    onPressed: widget.onCancel,
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Start Date Picker
+                  InkWell(
+                    onTap: _selectStartDate,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AuthColors.background,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AuthColors.primary.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today,
+                            color: AuthColors.primary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'From Date',
+                                  style: TextStyle(
+                                    color: AuthColors.textSub,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatDate(_selectedRange.start),
+                                  style: const TextStyle(
+                                    color: AuthColors.textMain,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AuthColors.textSub,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // End Date Picker
+                  InkWell(
+                    onTap: _selectEndDate,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AuthColors.background,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AuthColors.primary.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today,
+                            color: AuthColors.primary,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'To Date',
+                                  style: TextStyle(
+                                    color: AuthColors.textSub,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _formatDate(_selectedRange.end),
+                                  style: const TextStyle(
+                                    color: AuthColors.textMain,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AuthColors.textSub,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: widget.onCancel,
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: AuthColors.textSub,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () => widget.onConfirm(_selectedRange),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AuthColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Apply',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DateRangePill extends StatelessWidget {
+  const _DateRangePill({
+    required this.startDate,
+    required this.endDate,
+    required this.onTap,
+  });
+
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final VoidCallback onTap;
+
+  String _formatDate(DateTime date) {
+    return DateFormat('MMM dd, yyyy').format(date);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasRange = startDate != null && endDate != null;
+    final label = hasRange
+        ? '${_formatDate(startDate!)} - ${_formatDate(endDate!)}'
+        : 'Select Date Range';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+          decoration: BoxDecoration(
+            color: hasRange ? AuthColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: hasRange
+                ? null
+                : Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.date_range,
+                size: 20,
+                color: hasRange
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.7),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: hasRange
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.7),
+                  fontSize: 14,
+                  fontWeight: hasRange ? FontWeight.w600 : FontWeight.w500,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

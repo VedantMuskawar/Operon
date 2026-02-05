@@ -19,17 +19,16 @@ export async function rebuildProductionsAnalyticsForOrg(
   fyStart: Date,
   fyEnd: Date,
 ): Promise<void> {
-  const analyticsDocId = `${PRODUCTIONS_SOURCE_KEY}_${organizationId}_${financialYear}`;
-  const analyticsRef = db.collection(ANALYTICS_COLLECTION).doc(analyticsDocId);
-
   const batchesSnapshot = await db
     .collection(PRODUCTION_BATCHES_COLLECTION)
     .where('organizationId', '==', organizationId)
     .get();
 
-  const totalProductionMonthly: Record<string, number> = {};
-  let totalProductionYearly = 0;
-  const totalRawMaterialsMonthly: Record<string, number> = {};
+  // Group batches by month
+  const batchesByMonth: Record<string, {
+    totalProduction: number;
+    totalRawMaterials: number;
+  }> = {};
 
   batchesSnapshot.forEach((doc) => {
     const batch = doc.data();
@@ -39,31 +38,40 @@ export async function rebuildProductionsAnalyticsForOrg(
     }
 
     const monthKey = getYearMonth(batchDate);
+    
+    if (!batchesByMonth[monthKey]) {
+      batchesByMonth[monthKey] = {
+        totalProduction: 0,
+        totalRawMaterials: 0,
+      };
+    }
+
     const produced = (batch.totalBricksProduced as number) || 0;
     const stacked = (batch.totalBricksStacked as number) || 0;
     const total = produced + stacked;
 
-    totalProductionMonthly[monthKey] = (totalProductionMonthly[monthKey] || 0) + total;
-    totalProductionYearly += total;
+    batchesByMonth[monthKey].totalProduction += total;
 
-    // Raw materials: if metadata.rawMaterialsConsumed or similar exists, aggregate
     const metadata = (batch.metadata as Record<string, unknown>) || {};
     const rawConsumed = (metadata.rawMaterialsConsumed as number) ?? 0;
     if (rawConsumed > 0) {
-      totalRawMaterialsMonthly[monthKey] =
-        (totalRawMaterialsMonthly[monthKey] || 0) + rawConsumed;
+      batchesByMonth[monthKey].totalRawMaterials += rawConsumed;
     }
   });
 
-  await seedProductionsAnalyticsDoc(analyticsRef, financialYear, organizationId);
+  // Write to each month's document
+  const monthPromises = Object.entries(batchesByMonth).map(async ([monthKey, monthData]) => {
+    const analyticsRef = db.collection(ANALYTICS_COLLECTION)
+      .doc(`${PRODUCTIONS_SOURCE_KEY}_${organizationId}_${monthKey}`);
 
-  await analyticsRef.set(
-    {
+    await seedProductionsAnalyticsDoc(analyticsRef, monthKey, organizationId);
+
+    await analyticsRef.set({
       generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      'metrics.totalProductionMonthly.values': totalProductionMonthly,
-      'metrics.totalProductionYearly': totalProductionYearly,
-      'metrics.totalRawMaterialsMonthly.values': totalRawMaterialsMonthly,
-    },
-    { merge: true },
-  );
+      'metrics.totalProductionMonthly': monthData.totalProduction,
+      'metrics.totalRawMaterialsMonthly': monthData.totalRawMaterials,
+    }, { merge: true });
+  });
+
+  await Promise.all(monthPromises);
 }

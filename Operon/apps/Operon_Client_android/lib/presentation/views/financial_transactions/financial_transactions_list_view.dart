@@ -3,7 +3,6 @@ import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/financial_transactions/unified_financial_transactions_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/financial_transactions/unified_financial_transactions_state.dart';
-import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
 import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
@@ -67,6 +66,25 @@ class _FinancialTransactionsListViewState
     context.read<UnifiedFinancialTransactionsCubit>().search('');
   }
 
+  Future<void> _handleDateRangePicker() async {
+    final cubit = context.read<UnifiedFinancialTransactionsCubit>();
+    final state = cubit.state;
+    
+    // Pass current date range from state, or default to today-today
+    final currentRange = (state.startDate != null && state.endDate != null)
+        ? DateTimeRange(start: state.startDate!, end: state.endDate!)
+        : null;
+    
+    final range = await showLedgerDateRangeModal(
+      context,
+      initialRange: currentRange,
+    );
+    
+    if (range != null && mounted) {
+      cubit.setDateRange(range.start, range.end);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<UnifiedFinancialTransactionsCubit,
@@ -81,6 +99,15 @@ class _FinancialTransactionsListViewState
             previous.endDate != current.endDate;
       },
       builder: (context, state) {
+        // Sync search controller with state
+        if (_searchController.text != state.searchQuery) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_searchController.text != state.searchQuery) {
+              _searchController.text = state.searchQuery;
+            }
+          });
+        }
+        
         final allTransactions = state.currentTransactions;
         final filteredTransactions = _getFilteredTransactions(
           allTransactions,
@@ -208,32 +235,51 @@ class _FinancialTransactionsListViewState
           },
         ),
         const SizedBox(height: AppSpacing.paddingLG),
-        // Date Range Picker
-        DateRangePicker(
-          startDate: state.startDate,
-          endDate: state.endDate,
-          onStartDateChanged: (date) {
-            context.read<UnifiedFinancialTransactionsCubit>().setDateRange(
-                  date,
-                  state.endDate,
-                );
-          },
-          onEndDateChanged: (date) {
-            context.read<UnifiedFinancialTransactionsCubit>().setDateRange(
-                  state.startDate,
-                  date,
-                );
-          },
-        ),
-        const SizedBox(height: AppSpacing.paddingLG),
-        // Search Bar
-        StandardSearchBar(
-          controller: _searchController,
-          hintText: 'Search transactions...',
-          onChanged: (value) {
-            // Handled by listener
-          },
-          onClear: _clearSearch,
+        // Date range picker and search bar row
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AuthColors.surface.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AuthColors.surface.withOpacity(0.8),
+                    width: 1,
+                  ),
+                ),
+                child: StandardSearchBar(
+                  controller: _searchController,
+                  hintText: 'Search by name, ref, amount...',
+                  onChanged: (value) {
+                    // Handled by listener
+                  },
+                  onClear: _clearSearch,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.paddingSM),
+            Container(
+              decoration: BoxDecoration(
+                color: AuthColors.surface.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AuthColors.surface.withOpacity(0.8),
+                  width: 1,
+                ),
+              ),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.calendar_today,
+                  color: AuthColors.textMain,
+                  size: 20,
+                ),
+                tooltip: 'Select date range',
+                onPressed: _handleDateRangePicker,
+                padding: const EdgeInsets.all(12),
+              ),
+            ),
+          ],
         ),
       ],
     );

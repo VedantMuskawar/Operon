@@ -111,15 +111,20 @@ class _TransactionAnalyticsViewState extends State<TransactionAnalyticsView> {
 
 /// Content only: stat cards + line chart + donut. Used by [AnalyticsDashboardView].
 /// When [isDailyView] is true, shows only daily chart (last 30 days); otherwise monthly chart only.
+/// [startDate] and [endDate] are used to filter the data displayed.
 class TransactionAnalyticsContent extends StatefulWidget {
   const TransactionAnalyticsContent({
     super.key,
     required this.analytics,
     this.isDailyView = false,
+    this.startDate,
+    this.endDate,
   });
 
   final TransactionAnalytics analytics;
   final bool isDailyView;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   @override
   State<TransactionAnalyticsContent> createState() => _TransactionAnalyticsContentState();
@@ -160,12 +165,14 @@ class _TransactionAnalyticsContentState extends State<TransactionAnalyticsConten
               ? _DailyTrendsChart(
                   analytics: analytics,
                   touchedDateOrMonth: _touchedDateOrMonth,
+                  startDate: widget.startDate,
+                  endDate: widget.endDate,
                 )
               : const Center(
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(
-                      'No daily data for the past 30 days.',
+                      'No daily data for the selected date range.',
                       style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                     ),
                   ),
@@ -174,6 +181,8 @@ class _TransactionAnalyticsContentState extends State<TransactionAnalyticsConten
           _MonthlyLineChart(
             analytics: analytics,
             touchedDateOrMonth: _touchedDateOrMonth,
+            startDate: widget.startDate,
+            endDate: widget.endDate,
           ),
         const SizedBox(height: 24),
         _ReceivableAgingDonut(analytics: analytics),
@@ -216,10 +225,32 @@ class _DailyTrendsChart extends StatelessWidget {
   const _DailyTrendsChart({
     required this.analytics,
     this.touchedDateOrMonth,
+    this.startDate,
+    this.endDate,
   });
 
   final TransactionAnalytics analytics;
   final ValueNotifier<String?>? touchedDateOrMonth;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  bool _isDateInRange(String dateStr) {
+    if (startDate == null || endDate == null) return true;
+    try {
+      final parts = dateStr.split('-');
+      if (parts.length >= 3) {
+        final year = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final day = int.tryParse(parts[2]);
+        if (year != null && month != null && day != null) {
+          final date = DateTime(year, month, day);
+          return date.isAfter(startDate!.subtract(const Duration(days: 1))) &&
+                 date.isBefore(endDate!.add(const Duration(days: 1)));
+        }
+      }
+    } catch (_) {}
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -227,24 +258,29 @@ class _DailyTrendsChart extends StatelessWidget {
     final receivablesDaily = analytics.receivablesDaily;
     final allDays = <String>{...incomeDaily.keys, ...receivablesDaily.keys}.toList()..sort();
     
-    // Show last 30 days or all if less
-    final recentDays = allDays.length > 30 ? allDays.sublist(allDays.length - 30) : allDays;
+    // Filter by date range if provided
+    final filteredDays = startDate != null && endDate != null
+        ? allDays.where(_isDateInRange).toList()
+        : (allDays.length > 30 ? allDays.sublist(allDays.length - 30) : allDays);
     
-    if (recentDays.isEmpty) {
+    if (filteredDays.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    // Calculate maxY from filtered data only
+    final filteredIncomeValues = filteredDays.map((d) => incomeDaily[d] ?? 0.0).toList();
+    final filteredReceivablesValues = filteredDays.map((d) => receivablesDaily[d] ?? 0.0).toList();
     final maxY = [
-      ...incomeDaily.values,
-      ...receivablesDaily.values,
+      ...filteredIncomeValues,
+      ...filteredReceivablesValues,
     ].fold<double>(0.0, (a, b) => a > b ? a : b);
     const minY = 0.0;
     final range = (maxY - minY).clamp(1.0, double.infinity);
 
     final incomeSpots = <FlSpot>[];
     final receivablesSpots = <FlSpot>[];
-    for (var i = 0; i < recentDays.length; i++) {
-      final day = recentDays[i];
+    for (var i = 0; i < filteredDays.length; i++) {
+      final day = filteredDays[i];
       incomeSpots.add(FlSpot(i.toDouble(), (incomeDaily[day] ?? 0.0)));
       receivablesSpots.add(FlSpot(i.toDouble(), (receivablesDaily[day] ?? 0.0)));
     }
@@ -277,9 +313,11 @@ class _DailyTrendsChart extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Daily Income vs Receivables (Last 30 Days)',
-                style: TextStyle(
+              Text(
+                startDate != null && endDate != null
+                    ? 'Daily Income vs Receivables'
+                    : 'Daily Income vs Receivables (Last 30 Days)',
+                style: const TextStyle(
                   color: AuthColors.textMain,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -298,20 +336,20 @@ class _DailyTrendsChart extends StatelessWidget {
                 if (touched != null) {
                   if (touched.length > 7) {
                     final monthKey = touched.substring(0, 7);
-                    for (var i = 0; i < recentDays.length; i++) {
-                      if (recentDays[i].startsWith(monthKey)) {
+                    for (var i = 0; i < filteredDays.length; i++) {
+                      if (filteredDays[i].startsWith(monthKey)) {
                         syncLineX = i.toDouble();
                         break;
                       }
                     }
                   } else {
-                    final idx = recentDays.indexOf(touched);
+                    final idx = filteredDays.indexOf(touched);
                     if (idx >= 0) syncLineX = idx.toDouble();
                   }
                 }
                 final chartData = LineChartData(
                     minX: 0,
-                    maxX: (recentDays.length - 1).clamp(0, double.infinity).toDouble(),
+                    maxX: (filteredDays.length - 1).clamp(0, double.infinity).toDouble(),
                     minY: minY - range * 0.05,
                     maxY: maxY + range * 0.05,
                     extraLinesData: syncLineX != null
@@ -353,11 +391,11 @@ class _DailyTrendsChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 28,
-                      interval: recentDays.length > 10 ? (recentDays.length / 10).ceil().toDouble() : 1,
+                      interval: filteredDays.length > 10 ? (filteredDays.length / 10).ceil().toDouble() : 1,
                       getTitlesWidget: (value, meta) {
                         final i = value.round();
-                        if (i >= 0 && i < recentDays.length && i % ((recentDays.length / 10).ceil().clamp(1, recentDays.length)) == 0) {
-                          final d = recentDays[i];
+                        if (i >= 0 && i < filteredDays.length && i % ((filteredDays.length / 10).ceil().clamp(1, filteredDays.length)) == 0) {
+                          final d = filteredDays[i];
                           try {
                             final parts = d.split('-');
                             if (parts.length >= 3) {
@@ -436,8 +474,8 @@ class _DailyTrendsChart extends StatelessWidget {
                       if (response != null && response.lineBarSpots != null && response.lineBarSpots!.isNotEmpty) {
                         final spot = response.lineBarSpots!.first;
                         final i = spot.x.round();
-                        if (i >= 0 && i < recentDays.length) {
-                          touchedDateOrMonth!.value = recentDays[i];
+                        if (i >= 0 && i < filteredDays.length) {
+                          touchedDateOrMonth!.value = filteredDays[i];
                         }
                       } else {
                         touchedDateOrMonth!.value = null;
@@ -608,17 +646,46 @@ class _MonthlyLineChart extends StatelessWidget {
   const _MonthlyLineChart({
     required this.analytics,
     this.touchedDateOrMonth,
+    this.startDate,
+    this.endDate,
   });
 
   final TransactionAnalytics analytics;
   final ValueNotifier<String?>? touchedDateOrMonth;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  bool _isMonthInRange(String monthStr) {
+    if (startDate == null || endDate == null) return true;
+    try {
+      final parts = monthStr.split('-');
+      if (parts.length >= 2) {
+        final year = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        if (year != null && month != null) {
+          final monthStart = DateTime(year, month, 1);
+          final monthEnd = month == 12 
+              ? DateTime(year + 1, 1, 1).subtract(const Duration(days: 1))
+              : DateTime(year, month + 1, 1).subtract(const Duration(days: 1));
+          return monthStart.isBefore(endDate!.add(const Duration(days: 1))) &&
+                 monthEnd.isAfter(startDate!.subtract(const Duration(days: 1)));
+        }
+      }
+    } catch (_) {}
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
     final incomeMonthly = analytics.incomeMonthly;
     final receivablesMonthly = analytics.receivablesMonthly;
     final allMonths = <String>{...incomeMonthly.keys, ...receivablesMonthly.keys}.toList()..sort();
-    if (allMonths.isEmpty) {
+    
+    // Filter by date range if provided
+    final filteredMonths = startDate != null && endDate != null
+        ? allMonths.where(_isMonthInRange).toList()
+        : allMonths;
+    if (filteredMonths.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -628,24 +695,27 @@ class _MonthlyLineChart extends StatelessWidget {
         ),
         child: const Center(
           child: Text(
-            'No monthly data',
+            'No monthly data for the selected date range',
             style: TextStyle(color: AuthColors.textSub, fontSize: 14),
           ),
         ),
       );
     }
 
+    // Calculate maxY from filtered data only
+    final filteredIncomeValues = filteredMonths.map((m) => incomeMonthly[m] ?? 0.0).toList();
+    final filteredReceivablesValues = filteredMonths.map((m) => receivablesMonthly[m] ?? 0.0).toList();
     final maxY = [
-      ...incomeMonthly.values,
-      ...receivablesMonthly.values,
+      ...filteredIncomeValues,
+      ...filteredReceivablesValues,
     ].fold<double>(0.0, (a, b) => a > b ? a : b);
     const minY = 0.0;
     final range = (maxY - minY).clamp(1.0, double.infinity);
 
     final incomeSpots = <FlSpot>[];
     final receivablesSpots = <FlSpot>[];
-    for (var i = 0; i < allMonths.length; i++) {
-      final month = allMonths[i];
+    for (var i = 0; i < filteredMonths.length; i++) {
+      final month = filteredMonths[i];
       incomeSpots.add(FlSpot(i.toDouble(), (incomeMonthly[month] ?? 0.0)));
       receivablesSpots.add(FlSpot(i.toDouble(), (receivablesMonthly[month] ?? 0.0)));
     }
@@ -706,7 +776,7 @@ class _MonthlyLineChart extends StatelessWidget {
                 }
                 final chartData = LineChartData(
                     minX: 0,
-                    maxX: (allMonths.length - 1).clamp(0, double.infinity).toDouble(),
+                    maxX: (filteredMonths.length - 1).clamp(0, double.infinity).toDouble(),
                     minY: minY - range * 0.05,
                     maxY: maxY + range * 0.05,
                     extraLinesData: syncLineX != null
@@ -751,8 +821,8 @@ class _MonthlyLineChart extends StatelessWidget {
                       interval: 1,
                       getTitlesWidget: (value, meta) {
                         final i = value.round();
-                        if (i >= 0 && i < allMonths.length) {
-                          final m = allMonths[i];
+                        if (i >= 0 && i < filteredMonths.length) {
+                          final m = filteredMonths[i];
                           final parts = m.split('-');
                           if (parts.length >= 2) {
                             final monthNum = int.tryParse(parts[1]);
@@ -844,8 +914,8 @@ class _MonthlyLineChart extends StatelessWidget {
                       if (response != null && response.lineBarSpots != null && response.lineBarSpots!.isNotEmpty) {
                         final spot = response.lineBarSpots!.first;
                         final i = spot.x.round();
-                        if (i >= 0 && i < allMonths.length) {
-                          touchedDateOrMonth!.value = allMonths[i];
+                        if (i >= 0 && i < filteredMonths.length) {
+                          touchedDateOrMonth!.value = filteredMonths[i];
                         }
                       } else {
                         touchedDateOrMonth!.value = null;

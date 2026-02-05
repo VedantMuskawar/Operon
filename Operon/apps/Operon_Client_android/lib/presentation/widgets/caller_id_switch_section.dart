@@ -140,17 +140,29 @@ class _CallerIdSwitchSectionState extends State<CallerIdSwitchSection>
     if (!Platform.isAndroid) return const SizedBox.shrink();
     if (_loading) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Icon(Icons.phone_in_talk, color: AuthColors.textDisabled, size: 22),
-            const SizedBox(width: AppSpacing.paddingLG),
-            Text(
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AuthColors.textMainWithOpacity(0.05),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.phone_in_talk,
+                color: AuthColors.textDisabled,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Text(
               'Caller ID',
               style: TextStyle(
                 color: AuthColors.textMain,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
                 fontFamily: 'SF Pro Display',
               ),
             ),
@@ -165,22 +177,30 @@ class _CallerIdSwitchSectionState extends State<CallerIdSwitchSection>
       );
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Icon(
-            Icons.phone_in_talk,
-            color: AuthColors.textMain,
-            size: 22,
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AuthColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.phone_in_talk,
+              color: AuthColors.primary,
+              size: 20,
+            ),
           ),
-          const SizedBox(width: AppSpacing.paddingLG),
+          const SizedBox(width: 16),
           Expanded(
             child: Text(
               'Caller ID',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textMain,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
                 fontFamily: 'SF Pro Display',
               ),
             ),

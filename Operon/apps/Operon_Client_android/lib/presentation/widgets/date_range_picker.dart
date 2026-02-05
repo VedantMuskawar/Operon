@@ -80,16 +80,19 @@ class DateRangePicker extends StatelessWidget {
                 ),
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                   const SizedBox(width: AppSpacing.paddingMD),
-                  Expanded(
+                  Flexible(
                     child: Text(
                       startDate != null ? _formatDate(startDate!) : 'Start Date',
                       style: TextStyle(
                         color: startDate != null ? AuthColors.textMain : AuthColors.textSub,
                         fontSize: 14,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
@@ -119,16 +122,19 @@ class DateRangePicker extends StatelessWidget {
                 ),
               ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
                   const SizedBox(width: AppSpacing.paddingMD),
-                  Expanded(
+                  Flexible(
                     child: Text(
                       endDate != null ? _formatDate(endDate!) : 'End Date',
                       style: TextStyle(
                         color: endDate != null ? AuthColors.textMain : AuthColors.textSub,
                         fontSize: 14,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],

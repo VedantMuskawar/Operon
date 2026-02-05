@@ -1,5 +1,6 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:operon_auth_flow/operon_auth_flow.dart';
 
 /// Slide-to-confirm action button for driver interactions.
 /// 
@@ -133,7 +134,7 @@ class _SlideActionButtonState extends State<SlideActionButton>
         widget.backgroundColor ?? LogisticsColors.hudBlack;
     final effectiveForegroundColor =
         widget.foregroundColor ?? LogisticsColors.neonGreen;
-    final effectiveThumbColor = widget.thumbColor ?? Colors.white;
+    final effectiveThumbColor = widget.thumbColor ?? AuthColors.textMain;
     final maxWidth = MediaQuery.of(context).size.width - 32;
     final threshold = (maxWidth - 56) * 0.8;
     final progress = _dragPosition / (maxWidth - 56);
@@ -148,7 +149,7 @@ class _SlideActionButtonState extends State<SlideActionButton>
           color: effectiveBackgroundColor,
           borderRadius: BorderRadius.circular(28),
           border: Border.all(
-            color: Colors.white.withOpacity(isEnabled ? 0.1 : 0.05),
+            color: AuthColors.textMainWithOpacity(isEnabled ? 0.1 : 0.05),
             width: 0.5,
           ),
         ),
@@ -180,8 +181,8 @@ class _SlideActionButtonState extends State<SlideActionButton>
                           : widget.text,
               style: TextStyle(
                 color: isEnabled && _dragPosition >= threshold
-                    ? Colors.white
-                    : Colors.white.withOpacity(isEnabled ? 0.9 : 0.5),
+                    ? AuthColors.textMain
+                    : AuthColors.textMainWithOpacity(isEnabled ? 0.9 : 0.5),
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
@@ -205,7 +206,7 @@ class _SlideActionButtonState extends State<SlideActionButton>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(isEnabled ? 0.3 : 0.1),
+                      color: AuthColors.background.withOpacity(isEnabled ? 0.3 : 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -224,7 +225,7 @@ class _SlideActionButtonState extends State<SlideActionButton>
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.black87,
+                                AuthColors.background,
                               ),
                             ),
                           )

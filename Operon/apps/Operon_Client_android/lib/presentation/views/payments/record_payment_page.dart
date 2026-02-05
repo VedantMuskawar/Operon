@@ -9,8 +9,7 @@ import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/data/services/qr_code_service.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:core_bloc/core_bloc.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors;
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
@@ -252,9 +251,36 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                       ),
                     ),
             ),
-            QuickNavBar(
+            FloatingNavBar(
+              items: const [
+                NavBarItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  heroTag: 'nav_home',
+                ),
+                NavBarItem(
+                  icon: Icons.pending_actions_rounded,
+                  label: 'Pending',
+                  heroTag: 'nav_pending',
+                ),
+                NavBarItem(
+                  icon: Icons.schedule_rounded,
+                  label: 'Schedule',
+                  heroTag: 'nav_schedule',
+                ),
+                NavBarItem(
+                  icon: Icons.map_rounded,
+                  label: 'Map',
+                  heroTag: 'nav_map',
+                ),
+                NavBarItem(
+                  icon: Icons.event_available_rounded,
+                  label: 'Cash Ledger',
+                  heroTag: 'nav_cash_ledger',
+                ),
+              ],
               currentIndex: 0,
-              onTap: (value) => context.go('/home', extra: value),
+              onItemTapped: (value) => context.go('/home', extra: value),
             ),
           ],
         ),

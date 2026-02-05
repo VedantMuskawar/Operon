@@ -42,7 +42,6 @@ import 'package:dash_mobile/presentation/views/access_control_page.dart';
 import 'package:dash_mobile/presentation/views/delivery_memos_page.dart';
 import 'package:dash_mobile/presentation/views/payments/record_payment_page.dart';
 import 'package:dash_mobile/presentation/views/purchases/record_purchase_page.dart';
-import 'package:dash_mobile/presentation/views/fuel_ledger/fuel_ledger_page.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/employee_wages_page.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/payments/payments_cubit.dart';
@@ -57,6 +56,7 @@ import 'package:dash_mobile/presentation/blocs/dm_settings/dm_settings_cubit.dar
 import 'package:dash_mobile/data/repositories/dm_settings_repository.dart';
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/presentation/views/attendance_page.dart';
+import 'package:dash_mobile/presentation/views/profile_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
@@ -125,6 +125,23 @@ GoRouter buildRouter() {
               initialIndex: args.initialIndex,
               preFetchedPendingOrdersCount: args.preFetchedPendingOrdersCount,
             ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          if (!orgState.hasSelection) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: const ProfilePage(),
           );
         },
       ),
@@ -679,24 +696,6 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/purchases',
         redirect: (context, state) => '/financial-transactions',
-      ),
-      GoRoute(
-        path: '/fuel-ledger',
-        name: 'fuel-ledger',
-        pageBuilder: (context, state) {
-          final orgState = context.read<OrganizationContextCubit>().state;
-          final organization = orgState.organization;
-          if (organization == null) {
-            return _buildTransitionPage(
-              key: state.pageKey,
-              child: const OrganizationSelectionPage(),
-            );
-          }
-          return _buildTransitionPage(
-            key: state.pageKey,
-            child: const FuelLedgerPage(),
-          );
-        },
       ),
       GoRoute(
         path: '/employee-wages',

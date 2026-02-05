@@ -104,13 +104,343 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
       expenses,
     );
 
+    final enrichedOrderTransactions = enriched['orderTransactions']!;
+    final enrichedPayments = enriched['payments']!;
+    final enrichedPurchases = enriched['purchases']!;
+    final enrichedExpenses = enriched['expenses']!;
+
+    // Compute totals
+    final totalOrderTransactions = enrichedOrderTransactions.fold(0.0, (sum, tx) => sum + tx.amount);
+    // For order transactions, only debit (actual payments) counts as income
+    final totalOrderIncome = enrichedOrderTransactions
+        .where((tx) => tx.type == TransactionType.debit)
+        .fold(0.0, (sum, tx) => sum + tx.amount);
+    final totalPayments = enrichedPayments.fold(0.0, (sum, tx) => sum + tx.amount);
+    final totalPurchases = enrichedPurchases.fold(0.0, (sum, tx) => sum + tx.amount);
+    final totalExpenses = enrichedExpenses.fold(0.0, (sum, tx) => sum + tx.amount);
+    final totalIncome = totalOrderIncome + totalPayments;
+    final totalOutcome = totalPurchases + totalExpenses;
+    final netBalance = totalIncome - totalOutcome;
+
+    // Compute allRows (filtered and sorted)
+    final allRows = _computeAllRows(
+      enrichedOrderTransactions,
+      enrichedPayments,
+      enrichedPurchases,
+      enrichedExpenses,
+      state.searchQuery,
+    );
+
+    // Compute payment account distribution (single-pass optimization)
+    final paymentAccountDistribution = _computePaymentAccountDistribution(
+      enrichedOrderTransactions,
+      enrichedPayments,
+      enrichedPurchases,
+      enrichedExpenses,
+    );
+
+    // Compute total credit and debit from allRows
+    double totalCredit = 0.0;
+    double totalDebit = 0.0;
+    for (final tx in allRows) {
+      if (tx.type == TransactionType.credit) {
+        totalCredit += tx.amount;
+      } else {
+        totalDebit += tx.amount;
+      }
+    }
+
     emit(state.copyWith(
       status: ViewStatus.success,
-      orderTransactions: enriched['orderTransactions']!,
-      payments: enriched['payments']!,
-      purchases: enriched['purchases']!,
-      expenses: enriched['expenses']!,
+      orderTransactions: enrichedOrderTransactions,
+      payments: enrichedPayments,
+      purchases: enrichedPurchases,
+      expenses: enrichedExpenses,
+      allRows: allRows,
+      totalOrderTransactions: totalOrderTransactions,
+      totalPayments: totalPayments,
+      totalPurchases: totalPurchases,
+      totalExpenses: totalExpenses,
+      totalIncome: totalIncome,
+      totalOutcome: totalOutcome,
+      netBalance: netBalance,
+      paymentAccountDistribution: paymentAccountDistribution,
+      totalCredit: totalCredit,
+      totalDebit: totalDebit,
     ));
+  }
+
+  List<Transaction> _computeAllRows(
+    List<Transaction> orderTransactions,
+    List<Transaction> payments,
+    List<Transaction> purchases,
+    List<Transaction> expenses,
+    String searchQuery,
+  ) {
+    // Combine all transaction lists
+    final list = <Transaction>[
+      ...orderTransactions,
+      ...payments,
+      ...purchases,
+      ...expenses,
+    ];
+
+    // Apply search filter if query exists
+    final filtered = searchQuery.trim().isEmpty
+        ? list
+        : () {
+            // Cache lowercased query once, outside the loop
+            final queryLower = searchQuery.toLowerCase();
+            return list.where((tx) {
+              final title = _getTransactionTitle(tx).toLowerCase();
+              final refNumber = (tx.referenceNumber ?? '').toLowerCase();
+              final vendorName = (tx.metadata?['vendorName']?.toString() ?? '').toLowerCase();
+              final description = (tx.description ?? '').toLowerCase();
+              final clientName = (tx.clientName ?? '').toLowerCase();
+              final dmNumber = _getDmNumber(tx);
+              final dmNumberStr = dmNumber != null ? 'dm-$dmNumber' : '';
+
+              return title.contains(queryLower) ||
+                  refNumber.contains(queryLower) ||
+                  vendorName.contains(queryLower) ||
+                  description.contains(queryLower) ||
+                  clientName.contains(queryLower) ||
+                  dmNumberStr.contains(queryLower);
+            }).toList();
+          }();
+
+    // Group transactions by DM number
+    final grouped = _groupTransactionsByDmNumber(filtered);
+
+    // Sort by date descending (newest first)
+    grouped.sort((a, b) {
+      final aDate = a.createdAt ?? DateTime(1970);
+      final bDate = b.createdAt ?? DateTime(1970);
+      return bDate.compareTo(aDate);
+    });
+
+    return grouped;
+  }
+
+  /// Extract DM number from transaction metadata or return null
+  int? _getDmNumber(Transaction tx) {
+    final dmNumber = tx.metadata?['dmNumber'];
+    if (dmNumber == null) return null;
+    if (dmNumber is int) return dmNumber;
+    if (dmNumber is num) return dmNumber.toInt();
+    return null;
+  }
+
+  /// Group transactions by DM number and create cumulative transaction rows
+  List<Transaction> _groupTransactionsByDmNumber(List<Transaction> transactions) {
+    // Separate transactions with DM numbers and without
+    final withDmNumber = <int, List<Transaction>>{};
+    final withoutDmNumber = <Transaction>[];
+
+    for (final tx in transactions) {
+      final dmNumber = _getDmNumber(tx);
+      if (dmNumber != null) {
+        withDmNumber.putIfAbsent(dmNumber, () => []).add(tx);
+      } else {
+        withoutDmNumber.add(tx);
+      }
+    }
+
+    final result = <Transaction>[];
+
+    // Process grouped transactions (by DM number)
+    for (final entry in withDmNumber.entries) {
+      final dmNumber = entry.key;
+      final group = entry.value;
+      
+      if (group.length == 1) {
+        // Single transaction, add as-is
+        result.add(group.first);
+      } else {
+        // Multiple transactions with same DM number - create cumulative transaction
+        final cumulativeTx = _createCumulativeTransaction(group, dmNumber);
+        result.add(cumulativeTx);
+      }
+    }
+
+    // Add transactions without DM numbers as-is
+    result.addAll(withoutDmNumber);
+
+    return result;
+  }
+
+  /// Create a cumulative transaction from multiple transactions with the same DM number
+  Transaction _createCumulativeTransaction(List<Transaction> group, int dmNumber) {
+    // Use the first transaction as base (for most fields)
+    final baseTx = group.first;
+    
+    // Calculate cumulative amounts
+    double totalCredit = 0.0;
+    double totalDebit = 0.0;
+    DateTime? earliestDate;
+    DateTime? latestDate;
+    final Set<String> transactionIds = {};
+    
+    // Collect payment accounts for credit and debit transactions separately
+    // Store both name and amount per payment account
+    final creditPaymentAccounts = <String, Map<String, dynamic>>{}; // Map of id -> {name, amount}
+    final debitPaymentAccounts = <String, Map<String, dynamic>>{}; // Map of id -> {name, amount}
+    
+    for (final tx in group) {
+      if (tx.type == TransactionType.credit) {
+        totalCredit += tx.amount;
+        // Store payment account info with amount for credit transactions
+        final accountId = tx.paymentAccountId ?? '';
+        final accountName = tx.paymentAccountName ?? accountId;
+        if (accountId.isNotEmpty || accountName.isNotEmpty) {
+          final key = accountId.isNotEmpty ? accountId : accountName;
+          final existing = creditPaymentAccounts[key];
+          final currentAmount = existing?['amount'] as double? ?? 0.0;
+          creditPaymentAccounts[key] = {
+            'name': accountName.isNotEmpty ? accountName : accountId,
+            'amount': currentAmount + tx.amount,
+          };
+        }
+      } else {
+        totalDebit += tx.amount;
+        // Store payment account info with amount for debit transactions
+        final accountId = tx.paymentAccountId ?? '';
+        final accountName = tx.paymentAccountName ?? accountId;
+        if (accountId.isNotEmpty || accountName.isNotEmpty) {
+          final key = accountId.isNotEmpty ? accountId : accountName;
+          final existing = debitPaymentAccounts[key];
+          final currentAmount = existing?['amount'] as double? ?? 0.0;
+          debitPaymentAccounts[key] = {
+            'name': accountName.isNotEmpty ? accountName : accountId,
+            'amount': currentAmount + tx.amount,
+          };
+        }
+      }
+      
+      transactionIds.add(tx.id);
+      
+      final txDate = tx.createdAt;
+      if (txDate != null) {
+        if (earliestDate == null || txDate.isBefore(earliestDate)) {
+          earliestDate = txDate;
+        }
+        if (latestDate == null || txDate.isAfter(latestDate)) {
+          latestDate = txDate;
+        }
+      }
+    }
+
+    // Determine transaction type based on net amount (for display purposes)
+    final netAmount = totalCredit - totalDebit;
+    final transactionType = netAmount >= 0 ? TransactionType.credit : TransactionType.debit;
+    final finalAmount = netAmount.abs();
+
+    // Create metadata with DM number, cumulative amounts, and grouped transaction IDs
+    final metadata = Map<String, dynamic>.from(baseTx.metadata ?? {});
+    metadata['dmNumber'] = dmNumber;
+    metadata['groupedTransactionIds'] = transactionIds.toList();
+    metadata['transactionCount'] = group.length;
+    metadata['cumulativeCredit'] = totalCredit;
+    metadata['cumulativeDebit'] = totalDebit;
+    
+    // Store payment account information with amounts for grouped transactions
+    if (creditPaymentAccounts.isNotEmpty) {
+      metadata['creditPaymentAccounts'] = creditPaymentAccounts.values.map((acc) => {
+        'name': acc['name'] as String,
+        'amount': acc['amount'] as double,
+      }).toList();
+    }
+    if (debitPaymentAccounts.isNotEmpty) {
+      metadata['debitPaymentAccounts'] = debitPaymentAccounts.values.map((acc) => {
+        'name': acc['name'] as String,
+        'amount': acc['amount'] as double,
+      }).toList();
+    }
+    
+    if (earliestDate != null) {
+      metadata['earliestDate'] = earliestDate.toIso8601String();
+    }
+    if (latestDate != null) {
+      metadata['latestDate'] = latestDate.toIso8601String();
+    }
+
+    // Create cumulative transaction
+    // Store net amount in amount field, but metadata has separate credit/debit
+    return baseTx.copyWith(
+      id: 'grouped_${dmNumber}_${transactionIds.join('_')}',
+      amount: finalAmount,
+      type: transactionType,
+      createdAt: earliestDate ?? baseTx.createdAt,
+      updatedAt: latestDate ?? baseTx.updatedAt,
+      metadata: metadata,
+      description: baseTx.description != null 
+          ? '${baseTx.description} (${group.length} transactions)'
+          : 'DM-$dmNumber (${group.length} transactions)',
+    );
+  }
+
+  static String _getTransactionTitle(Transaction tx) {
+    switch (tx.category) {
+      case TransactionCategory.advance:
+        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Advance';
+      case TransactionCategory.tripPayment:
+        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Trip Payment';
+      case TransactionCategory.clientCredit:
+        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Pay Later Order';
+      case TransactionCategory.clientPayment:
+        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Payment';
+      case TransactionCategory.vendorPurchase:
+        return tx.metadata?['vendorName']?.toString() ?? 'Purchase';
+      case TransactionCategory.vendorPayment:
+        return tx.metadata?['vendorName']?.toString() ?? 'Vendor Payment';
+      default:
+        return tx.description ?? 'Transaction';
+    }
+  }
+
+  List<PaymentAccountSummary> _computePaymentAccountDistribution(
+    List<Transaction> orderTransactions,
+    List<Transaction> payments,
+    List<Transaction> purchases,
+    List<Transaction> expenses,
+  ) {
+    final map = <String, PaymentAccountSummary>{};
+    
+    void add(String? id, String? name, double income, double expense) {
+      final key = (id?.trim().isEmpty ?? true) ? (name ?? '') : id!;
+      final displayName = name?.trim().isNotEmpty != true ? name! : (id ?? 'Unknown');
+      if (!map.containsKey(key)) {
+        map[key] = PaymentAccountSummary(displayName: displayName, income: 0, expense: 0);
+      }
+      final cur = map[key]!;
+      map[key] = PaymentAccountSummary(
+        displayName: cur.displayName,
+        income: cur.income + income,
+        expense: cur.expense + expense,
+      );
+    }
+
+    // Single-pass iteration: process all transactions in one loop
+    // For order transactions, only debit (actual payments) counts as income
+    for (final t in orderTransactions) {
+      if (t.type == TransactionType.debit) {
+        add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
+      }
+      // Credit transactions (clientCredit/PayLater) don't count as income
+    }
+    for (final t in payments) {
+      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
+    }
+    for (final t in purchases) {
+      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', 0, t.amount);
+    }
+    for (final t in expenses) {
+      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', 0, t.amount);
+    }
+
+    final list = map.values.toList();
+    list.sort((a, b) => a.displayName.compareTo(b.displayName));
+    return list;
   }
 
   List<Transaction> _filterByDateRange(
@@ -136,7 +466,32 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
   }
 
   void search(String query) {
-    emit(state.copyWith(searchQuery: query));
+    // Recompute allRows with new search query
+    final allRows = _computeAllRows(
+      state.orderTransactions,
+      state.payments,
+      state.purchases,
+      state.expenses,
+      query,
+    );
+
+    // Recompute total credit and debit from filtered allRows
+    double totalCredit = 0.0;
+    double totalDebit = 0.0;
+    for (final tx in allRows) {
+      if (tx.type == TransactionType.credit) {
+        totalCredit += tx.amount;
+      } else {
+        totalDebit += tx.amount;
+      }
+    }
+
+    emit(state.copyWith(
+      searchQuery: query,
+      allRows: allRows,
+      totalCredit: totalCredit,
+      totalDebit: totalDebit,
+    ));
   }
 
   /// Update date range and reload data with new filter

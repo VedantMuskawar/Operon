@@ -259,7 +259,10 @@ class DashWebApp extends StatelessWidget {
                   final orgState = context.read<OrganizationContextCubit>().state;
                   if (orgState.hasSelection) {
                     final currentRoute = router.routerDelegate.currentConfiguration.uri.path;
-                    if (currentRoute != '/home') {
+                    
+                    // Check if the current route is NOT home AND is NOT a print route
+                    // This prevents the app from hijacking the /print-dm route during initialization
+                    if (currentRoute != '/home' && !currentRoute.startsWith('/print-dm')) {
                       router.go('/home');
                     }
                   }
@@ -285,7 +288,9 @@ class DashWebApp extends StatelessWidget {
                             final router = GoRouter.maybeOf(context);
                             if (router != null) {
                               final currentRoute = router.routerDelegate.currentConfiguration.uri.path;
-                              if (currentRoute == '/splash' || currentRoute == '/') {
+                              // Only redirect from splash or root, not from print routes
+                              if ((currentRoute == '/splash' || currentRoute == '/') && 
+                                  !currentRoute.startsWith('/print-dm')) {
                                 context.go('/home');
                               }
                             }

@@ -7,6 +7,8 @@ import 'package:operon_driver_android/config/app_theme.dart';
 import 'package:operon_driver_android/core/services/background_sync_service.dart';
 import 'package:operon_driver_android/core/services/dm_print_helper.dart';
 import 'package:operon_driver_android/core/services/location_service.dart';
+import 'package:operon_driver_android/data/datasources/users_data_source.dart';
+import 'package:operon_driver_android/data/repositories/users_repository.dart';
 import 'package:operon_driver_android/presentation/blocs/trip/trip_bloc.dart';
 
 class OperonDriverApp extends StatelessWidget {
@@ -39,6 +41,18 @@ class OperonDriverApp extends StatelessWidget {
       ),
     );
 
+    final employeeWagesRepository = EmployeeWagesRepository(
+      dataSource: EmployeeWagesDataSource(
+        firestore: authRepository.firestore,
+      ),
+    );
+
+    final usersRepository = UsersRepository(
+      dataSource: UsersDataSource(
+        firestore: authRepository.firestore,
+      ),
+    );
+
     final dmPrintHelper = DmPrintHelper();
     final router = buildRouter();
 
@@ -51,6 +65,8 @@ class OperonDriverApp extends StatelessWidget {
         RepositoryProvider.value(value: scheduledTripsRepository),
         RepositoryProvider.value(value: locationService),
         RepositoryProvider.value(value: backgroundSyncService),
+        RepositoryProvider.value(value: employeeWagesRepository),
+        RepositoryProvider.value(value: usersRepository),
       ],
       child: MultiBlocProvider(
         providers: [

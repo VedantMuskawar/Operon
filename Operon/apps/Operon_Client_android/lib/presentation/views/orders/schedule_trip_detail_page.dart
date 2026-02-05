@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:core_datasources/core_datasources.dart' hide ScheduledTripsRepository, ScheduledTripsDataSource;
@@ -38,11 +39,66 @@ class ScheduleTripDetailPage extends StatefulWidget {
 class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
   late Map<String, dynamic> _trip;
   int _selectedTabIndex = 0;
+  StreamSubscription<DocumentSnapshot>? _tripSubscription;
 
   @override
   void initState() {
     super.initState();
     _trip = Map<String, dynamic>.from(widget.trip);
+    _subscribeToTrip();
+  }
+
+  void _subscribeToTrip() {
+    final tripId = _trip['id'] as String?;
+    if (tripId == null) return;
+
+    // Use WidgetsBinding to ensure context is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      
+      final orgContext = context.read<OrganizationContextCubit>().state;
+      final organization = orgContext.organization;
+      if (organization == null) return;
+
+      _tripSubscription?.cancel();
+      _tripSubscription = FirebaseFirestore.instance
+          .collection('SCHEDULE_TRIPS')
+          .doc(tripId)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          if (snapshot.exists && mounted) {
+            final data = snapshot.data()!;
+            final updatedTrip = <String, dynamic>{
+              'id': snapshot.id,
+            };
+            
+            data.forEach((key, value) {
+              if (value is Timestamp) {
+                updatedTrip[key] = value.toDate();
+              } else {
+                updatedTrip[key] = value;
+              }
+            });
+            
+            setState(() {
+              _trip = updatedTrip;
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            debugPrint('[ScheduleTripDetailPage] Error watching trip: $error');
+          }
+        },
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _tripSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _openPrintDialog(BuildContext context) async {
@@ -63,14 +119,12 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       tripData: _trip,
     );
     if (dmData == null || !context.mounted) return;
-    showDialog<void>(
+    await DmPrintDialog.show(
       context: context,
-      builder: (_) => DmPrintDialog(
-        dmPrintService: printService,
-        organizationId: org.id,
-        dmData: dmData,
-        dmNumber: dmNumber,
-      ),
+      dmPrintService: printService,
+      organizationId: org.id,
+      dmData: dmData,
+      dmNumber: dmNumber,
     );
   }
 
@@ -244,17 +298,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
   }
 
   Future<void> _showDeliveryPhotoDialog(BuildContext context) async {
-    final result = await showDialog<File>(
+    final result = await showDialog<File?>(
       context: context,
       builder: (context) => const DeliveryPhotoDialog(),
     );
 
-    if (result != null) {
-      await _markAsDelivered(context, result);
-    }
+    // result can be null (skip), or File (upload photo)
+    await _markAsDelivered(context, result);
   }
 
-  Future<void> _markAsDelivered(BuildContext context, File photoFile) async {
+  Future<void> _markAsDelivered(BuildContext context, File? photoFile) async {
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
       if (context.mounted) {
@@ -291,20 +344,30 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
     try {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Uploading photo and marking as delivered...')),
-      );
+      
+      String? photoUrl;
+      
+      // Upload photo only if provided
+      if (photoFile != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Uploading photo and marking as delivered...')),
+        );
 
-      // Upload photo to Firebase Storage
-      final storageService = StorageService();
-      final photoUrl = await storageService.uploadDeliveryPhoto(
-        imageFile: photoFile,
-        organizationId: organization.id,
-        orderId: orderId,
-        tripId: tripId,
-      );
+        final storageService = StorageService();
+        final file = photoFile!; // Non-null assertion since we checked above
+        photoUrl = await storageService.uploadDeliveryPhoto(
+          imageFile: file,
+          organizationId: organization.id,
+          orderId: orderId,
+          tripId: tripId,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Marking as delivered...')),
+        );
+      }
 
-      // Update trip status to delivered with photo URL
+      // Update trip status to delivered (with optional photo URL)
       final repository = context.read<ScheduledTripsRepository>();
       await repository.updateTripStatus(
         tripId: tripId,
@@ -319,7 +382,11 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       setState(() {
         _trip['orderStatus'] = 'delivered';
         _trip['tripStatus'] = 'delivered';
-        _trip['deliveryPhotoUrl'] = photoUrl;
+        if (photoUrl != null) {
+          _trip['deliveryPhotoUrl'] = photoUrl;
+        } else {
+          _trip.remove('deliveryPhotoUrl');
+        }
         _trip['deliveredAt'] = DateTime.now();
         _trip['deliveredBy'] = currentUser.uid;
         _trip['deliveredByRole'] = userRole;
@@ -327,7 +394,11 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trip marked as delivered successfully')),
+        SnackBar(
+          content: Text(photoUrl != null
+              ? 'Trip marked as delivered successfully'
+              : 'Trip marked as delivered (no photo uploaded)'),
+        ),
       );
     } catch (e) {
       if (!context.mounted) return;
@@ -499,6 +570,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                         _PaymentsTab(
                           trip: _trip,
                           tripPricing: tripPricing,
+                          onRecordPayment: _recordPaymentManually,
                         ),
                       ],
                     ),
@@ -1024,6 +1096,196 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to mark as returned: $e')),
       );
+    }
+  }
+
+  Future<void> _recordPaymentManually(BuildContext context) async {
+    final tripId = _trip['id'] as String?;
+    if (tripId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trip ID not found')),
+        );
+      }
+      return;
+    }
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not found')),
+        );
+      }
+      return;
+    }
+
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final organization = orgContext.organization;
+    if (organization == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Organization not found')),
+        );
+      }
+      return;
+    }
+
+    final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
+    final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    final existingPayments =
+        (_trip['paymentDetails'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+            [];
+    final alreadyPaid = existingPayments.fold<double>(
+      0,
+      (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+    );
+
+    // Fetch payment accounts
+    try {
+      final accountsRepo = context.read<PaymentAccountsRepository>();
+      final accounts = await accountsRepo.fetchAccounts(organization.id);
+      final activeAccounts = accounts.where((a) => a.isActive).toList();
+
+      if (activeAccounts.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No active payment accounts found')),
+          );
+        }
+        return;
+      }
+
+      final result = await showDialog<List<Map<String, dynamic>>>(
+        context: context,
+        builder: (ctx) => ReturnPaymentDialog(
+          paymentAccounts: activeAccounts,
+          tripTotal: tripTotal,
+          alreadyPaid: alreadyPaid,
+        ),
+      );
+
+      if (result == null || result.isEmpty) {
+        // User cancelled payment entry
+        return;
+      }
+
+      final newPayments = result
+          .map((p) => {
+                ...p,
+                'paidAt': DateTime.now(),
+                'paidBy': currentUser.uid,
+                'manualPayment': true,
+              })
+          .toList();
+      final newPaidAmount = newPayments.fold<double>(
+        0,
+        (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+      );
+
+      final totalPaidAfter = alreadyPaid + newPaidAmount;
+      final double remainingAmount =
+          (tripTotal - totalPaidAfter).clamp(0, double.infinity).toDouble();
+      final paymentStatus = totalPaidAfter >= tripTotal - 0.001
+          ? 'full'
+          : totalPaidAfter > 0
+              ? 'partial'
+              : 'pending';
+
+      // Create payment transactions
+      final transactionsRepo = context.read<TransactionsRepository>();
+      final financialYear = FinancialYearUtils.getFinancialYear(DateTime.now());
+      final clientId = _trip['clientId'] as String?;
+      final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
+      final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Trip';
+      final List<String> transactionIds = [];
+
+      Future<void> createPaymentTransaction(Map<String, dynamic> payment, int index) async {
+        final amount = (payment['amount'] as num?)?.toDouble() ?? 0.0;
+        if (amount <= 0) return;
+
+        final txnId = await transactionsRepo.createTransaction(
+          Transaction(
+            id: '', // Will be generated
+            organizationId: organization.id,
+            clientId: clientId,
+            ledgerType: LedgerType.clientLedger,
+            type: TransactionType.debit, // Debit = client paid (decreases receivable)
+            category: TransactionCategory.clientPayment, // Manual payment
+            amount: amount,
+            paymentAccountId: payment['paymentAccountId'] as String?,
+            paymentAccountType: payment['paymentAccountType'] as String?,
+            tripId: tripId,
+            description: 'Payment - $dmText',
+            metadata: {
+              'tripId': tripId,
+              if (dmNumber != null) 'dmNumber': dmNumber,
+              'paymentIndex': index,
+              'manualPayment': true,
+            },
+            createdBy: currentUser.uid,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            financialYear: financialYear,
+          ),
+        );
+        transactionIds.add(txnId);
+      }
+
+      try {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recording payment...')),
+        );
+
+        // Create payment transactions
+        for (int i = 0; i < newPayments.length; i++) {
+          await createPaymentTransaction(newPayments[i], i);
+        }
+
+        // Update trip with payment info
+        final repository = context.read<ScheduledTripsRepository>();
+        final combinedPayments = [...existingPayments, ...newPayments];
+        final currentTripStatus = (_trip['tripStatus'] as String?) ?? 'scheduled';
+
+        await repository.updateTripStatus(
+          tripId: tripId,
+          tripStatus: currentTripStatus, // Keep current trip status
+          paymentDetails: combinedPayments,
+          totalPaidOnReturn: totalPaidAfter,
+          paymentStatus: paymentStatus,
+          remainingAmount: remainingAmount > 0.001 ? remainingAmount : null,
+          source: 'client',
+        );
+
+        // Update local state
+        setState(() {
+          _trip['paymentDetails'] = combinedPayments;
+          _trip['totalPaidOnReturn'] = totalPaidAfter;
+          _trip['paymentStatus'] = paymentStatus;
+          if (remainingAmount > 0.001) {
+            _trip['remainingAmount'] = remainingAmount;
+          } else {
+            _trip.remove('remainingAmount');
+          }
+        });
+
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment recorded successfully')),
+        );
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to record payment: $e')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load payment accounts: $e')),
+        );
+      }
     }
   }
 
@@ -2251,7 +2513,7 @@ class _OverviewTab extends StatelessWidget {
                 _StatusToggleRow(
                   label: 'Return',
                   value: isReturned,
-                  enabled: isDelivered && !isReturned,
+                  enabled: (isDelivered && !isReturned) || isReturned,
                   activeColor: AuthColors.info,
                   onChanged: onReturn,
                 ),
@@ -2513,20 +2775,22 @@ class _PaymentsTab extends StatelessWidget {
   const _PaymentsTab({
     required this.trip,
     required this.tripPricing,
+    this.onRecordPayment,
   });
 
   final Map<String, dynamic> trip;
   final Map<String, dynamic> tripPricing;
+  final Future<void> Function(BuildContext)? onRecordPayment;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
-      child: _buildPaymentSummary(),
+      child: _buildPaymentSummary(context),
     );
   }
 
-  Widget _buildPaymentSummary() {
+  Widget _buildPaymentSummary(BuildContext context) {
     final paymentType = (trip['paymentType'] as String?)?.toLowerCase() ?? '';
     if (paymentType.isEmpty) {
       return _InfoCard(
@@ -2644,6 +2908,26 @@ class _PaymentsTab extends StatelessWidget {
             value: '₹${remaining.toStringAsFixed(2)}',
             valueColor: AuthColors.warning,
           ),
+        // Show "Record Payment" button if status is pending
+        if (status.toLowerCase() == 'pending' && onRecordPayment != null) ...[
+          const SizedBox(height: AppSpacing.paddingMD),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => onRecordPayment!(context),
+              icon: const Icon(Icons.payment, size: 18),
+              label: const Text('Record Payment'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AuthColors.primary,
+                foregroundColor: AuthColors.textMain,
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.paddingMD,
+                  horizontal: AppSpacing.paddingLG,
+                ),
+              ),
+            ),
+          ),
+        ],
         if (paymentDetails.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.paddingMD),
           Divider(

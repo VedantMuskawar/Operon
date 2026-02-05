@@ -2,6 +2,7 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:core_ui/components/data_table.dart' as custom_table;
+import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_web/presentation/blocs/cash_ledger/cash_ledger_cubit.dart';
 import 'package:dash_web/presentation/blocs/cash_ledger/cash_ledger_state.dart';
@@ -21,12 +22,50 @@ class CashLedgerView extends StatefulWidget {
 
 class _CashLedgerViewState extends State<CashLedgerView> {
   final TextEditingController _searchController = TextEditingController();
+  Map<String, String> _paymentAccountNames = {};
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_handleSearchChanged);
     context.read<CashLedgerCubit>().load();
+    _loadPaymentAccounts();
+  }
+
+  Future<void> _loadPaymentAccounts() async {
+    final orgState = context.read<OrganizationContextCubit>().state;
+    final organization = orgState.organization;
+    if (organization == null) {
+      return;
+    }
+
+    try {
+      final repository = context.read<PaymentAccountsRepository>();
+      final accounts = await repository.fetchAccounts(organization.id);
+      final nameMap = <String, String>{};
+      for (final account in accounts) {
+        nameMap[account.id] = account.name;
+      }
+      // Add "cash" as a special case
+      nameMap['cash'] = 'Cash';
+      if (mounted) {
+        setState(() {
+          _paymentAccountNames = nameMap;
+        });
+      }
+    } catch (e) {
+      // Silently fail - will fallback to ID or name from transaction
+    }
+  }
+
+  String _getPaymentAccountDisplayName(String displayName) {
+    // Check if displayName is actually an ID (exists as a key in our map)
+    final trimmed = displayName.trim();
+    if (_paymentAccountNames.containsKey(trimmed)) {
+      return _paymentAccountNames[trimmed]!;
+    }
+    // Otherwise, it's already a name, use it as-is
+    return trimmed.isEmpty ? 'Unknown' : trimmed;
   }
 
   @override
@@ -449,139 +488,88 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               ),
             ),
             const SizedBox(height: 12),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide = constraints.maxWidth > 600;
-                return isWide
-                    ? custom_table.DataTable<PaymentAccountSummary>(
-                        columns: [
-                          custom_table.DataTableColumn<PaymentAccountSummary>(
-                            label: 'Account',
-                            cellBuilder: (context, s, _) => Text(
-                              s.displayName,
-                              style: const TextStyle(
-                                color: AuthColors.textMain,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 13,
-                              ),
-                            ),
+            custom_table.DataTable<PaymentAccountSummary>(
+              columns: [
+                custom_table.DataTableColumn<PaymentAccountSummary>(
+                  label: 'Account',
+                  flex: 2,
+                  cellBuilder: (context, s, _) => Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet,
+                        size: 16,
+                        color: AuthColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          s.displayName,
+                          style: const TextStyle(
+                            color: AuthColors.textMain,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                            fontFamily: 'SF Pro Display',
                           ),
-                          custom_table.DataTableColumn<PaymentAccountSummary>(
-                            label: 'Income',
-                            numeric: true,
-                            cellBuilder: (context, s, _) => Text(
-                              _formatCurrency(s.income),
-                              style: const TextStyle(
-                                color: AuthColors.success,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          custom_table.DataTableColumn<PaymentAccountSummary>(
-                            label: 'Expenses',
-                            numeric: true,
-                            cellBuilder: (context, s, _) => Text(
-                              _formatCurrency(s.expense),
-                              style: const TextStyle(
-                                color: AuthColors.error,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          custom_table.DataTableColumn<PaymentAccountSummary>(
-                            label: 'Net',
-                            numeric: true,
-                            cellBuilder: (context, s, _) => Text(
-                              _formatCurrency(s.net),
-                              style: TextStyle(
-                                color: s.net >= 0
-                                    ? AuthColors.success
-                                    : AuthColors.error,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                        rows: distribution,
-                        headerBackgroundColor: AuthColors.surface,
-                      )
-                    : Column(
-                        children: distribution
-                            .map(
-                              (s) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: DashCard(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        s.displayName,
-                                        style: const TextStyle(
-                                          color: AuthColors.textMain,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Text('Income',
-                                              style: TextStyle(
-                                                  color: AuthColors.textSub,
-                                                  fontSize: 12)),
-                                          Text(_formatCurrency(s.income),
-                                              style: const TextStyle(
-                                                  color: AuthColors.success,
-                                                  fontWeight: FontWeight.w600)),
-                                        ],
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Text('Expenses',
-                                              style: TextStyle(
-                                                  color: AuthColors.textSub,
-                                                  fontSize: 12)),
-                                          Text(_formatCurrency(s.expense),
-                                              style: const TextStyle(
-                                                  color: AuthColors.error,
-                                                  fontWeight: FontWeight.w600)),
-                                        ],
-                                      ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          const Text('Net',
-                                              style: TextStyle(
-                                                  color: AuthColors.textSub,
-                                                  fontSize: 12)),
-                                          Text(
-                                            _formatCurrency(s.net),
-                                            style: TextStyle(
-                                              color: s.net >= 0
-                                                  ? AuthColors.success
-                                                  : AuthColors.error,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      );
-              },
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                custom_table.DataTableColumn<PaymentAccountSummary>(
+                  label: 'Income',
+                  flex: 2,
+                  numeric: true,
+                  alignment: Alignment.centerRight,
+                  cellBuilder: (context, s, _) => Text(
+                    _formatCurrency(s.income),
+                    style: const TextStyle(
+                      color: AuthColors.success,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      fontFamily: 'SF Pro Display',
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+                custom_table.DataTableColumn<PaymentAccountSummary>(
+                  label: 'Expenses',
+                  flex: 2,
+                  numeric: true,
+                  alignment: Alignment.centerRight,
+                  cellBuilder: (context, s, _) => Text(
+                    _formatCurrency(s.expense),
+                    style: const TextStyle(
+                      color: AuthColors.error,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      fontFamily: 'SF Pro Display',
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+                custom_table.DataTableColumn<PaymentAccountSummary>(
+                  label: 'Net',
+                  flex: 2,
+                  numeric: true,
+                  alignment: Alignment.centerRight,
+                  cellBuilder: (context, s, _) => Text(
+                    _formatCurrency(s.net),
+                    style: TextStyle(
+                      color: s.net >= 0
+                          ? AuthColors.success
+                          : AuthColors.error,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontFamily: 'SF Pro Display',
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
+              rows: distribution,
+              headerBackgroundColor: AuthColors.surface,
             ),
           ],
         );
@@ -593,6 +581,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
     switch (tx.category) {
       case TransactionCategory.advance:
       case TransactionCategory.tripPayment:
+      case TransactionCategory.clientCredit:
         return 'Orders';
       case TransactionCategory.clientPayment:
       case TransactionCategory.refund:
@@ -610,6 +599,8 @@ class _CashLedgerViewState extends State<CashLedgerView> {
   Widget _buildTransactionTable(List<Transaction> transactions, CashLedgerState state) {
     final orgState = context.watch<OrganizationContextCubit>().state;
     final isAdmin = orgState.isAdmin;
+    
+    final rowActions = <custom_table.DataTableRowAction<Transaction>>[];
 
     final columns = <custom_table.DataTableColumn<Transaction>>[
       custom_table.DataTableColumn<Transaction>(
@@ -653,9 +644,34 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         flex: 3,
         alignment: Alignment.center,
         cellBuilder: (context, transaction, index) {
-          final title = _getTransactionTitle(transaction);
+          // Show client name for order transactions and payments
+          String clientName = '-';
+          if (transaction.category == TransactionCategory.advance ||
+              transaction.category == TransactionCategory.tripPayment ||
+              transaction.category == TransactionCategory.clientCredit ||
+              transaction.category == TransactionCategory.clientPayment ||
+              transaction.category == TransactionCategory.refund) {
+            clientName = transaction.clientName?.trim() ?? 
+                        transaction.metadata?['clientName']?.toString().trim() ?? 
+                        '-';
+          } else if (transaction.category == TransactionCategory.vendorPurchase ||
+                     transaction.category == TransactionCategory.vendorPayment) {
+            // For vendor transactions, show vendor name
+            clientName = transaction.metadata?['vendorName']?.toString().trim() ?? 
+                        transaction.description?.trim() ?? 
+                        '-';
+          } else if (transaction.category == TransactionCategory.salaryDebit) {
+            // For salary transactions, show employee name
+            clientName = transaction.metadata?['employeeName']?.toString().trim() ?? 
+                        transaction.description?.trim() ?? 
+                        '-';
+          } else {
+            // For other transactions, show description or fallback
+            clientName = transaction.description?.trim() ?? '-';
+          }
+          
           return Text(
-            title,
+            clientName,
             style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 14,
@@ -674,7 +690,15 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         flex: 2,
         alignment: Alignment.center,
         cellBuilder: (context, transaction, index) {
-          final ref = transaction.referenceNumber ?? '-';
+          // Show DM number if available, otherwise show reference number
+          final dmNumber = transaction.metadata?['dmNumber'];
+          String ref = '-';
+          if (dmNumber != null) {
+            ref = 'DM-$dmNumber';
+          } else if (transaction.referenceNumber != null && transaction.referenceNumber!.isNotEmpty) {
+            ref = transaction.referenceNumber!;
+          }
+          
           return Text(
             ref,
             style: const TextStyle(
@@ -695,16 +719,115 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         alignment: Alignment.center,
         numeric: true,
         cellBuilder: (context, transaction, index) {
-          final isCredit = transaction.type == TransactionType.credit;
-          return Text(
-            isCredit ? _formatCurrency(transaction.amount) : '–',
-            style: TextStyle(
-              color: isCredit ? AuthColors.success : AuthColors.textSub,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'SF Pro Display',
-            ),
-            textAlign: TextAlign.center,
+          final transactionCount = transaction.metadata?['transactionCount'] as int?;
+          final isGrouped = transactionCount != null && transactionCount > 1;
+          
+          double creditAmount = 0.0;
+          List<Map<String, dynamic>> paymentAccounts = []; // List of {name, amount}
+          
+          if (isGrouped) {
+            // For grouped transactions, use cumulative credit from metadata
+            creditAmount = (transaction.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+            // Get payment accounts with amounts from metadata
+            final creditAccounts = transaction.metadata?['creditPaymentAccounts'] as List?;
+            if (creditAccounts != null) {
+              paymentAccounts = creditAccounts
+                  .map((acc) {
+                    final accMap = acc as Map<String, dynamic>?;
+                    var name = accMap?['name']?.toString().trim() ?? '';
+                    final amount = (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
+                    if (name.isNotEmpty && amount > 0) {
+                      // If name looks like an ID (exists in paymentAccountNames map), resolve it
+                      if (_paymentAccountNames.containsKey(name)) {
+                        name = _paymentAccountNames[name]!;
+                      } else {
+                        // Try to resolve using getPaymentAccountDisplayName
+                        name = _getPaymentAccountDisplayName(name);
+                      }
+                      return {'name': name, 'amount': amount};
+                    }
+                    return null;
+                  })
+                  .whereType<Map<String, dynamic>>()
+                  .toList();
+            }
+          } else {
+            // For single transactions, use amount if credit type
+            final isCredit = transaction.type == TransactionType.credit;
+            creditAmount = isCredit ? transaction.amount : 0.0;
+            // Get payment account name for single transaction
+            if (creditAmount > 0) {
+              final accountName = transaction.paymentAccountName?.trim();
+              final accountId = transaction.paymentAccountId?.trim();
+              String? name;
+              if (accountName != null && accountName.isNotEmpty) {
+                name = accountName;
+              } else if (accountId != null && accountId.isNotEmpty) {
+                name = _getPaymentAccountDisplayName(accountId);
+              }
+              if (name != null && name.isNotEmpty) {
+                paymentAccounts = [{'name': name, 'amount': creditAmount}];
+              }
+            }
+          }
+          
+          // Format amount string: "X+Y" if multiple accounts, otherwise just the total
+          String amountText = creditAmount > 0 ? _formatCurrency(creditAmount) : '–';
+          if (creditAmount > 0 && paymentAccounts.length > 1) {
+            final amounts = paymentAccounts.map((acc) => _formatCurrency(acc['amount'] as double)).join('+');
+            amountText = amounts;
+          }
+          
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                amountText,
+                style: TextStyle(
+                  color: creditAmount > 0 ? AuthColors.success : AuthColors.textSub,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (creditAmount > 0 && paymentAccounts.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: paymentAccounts.map((acc) {
+                    final name = acc['name'] as String;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AuthColors.success.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: AuthColors.success.withOpacity(0.3),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        name,
+                        style: TextStyle(
+                          color: AuthColors.success,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
           );
         },
       ),
@@ -715,22 +838,120 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         alignment: Alignment.center,
         numeric: true,
         cellBuilder: (context, transaction, index) {
-          final isDebit = transaction.type == TransactionType.debit;
-          return Text(
-            isDebit ? _formatCurrency(transaction.amount) : '–',
-            style: TextStyle(
-              color: isDebit ? AuthColors.error : AuthColors.textSub,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'SF Pro Display',
-            ),
-            textAlign: TextAlign.center,
+          final transactionCount = transaction.metadata?['transactionCount'] as int?;
+          final isGrouped = transactionCount != null && transactionCount > 1;
+          
+          double debitAmount = 0.0;
+          List<Map<String, dynamic>> paymentAccounts = []; // List of {name, amount}
+          
+          if (isGrouped) {
+            // For grouped transactions, use cumulative debit from metadata
+            debitAmount = (transaction.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0;
+            // Get payment accounts with amounts from metadata
+            final debitAccounts = transaction.metadata?['debitPaymentAccounts'] as List?;
+            if (debitAccounts != null) {
+              paymentAccounts = debitAccounts
+                  .map((acc) {
+                    final accMap = acc as Map<String, dynamic>?;
+                    var name = accMap?['name']?.toString().trim() ?? '';
+                    final amount = (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
+                    if (name.isNotEmpty && amount > 0) {
+                      // If name looks like an ID (exists in paymentAccountNames map), resolve it
+                      if (_paymentAccountNames.containsKey(name)) {
+                        name = _paymentAccountNames[name]!;
+                      } else {
+                        // Try to resolve using getPaymentAccountDisplayName
+                        name = _getPaymentAccountDisplayName(name);
+                      }
+                      return {'name': name, 'amount': amount};
+                    }
+                    return null;
+                  })
+                  .whereType<Map<String, dynamic>>()
+                  .toList();
+            }
+          } else {
+            // For single transactions, use amount if debit type
+            final isDebit = transaction.type == TransactionType.debit;
+            debitAmount = isDebit ? transaction.amount : 0.0;
+            // Get payment account name for single transaction
+            if (debitAmount > 0) {
+              final accountName = transaction.paymentAccountName?.trim();
+              final accountId = transaction.paymentAccountId?.trim();
+              String? name;
+              if (accountName != null && accountName.isNotEmpty) {
+                name = accountName;
+              } else if (accountId != null && accountId.isNotEmpty) {
+                name = _getPaymentAccountDisplayName(accountId);
+              }
+              if (name != null && name.isNotEmpty) {
+                paymentAccounts = [{'name': name, 'amount': debitAmount}];
+              }
+            }
+          }
+          
+          // Format amount string: "X+Y" if multiple accounts, otherwise just the total
+          String amountText = debitAmount > 0 ? _formatCurrency(debitAmount) : '–';
+          if (debitAmount > 0 && paymentAccounts.length > 1) {
+            final amounts = paymentAccounts.map((acc) => _formatCurrency(acc['amount'] as double)).join('+');
+            amountText = amounts;
+          }
+          
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                amountText,
+                style: TextStyle(
+                  color: debitAmount > 0 ? AuthColors.error : AuthColors.textSub,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (debitAmount > 0 && paymentAccounts.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 4,
+                  runSpacing: 2,
+                  children: paymentAccounts.map((acc) {
+                    final name = acc['name'] as String;
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AuthColors.error.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: AuthColors.error.withOpacity(0.3),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        name,
+                        style: TextStyle(
+                          color: AuthColors.error,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'SF Pro Display',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
           );
         },
       ),
     ];
 
-    final rowActions = <custom_table.DataTableRowAction<Transaction>>[];
     rowActions.add(
       custom_table.DataTableRowAction<Transaction>(
         icon: Icons.receipt_long,
@@ -787,68 +1008,129 @@ class _CashLedgerViewState extends State<CashLedgerView> {
       ),
     );
 
-    return custom_table.DataTable<Transaction>(
-      columns: columns,
-      rows: transactions,
-      rowActions: rowActions,
-      rowBackgroundColorBuilder: (transaction, index) =>
-          transaction.verified
-              ? AuthColors.success.withOpacity(0.15)
-              : AuthColors.error.withOpacity(0.15),
-      emptyStateMessage: 'No transactions found',
-      emptyStateIcon: Icons.receipt_long_outlined,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        custom_table.DataTable<Transaction>(
+          columns: columns,
+          rows: transactions,
+          rowActions: rowActions,
+          rowBackgroundColorBuilder: (transaction, index) =>
+              transaction.verified
+                  ? AuthColors.success.withOpacity(0.15)
+                  : AuthColors.error.withOpacity(0.15),
+          emptyStateMessage: 'No transactions found',
+          emptyStateIcon: Icons.receipt_long_outlined,
+        ),
+        if (transactions.isNotEmpty) _buildTableFooter(state, rowActions.length),
+      ],
     );
   }
 
-  String _getTransactionTitle(Transaction transaction) {
-    switch (transaction.category) {
-      case TransactionCategory.advance:
-        return (transaction.clientName?.trim().isNotEmpty == true
-                ? transaction.clientName!.trim()
-                : null) ??
-            'Advance';
-      case TransactionCategory.tripPayment:
-        return (transaction.clientName?.trim().isNotEmpty == true
-                ? transaction.clientName!.trim()
-                : null) ??
-            'Trip Payment';
-      case TransactionCategory.clientPayment:
-        return (transaction.clientName?.trim().isNotEmpty == true
-                ? transaction.clientName!.trim()
-                : null) ??
-            transaction.metadata?['clientName']?.toString().trim() ??
-            (transaction.description?.isNotEmpty == true
-                ? transaction.description!
-                : 'Client Payment');
-      case TransactionCategory.vendorPurchase:
-        return transaction.metadata?['vendorName']?.toString().trim() ??
-            (transaction.description?.isNotEmpty == true
-                ? transaction.description!
-                : 'Vendor Purchase');
-      case TransactionCategory.vendorPayment:
-        return transaction.metadata?['vendorName']?.toString().trim() ??
-            (transaction.description?.isNotEmpty == true
-                ? transaction.description!
-                : 'Vendor Payment');
-      case TransactionCategory.salaryDebit:
-        return transaction.metadata?['employeeName']?.toString().trim() ??
-            (transaction.description?.isNotEmpty == true
-                ? transaction.description!
-                : 'Salary');
-      case TransactionCategory.generalExpense:
-        return transaction.metadata?['subCategoryName']?.toString().trim() ??
-            (transaction.description?.isNotEmpty == true
-                ? transaction.description!
-                : 'Expense');
-      default:
-        return (transaction.clientName?.trim().isNotEmpty == true
-                ? transaction.clientName!.trim()
-                : null) ??
-            (transaction.description?.isNotEmpty == true
-                ? transaction.description!
-                : 'Transaction');
-    }
+  Widget _buildTableFooter(CashLedgerState state, int actionButtonCount) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AuthColors.primary.withOpacity(0.15),
+            AuthColors.primary.withOpacity(0.05),
+          ],
+        ),
+        border: Border(
+          top: BorderSide(
+            color: AuthColors.primary.withOpacity(0.5),
+            width: 2,
+          ),
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        child: Row(
+          children: [
+            // Date column
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.calculate,
+                    size: 18,
+                    color: AuthColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Total',
+                    style: TextStyle(
+                      color: AuthColors.textMain,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'SF Pro Display',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Type column (empty)
+            Expanded(
+              flex: 1,
+              child: SizedBox.shrink(),
+            ),
+            // Name column (empty)
+            Expanded(
+              flex: 3,
+              child: SizedBox.shrink(),
+            ),
+            // Reference column (empty)
+            Expanded(
+              flex: 2,
+              child: SizedBox.shrink(),
+            ),
+            // Credit column
+            Expanded(
+              flex: 2,
+              child: Text(
+                _formatCurrency(state.totalCredit),
+                style: TextStyle(
+                  color: AuthColors.success,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Debit column
+            Expanded(
+              flex: 2,
+              child: Text(
+                _formatCurrency(state.totalDebit),
+                style: TextStyle(
+                  color: AuthColors.error,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            // Actions column spacing (approximate width for action buttons)
+            if (actionButtonCount > 0)
+              SizedBox(
+                width: actionButtonCount * 48.0, // Approximate width per action button
+              ),
+          ],
+        ),
+      ),
+    );
   }
+
 
   void _verifyDirect(BuildContext context, Transaction transaction) {
     final authState = context.read<AuthBloc>().state;

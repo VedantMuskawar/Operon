@@ -19,18 +19,17 @@ export async function rebuildTripWagesAnalyticsForOrg(
   fyStart: Date,
   fyEnd: Date,
 ): Promise<void> {
-  const analyticsDocId = `${TRIP_WAGES_ANALYTICS_SOURCE_KEY}_${organizationId}_${financialYear}`;
-  const analyticsRef = db.collection(ANALYTICS_COLLECTION).doc(analyticsDocId);
-
   const tripWagesSnapshot = await db
     .collection(TRIP_WAGES_COLLECTION)
     .where('organizationId', '==', organizationId)
     .where('status', '==', 'processed')
     .get();
 
-  const wagesPaidByFixedQuantityMonthly: Record<string, Record<string, number>> = {};
-  const wagesPaidByFixedQuantityYearly: Record<string, number> = {};
-  const totalTripWagesMonthly: Record<string, number> = {};
+  // Group wages by month
+  const wagesByMonth: Record<string, {
+    totalTripWages: number;
+    wagesByQuantity: Record<string, number>;
+  }> = {};
 
   tripWagesSnapshot.forEach((doc) => {
     const tw = doc.data();
@@ -38,7 +37,6 @@ export async function rebuildTripWagesAnalyticsForOrg(
     const quantityDelivered = (tw.quantityDelivered as number) ?? 0;
     const qtyKey = String(quantityDelivered);
 
-    // Use createdAt or payment date - TRIP_WAGES may not have paymentDate; use createdAt
     const createdAt = (tw.createdAt as admin.firestore.Timestamp)?.toDate?.();
     const paymentDate = (tw.paymentDate as admin.firestore.Timestamp)?.toDate?.();
     const wageDate = paymentDate || createdAt;
@@ -49,28 +47,31 @@ export async function rebuildTripWagesAnalyticsForOrg(
 
     const monthKey = getYearMonth(wageDate);
 
-    totalTripWagesMonthly[monthKey] =
-      (totalTripWagesMonthly[monthKey] || 0) + totalWages;
-
-    wagesPaidByFixedQuantityYearly[qtyKey] =
-      (wagesPaidByFixedQuantityYearly[qtyKey] || 0) + totalWages;
-
-    if (!wagesPaidByFixedQuantityMonthly[qtyKey]) {
-      wagesPaidByFixedQuantityMonthly[qtyKey] = {};
+    if (!wagesByMonth[monthKey]) {
+      wagesByMonth[monthKey] = {
+        totalTripWages: 0,
+        wagesByQuantity: {},
+      };
     }
-    wagesPaidByFixedQuantityMonthly[qtyKey][monthKey] =
-      (wagesPaidByFixedQuantityMonthly[qtyKey][monthKey] || 0) + totalWages;
+
+    wagesByMonth[monthKey].totalTripWages += totalWages;
+    wagesByMonth[monthKey].wagesByQuantity[qtyKey] =
+      (wagesByMonth[monthKey].wagesByQuantity[qtyKey] || 0) + totalWages;
   });
 
-  await seedTripWagesAnalyticsDoc(analyticsRef, financialYear, organizationId);
+  // Write to each month's document
+  const monthPromises = Object.entries(wagesByMonth).map(async ([monthKey, monthData]) => {
+    const analyticsRef = db.collection(ANALYTICS_COLLECTION)
+      .doc(`${TRIP_WAGES_ANALYTICS_SOURCE_KEY}_${organizationId}_${monthKey}`);
 
-  await analyticsRef.set(
-    {
+    await seedTripWagesAnalyticsDoc(analyticsRef, monthKey, organizationId);
+
+    await analyticsRef.set({
       generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      'metrics.wagesPaidByFixedQuantityMonthly': wagesPaidByFixedQuantityMonthly,
-      'metrics.wagesPaidByFixedQuantityYearly': wagesPaidByFixedQuantityYearly,
-      'metrics.totalTripWagesMonthly.values': totalTripWagesMonthly,
-    },
-    { merge: true },
-  );
+      'metrics.totalTripWagesMonthly': monthData.totalTripWages,
+      'metrics.wagesPaidByFixedQuantityMonthly': monthData.wagesByQuantity,
+    }, { merge: true });
+  });
+
+  await Promise.all(monthPromises);
 }

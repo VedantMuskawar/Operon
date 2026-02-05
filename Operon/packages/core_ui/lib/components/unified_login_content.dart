@@ -670,15 +670,18 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                 color: AuthColors.textSub,
               ),
               const SizedBox(width: 8),
-              const Text(
-                "Didn't receive code?",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AuthColors.textSub,
-                  fontWeight: FontWeight.w500,
+              const Flexible(
+                child: Text(
+                  "Didn't receive code?",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AuthColors.textSub,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               ValueListenableBuilder<int>(
                 valueListenable: _resendCountdownNotifier,
                 builder: (context, countdown, _) {

@@ -101,3 +101,28 @@ export function normalizeDate(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
+/**
+ * Get list of year-month strings (YYYY-MM) for a date range
+ * @param startDate - Start date (inclusive)
+ * @param endDate - End date (inclusive)
+ * @returns Array of year-month strings (e.g., ["2024-04", "2024-05", "2024-06"])
+ */
+export function getMonthsInRange(startDate: Date, endDate: Date): string[] {
+  const months: string[] = [];
+  const current = new Date(startDate);
+  current.setUTCDate(1); // Start from first day of month
+  current.setUTCHours(0, 0, 0, 0);
+  
+  const end = new Date(endDate);
+  end.setUTCDate(1);
+  end.setUTCHours(0, 0, 0, 0);
+  
+  while (current <= end) {
+    months.push(getYearMonth(current));
+    // Move to next month
+    current.setUTCMonth(current.getUTCMonth() + 1);
+  }
+  
+  return months;
+}
+

@@ -114,31 +114,24 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
   }
 
   Future<void> _onPrint() async {
-    if (_payload == null) return;
     setState(() => _isGeneratingPdf = true);
     try {
-      final pdfBytes = await widget.dmPrintService.getPdfBytesForPrint(
-        organizationId: widget.organizationId,
-        dmData: widget.dmData,
-        viewPayload: _payload,
-      );
-      if (!mounted) return;
-      setState(() => _isGeneratingPdf = false);
-      Navigator.of(context).pop();
-      await OperonPdfPreviewModal.show(
-        context: context,
-        pdfBytes: pdfBytes,
-        title: 'DM-${widget.dmNumber}',
-        pdfFileName: 'DM-${widget.dmNumber}.pdf',
-      );
+      await widget.dmPrintService.printDeliveryMemo(widget.dmNumber);
+      if (mounted) {
+        Navigator.of(context).pop();
+        DashSnackbar.show(context, message: 'Print window opened');
+      }
     } catch (e) {
       if (mounted) {
-        setState(() => _isGeneratingPdf = false);
         DashSnackbar.show(
           context,
-          message: 'Failed to generate PDF: $e',
+          message: 'Failed to open print window: $e',
           isError: true,
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
       }
     }
   }

@@ -94,9 +94,12 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
       expenses,
     );
 
+    // Group order transactions by DM number
+    final groupedOrderTransactions = _groupTransactionsByDmNumber(enriched['orderTransactions']!);
+
     emit(state.copyWith(
       status: ViewStatus.success,
-      orderTransactions: enriched['orderTransactions']!,
+      orderTransactions: groupedOrderTransactions,
       payments: enriched['payments']!,
       purchases: enriched['purchases']!,
       expenses: enriched['expenses']!,
@@ -180,6 +183,163 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
         message: 'Failed to delete transaction: $e',
       ));
     }
+  }
+
+  /// Extract DM number from transaction metadata or return null
+  int? _getDmNumber(Transaction tx) {
+    final dmNumber = tx.metadata?['dmNumber'];
+    if (dmNumber == null) return null;
+    if (dmNumber is int) return dmNumber;
+    if (dmNumber is num) return dmNumber.toInt();
+    return null;
+  }
+
+  /// Group transactions by DM number and create cumulative transaction rows
+  List<Transaction> _groupTransactionsByDmNumber(List<Transaction> transactions) {
+    // Separate transactions with DM numbers and without
+    final withDmNumber = <int, List<Transaction>>{};
+    final withoutDmNumber = <Transaction>[];
+
+    for (final tx in transactions) {
+      final dmNumber = _getDmNumber(tx);
+      if (dmNumber != null) {
+        withDmNumber.putIfAbsent(dmNumber, () => []).add(tx);
+      } else {
+        withoutDmNumber.add(tx);
+      }
+    }
+
+    final result = <Transaction>[];
+
+    // Process grouped transactions (by DM number)
+    for (final entry in withDmNumber.entries) {
+      final dmNumber = entry.key;
+      final group = entry.value;
+      
+      if (group.length == 1) {
+        // Single transaction, add as-is
+        result.add(group.first);
+      } else {
+        // Multiple transactions with same DM number - create cumulative transaction
+        final cumulativeTx = _createCumulativeTransaction(group, dmNumber);
+        result.add(cumulativeTx);
+      }
+    }
+
+    // Add transactions without DM numbers as-is
+    result.addAll(withoutDmNumber);
+
+    return result;
+  }
+
+  /// Create a cumulative transaction from multiple transactions with the same DM number
+  Transaction _createCumulativeTransaction(List<Transaction> group, int dmNumber) {
+    // Use the first transaction as base (for most fields)
+    final baseTx = group.first;
+    
+    // Calculate cumulative amounts
+    double totalCredit = 0.0;
+    double totalDebit = 0.0;
+    DateTime? earliestDate;
+    DateTime? latestDate;
+    final Set<String> transactionIds = {};
+    
+    // Collect payment accounts for credit and debit transactions separately
+    // Store both name and amount per payment account
+    final creditPaymentAccounts = <String, Map<String, dynamic>>{}; // Map of id -> {name, amount}
+    final debitPaymentAccounts = <String, Map<String, dynamic>>{}; // Map of id -> {name, amount}
+    
+    for (final tx in group) {
+      if (tx.type == TransactionType.credit) {
+        totalCredit += tx.amount;
+        // Store payment account info with amount for credit transactions
+        final accountId = tx.paymentAccountId ?? '';
+        final accountName = tx.paymentAccountName ?? accountId;
+        if (accountId.isNotEmpty || accountName.isNotEmpty) {
+          final key = accountId.isNotEmpty ? accountId : accountName;
+          final existing = creditPaymentAccounts[key];
+          final currentAmount = existing?['amount'] as double? ?? 0.0;
+          creditPaymentAccounts[key] = {
+            'name': accountName.isNotEmpty ? accountName : accountId,
+            'amount': currentAmount + tx.amount,
+          };
+        }
+      } else {
+        totalDebit += tx.amount;
+        // Store payment account info with amount for debit transactions
+        final accountId = tx.paymentAccountId ?? '';
+        final accountName = tx.paymentAccountName ?? accountId;
+        if (accountId.isNotEmpty || accountName.isNotEmpty) {
+          final key = accountId.isNotEmpty ? accountId : accountName;
+          final existing = debitPaymentAccounts[key];
+          final currentAmount = existing?['amount'] as double? ?? 0.0;
+          debitPaymentAccounts[key] = {
+            'name': accountName.isNotEmpty ? accountName : accountId,
+            'amount': currentAmount + tx.amount,
+          };
+        }
+      }
+      
+      transactionIds.add(tx.id);
+      
+      final txDate = tx.createdAt;
+      if (txDate != null) {
+        if (earliestDate == null || txDate.isBefore(earliestDate)) {
+          earliestDate = txDate;
+        }
+        if (latestDate == null || txDate.isAfter(latestDate)) {
+          latestDate = txDate;
+        }
+      }
+    }
+
+    // Determine transaction type based on net amount (for display purposes)
+    final netAmount = totalCredit - totalDebit;
+    final transactionType = netAmount >= 0 ? TransactionType.credit : TransactionType.debit;
+    final finalAmount = netAmount.abs();
+
+    // Create metadata with DM number, cumulative amounts, and grouped transaction IDs
+    final metadata = Map<String, dynamic>.from(baseTx.metadata ?? {});
+    metadata['dmNumber'] = dmNumber;
+    metadata['groupedTransactionIds'] = transactionIds.toList();
+    metadata['transactionCount'] = group.length;
+    metadata['cumulativeCredit'] = totalCredit;
+    metadata['cumulativeDebit'] = totalDebit;
+    
+    // Store payment account information with amounts for grouped transactions
+    if (creditPaymentAccounts.isNotEmpty) {
+      metadata['creditPaymentAccounts'] = creditPaymentAccounts.values.map((acc) => {
+        'name': acc['name'] as String,
+        'amount': acc['amount'] as double,
+      }).toList();
+    }
+    if (debitPaymentAccounts.isNotEmpty) {
+      metadata['debitPaymentAccounts'] = debitPaymentAccounts.values.map((acc) => {
+        'name': acc['name'] as String,
+        'amount': acc['amount'] as double,
+      }).toList();
+    }
+    
+    if (earliestDate != null) {
+      metadata['earliestDate'] = earliestDate.toIso8601String();
+    }
+    if (latestDate != null) {
+      metadata['latestDate'] = latestDate.toIso8601String();
+    }
+
+    // Create cumulative transaction
+    // Store net amount in amount field, but metadata has separate credit/debit
+    return baseTx.copyWith(
+      id: 'grouped_${dmNumber}_${transactionIds.join('_')}',
+      amount: finalAmount,
+      type: transactionType,
+      createdAt: earliestDate ?? baseTx.createdAt,
+      updatedAt: latestDate ?? baseTx.updatedAt,
+      metadata: metadata,
+      description: baseTx.description != null 
+          ? '${baseTx.description} (${group.length} transactions)'
+          : 'DM-$dmNumber (${group.length} transactions)',
+    );
   }
 
   Future<Map<String, List<Transaction>>> _enrichWithVendorNames(

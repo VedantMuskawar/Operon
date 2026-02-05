@@ -20,13 +20,20 @@ Future<Uint8List> generateDmPdf({
   Uint8List? qrCodeBytes,
   Uint8List? watermarkBytes,
 }) async {
-  // Check if custom template should be used
-  if (dmSettings.templateType == DmTemplateType.custom && 
-      dmSettings.customTemplateId != null) {
+  // Route based on template type setting - enforce DM settings strictly
+  // Use custom template ONLY if ALL conditions are met:
+  // 1. templateType is explicitly set to custom (not universal)
+  // 2. customTemplateId is provided and not empty
+  final isCustomType = dmSettings.templateType == DmTemplateType.custom;
+  final hasCustomTemplateId = dmSettings.customTemplateId != null &&
+      dmSettings.customTemplateId!.trim().isNotEmpty;
+  
+  if (isCustomType && hasCustomTemplateId) {
+    // Use custom template
     return generateCustomDmPdf(
       dmData: dmData,
       dmSettings: dmSettings,
-      customTemplateId: dmSettings.customTemplateId!,
+      customTemplateId: dmSettings.customTemplateId!.trim(),
       paymentAccount: paymentAccount,
       logoBytes: logoBytes,
       qrCodeBytes: qrCodeBytes,
@@ -34,7 +41,10 @@ Future<Uint8List> generateDmPdf({
     );
   }
   
-  // Otherwise, use universal template
+  // Use universal template in all other cases:
+  // - templateType is universal (explicitly set)
+  // - templateType is custom but customTemplateId is missing/empty (fallback)
+  // - templateType is null/undefined (default to universal)
   final pdf = pw.Document();
   
   // Get orientation from DM Settings

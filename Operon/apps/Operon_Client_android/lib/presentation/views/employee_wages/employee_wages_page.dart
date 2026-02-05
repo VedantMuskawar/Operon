@@ -2,18 +2,17 @@ import 'dart:async';
 
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/components/data_table.dart' as custom_table;
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_state.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
+import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
-import 'package:dash_mobile/presentation/widgets/date_range_picker.dart';
-import 'package:dash_mobile/presentation/views/employee_wages/credit_salary_dialog.dart';
-import 'package:dash_mobile/presentation/views/employee_wages/record_bonus_dialog.dart';
+import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
+import 'package:core_ui/components/ledger_date_range_modal.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/employee_wages_analytics_page.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
+import 'package:dash_mobile/shared/constants/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -49,18 +48,23 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
   static const int _itemsPerPage = 50;
   int _wagesCurrentPage = 0;
 
+  // Cached computed values
+  List<Transaction>? _cachedFilteredTransactions;
+  double? _cachedTotalAmount;
+  int? _cachedSalaryCount;
+  int? _cachedBonusCount;
+  List<Transaction>? _lastTransactionsForCache;
+  String? _lastQueryForCache;
+  _WagesSortOption? _lastSortOptionForCache;
+  DateTime? _lastStartDateForCache;
+  DateTime? _lastEndDateForCache;
+
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, now.day);
     _endDate = DateTime(now.year, now.month, now.day);
-    _searchController.addListener(() {
-      setState(() {
-        _query = _searchController.text;
-        _wagesCurrentPage = 0;
-      });
-    });
     _pageController = PageController()
       ..addListener(() {
         setState(() {
@@ -90,6 +94,17 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     }
   }
 
+  /// Batch futures to limit concurrency and prevent overwhelming the network
+  Future<List<T>> _batchFutures<T>(List<Future<T>> futures, {int batchSize = 10}) async {
+    final results = <T>[];
+    for (int i = 0; i < futures.length; i += batchSize) {
+      final batch = futures.skip(i).take(batchSize).toList();
+      final batchResults = await Future.wait(batch);
+      results.addAll(batchResults);
+    }
+    return results;
+  }
+
   Future<void> _fetchEmployeeNames(List<Transaction> transactions) async {
     final orgState = context.read<OrganizationContextCubit>().state;
     final organization = orgState.organization;
@@ -103,12 +118,13 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
 
       if (employeeIds.isEmpty) return;
 
-      final employeeDocs = await Future.wait(
-        employeeIds.map((id) => FirebaseFirestore.instance
-            .collection('EMPLOYEES')
-            .doc(id)
-            .get()),
-      );
+      // Process futures in batches to limit concurrent network requests
+      final futures = employeeIds.map((id) => FirebaseFirestore.instance
+          .collection('EMPLOYEES')
+          .doc(id)
+          .get()).toList();
+      
+      final employeeDocs = await _batchFutures(futures, batchSize: 10);
 
       final newEmployeeNames = <String, String>{};
       for (final doc in employeeDocs) {
@@ -137,53 +153,61 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     return true;
   }
 
-  List<Transaction> _applyFiltersAndSort(List<Transaction> transactions) {
-    var filtered = List<Transaction>.from(transactions);
 
-    // Apply date range filter (default today–today)
+  List<Transaction> _applyFiltersAndSort(List<Transaction> transactions) {
+    // Single-pass filtering: combine date range and search filters
     final start = DateTime(_startDate.year, _startDate.month, _startDate.day);
     final end = DateTime(_endDate.year, _endDate.month, _endDate.day).add(const Duration(days: 1));
-    filtered = filtered.where((tx) {
-      final txDate = tx.createdAt ?? DateTime(1970);
-      return !txDate.isBefore(start) && txDate.isBefore(end);
-    }).toList();
+    final queryLower = _query.toLowerCase();
+    final hasQuery = _query.isNotEmpty;
 
-    if (_query.isNotEmpty) {
-      final queryLower = _query.toLowerCase();
-      filtered = filtered.where((tx) {
+    final filtered = <Transaction>[];
+    for (final tx in transactions) {
+      // Date range filter
+      final txDate = tx.createdAt ?? DateTime(1970);
+      if (txDate.isBefore(start) || !txDate.isBefore(end)) {
+        continue;
+      }
+
+      // Search filter (if query exists)
+      if (hasQuery) {
         final employeeName = (_employeeNames[tx.employeeId ?? ''] ?? '').toLowerCase();
         final description = (tx.description ?? '').toLowerCase();
         final category = tx.category.name.toLowerCase();
-        return employeeName.contains(queryLower) ||
-            description.contains(queryLower) ||
-            category.contains(queryLower);
-      }).toList();
+        if (!employeeName.contains(queryLower) &&
+            !description.contains(queryLower) &&
+            !category.contains(queryLower)) {
+          continue;
+        }
+      }
+
+      filtered.add(tx);
     }
 
-    final sortedList = List<Transaction>.from(filtered);
+    // Sort the filtered list
     switch (_sortOption) {
       case _WagesSortOption.dateNewest:
-        sortedList.sort((a, b) {
+        filtered.sort((a, b) {
           final aDate = a.createdAt ?? DateTime(1970);
           final bDate = b.createdAt ?? DateTime(1970);
           return bDate.compareTo(aDate);
         });
         break;
       case _WagesSortOption.dateOldest:
-        sortedList.sort((a, b) {
+        filtered.sort((a, b) {
           final aDate = a.createdAt ?? DateTime(1970);
           final bDate = b.createdAt ?? DateTime(1970);
           return aDate.compareTo(bDate);
         });
         break;
       case _WagesSortOption.amountHigh:
-        sortedList.sort((a, b) => b.amount.compareTo(a.amount));
+        filtered.sort((a, b) => b.amount.compareTo(a.amount));
         break;
       case _WagesSortOption.amountLow:
-        sortedList.sort((a, b) => a.amount.compareTo(b.amount));
+        filtered.sort((a, b) => a.amount.compareTo(b.amount));
         break;
       case _WagesSortOption.employeeAsc:
-        sortedList.sort((a, b) {
+        filtered.sort((a, b) {
           final aName = (_employeeNames[a.employeeId ?? ''] ?? '').toLowerCase();
           final bName = (_employeeNames[b.employeeId ?? ''] ?? '').toLowerCase();
           return aName.compareTo(bName);
@@ -191,7 +215,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         break;
     }
 
-    return sortedList;
+    return filtered;
   }
 
   String _formatCurrency(double amount) {
@@ -209,6 +233,26 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     return '$day $month $year';
   }
 
+  Future<void> _handleDateRangePicker() async {
+    final currentRange = DateTimeRange(start: _startDate, end: _endDate);
+    
+    final range = await showLedgerDateRangeModal(
+      context,
+      initialRange: currentRange,
+    );
+    
+    if (range != null && mounted) {
+      setState(() {
+        _startDate = DateTime(range.start.year, range.start.month, range.start.day);
+        _endDate = DateTime(range.end.year, range.end.month, range.end.day);
+        _wagesCurrentPage = 0;
+        // Invalidate cache when date changes
+        _lastStartDateForCache = null;
+        _lastEndDateForCache = null;
+      });
+    }
+  }
+
   List<Transaction> _getPaginatedData(List<Transaction> all) {
     final start = _wagesCurrentPage * _itemsPerPage;
     final end = (start + _itemsPerPage).clamp(0, all.length);
@@ -221,92 +265,6 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     return ((n - 1) ~/ _itemsPerPage) + 1;
   }
 
-  Future<void> _deleteTransaction(String transactionId) async {
-    try {
-      await context.read<EmployeeWagesCubit>().deleteTransaction(transactionId);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Transaction deleted successfully'),
-            backgroundColor: AuthColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete transaction: $e'),
-            backgroundColor: AuthColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  void _showDeleteConfirmation(BuildContext context, Transaction transaction) {
-    final employeeName = _employeeNames[transaction.employeeId ?? ''] ?? 'Unknown Employee';
-    final categoryName = transaction.category == TransactionCategory.salaryCredit
-        ? 'Salary'
-        : transaction.category == TransactionCategory.bonus
-            ? 'Bonus'
-            : transaction.category.name;
-    
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AuthColors.surface,
-        title: const Text(
-          'Delete Transaction',
-          style: TextStyle(color: AuthColors.textMain),
-        ),
-        content: Text(
-          'Are you sure you want to delete this transaction?\n\n'
-          'Employee: $employeeName\n'
-          'Type: $categoryName\n'
-          'Amount: ${_formatCurrency(transaction.amount)}',
-          style: const TextStyle(color: AuthColors.textSub),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              _deleteTransaction(transaction.id);
-              Navigator.of(dialogContext).pop();
-            },
-            style: TextButton.styleFrom(foregroundColor: AuthColors.error),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _openCreditSalaryDialog() {
-    final cubit = context.read<EmployeeWagesCubit>();
-    showDialog(
-      context: context,
-      builder: (dialogContext) => BlocProvider.value(
-        value: cubit,
-        child: const CreditSalaryDialog(),
-      ),
-    );
-  }
-
-  void _openRecordBonusDialog() {
-    final cubit = context.read<EmployeeWagesCubit>();
-    showDialog(
-      context: context,
-      builder: (dialogContext) => BlocProvider.value(
-        value: cubit,
-        child: const RecordBonusDialog(),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -331,9 +289,12 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                   Column(
                     children: [
                       Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(AppSpacing.paddingLG),
-                          child: Builder(
+                        child: RefreshIndicator(
+                          onRefresh: () => context.read<EmployeeWagesCubit>().loadTransactions(),
+                          color: AuthColors.primary,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(AppSpacing.paddingLG),
+                            child: Builder(
               builder: (context) {
                 final media = MediaQuery.of(context);
                 final screenHeight = media.size.height;
@@ -363,6 +324,9 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                         children: [
                           // Transactions List Page
                           BlocBuilder<EmployeeWagesCubit, EmployeeWagesState>(
+                            buildWhen: (previous, current) =>
+                                previous.transactions != current.transactions ||
+                                previous.status != current.status,
                             builder: (context, state) {
                               if (state.status == ViewStatus.loading && state.transactions.isEmpty) {
                                 return const _LoadingState();
@@ -384,12 +348,52 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
                                   _fetchEmployeeNames(transactions);
                                 });
+                                // Invalidate cache when transactions change
+                                _lastTransactionsForCache = null;
                               }
                               
-                              final filtered = _applyFiltersAndSort(transactions);
-                              final totalAmount = filtered.fold<double>(0.0, (acc, tx) => acc + tx.amount);
-                              final salaryCount = filtered.where((tx) => tx.category == TransactionCategory.salaryCredit).length;
-                              final bonusCount = filtered.where((tx) => tx.category == TransactionCategory.bonus).length;
+                              // Update cached values if needed (compute synchronously in build)
+                              // Use more reliable comparison: check if transactions list actually changed
+                              final transactionsChanged = _lastTransactionsForCache == null ||
+                                  !_areTransactionListsEqual(_lastTransactionsForCache!, transactions);
+                              
+                              if (_cachedFilteredTransactions == null ||
+                                  transactionsChanged ||
+                                  _lastQueryForCache != _query ||
+                                  _lastSortOptionForCache != _sortOption ||
+                                  _lastStartDateForCache != _startDate ||
+                                  _lastEndDateForCache != _endDate) {
+                                final filtered = _applyFiltersAndSort(transactions);
+                                
+                                // Compute totals in single pass
+                                double totalAmount = 0.0;
+                                int salaryCount = 0;
+                                int bonusCount = 0;
+                                for (final tx in filtered) {
+                                  totalAmount += tx.amount;
+                                  if (tx.category == TransactionCategory.salaryCredit) {
+                                    salaryCount++;
+                                  } else if (tx.category == TransactionCategory.bonus) {
+                                    bonusCount++;
+                                  }
+                                }
+                                
+                                // Update cache
+                                _cachedFilteredTransactions = filtered;
+                                _cachedTotalAmount = totalAmount;
+                                _cachedSalaryCount = salaryCount;
+                                _cachedBonusCount = bonusCount;
+                                _lastTransactionsForCache = List.from(transactions); // Store copy for comparison
+                                _lastQueryForCache = _query;
+                                _lastSortOptionForCache = _sortOption;
+                                _lastStartDateForCache = _startDate;
+                                _lastEndDateForCache = _endDate;
+                              }
+                              
+                              final filtered = _cachedFilteredTransactions ?? [];
+                              final totalAmount = _cachedTotalAmount ?? 0.0;
+                              final salaryCount = _cachedSalaryCount ?? 0;
+                              final bonusCount = _cachedBonusCount ?? 0;
                               final usePagination = filtered.length > 50;
                               final displayList = usePagination ? _getPaginatedData(filtered) : filtered;
 
@@ -398,132 +402,204 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Row 1: Stats + Stacked buttons
-                                    _AndroidWagesStatsRow(
-                                      totalAmount: totalAmount,
-                                      salaryCount: salaryCount,
-                                      bonusCount: bonusCount,
-                                      formatCurrency: _formatCurrency,
-                                      onCreditSalary: _openCreditSalaryDialog,
-                                      onRecordBonus: _openRecordBonusDialog,
-                                    ),
-                                    const SizedBox(height: AppSpacing.paddingLG),
-                                    // Row 2: Date range (left of search) + Search + Sort
+                                    // Summary stats row (Cash Ledger style)
                                     Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
-                                          flex: 2,
-                                          child: DateRangePicker(
-                                            startDate: _startDate,
-                                            endDate: _endDate,
-                                            onStartDateChanged: (d) {
-                                              if (d != null) {
-                                                setState(() {
-                                                  _startDate = d;
-                                                  if (_endDate.isBefore(_startDate)) _endDate = _startDate;
-                                                  _wagesCurrentPage = 0;
-                                                });
-                                              }
-                                            },
-                                            onEndDateChanged: (d) {
-                                              if (d != null) {
-                                                setState(() {
-                                                  _endDate = d;
-                                                  if (_startDate.isAfter(_endDate)) _startDate = _endDate;
-                                                  _wagesCurrentPage = 0;
-                                                });
-                                              }
-                                            },
+                                          child: _WagesSummaryCard(
+                                            label: 'Total',
+                                            amount: totalAmount,
+                                            color: AuthColors.warning,
+                                            formatCurrency: _formatCurrency,
                                           ),
                                         ),
-                                        const SizedBox(width: AppSpacing.paddingMD),
+                                        const SizedBox(width: AppSpacing.paddingSM),
                                         Expanded(
-                                          flex: 3,
-                                          child: TextField(
-                                            controller: _searchController,
-                                            style: const TextStyle(color: AuthColors.textMain),
-                                            decoration: InputDecoration(
-                                              prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
-                                              suffixIcon: _query.isNotEmpty
-                                                  ? IconButton(
-                                                      icon: const Icon(Icons.close, color: AuthColors.textSub),
-                                                      onPressed: () => _searchController.clear(),
-                                                    )
-                                                  : null,
-                                              hintText: 'Search...',
-                                              hintStyle: const TextStyle(color: AuthColors.textSub),
-                                              filled: true,
-                                              fillColor: AuthColors.surface,
-                                              border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                                                borderSide: BorderSide.none,
+                                          child: _WagesSummaryCard(
+                                            label: 'Salary',
+                                            value: salaryCount.toString(),
+                                            color: AuthColors.successVariant,
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.paddingSM),
+                                        Expanded(
+                                          child: _WagesSummaryCard(
+                                            label: 'Bonuses',
+                                            value: bonusCount.toString(),
+                                            color: AuthColors.info,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: AppSpacing.paddingMD),
+                                    // Search + Date row (Cash Ledger style)
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: AuthColors.surface.withOpacity(0.6),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: AuthColors.surface.withOpacity(0.8),
+                                                width: 1,
                                               ),
+                                            ),
+                                            child: StandardSearchBar(
+                                              controller: _searchController,
+                                              hintText: 'Search by employee, amount...',
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _query = value;
+                                                  _wagesCurrentPage = 0;
+                                                  _lastQueryForCache = null;
+                                                });
+                                              },
                                             ),
                                           ),
                                         ),
                                         const SizedBox(width: AppSpacing.paddingSM),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingSM),
                                           decoration: BoxDecoration(
-                                            color: AuthColors.surface,
-                                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                                            border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-                                          ),
-                                          child: DropdownButtonHideUnderline(
-                                            child: DropdownButton<_WagesSortOption>(
-                                              value: _sortOption,
-                                              dropdownColor: AuthColors.surface,
-                                              style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
-                                              isExpanded: true,
-                                              items: const [
-                                                DropdownMenuItem(value: _WagesSortOption.dateNewest, child: Text('Newest')),
-                                                DropdownMenuItem(value: _WagesSortOption.dateOldest, child: Text('Oldest')),
-                                                DropdownMenuItem(value: _WagesSortOption.amountHigh, child: Text('Amt ↑')),
-                                                DropdownMenuItem(value: _WagesSortOption.amountLow, child: Text('Amt ↓')),
-                                                DropdownMenuItem(value: _WagesSortOption.employeeAsc, child: Text('A–Z')),
-                                              ],
-                                              onChanged: (v) {
-                                                if (v != null) setState(() { _sortOption = v; _wagesCurrentPage = 0; });
-                                              },
-                                              icon: const Icon(Icons.sort, color: AuthColors.textSub, size: 18),
-                                              isDense: true,
+                                            color: AuthColors.surface.withOpacity(0.6),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: AuthColors.surface.withOpacity(0.8),
+                                              width: 1,
                                             ),
+                                          ),
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.calendar_today,
+                                              color: AuthColors.textMain,
+                                              size: 20,
+                                            ),
+                                            tooltip: 'Select date range',
+                                            onPressed: _handleDateRangePicker,
+                                            padding: const EdgeInsets.all(12),
+                                          ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.paddingXS),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: AuthColors.surface.withOpacity(0.6),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: AuthColors.surface.withOpacity(0.8),
+                                              width: 1,
+                                            ),
+                                          ),
+                                          child: PopupMenuButton<_WagesSortOption>(
+                                            tooltip: 'Sort',
+                                            padding: EdgeInsets.zero,
+                                            icon: const Icon(Icons.sort, color: AuthColors.textMain, size: 20),
+                                            onSelected: (v) {
+                                              setState(() {
+                                                _sortOption = v;
+                                                _wagesCurrentPage = 0;
+                                                _lastSortOptionForCache = null;
+                                              });
+                                            },
+                                            itemBuilder: (context) => [
+                                              const PopupMenuItem(value: _WagesSortOption.dateNewest, child: Text('Newest')),
+                                              const PopupMenuItem(value: _WagesSortOption.dateOldest, child: Text('Oldest')),
+                                              const PopupMenuItem(value: _WagesSortOption.amountHigh, child: Text('Amt ↑')),
+                                              const PopupMenuItem(value: _WagesSortOption.amountLow, child: Text('Amt ↓')),
+                                              const PopupMenuItem(value: _WagesSortOption.employeeAsc, child: Text('A–Z')),
+                                            ],
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingLG),
-                                    if (filtered.isEmpty && _query.isNotEmpty)
-                                      _EmptySearchState(query: _query)
-                                    else if (filtered.isEmpty)
-                                      _EmptyTransactionsState(onCreditSalary: _openCreditSalaryDialog)
-                                    else
-                                      Column(
-                                        mainAxisSize: MainAxisSize.min,
+                                    const SizedBox(height: AppSpacing.paddingMD),
+                                    // Column headers (Cash Ledger style)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: AppSpacing.paddingSM,
+                                        horizontal: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AuthColors.surface.withOpacity(0.4),
+                                      ),
+                                      child: Row(
                                         children: [
-                                          SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            child: _WagesDataTable(
-                                              transactions: displayList,
-                                              employeeNames: _employeeNames,
-                                              formatCurrency: _formatCurrency,
-                                              formatDate: _formatDate,
-                                              onDelete: (tx) => _showDeleteConfirmation(context, tx),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              'Employee',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AuthColors.textSub,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.5,
+                                              ),
                                             ),
                                           ),
-                                          if (usePagination) ...[
-                                            const SizedBox(height: AppSpacing.paddingMD),
-                                            _PaginationControls(
-                                              currentPage: _wagesCurrentPage,
-                                              totalPages: _getTotalPages(filtered.length),
-                                              totalItems: filtered.length,
-                                              itemsPerPage: _itemsPerPage,
-                                              onPageChanged: (p) => setState(() => _wagesCurrentPage = p),
+                                          SizedBox(
+                                            width: 70,
+                                            child: Text(
+                                              'Type',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AuthColors.textSub,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.5,
+                                              ),
                                             ),
-                                          ],
+                                          ),
+                                          SizedBox(
+                                            width: 90,
+                                            child: Text(
+                                              'Amount',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AuthColors.warning,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.5,
+                                              ),
+                                              textAlign: TextAlign.end,
+                                            ),
+                                          ),
                                         ],
                                       ),
+                                    ),
+                                    if (filtered.isEmpty && _query.isNotEmpty)
+                                      EmptyStateWidget(
+                                        icon: Icons.search_off,
+                                        title: 'No results found',
+                                        message: 'No transactions match "$_query"',
+                                      )
+                                    else if (filtered.isEmpty)
+                                      const EmptyStateWidget(
+                                        icon: Icons.payments_outlined,
+                                        title: 'No wages transactions yet',
+                                        message: 'No transactions found for the selected date range',
+                                      )
+                                    else ...[
+                                      ...displayList.asMap().entries.map(
+                                            (e) => _WagesTransactionTableRow(
+                                              transaction: e.value,
+                                              employeeName: _employeeNames[e.value.employeeId ?? ''] ?? 'Unknown',
+                                              formatCurrency: _formatCurrency,
+                                              formatDate: _formatDate,
+                                              isEven: e.key.isEven,
+                                            ),
+                                          ),
+                                      _WagesTableFooter(
+                                        totalAmount: totalAmount,
+                                        formatCurrency: _formatCurrency,
+                                      ),
+                                      if (usePagination) ...[
+                                        const SizedBox(height: AppSpacing.paddingMD),
+                                        _PaginationControls(
+                                          currentPage: _wagesCurrentPage,
+                                          totalPages: _getTotalPages(filtered.length),
+                                          totalItems: filtered.length,
+                                          itemsPerPage: _itemsPerPage,
+                                          onPageChanged: (p) => setState(() => _wagesCurrentPage = p),
+                                        ),
+                                      ],
+                                    ],
                                   ],
                                 ),
                               );
@@ -538,11 +614,39 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                 );
               },
             ),
+                          ),
+                        ),
                       ),
-                    ),
-                  QuickNavBar(
+                    FloatingNavBar(
+                    items: [
+                      NavBarItem(
+                        icon: Icons.home_rounded,
+                        label: 'Home',
+                        heroTag: 'nav_home',
+                      ),
+                      NavBarItem(
+                        icon: Icons.pending_actions_rounded,
+                        label: 'Pending',
+                        heroTag: 'nav_pending',
+                      ),
+                      NavBarItem(
+                        icon: Icons.schedule_rounded,
+                        label: 'Schedule',
+                        heroTag: 'nav_schedule',
+                      ),
+                      NavBarItem(
+                        icon: Icons.map_rounded,
+                        label: 'Map',
+                        heroTag: 'nav_map',
+                      ),
+                      NavBarItem(
+                        icon: Icons.event_available_rounded,
+                        label: 'Cash Ledger',
+                        heroTag: 'nav_cash_ledger',
+                      ),
+                    ],
                     currentIndex: 0,
-                    onTap: (value) => context.go('/home', extra: value),
+                    onItemTapped: (value) => context.go('/home', extra: value),
                   ),
                 ],
               ),
@@ -556,109 +660,257 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
   }
 }
 
-class _AndroidWagesStatsRow extends StatelessWidget {
-  const _AndroidWagesStatsRow({
-    required this.totalAmount,
-    required this.salaryCount,
-    required this.bonusCount,
-    required this.formatCurrency,
-    required this.onCreditSalary,
-    required this.onRecordBonus,
-  });
-
-  final double totalAmount;
-  final int salaryCount;
-  final int bonusCount;
-  final String Function(double) formatCurrency;
-  final VoidCallback onCreditSalary;
-  final VoidCallback onRecordBonus;
-
-  @override
-  Widget build(BuildContext context) {
-    final formatted = formatCurrency(totalAmount);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _MiniStat(label: 'Total Amount', value: formatted, color: AuthColors.warning),
-              const SizedBox(height: AppSpacing.paddingSM),
-              Row(
-                children: [
-                  _MiniStat(label: 'Salary', value: salaryCount.toString(), color: AuthColors.successVariant),
-                  const SizedBox(width: AppSpacing.paddingMD),
-                  _MiniStat(label: 'Bonuses', value: bonusCount.toString(), color: AuthColors.info),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 140,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.payments, size: 18),
-                label: const Text('Credit Salary'),
-                onPressed: onCreditSalary,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AuthColors.primary,
-                  foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.gapSM),
-            SizedBox(
-              width: 140,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.card_giftcard, size: 18),
-                label: const Text('Record Bonus'),
-                onPressed: onRecordBonus,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AuthColors.accentPurple,
-                  foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.label, required this.value, required this.color});
+/// Summary card widget (Cash Ledger style)
+class _WagesSummaryCard extends StatelessWidget {
+  const _WagesSummaryCard({
+    required this.label,
+    required this.color,
+    this.amount,
+    this.formatCurrency,
+    this.value,
+  }) : assert(amount != null && formatCurrency != null || value != null);
 
   final String label;
-  final String value;
+  final double? amount;
+  final String Function(double)? formatCurrency;
+  final String? value;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
+    final displayValue = amount != null && formatCurrency != null
+        ? formatCurrency!(amount!)
+        : (value ?? '');
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.gapSM),
+      padding: const EdgeInsets.all(AppSpacing.paddingSM),
       decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+        color: AuthColors.surface.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: color.withOpacity(0.2),
+          width: 1,
+        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: AppSpacing.gapSM),
-          Text(value, style: const TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(width: AppSpacing.paddingXS),
-          Text(label, style: const TextStyle(color: AuthColors.textSub, fontSize: 11)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: AuthColors.textSub,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            displayValue,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Transaction table row (Cash Ledger style)
+class _WagesTransactionTableRow extends StatelessWidget {
+  const _WagesTransactionTableRow({
+    required this.transaction,
+    required this.employeeName,
+    required this.formatCurrency,
+    required this.formatDate,
+    required this.isEven,
+  });
+
+  final Transaction transaction;
+  final String employeeName;
+  final String Function(double) formatCurrency;
+  final String Function(DateTime) formatDate;
+  final bool isEven;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = transaction.createdAt ?? DateTime.now();
+    final isSalary = transaction.category == TransactionCategory.salaryCredit;
+    final typeLabel = isSalary ? 'Salary' : 'Bonus';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isEven
+            ? Colors.transparent
+            : AuthColors.surface.withOpacity(0.2),
+        border: Border(
+          bottom: BorderSide(
+            color: AuthColors.surface.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    employeeName,
+                    style: AppTypography.withColor(
+                      AppTypography.body,
+                      AuthColors.textMain,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${formatDate(date)}${transaction.referenceNumber != null ? ' • ${transaction.referenceNumber}' : ''}',
+                    style: TextStyle(
+                      color: AuthColors.textSub,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 70,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.gapSM,
+                  vertical: AppSpacing.paddingXS,
+                ),
+                decoration: BoxDecoration(
+                  color: (isSalary ? AuthColors.primary : AuthColors.accentPurple)
+                      .withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+                ),
+                child: Text(
+                  typeLabel,
+                  style: TextStyle(
+                    color: isSalary ? AuthColors.primary : AuthColors.accentPurple,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 90,
+              child: Text(
+                formatCurrency(transaction.amount),
+                style: AppTypography.withColor(
+                  AppTypography.body,
+                  AuthColors.warning,
+                ),
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Footer row with total (Cash Ledger style)
+class _WagesTableFooter extends StatelessWidget {
+  const _WagesTableFooter({
+    required this.totalAmount,
+    required this.formatCurrency,
+  });
+
+  final double totalAmount;
+  final String Function(double) formatCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AuthColors.primary.withOpacity(0.15),
+            AuthColors.primary.withOpacity(0.05),
+          ],
+        ),
+        border: Border(
+          top: BorderSide(
+            color: AuthColors.primary.withOpacity(0.5),
+            width: 2,
+          ),
+        ),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              flex: 2,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.calculate,
+                    size: 18,
+                    color: AuthColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Total',
+                    style: AppTypography.withColor(
+                      AppTypography.withWeight(
+                        AppTypography.bodyLarge,
+                        FontWeight.w700,
+                      ),
+                      AuthColors.textMain,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 70),
+            SizedBox(
+              width: 90,
+              child: Text(
+                formatCurrency(totalAmount),
+                style: AppTypography.withColor(
+                  AppTypography.withWeight(
+                    AppTypography.bodyLarge,
+                    FontWeight.w700,
+                  ),
+                  AuthColors.warning,
+                ),
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -770,169 +1022,6 @@ class _ErrorState extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _EmptyTransactionsState extends StatelessWidget {
-  const _EmptyTransactionsState({required this.onCreditSalary});
-
-  final VoidCallback onCreditSalary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AuthColors.primary.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.payments_outlined, size: 40, color: AuthColors.primary),
-            ),
-            const SizedBox(height: AppSpacing.paddingXXL),
-            const Text(
-              'No wages transactions yet',
-              style: TextStyle(color: AuthColors.textMain, fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: AppSpacing.paddingSM),
-            const Text(
-              'Start by crediting salary to your employees',
-              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.paddingXXL),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.payments, size: 20),
-              label: const Text('Credit Salary'),
-              onPressed: onCreditSalary,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AuthColors.primary,
-                foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXXL, vertical: AppSpacing.paddingLG),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptySearchState extends StatelessWidget {
-  const _EmptySearchState({required this.query});
-
-  final String query;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.search_off, size: 64, color: AuthColors.textSub.withValues(alpha: 0.5)),
-            const SizedBox(height: AppSpacing.paddingLG),
-            const Text(
-              'No results found',
-              style: TextStyle(color: AuthColors.textMain, fontSize: 20, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: AppSpacing.paddingSM),
-            Text(
-              'No transactions match "$query"',
-              style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WagesDataTable extends StatelessWidget {
-  const _WagesDataTable({
-    required this.transactions,
-    required this.employeeNames,
-    required this.formatCurrency,
-    required this.formatDate,
-    required this.onDelete,
-  });
-
-  final List<Transaction> transactions;
-  final Map<String, String> employeeNames;
-  final String Function(double) formatCurrency;
-  final String Function(DateTime) formatDate;
-  final ValueChanged<Transaction> onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final columns = <custom_table.DataTableColumn<Transaction>>[
-      custom_table.DataTableColumn<Transaction>(
-        label: 'Date',
-        icon: Icons.calendar_today,
-        width: 100,
-        cellBuilder: (context, tx, _) => Text(formatDate(tx.createdAt ?? DateTime.now()), style: const TextStyle(color: AuthColors.textMain, fontSize: 12)),
-      ),
-      custom_table.DataTableColumn<Transaction>(
-        label: 'Employee',
-        icon: Icons.person,
-        width: 130,
-        cellBuilder: (context, tx, _) {
-          final name = employeeNames[tx.employeeId ?? ''] ?? 'Unknown';
-          return Text(name, style: const TextStyle(color: AuthColors.textMain, fontSize: 12, fontWeight: FontWeight.w600));
-        },
-      ),
-      custom_table.DataTableColumn<Transaction>(
-        label: 'Type',
-        icon: Icons.category,
-        width: 80,
-        cellBuilder: (context, tx, _) {
-          final isSalary = tx.category == TransactionCategory.salaryCredit;
-          final label = isSalary ? 'Salary' : (tx.category == TransactionCategory.bonus ? 'Bonus' : tx.category.name);
-          final color = isSalary ? AuthColors.primary : AuthColors.accentPurple;
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(AppSpacing.radiusXS)),
-            child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 11)),
-          );
-        },
-      ),
-      custom_table.DataTableColumn<Transaction>(
-        label: 'Amount',
-        icon: Icons.currency_rupee,
-        width: 90,
-        numeric: true,
-        cellBuilder: (context, tx, _) => Text(formatCurrency(tx.amount), style: const TextStyle(color: AuthColors.warning, fontWeight: FontWeight.w700, fontSize: 12)),
-      ),
-      custom_table.DataTableColumn<Transaction>(
-        label: 'Description',
-        icon: Icons.description,
-        flex: 1,
-        cellBuilder: (context, tx, _) => Text(tx.description ?? '-', style: const TextStyle(color: AuthColors.textSub, fontSize: 12)),
-      ),
-    ];
-    final rowActions = [
-      custom_table.DataTableRowAction<Transaction>(
-        icon: Icons.delete_outline,
-        onTap: (tx, _) => onDelete(tx),
-        tooltip: 'Delete',
-        color: AuthColors.error,
-      ),
-    ];
-    return custom_table.DataTable<Transaction>(
-      columns: columns,
-      rows: transactions,
-      rowActions: rowActions,
-      emptyStateMessage: 'No transactions in this range',
-      emptyStateIcon: Icons.inbox_outlined,
     );
   }
 }

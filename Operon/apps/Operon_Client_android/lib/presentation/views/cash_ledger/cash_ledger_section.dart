@@ -145,6 +145,14 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
         }
       },
       child: BlocBuilder<CashLedgerCubit, CashLedgerState>(
+        buildWhen: (previous, current) =>
+            previous.allRows != current.allRows ||
+            previous.status != current.status ||
+            previous.selectedTab != current.selectedTab ||
+            previous.searchQuery != current.searchQuery ||
+            previous.totalIncome != current.totalIncome ||
+            previous.totalOutcome != current.totalOutcome ||
+            previous.netBalance != current.netBalance,
         builder: (context, state) {
           // Sync search controller with state
           if (_searchController.text != state.searchQuery) {
@@ -345,18 +353,12 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                   // Transaction table
                   else ...[
                     BlocBuilder<CashLedgerCubit, CashLedgerState>(
+                      buildWhen: (previous, current) =>
+                          previous.allRows != current.allRows ||
+                          previous.totalCredit != current.totalCredit ||
+                          previous.totalDebit != current.totalDebit,
                       builder: (context, state) {
                         final list = state.allRows;
-                        // Calculate totals
-                        double totalCredit = 0;
-                        double totalDebit = 0;
-                        for (final tx in list) {
-                          if (tx.type == TransactionType.credit) {
-                            totalCredit += tx.amount;
-                          } else {
-                            totalDebit += tx.amount;
-                          }
-                        }
                         
                         return SliverPadding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -366,8 +368,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                 if (index == list.length) {
                                   // Footer row with totals
                                   return _TransactionTableFooter(
-                                    totalCredit: totalCredit,
-                                    totalDebit: totalDebit,
+                                    totalCredit: state.totalCredit,
+                                    totalDebit: state.totalDebit,
                                     formatCurrency: _formatCurrency,
                                   );
                                 }
@@ -378,6 +380,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                   typeLabel: _rowTypeLabel(tx),
                                   formatCurrency: _formatCurrency,
                                   isEven: isEven,
+                                  paymentAccountNames: _paymentAccountNames,
+                                  getPaymentAccountDisplayName: _getPaymentAccountDisplayName,
                                 );
                               },
                               childCount: list.length + 1, // +1 for footer
@@ -395,6 +399,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                   ],
                   SliverToBoxAdapter(
                     child: BlocBuilder<CashLedgerCubit, CashLedgerState>(
+                      buildWhen: (previous, current) =>
+                          previous.paymentAccountDistribution != current.paymentAccountDistribution,
                       builder: (context, state) {
                         final distribution = state.paymentAccountDistribution;
                         if (distribution.isEmpty) {
@@ -413,154 +419,181 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.paddingMD),
-                              ...distribution.map(
-                                (s) => Card(
-                                  margin: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
+                              Container(
+                                decoration: BoxDecoration(
                                   color: AuthColors.surface.withOpacity(0.6),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(AppSpacing.paddingMD),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              Icons.account_balance_wallet,
-                                              size: 18,
-                                              color: AuthColors.primary,
-                                            ),
-                                            const SizedBox(width: AppSpacing.paddingSM),
-                                            Expanded(
-                                              child: Text(
-                                                _getPaymentAccountDisplayName(s.displayName),
-                                                style: AppTypography.withColor(
-                                                  AppTypography.withWeight(
-                                                    AppTypography.bodyLarge,
-                                                    FontWeight.w700,
-                                                  ),
-                                                  AuthColors.textMain,
-                                                ),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AuthColors.surface.withOpacity(0.8),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    // Table Header
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: AppSpacing.paddingSM,
+                                        horizontal: AppSpacing.paddingMD,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AuthColors.surface.withOpacity(0.4),
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(8),
+                                          topRight: Radius.circular(8),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              'Account',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AuthColors.textSub,
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.5,
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: AppSpacing.paddingMD),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.arrow_downward,
-                                                  size: 14,
-                                                  color: AuthColors.success,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                const Text(
-                                                  'Income',
-                                                  style: TextStyle(
-                                                    color: AuthColors.textSub,
-                                                    fontSize: 12,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            Text(
-                                              _formatCurrency(s.income),
-                                              style: AppTypography.withColor(
-                                                AppTypography.withWeight(
-                                                  AppTypography.labelSmall,
-                                                  FontWeight.w600,
-                                                ),
-                                                AuthColors.success,
+                                          ),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              'Income',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AuthColors.success,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.5,
                                               ),
+                                              textAlign: TextAlign.end,
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: AppSpacing.paddingSM),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.arrow_upward,
-                                                  size: 14,
-                                                  color: AuthColors.error,
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Text(
-                                                  'Expenses',
-                                                  style: AppTypography.withColor(
-                                                    AppTypography.labelSmall,
-                                                    AuthColors.textSub,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            Text(
-                                              _formatCurrency(s.expense),
-                                              style: AppTypography.withColor(
-                                                AppTypography.withWeight(
-                                                  AppTypography.labelSmall,
-                                                  FontWeight.w600,
-                                                ),
-                                                AuthColors.error,
+                                          ),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              'Expenses',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AuthColors.error,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.5,
                                               ),
+                                              textAlign: TextAlign.end,
                                             ),
-                                          ],
+                                          ),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              'Net',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: AuthColors.textMain,
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 0.5,
+                                              ),
+                                              textAlign: TextAlign.end,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Table Rows
+                                    ...distribution.asMap().entries.map((entry) {
+                                      final index = entry.key;
+                                      final s = entry.value;
+                                      final isLast = index == distribution.length - 1;
+                                      return Container(
+                                        decoration: BoxDecoration(
+                                          border: Border(
+                                            bottom: isLast
+                                                ? BorderSide.none
+                                                : BorderSide(
+                                                    color: AuthColors.surface.withOpacity(0.3),
+                                                    width: 1,
+                                                  ),
+                                          ),
                                         ),
-                                        const SizedBox(height: AppSpacing.paddingSM),
-                                        Container(
+                                        child: Padding(
                                           padding: const EdgeInsets.symmetric(
-                                            vertical: AppSpacing.paddingSM,
+                                            vertical: AppSpacing.paddingMD,
                                             horizontal: AppSpacing.paddingMD,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: (s.net >= 0
-                                                    ? AuthColors.success
-                                                    : AuthColors.error)
-                                                .withOpacity(0.1),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: (s.net >= 0
-                                                      ? AuthColors.success
-                                                      : AuthColors.error)
-                                                  .withOpacity(0.3),
-                                              width: 1,
-                                            ),
-                                          ),
                                           child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
-                                              Text(
-                                                'Net Balance',
-                                                style: AppTypography.withColor(
-                                                  AppTypography.withWeight(
-                                                    AppTypography.labelSmall,
-                                                    FontWeight.w600,
-                                                  ),
-                                                  AuthColors.textMain,
+                                              Expanded(
+                                                flex: 2,
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.account_balance_wallet,
+                                                      size: 16,
+                                                      color: AuthColors.primary,
+                                                    ),
+                                                    const SizedBox(width: AppSpacing.paddingSM),
+                                                    Expanded(
+                                                      child: Text(
+                                                        _getPaymentAccountDisplayName(s.displayName),
+                                                        style: AppTypography.withColor(
+                                                          AppTypography.body,
+                                                          AuthColors.textMain,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
-                                              Text(
-                                                _formatCurrency(s.net),
-                                                style: AppTypography.withColor(
-                                                  AppTypography.withWeight(
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  _formatCurrency(s.income),
+                                                  style: AppTypography.withColor(
                                                     AppTypography.body,
-                                                    FontWeight.w700,
+                                                    AuthColors.success,
                                                   ),
-                                                  s.net >= 0
-                                                      ? AuthColors.success
-                                                      : AuthColors.error,
+                                                  textAlign: TextAlign.end,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  _formatCurrency(s.expense),
+                                                  style: AppTypography.withColor(
+                                                    AppTypography.body,
+                                                    AuthColors.error,
+                                                  ),
+                                                  textAlign: TextAlign.end,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  _formatCurrency(s.net),
+                                                  style: TextStyle(
+                                                    color: s.net >= 0
+                                                        ? AuthColors.success
+                                                        : AuthColors.error,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                  textAlign: TextAlign.end,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
+                                      );
+                                    }),
+                                  ],
                                 ),
                               ),
                             ],
@@ -582,6 +615,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
     switch (tx.category) {
       case TransactionCategory.advance:
       case TransactionCategory.tripPayment:
+      case TransactionCategory.clientCredit:
         return 'Orders';
       case TransactionCategory.clientPayment:
       case TransactionCategory.refund:
@@ -801,19 +835,49 @@ class _TransactionTableRow extends StatelessWidget {
     required this.typeLabel,
     required this.formatCurrency,
     required this.isEven,
+    required this.paymentAccountNames,
+    required this.getPaymentAccountDisplayName,
   });
 
   final Transaction transaction;
   final String typeLabel;
   final String Function(double) formatCurrency;
   final bool isEven;
+  final Map<String, String> paymentAccountNames;
+  final String Function(String) getPaymentAccountDisplayName;
 
   @override
   Widget build(BuildContext context) {
     final date = transaction.createdAt ?? DateTime.now();
     final dateStr =
         '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-    final title = _title(transaction);
+    
+    // Show client name instead of transaction title
+    String clientName = '-';
+    if (transaction.category == TransactionCategory.advance ||
+        transaction.category == TransactionCategory.tripPayment ||
+        transaction.category == TransactionCategory.clientCredit ||
+        transaction.category == TransactionCategory.clientPayment ||
+        transaction.category == TransactionCategory.refund) {
+      clientName = transaction.clientName?.trim() ?? 
+                  transaction.metadata?['clientName']?.toString().trim() ?? 
+                  '-';
+    } else if (transaction.category == TransactionCategory.vendorPurchase ||
+               transaction.category == TransactionCategory.vendorPayment) {
+      // For vendor transactions, show vendor name
+      clientName = transaction.metadata?['vendorName']?.toString().trim() ?? 
+                  transaction.description?.trim() ?? 
+                  '-';
+    } else if (transaction.category == TransactionCategory.salaryDebit) {
+      // For salary transactions, show employee name
+      clientName = transaction.metadata?['employeeName']?.toString().trim() ?? 
+                  transaction.description?.trim() ?? 
+                  '-';
+    } else {
+      // For other transactions, show description or fallback
+      clientName = transaction.description?.trim() ?? '-';
+    }
+    
     final isCredit = transaction.type == TransactionType.credit;
     
     return Container(
@@ -849,7 +913,7 @@ class _TransactionTableRow extends StatelessWidget {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          title,
+                          clientName,
                           style: AppTypography.withColor(
                             AppTypography.body,
                             AuthColors.textMain,
@@ -869,46 +933,270 @@ class _TransactionTableRow extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '$typeLabel • $dateStr${transaction.referenceNumber != null ? ' • ${transaction.referenceNumber}' : ''}',
-                    style: TextStyle(
-                      color: AuthColors.textSub,
-                      fontSize: 11,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Builder(
+                    builder: (context) {
+                      final transactionCount = transaction.metadata?['transactionCount'] as int?;
+                      final dmNumber = transaction.metadata?['dmNumber'];
+                      final isGrouped = transactionCount != null && transactionCount > 1;
+                      
+                      final parts = <String>[
+                        typeLabel,
+                        dateStr,
+                      ];
+                      
+                      if (isGrouped && dmNumber != null) {
+                        parts.add('$transactionCount transactions');
+                      }
+                      
+                      // Show DM number instead of reference number
+                      if (dmNumber != null) {
+                        parts.add('DM-$dmNumber');
+                      } else if (transaction.referenceNumber != null && transaction.referenceNumber!.isNotEmpty) {
+                        parts.add(transaction.referenceNumber!);
+                      }
+                      
+                      return Text(
+                        parts.join(' • '),
+                        style: TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    },
                   ),
                 ],
               ),
             ),
             // Credit column
-            SizedBox(
-              width: 80,
-              child: Text(
-                isCredit ? formatCurrency(transaction.amount) : '–',
-                style: AppTypography.withColor(
-                  AppTypography.body,
-                  isCredit ? AuthColors.success : AuthColors.textSub,
-                ),
-                textAlign: TextAlign.end,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Builder(
+              builder: (context) {
+                final transactionCount = transaction.metadata?['transactionCount'] as int?;
+                final isGrouped = transactionCount != null && transactionCount > 1;
+                
+                double creditAmount = 0.0;
+                List<Map<String, dynamic>> paymentAccounts = []; // List of {name, amount}
+                
+                if (isGrouped) {
+                  // For grouped transactions, use cumulative credit from metadata
+                  creditAmount = (transaction.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+                  // Get payment accounts with amounts from metadata
+                  final creditAccounts = transaction.metadata?['creditPaymentAccounts'] as List?;
+                  if (creditAccounts != null) {
+                    paymentAccounts = creditAccounts
+                        .map((acc) {
+                          final accMap = acc as Map<String, dynamic>?;
+                          var name = accMap?['name']?.toString().trim() ?? '';
+                          final amount = (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
+                          if (name.isNotEmpty && amount > 0) {
+                            // If name looks like an ID (exists in paymentAccountNames map), resolve it
+                            if (paymentAccountNames.containsKey(name)) {
+                              name = paymentAccountNames[name]!;
+                            } else {
+                              // Try to resolve using getPaymentAccountDisplayName
+                              name = getPaymentAccountDisplayName(name);
+                            }
+                            return {'name': name, 'amount': amount};
+                          }
+                          return null;
+                        })
+                        .whereType<Map<String, dynamic>>()
+                        .toList();
+                  }
+                } else {
+                  // For single transactions, use amount if credit type
+                  creditAmount = isCredit ? transaction.amount : 0.0;
+                  // Get payment account name for single transaction
+                  if (creditAmount > 0) {
+                    final accountName = transaction.paymentAccountName?.trim();
+                    final accountId = transaction.paymentAccountId?.trim();
+                    String? name;
+                    if (accountName != null && accountName.isNotEmpty) {
+                      name = accountName;
+                    } else if (accountId != null && accountId.isNotEmpty) {
+                      name = getPaymentAccountDisplayName(accountId);
+                    }
+                    if (name != null && name.isNotEmpty) {
+                      paymentAccounts = [{'name': name, 'amount': creditAmount}];
+                    }
+                  }
+                }
+                
+                // Format amount string: "X+Y" if multiple accounts, otherwise just the total
+                String amountText = creditAmount > 0 ? formatCurrency(creditAmount) : '–';
+                if (creditAmount > 0 && paymentAccounts.length > 1) {
+                  final amounts = paymentAccounts.map((acc) => formatCurrency(acc['amount'] as double)).join('+');
+                  amountText = amounts;
+                }
+                
+                return SizedBox(
+                  width: 80,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        amountText,
+                        style: AppTypography.withColor(
+                          AppTypography.body,
+                          creditAmount > 0 ? AuthColors.success : AuthColors.textSub,
+                        ),
+                        textAlign: TextAlign.end,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (creditAmount > 0 && paymentAccounts.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: paymentAccounts.map((acc) {
+                            final name = acc['name'] as String;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AuthColors.success.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: AuthColors.success.withOpacity(0.3),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                name,
+                                style: TextStyle(
+                                  color: AuthColors.success,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
             const SizedBox(width: AppSpacing.paddingSM),
             // Debit column
-            SizedBox(
-              width: 80,
-              child: Text(
-                !isCredit ? formatCurrency(transaction.amount) : '–',
-                style: TextStyle(
-                  color: !isCredit ? AuthColors.error : AuthColors.textSub,
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.end,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+            Builder(
+              builder: (context) {
+                final transactionCount = transaction.metadata?['transactionCount'] as int?;
+                final isGrouped = transactionCount != null && transactionCount > 1;
+                
+                double debitAmount = 0.0;
+                List<Map<String, dynamic>> paymentAccounts = []; // List of {name, amount}
+                
+                if (isGrouped) {
+                  // For grouped transactions, use cumulative debit from metadata
+                  debitAmount = (transaction.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0;
+                  // Get payment accounts with amounts from metadata
+                  final debitAccounts = transaction.metadata?['debitPaymentAccounts'] as List?;
+                  if (debitAccounts != null) {
+                    paymentAccounts = debitAccounts
+                        .map((acc) {
+                          final accMap = acc as Map<String, dynamic>?;
+                          var name = accMap?['name']?.toString().trim() ?? '';
+                          final amount = (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
+                          if (name.isNotEmpty && amount > 0) {
+                            // If name looks like an ID (exists in paymentAccountNames map), resolve it
+                            if (paymentAccountNames.containsKey(name)) {
+                              name = paymentAccountNames[name]!;
+                            } else {
+                              // Try to resolve using getPaymentAccountDisplayName
+                              name = getPaymentAccountDisplayName(name);
+                            }
+                            return {'name': name, 'amount': amount};
+                          }
+                          return null;
+                        })
+                        .whereType<Map<String, dynamic>>()
+                        .toList();
+                  }
+                } else {
+                  // For single transactions, use amount if debit type
+                  debitAmount = !isCredit ? transaction.amount : 0.0;
+                  // Get payment account name for single transaction
+                  if (debitAmount > 0) {
+                    final accountName = transaction.paymentAccountName?.trim();
+                    final accountId = transaction.paymentAccountId?.trim();
+                    String? name;
+                    if (accountName != null && accountName.isNotEmpty) {
+                      name = accountName;
+                    } else if (accountId != null && accountId.isNotEmpty) {
+                      name = getPaymentAccountDisplayName(accountId);
+                    }
+                    if (name != null && name.isNotEmpty) {
+                      paymentAccounts = [{'name': name, 'amount': debitAmount}];
+                    }
+                  }
+                }
+                
+                // Format amount string: "X+Y" if multiple accounts, otherwise just the total
+                String amountText = debitAmount > 0 ? formatCurrency(debitAmount) : '–';
+                if (debitAmount > 0 && paymentAccounts.length > 1) {
+                  final amounts = paymentAccounts.map((acc) => formatCurrency(acc['amount'] as double)).join('+');
+                  amountText = amounts;
+                }
+                
+                return SizedBox(
+                  width: 80,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        amountText,
+                        style: TextStyle(
+                          color: debitAmount > 0 ? AuthColors.error : AuthColors.textSub,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.end,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (debitAmount > 0 && paymentAccounts.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 4,
+                          runSpacing: 2,
+                          children: paymentAccounts.map((acc) {
+                            final name = acc['name'] as String;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AuthColors.error.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: AuthColors.error.withOpacity(0.3),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Text(
+                                name,
+                                style: TextStyle(
+                                  color: AuthColors.error,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -916,42 +1204,4 @@ class _TransactionTableRow extends StatelessWidget {
     );
   }
 
-  String _title(Transaction tx) {
-    // Extract Vendor Name, Client Name, or Employee Name based on transaction category
-    switch (tx.category) {
-      case TransactionCategory.advance:
-      case TransactionCategory.tripPayment:
-      case TransactionCategory.clientPayment:
-        // Show Client Name
-        return tx.clientName?.trim().isNotEmpty == true
-            ? tx.clientName!
-            : tx.metadata?['clientName']?.toString().trim() ?? 
-              (tx.description?.isNotEmpty == true ? tx.description! : 'Client');
-      
-      case TransactionCategory.vendorPurchase:
-      case TransactionCategory.vendorPayment:
-        // Show Vendor Name
-        return tx.metadata?['vendorName']?.toString().trim() ?? 
-               (tx.description?.isNotEmpty == true ? tx.description! : 'Vendor');
-      
-      case TransactionCategory.salaryDebit:
-        // Show Employee Name
-        return tx.metadata?['employeeName']?.toString().trim() ?? 
-               (tx.description?.isNotEmpty == true ? tx.description! : 'Employee');
-      
-      case TransactionCategory.generalExpense:
-        // Show Sub Category Name if available, otherwise description
-        return tx.metadata?['subCategoryName']?.toString().trim() ?? 
-               (tx.description?.isNotEmpty == true ? tx.description! : 'Expense');
-      
-      default:
-        // Fallback: try to get client name, vendor name, or employee name from metadata
-        return tx.clientName?.trim().isNotEmpty == true
-            ? tx.clientName!
-            : tx.metadata?['clientName']?.toString().trim() ??
-              tx.metadata?['vendorName']?.toString().trim() ??
-              tx.metadata?['employeeName']?.toString().trim() ??
-              (tx.description?.isNotEmpty == true ? tx.description! : 'Transaction');
-    }
-  }
 }

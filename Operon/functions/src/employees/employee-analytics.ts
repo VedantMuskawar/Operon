@@ -34,12 +34,12 @@ export const onEmployeeCreated = functions.firestore
     }
 
     const createdAt = getCreationDate(snapshot);
-    const { fyLabel } = getFinancialContext(createdAt);
+    const monthKey = getYearMonth(createdAt);
     const analyticsRef = db
       .collection(ANALYTICS_COLLECTION)
-      .doc(`${EMPLOYEES_SOURCE_KEY}_${organizationId}_${fyLabel}`);
+      .doc(`${EMPLOYEES_SOURCE_KEY}_${organizationId}_${monthKey}`);
 
-    await seedEmployeeAnalyticsDoc(analyticsRef, fyLabel, organizationId);
+    await seedEmployeeAnalyticsDoc(analyticsRef, monthKey, organizationId);
 
     await analyticsRef.set(
       {
@@ -53,6 +53,7 @@ export const onEmployeeCreated = functions.firestore
 
 /**
  * Core logic to rebuild employee analytics for all organizations.
+ * Now writes to monthly documents instead of yearly.
  * Called by unified analytics scheduler.
  */
 export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<void> {
@@ -70,10 +71,6 @@ export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<voi
   });
 
   const analyticsUpdates = Object.entries(employeesByOrg).map(async ([organizationId, orgEmployees]) => {
-    const analyticsRef = db
-      .collection(ANALYTICS_COLLECTION)
-      .doc(`${EMPLOYEES_SOURCE_KEY}_${organizationId}_${fyLabel}`);
-
     const totalActiveEmployees = orgEmployees.length;
 
     const wageCreditsSnapshot = await db
@@ -84,6 +81,7 @@ export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<voi
       .where('category', '==', 'wageCredit')
       .get();
 
+    // Group wages by month
     const wagesByMonth: Record<string, number> = {};
     wageCreditsSnapshot.forEach((doc) => {
       const transactionData = doc.data();
@@ -98,15 +96,24 @@ export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<voi
       }
     });
 
-    await seedEmployeeAnalyticsDoc(analyticsRef, fyLabel, organizationId);
-    await analyticsRef.set(
-      {
-        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        'metrics.totalActiveEmployees': totalActiveEmployees,
-        'metrics.wagesCreditMonthly.values': wagesByMonth,
-      },
-      { merge: true },
-    );
+    // Write to each month's document
+    const monthPromises = Object.entries(wagesByMonth).map(async ([monthKey, wagesAmount]) => {
+      const analyticsRef = db
+        .collection(ANALYTICS_COLLECTION)
+        .doc(`${EMPLOYEES_SOURCE_KEY}_${organizationId}_${monthKey}`);
+      
+      await seedEmployeeAnalyticsDoc(analyticsRef, monthKey, organizationId);
+      await analyticsRef.set(
+        {
+          generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          'metrics.totalActiveEmployees': totalActiveEmployees,
+          'metrics.wagesCreditMonthly': wagesAmount,
+        },
+        { merge: true },
+      );
+    });
+
+    await Promise.all(monthPromises);
   });
 
   await Promise.all(analyticsUpdates);

@@ -15,7 +15,6 @@ import 'package:dash_mobile/presentation/views/cash_ledger/cash_ledger_section.d
 import 'package:dash_mobile/shared/utils/responsive_layout.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/presentation/widgets/caller_id_switch_section.dart';
-import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -47,6 +46,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+
   static const _sections = [
     HomeOverviewView(),
     PendingOrdersView(),
@@ -132,8 +132,8 @@ class _HomePageState extends State<HomePage> {
               backgroundColor: AuthColors.background,
               appBar: _HomeAppBar(
                 title: _sectionTitles[homeState.currentIndex],
+                onProfileTap: () => context.go('/profile'),
               ),
-              drawer: const _HomeProfileDrawer(),
               endDrawer: const _HomeSettingsDrawer(),
               body: ResponsiveWrapper(
                 mobile: (context) => _buildHomeBody(context, homeState),
@@ -249,24 +249,6 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
       ],
-    );
-  }
-}
-
-class _AnalyticsPlaceholder extends StatelessWidget {
-  const _AnalyticsPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Analytics coming soon',
-        style: TextStyle(
-          color: AuthColors.textSub,
-          fontSize: 16,
-          fontFamily: 'SF Pro Display',
-        ),
-      ),
     );
   }
 }
@@ -465,9 +447,13 @@ class _SettingsTile extends StatelessWidget {
 
 /// Extracted AppBar widget to prevent unnecessary rebuilds
 class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _HomeAppBar({required this.title});
+  const _HomeAppBar({
+    required this.title,
+    required this.onProfileTap,
+  });
 
   final String title;
+  final VoidCallback onProfileTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -477,14 +463,12 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      leading: Builder(
-        builder: (context) => IconButton(
-          icon: const Icon(
-            Icons.person_outline,
-            color: AuthColors.textMain,
-          ),
-          onPressed: () => Scaffold.of(context).openDrawer(),
+      leading: IconButton(
+        icon: const Icon(
+          Icons.person_outline,
+          color: AuthColors.textMain,
         ),
+        onPressed: onProfileTap,
       ),
       title: title.isNotEmpty
           ? Text(
@@ -513,87 +497,6 @@ class _HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
-/// Extracted profile drawer widget to prevent unnecessary rebuilds
-class _HomeProfileDrawer extends StatelessWidget {
-  const _HomeProfileDrawer();
-
-  @override
-  Widget build(BuildContext context) {
-    final authState = context.read<AuthBloc>().state;
-    final orgState = context.read<OrganizationContextCubit>().state;
-    final organization = orgState.organization;
-    final role = orgState.appAccessRole;
-    final fallbackAdmin = (organization?.role.toUpperCase() ?? '') == 'ADMIN';
-    final isAdminRole = role?.isAdmin ?? fallbackAdmin;
-    final canManageUsers = role?.canCreate('users') ?? isAdminRole;
-
-    return Drawer(
-      backgroundColor: AuthColors.surface,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/branding/operon_app_icon.png',
-                  width: 40,
-                  height: 40,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: AppSpacing.paddingMD),
-                Text(
-                  'Operon',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AuthColors.textMain,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ProfileView(
-              user: authState.userProfile,
-              organization: organization,
-              fetchUserName: (authState.userProfile?.id != null && organization?.id != null)
-                  ? () async {
-                      try {
-                        final orgUser = await context.read<UsersRepository>().fetchCurrentUser(
-                          orgId: organization!.id,
-                          userId: authState.userProfile!.id,
-                          phoneNumber: authState.userProfile!.phoneNumber,
-                        );
-                        return orgUser?.name;
-                      } catch (_) {
-                        return null;
-                      }
-                    }
-                  : null,
-              onChangeOrg: () {
-                Scaffold.of(context).closeDrawer();
-                Future.microtask(() => context.go('/org-selection'));
-              },
-              onLogout: () {
-                Scaffold.of(context).closeDrawer();
-                context.read<AuthBloc>().add(const AuthReset());
-                Future.microtask(() => context.go('/login'));
-              },
-              onOpenUsers: canManageUsers
-                  ? () {
-                      Scaffold.of(context).closeDrawer();
-                      Future.microtask(() => context.go('/users'));
-                    }
-                  : null,
-              trailingSection: const CallerIdSwitchSection(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Extracted settings drawer widget to prevent unnecessary rebuilds
 class _HomeSettingsDrawer extends StatelessWidget {

@@ -215,6 +215,7 @@ class _NavBarContentState extends State<_NavBarContent> {
 
     // Navigation items - each item has its own background when selected
     return Row(
+      mainAxisSize: MainAxisSize.max,
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: List.generate(itemCount, (index) {
         final originalIndex = _getOriginalIndex(index);

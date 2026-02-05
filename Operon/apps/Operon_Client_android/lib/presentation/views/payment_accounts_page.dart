@@ -120,9 +120,9 @@ class PaymentAccountsPage extends StatelessWidget {
                   heroTag: 'nav_map',
                 ),
                 NavBarItem(
-                  icon: Icons.dashboard_rounded,
-                  label: 'Analytics',
-                  heroTag: 'nav_analytics',
+                  icon: Icons.event_available_rounded,
+                  label: 'Cash Ledger',
+                  heroTag: 'nav_cash_ledger',
                 ),
               ],
               currentIndex: -1,

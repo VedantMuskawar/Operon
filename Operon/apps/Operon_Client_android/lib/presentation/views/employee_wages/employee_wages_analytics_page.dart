@@ -55,55 +55,57 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
             ? monthlyTotals.values.reduce((a, b) => a + b) / monthlyTotals.length
             : 0.0;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _WagesStatsHeader(
-              totalAmount: totalAmount,
-              salaryCount: salaryCount,
-              bonusCount: bonusCount,
-              avgAmount: avgAmount,
-              avgMonthly: avgMonthly,
-            ),
-            const SizedBox(height: AppSpacing.paddingXXL),
-            Row(
-              children: [
-                Expanded(
-                  child: _InfoTile(
-                    title: 'Average Amount',
-                    value: '₹${avgAmount.toStringAsFixed(0)}',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.paddingXXL),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
-              decoration: BoxDecoration(
-                color: AuthColors.surface,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _WagesStatsHeader(
+                totalAmount: totalAmount,
+                salaryCount: salaryCount,
+                bonusCount: bonusCount,
+                avgAmount: avgAmount,
+                avgMonthly: avgMonthly,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              const SizedBox(height: AppSpacing.paddingXXL),
+              Row(
                 children: [
-                  Icon(Icons.bar_chart_outlined, size: 48, color: AuthColors.textSub.withValues(alpha: 0.5)),
-                  const SizedBox(height: AppSpacing.paddingLG),
-                  const Text(
-                    'Charts coming soon',
-                    style: TextStyle(color: AuthColors.textSub, fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: AppSpacing.paddingSM),
-                  const Text(
-                    'Wages analytics charts will be available here.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AuthColors.textSub, fontSize: 14),
+                  Expanded(
+                    child: _InfoTile(
+                      title: 'Average Amount',
+                      value: '₹${avgAmount.toStringAsFixed(0)}',
+                    ),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: AppSpacing.paddingXXL),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.paddingXXXL * 1.25),
+                decoration: BoxDecoration(
+                  color: AuthColors.surface,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                  border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.bar_chart_outlined, size: 48, color: AuthColors.textSub.withValues(alpha: 0.5)),
+                    const SizedBox(height: AppSpacing.paddingLG),
+                    const Text(
+                      'Charts coming soon',
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: AppSpacing.paddingSM),
+                    const Text(
+                      'Wages analytics charts will be available here.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
           ],
+          ),
         );
       },
     );

@@ -28,6 +28,28 @@ class DmPrintDialog extends StatefulWidget {
 
   @override
   State<DmPrintDialog> createState() => _DmPrintDialogState();
+
+  /// Show the print dialog as a bottom sheet
+  static Future<void> show({
+    required BuildContext context,
+    required DmPrintService dmPrintService,
+    required String organizationId,
+    required Map<String, dynamic> dmData,
+    required int dmNumber,
+  }) async {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.7),
+      builder: (context) => DmPrintDialog(
+        dmPrintService: dmPrintService,
+        organizationId: organizationId,
+        dmData: dmData,
+        dmNumber: dmNumber,
+      ),
+    );
+  }
 }
 
 class _DmPrintDialogState extends State<DmPrintDialog> {
@@ -107,126 +129,192 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
   }
 
   Future<void> _onPrint() async {
-    if (_payload == null) return;
     setState(() => _isGeneratingPdf = true);
     try {
-      final pdfBytes = await widget.dmPrintService.generatePdfBytes(
+      // Use unified HTML-based print method (PrintDMPage system)
+      await widget.dmPrintService.printDeliveryMemo(
+        dmNumber: widget.dmNumber,
         organizationId: widget.organizationId,
-        dmData: widget.dmData,
-        viewPayload: _payload,
+        dmData: widget.dmData, // Already fetched
       );
-      if (!mounted) return;
-      setState(() => _isGeneratingPdf = false);
-      Navigator.of(context).pop();
-      await OperonPdfPreviewModal.show(
-        context: context,
-        pdfBytes: pdfBytes,
-        title: 'DM-${widget.dmNumber}',
-        pdfFileName: 'DM-${widget.dmNumber}.pdf',
-      );
+      if (mounted) {
+        Navigator.of(context).pop();
+        DashSnackbar.show(context, message: 'Print preview opened');
+      }
     } catch (e) {
       if (mounted) {
-        setState(() => _isGeneratingPdf = false);
         DashSnackbar.show(
           context,
-          message: 'Failed to generate PDF: $e',
+          message: 'Failed to print: $e',
           isError: true,
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGeneratingPdf = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: AuthColors.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.paddingXXL),
+    final screenHeight = MediaQuery.of(context).size.height;
+    final bottomSheetHeight = screenHeight * 0.92;
+
+    return Container(
+      height: bottomSheetHeight,
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            if (_isLoadingView) ...[
-              const CircularProgressIndicator(color: AuthColors.info),
-              const SizedBox(height: AppSpacing.paddingXL),
-              Text(
-                'Loading DM-${widget.dmNumber}...',
-                style: const TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 14,
-                ),
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AuthColors.textMainWithOpacity(0.2),
+                borderRadius: BorderRadius.circular(2),
               ),
-            ] else if (_hasError) ...[
-              const Icon(Icons.error_outline, color: AuthColors.error, size: 48),
-              const SizedBox(height: AppSpacing.paddingLG),
-              Text(
-                _errorMessage ?? 'Failed to load',
-                style: const TextStyle(
-                  color: AuthColors.textSub,
-                  fontSize: 13,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.paddingXL),
-              DashButton(
-                label: 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-                variant: DashButtonVariant.outlined,
-              ),
-            ] else if (_payload != null) ...[
-              Text(
-                'DM-${widget.dmNumber}',
-                style: const TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.paddingMD),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width * 0.85,
-                      maxHeight: MediaQuery.sizeOf(context).height * 0.5,
-                    ),
-                    child: AspectRatio(
-                      aspectRatio: 210 / 297,
-                      child: RepaintBoundary(
-                        key: _repaintKey,
-                        child: DeliveryMemoDocument(
-                          dmData: widget.dmData,
-                          payload: _payload!,
+            ),
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
+                child: Column(
+                  children: [
+                    if (_isLoadingView) ...[
+                      const Spacer(),
+                      const CircularProgressIndicator(color: AuthColors.info),
+                      const SizedBox(height: AppSpacing.paddingXL),
+                      Text(
+                        'Loading DM-${widget.dmNumber}...',
+                        style: const TextStyle(
+                          color: AuthColors.textMain,
+                          fontSize: 16,
                         ),
                       ),
-                    ),
-                  ),
+                      const Spacer(),
+                    ] else if (_hasError) ...[
+                      const Spacer(),
+                      const Icon(Icons.error_outline, color: AuthColors.error, size: 64),
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
+                        child: Text(
+                          _errorMessage ?? 'Failed to load',
+                          style: const TextStyle(
+                            color: AuthColors.textSub,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.paddingXL),
+                      SizedBox(
+                        width: double.infinity,
+                        child: DashButton(
+                          label: 'Close',
+                          onPressed: () => Navigator.of(context).pop(),
+                          variant: DashButtonVariant.outlined,
+                        ),
+                      ),
+                      const Spacer(),
+                    ] else if (_payload != null) ...[
+                      // Title
+                      Text(
+                        'DM-${widget.dmNumber}',
+                        style: const TextStyle(
+                          color: AuthColors.textMain,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      // Preview with expanded sizing
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: MediaQuery.sizeOf(context).width * 0.9,
+                              ),
+                              child: AspectRatio(
+                                aspectRatio: 210 / 297,
+                                child: RepaintBoundary(
+                                  key: _repaintKey,
+                                  child: DeliveryMemoDocument(
+                                    dmData: widget.dmData,
+                                    payload: _payload!,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Loading indicator
+                      if (_isGeneratingPdf) ...[
+                        const SizedBox(height: AppSpacing.paddingLG),
+                        const CircularProgressIndicator(color: AuthColors.info),
+                        const SizedBox(height: AppSpacing.paddingMD),
+                        const Text(
+                          'Preparing Document...',
+                          style: TextStyle(
+                            color: AuthColors.textSub,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.paddingLG),
+                      ] else ...[
+                        const SizedBox(height: AppSpacing.paddingMD),
+                        const CircularProgressIndicator(color: AuthColors.info),
+                        const SizedBox(height: AppSpacing.paddingMD),
+                        const Text(
+                          'Preparing Document...',
+                          style: TextStyle(
+                            color: AuthColors.textSub,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      // Vertical button layout
+                      Column(
+                        children: [
+                          DashButton(
+                            label: 'Share',
+                            icon: Icons.share_outlined,
+                            onPressed: _isGeneratingPdf ? null : _shareAsPng,
+                            variant: DashButtonVariant.outlined,
+                          ),
+                          const SizedBox(height: AppSpacing.paddingMD),
+                          DashButton(
+                            label: 'Print',
+                            icon: Icons.print_outlined,
+                            onPressed: _isGeneratingPdf ? null : _onPrint,
+                            isLoading: _isGeneratingPdf,
+                          ),
+                          const SizedBox(height: AppSpacing.paddingMD),
+                          DashButton(
+                            label: 'Close',
+                            icon: Icons.close,
+                            onPressed: () => Navigator.of(context).pop(),
+                            variant: DashButtonVariant.outlined,
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 
+                        ? MediaQuery.of(context).viewInsets.bottom 
+                        : AppSpacing.paddingLG),
+                    ],
+                  ],
                 ),
               ),
-              if (_isGeneratingPdf)
-                const LinearProgressIndicator(color: AuthColors.info),
-              const SizedBox(height: AppSpacing.paddingLG),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  DashButton(
-                    label: 'Share',
-                    onPressed: _isGeneratingPdf ? null : _shareAsPng,
-                    variant: DashButtonVariant.outlined,
-                  ),
-                  const SizedBox(width: AppSpacing.paddingMD),
-                  DashButton(
-                    label: 'Print',
-                    onPressed: _isGeneratingPdf ? null : _onPrint,
-                  ),
-                  const SizedBox(width: AppSpacing.paddingMD),
-                  DashButton(
-                    label: 'Close',
-                    onPressed: () => Navigator.of(context).pop(),
-                    variant: DashButtonVariant.outlined,
-                  ),
-                ],
-              ),
-            ],
+            ),
           ],
         ),
       ),

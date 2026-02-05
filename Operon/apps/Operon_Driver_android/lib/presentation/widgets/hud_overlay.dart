@@ -1,6 +1,7 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:operon_auth_flow/operon_auth_flow.dart';
 
 /// Heads-Up Display overlay for Driver Map.
 /// 
@@ -59,7 +60,7 @@ class HudOverlay extends StatelessWidget {
     final labelStyle = TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.w500,
-      color: Colors.grey[400],
+      color: AuthColors.textSub,
       letterSpacing: 0.3,
     );
 
@@ -72,12 +73,12 @@ class HudOverlay extends StatelessWidget {
             color: LogisticsColors.hudBlack,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: Colors.white.withOpacity(0.1),
+              color: AuthColors.textMainWithOpacity(0.1),
               width: 0.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: AuthColors.background.withOpacity(0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -96,7 +97,7 @@ class HudOverlay extends StatelessWidget {
               Container(
                 width: 1,
                 height: 32,
-                color: Colors.white.withOpacity(0.1),
+                color: AuthColors.textMainWithOpacity(0.1),
               ),
               _HudStatItem(
                 label: 'ETA',
@@ -108,7 +109,7 @@ class HudOverlay extends StatelessWidget {
               Container(
                 width: 1,
                 height: 32,
-                color: Colors.white.withOpacity(0.1),
+                color: AuthColors.textMainWithOpacity(0.1),
               ),
               _HudStatItem(
                 label: 'DISTANCE',

@@ -1,5 +1,6 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:operon_auth_flow/operon_auth_flow.dart';
 import 'package:operon_driver_android/core/services/dm_print_helper.dart';
 
 /// Bottom sheet for printing or sharing DM PDF in the Driver app.
@@ -12,7 +13,7 @@ void showDriverDmPrintSheet({
 }) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: const Color(0xFF1B1B2C),
+    backgroundColor: AuthColors.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -25,12 +26,12 @@ void showDriverDmPrintSheet({
           children: [
             Row(
               children: [
-                const Icon(Icons.receipt_long, color: Colors.blue, size: 24),
+                const Icon(Icons.receipt_long, color: AuthColors.info, size: 24),
                 const SizedBox(width: 12),
                 Text(
                   'DM-$dmNumber',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -41,7 +42,7 @@ void showDriverDmPrintSheet({
             Text(
               dmData['clientName'] as String? ?? 'N/A',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
+                color: AuthColors.textMainWithOpacity(0.8),
                 fontSize: 14,
               ),
             ),
@@ -165,7 +166,7 @@ class _DriverDmPrintActionsState extends State<_DriverDmPrintActions> {
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
               _error!,
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: const TextStyle(color: AuthColors.error, fontSize: 12),
             ),
           ),
         Row(
@@ -182,7 +183,7 @@ class _DriverDmPrintActionsState extends State<_DriverDmPrintActions> {
                     : const Icon(Icons.print_outlined, size: 20),
                 label: Text(_isPrinting ? 'Printing…' : 'Print'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: AuthColors.info,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
@@ -200,7 +201,7 @@ class _DriverDmPrintActionsState extends State<_DriverDmPrintActions> {
                     : const Icon(Icons.share_outlined, size: 20),
                 label: Text(_isSharing ? 'Sharing…' : 'Share PDF'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: AuthColors.success,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),

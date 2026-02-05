@@ -239,6 +239,7 @@ class _PaymentEntryRow extends StatelessWidget {
         Expanded(
           flex: 3,
           child: DropdownButtonFormField<PaymentAccount>(
+            isExpanded: true,
             initialValue: entry.account,
             dropdownColor: AuthColors.surface,
             decoration: InputDecoration(

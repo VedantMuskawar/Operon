@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_models/core_models.dart';
@@ -7,7 +8,10 @@ import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/services/qr_code_service.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_html_to_pdf_plus/flutter_html_to_pdf_plus.dart'
+    show FlutterHtmlToPdf, PrintPdfConfiguration, PrintOrientation, PrintSize, PdfPageMargin;
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 
 /// Payload for DM view (no PDF). Same data source as PDF generation.
@@ -347,6 +351,1163 @@ class DmPrintService {
     );
 
     return pdfBytes;
+  }
+
+  /// Escape HTML entities
+  String _escapeHtml(String text) {
+    return text
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+  }
+
+  /// Format currency (INR format with commas)
+  String _formatCurrency(double amount) {
+    final formatted = amount.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+    return '₹$formatted';
+  }
+
+  /// Format number (with commas)
+  String _formatNumber(double number) {
+    return number.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
+
+  /// Convert number to words (for amount in words)
+  String _numberToWords(double amount) {
+    if (amount < 1) {
+      return 'Zero Rupees';
+    }
+    
+    final rupees = amount.floor();
+    final paise = ((amount - rupees) * 100).round();
+    
+    final rupeesText = _convertNumberToWords(rupees.toInt());
+    final paiseText = paise > 0 ? _convertNumberToWords(paise) : '';
+    
+    if (paise > 0) {
+      return '$rupeesText Rupees and $paiseText Paise Only';
+    } else {
+      return '$rupeesText Rupees Only';
+    }
+  }
+
+  /// Convert number to words (helper)
+  String _convertNumberToWords(int number) {
+    if (number == 0) return 'Zero';
+    if (number < 0) return 'Negative ${_convertNumberToWords(-number)}';
+    
+    final ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    final teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    final tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    
+    if (number < 10) return ones[number];
+    if (number < 20) return teens[number - 10];
+    if (number < 100) {
+      return tens[number ~/ 10] + (number % 10 != 0 ? ' ${ones[number % 10]}' : '');
+    }
+    if (number < 1000) {
+      return ones[number ~/ 100] + ' Hundred' + (number % 100 != 0 ? ' ${_convertNumberToWords(number % 100)}' : '');
+    }
+    if (number < 100000) {
+      return _convertNumberToWords(number ~/ 1000) + ' Thousand' + (number % 1000 != 0 ? ' ${_convertNumberToWords(number % 1000)}' : '');
+    }
+    if (number < 10000000) {
+      return _convertNumberToWords(number ~/ 100000) + ' Lakh' + (number % 100000 != 0 ? ' ${_convertNumberToWords(number % 100000)}' : '');
+    }
+    
+    final crore = number ~/ 10000000;
+    final remainder = number % 10000000;
+    return remainder > 0
+        ? '${_convertNumberToWords(crore)} Crore ${_convertNumberToWords(remainder)}'
+        : '${_convertNumberToWords(crore)} Crore';
+  }
+
+  /// Build table rows HTML
+  String _buildTableRows(List<dynamic> items) {
+    final buffer = StringBuffer();
+    double totalAmount = 0.0;
+    
+    for (int i = 0; i < items.length; i++) {
+      final item = items[i] as Map<String, dynamic>;
+      final productName = item['productName'] as String? ?? 'N/A';
+      final quantity = (item['fixedQuantityPerTrip'] as num?)?.toDouble() ??
+          (item['quantity'] as num?)?.toDouble() ?? 0.0;
+      final unitPrice = (item['unitPrice'] as num?)?.toDouble() ?? 0.0;
+      final amount = (item['subtotal'] as num?)?.toDouble() ??
+          (item['amount'] as num?)?.toDouble() ??
+          (quantity * unitPrice);
+      
+      totalAmount += amount;
+      
+      buffer.writeln('      <tr>');
+      buffer.writeln('        <td>${i + 1}</td>');
+      buffer.writeln('        <td>${_escapeHtml(productName)}</td>');
+      buffer.writeln('        <td>${_formatNumber(quantity)}</td>');
+      buffer.writeln('        <td>${_formatCurrency(unitPrice)}</td>');
+      buffer.writeln('        <td>${_formatCurrency(amount)}</td>');
+      buffer.writeln('      </tr>');
+    }
+    
+    // Total row
+    buffer.writeln('      <tr>');
+    buffer.writeln('        <td></td>');
+    buffer.writeln('        <td></td>');
+    buffer.writeln('        <td></td>');
+    buffer.writeln('        <td style="text-align: right; font-weight: bold;">Total</td>');
+    buffer.writeln('        <td style="text-align: right; font-weight: bold;">${_formatCurrency(totalAmount)}</td>');
+    buffer.writeln('      </tr>');
+    
+    return buffer.toString();
+  }
+
+  /// Build payment section HTML
+  String _buildPaymentSection(
+    DmSettings dmSettings,
+    Map<String, dynamic>? paymentAccount,
+    String? qrDataUri,
+  ) {
+    if (dmSettings.paymentDisplay == DmPaymentDisplay.qrCode && qrDataUri != null) {
+      return '''
+  <div class="payment-section">
+    <img src="$qrDataUri" alt="QR Code" class="qr-code">
+    <div>Scan QR Code to Pay</div>
+  </div>
+''';
+    } else if (dmSettings.paymentDisplay == DmPaymentDisplay.bankDetails && paymentAccount != null) {
+      final buffer = StringBuffer();
+      buffer.writeln('  <div class="payment-section">');
+      buffer.writeln('    <div style="text-align: left;">');
+      buffer.writeln('      <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">Bank Details:</div>');
+      if (paymentAccount['name'] != null && paymentAccount['name'].toString().isNotEmpty) {
+        buffer.writeln('      <div>Bank Name: ${_escapeHtml(paymentAccount['name'].toString())}</div>');
+      }
+      if (paymentAccount['accountNumber'] != null && paymentAccount['accountNumber'].toString().isNotEmpty) {
+        buffer.writeln('      <div>Account Number: ${_escapeHtml(paymentAccount['accountNumber'].toString())}</div>');
+      }
+      if (paymentAccount['ifscCode'] != null && paymentAccount['ifscCode'].toString().isNotEmpty) {
+        buffer.writeln('      <div>IFSC Code: ${_escapeHtml(paymentAccount['ifscCode'].toString())}</div>');
+      }
+      if (paymentAccount['upiId'] != null && paymentAccount['upiId'].toString().isNotEmpty) {
+        buffer.writeln('      <div>UPI ID: ${_escapeHtml(paymentAccount['upiId'].toString())}</div>');
+      }
+      buffer.writeln('    </div>');
+      buffer.writeln('  </div>');
+      return buffer.toString();
+    }
+    return '';
+  }
+
+  /// Generate HTML string for DM (same as Web - unified PrintDMPage system)
+  /// Respects custom template preference (lakshmee_v1) if set
+  String generateDmHtmlForPrint({
+    required Map<String, dynamic> dmData,
+    required DmSettings dmSettings,
+    Map<String, dynamic>? paymentAccount,
+    Uint8List? logoBytes,
+    Uint8List? qrCodeBytes,
+  }) {
+    // Check if custom template (lakshmee) is preferred
+    if (dmSettings.templateType == DmTemplateType.custom &&
+        dmSettings.customTemplateId == 'lakshmee_v1') {
+      return _generateLakshmeeHtml(
+        dmData: dmData,
+        dmSettings: dmSettings,
+        paymentAccount: paymentAccount,
+        logoBytes: logoBytes,
+        qrCodeBytes: qrCodeBytes,
+      );
+    }
+    
+    // Use universal template for all other cases
+    return _generateDmHtml(
+      dmData: dmData,
+      dmSettings: dmSettings,
+      paymentAccount: paymentAccount,
+      logoBytes: logoBytes,
+      qrCodeBytes: qrCodeBytes,
+    );
+  }
+
+  /// Generate HTML string for DM (universal template)
+  String _generateDmHtml({
+    required Map<String, dynamic> dmData,
+    required DmSettings dmSettings,
+    Map<String, dynamic>? paymentAccount,
+    Uint8List? logoBytes,
+    Uint8List? qrCodeBytes,
+  }) {
+    // Extract data from dmData
+    final dmNumber = dmData['dmNumber'] as int? ?? 0;
+    final clientName = dmData['clientName'] as String? ?? 'N/A';
+    final clientPhoneRaw = dmData['clientPhone'] as String?;
+    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty) 
+        ? clientPhoneRaw.trim() 
+        : 'N/A';
+    final deliveryZone = dmData['deliveryZone'] as Map<String, dynamic>?;
+    String clientAddress = 'N/A';
+    if (deliveryZone != null) {
+      final city = deliveryZone['city_name'] ?? deliveryZone['city'] ?? '';
+      final region = deliveryZone['region'] ?? '';
+      final area = deliveryZone['area'] ?? '';
+      
+      final addressParts = <String>[];
+      if (area.isNotEmpty) addressParts.add(area);
+      if (city.isNotEmpty) addressParts.add(city);
+      if (region.isNotEmpty) addressParts.add(region);
+      
+      clientAddress = addressParts.isNotEmpty ? addressParts.join(', ') : 'N/A';
+    } else {
+      clientAddress = dmData['clientAddress'] as String? ?? 'N/A';
+    }
+    
+    // Extract date
+    final scheduledDate = dmData['scheduledDate'];
+    DateTime? date;
+    if (scheduledDate != null) {
+      if (scheduledDate is Map && scheduledDate.containsKey('_seconds')) {
+        date = DateTime.fromMillisecondsSinceEpoch(
+          (scheduledDate['_seconds'] as int) * 1000,
+        );
+      } else if (scheduledDate is DateTime) {
+        date = scheduledDate;
+      }
+    }
+    final dateText = date != null
+        ? '${date.day}/${date.month}/${date.year}'
+        : 'N/A';
+    
+    // Extract driver info
+    final driverName = dmData['driverName'] as String? ?? 'N/A';
+    final driverPhone = dmData['driverPhone'] as String? ?? 'N/A';
+    
+    // Extract items
+    final items = (dmData['items'] as List<dynamic>?) ?? [];
+    
+    // Extract pricing
+    final tripPricing = dmData['tripPricing'] as Map<String, dynamic>? ?? {};
+    final total = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    
+    // Convert images to base64
+    String? logoDataUri;
+    if (logoBytes != null && logoBytes.isNotEmpty) {
+      logoDataUri = 'data:image/png;base64,${base64Encode(logoBytes)}';
+    }
+    
+    String? qrDataUri;
+    if (qrCodeBytes != null && qrCodeBytes.isNotEmpty &&
+        dmSettings.paymentDisplay == DmPaymentDisplay.qrCode) {
+      qrDataUri = 'data:image/png;base64,${base64Encode(qrCodeBytes)}';
+    }
+    
+    // Build HTML (simplified version without print header for Android PDF)
+    final html = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      font-family: 'Arial', 'Helvetica', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 0;
+      padding: 0;
+      background: white;
+      color: black;
+    }
+    .dm-container {
+      border: 2px solid #000;
+      padding: 20px;
+      margin: 0;
+      min-height: calc(100vh - 0.8in);
+      box-sizing: border-box;
+      background: white;
+    }
+    .header {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 15px;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-right: 20px;
+      object-fit: contain;
+      filter: grayscale(100%);
+    }
+    .company-info {
+      flex: 1;
+    }
+    .company-info > div {
+      margin-bottom: 4px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .company-name {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #000;
+      letter-spacing: 0.5px;
+    }
+    .title {
+      text-align: center;
+      font-size: 26px;
+      font-weight: bold;
+      margin: 25px 0;
+      border-top: 2px solid #000;
+      border-bottom: 2px solid #000;
+      padding: 12px 0;
+      color: #000;
+      letter-spacing: 1px;
+    }
+    .recipient-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      padding: 16px;
+      border: 1px solid #000;
+      background: white;
+    }
+    .recipient-info {
+      flex: 1;
+    }
+    .recipient-info > div {
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+    .recipient-info > div:last-child {
+      margin-bottom: 0;
+    }
+    .address-section {
+      margin-bottom: 12px;
+      padding: 16px;
+      border: 1px solid #000;
+      background: white;
+      line-height: 1.6;
+    }
+    .items-qr-container {
+      display: flex;
+      gap: 20px;
+      margin: 20px 0;
+      align-items: flex-start;
+    }
+    .items-container {
+      flex: 1;
+      border: 1px solid #000;
+      overflow: hidden;
+    }
+    .driver-section {
+      margin-bottom: 20px;
+      padding: 14px 16px;
+      border: 1px solid #000;
+      background: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      line-height: 1.6;
+    }
+    .driver-info-left,
+    .driver-info-right {
+      flex: 1;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
+      background: white;
+    }
+    table th, table td {
+      border: 1px solid #000;
+      padding: 10px 8px;
+      text-align: left;
+      background: white;
+      line-height: 1.5;
+    }
+    table th {
+      background: white !important;
+      font-weight: bold;
+      border-bottom: 2px solid #000;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    table td {
+      font-size: 13px;
+    }
+    table td:last-child,
+    table th:last-child {
+      text-align: right;
+    }
+    table td:nth-last-child(2),
+    table th:nth-last-child(2) {
+      text-align: right;
+    }
+    table tbody tr {
+      background: white;
+    }
+    table tbody tr:nth-child(even) {
+      background: white;
+    }
+    .payment-section {
+      text-align: center;
+      padding: 20px 15px;
+      border: 1px solid #000;
+      background: white;
+      flex-shrink: 0;
+      min-width: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .qr-code {
+      width: 160px;
+      height: 160px;
+      margin: 0 auto 12px;
+      display: block;
+      filter: grayscale(100%) contrast(120%);
+    }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-top: 30px;
+      padding: 20px;
+      border: 1px solid #000;
+      background: white;
+      min-height: 100px;
+    }
+    .footer-left {
+      flex: 1;
+      line-height: 1.6;
+    }
+    .footer-left > div {
+      margin-bottom: 8px;
+    }
+    .footer-signature {
+      text-align: right;
+      padding-top: 60px;
+      min-width: 120px;
+    }
+  </style>
+</head>
+<body>
+  <div class="dm-container">
+    <div class="header">
+      ${logoDataUri != null ? '<img src="$logoDataUri" alt="Logo" class="logo">' : ''}
+      <div class="company-info">
+        <div class="company-name">${_escapeHtml(dmSettings.header.name)}</div>
+        ${dmSettings.header.address.isNotEmpty ? '<div>${_escapeHtml(dmSettings.header.address)}</div>' : ''}
+        ${dmSettings.header.phone.isNotEmpty ? '<div>Phone: ${_escapeHtml(dmSettings.header.phone)}</div>' : ''}
+        ${dmSettings.header.gstNo != null && dmSettings.header.gstNo!.isNotEmpty ? '<div>GST No: ${_escapeHtml(dmSettings.header.gstNo!)}</div>' : ''}
+      </div>
+    </div>
+    
+    <div class="title">DELIVERY MEMO</div>
+    
+    <div class="recipient-section">
+      <div class="recipient-info">
+        <div><strong>DM No.:</strong> $dmNumber</div>
+        <div><strong>M/s</strong> ${_escapeHtml(clientName)}</div>
+        <div><strong>Mobile:</strong> ${_escapeHtml(clientPhone)}</div>
+      </div>
+      <div><strong>Date:</strong> $dateText</div>
+    </div>
+    
+    <div class="address-section">
+      <strong>Address:</strong> ${_escapeHtml(clientAddress)}
+    </div>
+    
+    <div class="driver-section">
+      <div class="driver-info-left"><strong>Driver Name:</strong> ${_escapeHtml(driverName)}</div>
+      <div class="driver-info-right"><strong>Driver Phone:</strong> ${_escapeHtml(driverPhone)}</div>
+    </div>
+    
+    <div class="items-qr-container">
+      <div class="items-container">
+        <table>
+          <thead>
+            <tr>
+              <th>S.N.</th>
+              <th>Description of Goods</th>
+              <th>Quantity</th>
+              <th>Rate</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${_buildTableRows(items)}
+          </tbody>
+        </table>
+      </div>
+      
+      ${_buildPaymentSection(dmSettings, paymentAccount, qrDataUri)}
+    </div>
+    
+    <div class="footer">
+      <div class="footer-left">
+        <div><strong>Amount in words:</strong> ${_numberToWords(total)}</div>
+        ${dmSettings.footer.customText != null && dmSettings.footer.customText!.isNotEmpty ? '''
+        <div style="margin-top: 12px;">
+          <div style="font-weight: bold; margin-bottom: 4px;">Terms & Conditions:</div>
+          <div style="font-size: 12px;">${_escapeHtml(dmSettings.footer.customText!)}</div>
+        </div>
+        ''' : ''}
+      </div>
+      <div class="footer-signature">
+        <div style="border-top: 1px solid #000; padding-top: 4px; margin-top: -4px;">Signature</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+''';
+    
+    return html;
+  }
+
+  /// Generate Lakshmee template HTML (matches PaveBoard's PrintDM.jsx design)
+  String _generateLakshmeeHtml({
+    required Map<String, dynamic> dmData,
+    required DmSettings dmSettings,
+    Map<String, dynamic>? paymentAccount,
+    Uint8List? logoBytes,
+    Uint8List? qrCodeBytes,
+  }) {
+    // Extract data from dmData
+    final dmNumber = dmData['dmNumber'] as int? ?? 0;
+    final clientName = dmData['clientName'] as String? ?? 'N/A';
+    final clientPhoneRaw = dmData['clientPhone'] as String?;
+    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty) 
+        ? clientPhoneRaw.trim() 
+        : 'N/A';
+    
+    // Extract address
+    final deliveryZone = dmData['deliveryZone'] as Map<String, dynamic>?;
+    String address = 'N/A';
+    String regionName = 'N/A';
+    if (deliveryZone != null) {
+      final city = deliveryZone['city_name'] ?? deliveryZone['city'] ?? '';
+      final region = deliveryZone['region'] ?? '';
+      final area = deliveryZone['area'] ?? '';
+      
+      final addressParts = <String>[];
+      if (area.isNotEmpty) addressParts.add(area);
+      if (city.isNotEmpty) addressParts.add(city);
+      if (region.isNotEmpty) {
+        addressParts.add(region);
+        regionName = region;
+      }
+      
+      address = addressParts.isNotEmpty ? addressParts.join(', ') : 'N/A';
+    } else {
+      address = dmData['clientAddress'] as String? ?? 'N/A';
+      regionName = dmData['regionName'] as String? ?? 'N/A';
+    }
+    
+    // Extract date
+    final scheduledDate = dmData['scheduledDate'];
+    DateTime? date;
+    if (scheduledDate != null) {
+      if (scheduledDate is Map && scheduledDate.containsKey('_seconds')) {
+        date = DateTime.fromMillisecondsSinceEpoch(
+          (scheduledDate['_seconds'] as int) * 1000,
+        );
+      } else if (scheduledDate is DateTime) {
+        date = scheduledDate;
+      }
+    }
+    final dateText = date != null
+        ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
+        : 'N/A';
+    
+    // Extract driver and vehicle info
+    final driverName = dmData['driverName'] as String? ?? 'N/A';
+    final vehicleNumber = dmData['vehicleNumber'] as String? ?? 'N/A';
+    
+    // Extract product info (for single product DMs)
+    final productName = dmData['productName'] as String? ?? 'N/A';
+    final productQuant = (dmData['productQuant'] as num?)?.toDouble() ?? 0.0;
+    final productUnitPrice = (dmData['productUnitPrice'] as num?)?.toDouble() ?? 0.0;
+    final total = productQuant * productUnitPrice;
+    
+    // Extract payment info - handle both bool and string values from Firestore
+    final paymentStatusValue = dmData['paymentStatus'];
+    final paymentStatus = paymentStatusValue is bool
+        ? paymentStatusValue
+        : (paymentStatusValue is String
+            ? paymentStatusValue.toLowerCase() == 'true' || 
+              paymentStatusValue.toLowerCase() == 'paid'
+            : false);
+    final toAccount = dmData['toAccount'] as String?;
+    final paySchedule = dmData['paySchedule'] as String?;
+    String paymentMode = 'N/A';
+    if (paymentStatus && toAccount != null) {
+      paymentMode = toAccount;
+    } else if (paySchedule == 'POD') {
+      paymentMode = 'Cash';
+    } else if (paySchedule == 'PL') {
+      paymentMode = 'Credit';
+    } else if (paySchedule != null) {
+      paymentMode = paySchedule;
+    }
+    
+    // Convert images to base64
+    String? logoDataUri;
+    if (logoBytes != null && logoBytes.isNotEmpty) {
+      logoDataUri = 'data:image/png;base64,${base64Encode(logoBytes)}';
+    }
+    
+    String? qrDataUri;
+    String? qrLabel;
+    if (qrCodeBytes != null && qrCodeBytes.isNotEmpty &&
+        dmSettings.paymentDisplay == DmPaymentDisplay.qrCode) {
+      qrDataUri = 'data:image/png;base64,${base64Encode(qrCodeBytes)}';
+      final paymentLabel = paymentAccount?['label'] as String?;
+      if (paymentLabel != null && paymentLabel.isNotEmpty) {
+        qrLabel = paymentLabel;
+      } else if (dmSettings.header.name.isNotEmpty) {
+        qrLabel = dmSettings.header.name;
+      } else {
+        qrLabel = 'Lakshmee Intelligent Technologies';
+      }
+    }
+    
+    // Company info from DM settings
+    final companyName = dmSettings.header.name.isNotEmpty
+        ? dmSettings.header.name.toUpperCase()
+        : 'LAKSHMEE INTELLIGENT TECHNOLOGIES';
+    final companyAddress = dmSettings.header.address.isNotEmpty
+        ? dmSettings.header.address
+        : 'B-24/2, M.I.D.C., CHANDRAPUR - 442406';
+    final companyPhone = dmSettings.header.phone.isNotEmpty
+        ? dmSettings.header.phone
+        : 'Ph: +91 8149448822 | +91 9420448822';
+    final jurisdictionNote = dmSettings.footer.customText?.isNotEmpty == true
+        ? dmSettings.footer.customText!
+        : 'Note: Subject to Chandrapur Jurisdiction';
+    
+    // Build Lakshmee HTML (simplified for Android PDF - no print header)
+    final html = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      font-family: 'Inter', 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: white;
+      color: black;
+    }
+    .print-preview-container {
+      width: 210mm;
+      height: 297mm;
+      background-color: white;
+      color: black;
+      font-family: 'Inter', sans-serif;
+      print-color-adjust: exact;
+      overflow: hidden;
+      margin: auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 5mm;
+    }
+    .page-shadow {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 190mm;
+      margin: auto;
+      gap: 1mm;
+      height: 277mm;
+      padding: 0mm;
+    }
+    .page {
+      width: 200mm;
+      max-width: 200mm;
+      height: 138mm;
+      padding: 4mm 5mm;
+      border: 1px solid black;
+      box-sizing: border-box;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1px;
+      font-family: 'Inter', sans-serif;
+      position: relative;
+      z-index: 1;
+      background-color: #fff;
+    }
+    .ticket {
+      width: 200mm;
+      max-width: 200mm;
+      height: 138mm;
+      padding: 4mm 5mm;
+      border: 1px solid black;
+      box-sizing: border-box;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 1px;
+      font-family: 'Inter', sans-serif;
+      position: relative;
+      z-index: 1;
+      background-color: #fff;
+    }
+    .ticket.duplicate {
+      background-color: #e0e0e0;
+    }
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      opacity: 0.1;
+      z-index: 0;
+      pointer-events: none;
+      user-select: none;
+    }
+    .flag-text {
+      text-align: center;
+      font-size: 11px;
+      font-weight: bold;
+      color: #b22222;
+      margin-bottom: 2px;
+    }
+    .branding {
+      text-align: center;
+      line-height: 1.4;
+      background-color: #f1f1f1;
+      padding: 6px 0;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      margin-bottom: 2px;
+    }
+    .company-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #000;
+    }
+    .contact-details {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 16px;
+      font-weight: bold;
+      margin-top: 2px;
+    }
+    .memo-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #000;
+    }
+    .meta-right {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .main-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 2px;
+    }
+    .left-column {
+      flex: 0 0 190px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .right-column {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .qr-section-large {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .qr-code-large {
+      width: 180px;
+      height: 180px;
+      border: 3px solid #000;
+      background-color: #f8f8f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: #666;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .qr-image-large {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border: none;
+      box-sizing: border-box;
+    }
+    .qr-label-large {
+      font-size: 14px;
+      font-weight: bold;
+      color: #000;
+      text-align: center;
+    }
+    .qr-amount-large {
+      font-size: 14px;
+      font-weight: bold;
+      color: #1f2937;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .info-box {
+      display: flex;
+      justify-content: space-between;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 4px 6px;
+      gap: 6px;
+      background-color: #fafafa;
+    }
+    .info-col {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      font-size: 14px;
+    }
+    .product-table {
+      border: 1px solid black;
+      padding: 3px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background-color: #fff;
+      border-radius: 4px;
+    }
+    .table-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dashed #ccc;
+      padding-bottom: 1px;
+      padding-top: 2px;
+      font-size: 14px;
+    }
+    .table-row-total {
+      display: flex;
+      justify-content: space-between;
+      font-weight: bold;
+      border-top: 1px solid #000;
+      padding-top: 3px;
+      margin-top: 2px;
+      font-size: 15px;
+    }
+    .jurisdiction-note {
+      font-size: 14px;
+      text-align: center;
+      margin-top: 3px;
+      color: #444;
+      font-style: italic;
+    }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 2px;
+      gap: 4px;
+    }
+    .signature {
+      flex: 1;
+      font-size: 13px;
+      text-align: center;
+      line-height: 1.2;
+    }
+    .signature-line {
+      margin-top: 2px;
+      border-top: 1px solid black;
+      width: 100%;
+    }
+    .cut-line {
+      width: 100%;
+      text-align: center;
+      margin: 0.5mm 0;
+    }
+    .cut-line hr {
+      border-top: 1px dashed #555;
+      margin: 0px 0;
+    }
+    .cut-line-text {
+      font-size: 5px;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="print-preview-container">
+    <div class="page-shadow">
+      <!-- Original Ticket -->
+      <div class="page">
+        <div class="ticket">
+          ${logoDataUri != null ? '<img src="$logoDataUri" alt="Watermark" class="watermark" />' : ''}
+          <div class="flag-text">🚩 जय श्री राम 🚩</div>
+          <div class="branding">
+            <div class="company-name">${_escapeHtml(companyName)}</div>
+            <div class="contact-details">${_escapeHtml(companyAddress)}</div>
+            <div class="contact-details">${_escapeHtml(companyPhone)}</div>
+          </div>
+          <hr style="border-top: 2px solid #000; margin: 6px 0;" />
+          <div class="title-row">
+            <div class="memo-title">🚚 Delivery Memo</div>
+            <div class="meta-right">DM No. #$dmNumber</div>
+          </div>
+          <div class="main-content">
+            <div class="left-column">
+              <div class="qr-section-large">
+                <div class="qr-code-large">
+                  ${qrDataUri != null ? '<img src="$qrDataUri" alt="Payment QR Code" class="qr-image-large" />' : '<div style="font-size: 22px; color: #666;">QR Code</div>'}
+                </div>
+                <div class="qr-label-large">${_escapeHtml(qrLabel ?? companyName)}</div>
+                <div class="qr-amount-large">Scan to pay ₹${_formatCurrency(total)}</div>
+              </div>
+            </div>
+            <div class="right-column">
+              <div class="info-box">
+                <div class="info-col">
+                  <div><strong>Client:</strong> <strong>${_escapeHtml(clientName)}</strong></div>
+                  <div><strong>Address:</strong> ${_escapeHtml(address)}, ${_escapeHtml(regionName)}</div>
+                  <div><strong>Phone:</strong> <strong>${_escapeHtml(clientPhone)}</strong></div>
+                </div>
+                <div class="info-col">
+                  <div><strong>Date:</strong> $dateText</div>
+                  <div><strong>Vehicle:</strong> ${_escapeHtml(vehicleNumber)}</div>
+                  <div><strong>Driver:</strong> ${_escapeHtml(driverName)}</div>
+                </div>
+              </div>
+              <div class="product-table">
+                <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
+                <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>₹${_formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>₹${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="jurisdiction-note">
+            ${_escapeHtml(jurisdictionNote)}
+          </div>
+          <div class="footer">
+            <div class="signature">
+              <div>Received By</div>
+              <div class="signature-line"></div>
+            </div>
+            <div class="signature">
+              <div>Authorized Signature</div>
+              <div class="signature-line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Cut Line -->
+      <div class="cut-line">
+        <hr />
+        <div class="cut-line-text">✂️ Cut Here</div>
+      </div>
+      
+      <!-- Duplicate Ticket -->
+      <div class="page">
+        <div class="ticket duplicate">
+          ${logoDataUri != null ? '<img src="$logoDataUri" alt="Watermark" class="watermark" />' : ''}
+          <div class="flag-text">🚩 जय श्री राम 🚩</div>
+          <div class="branding">
+            <div class="company-name">${_escapeHtml(companyName)}</div>
+            <div class="contact-details">${_escapeHtml(companyAddress)}</div>
+            <div class="contact-details">${_escapeHtml(companyPhone)}</div>
+          </div>
+          <hr style="border-top: 2px solid #000; margin: 6px 0;" />
+          <div class="title-row">
+            <div class="memo-title">🚚 Delivery Memo (Duplicate)</div>
+            <div class="meta-right">DM No. #$dmNumber</div>
+          </div>
+          <div class="main-content">
+            <div class="left-column">
+              <div class="qr-section-large">
+                <div class="qr-code-large">
+                  ${qrDataUri != null ? '<img src="$qrDataUri" alt="Payment QR Code" class="qr-image-large" />' : '<div style="font-size: 22px; color: #666;">QR Code</div>'}
+                </div>
+                <div class="qr-label-large">${_escapeHtml(qrLabel ?? companyName)}</div>
+                <div class="qr-amount-large">Scan to pay ₹${_formatCurrency(total)}</div>
+              </div>
+            </div>
+            <div class="right-column">
+              <div class="info-box">
+                <div class="info-col">
+                  <div><strong>Client:</strong> <strong>${_escapeHtml(clientName)}</strong></div>
+                  <div><strong>Address:</strong> ${_escapeHtml(address)}, ${_escapeHtml(regionName)}</div>
+                  <div><strong>Phone:</strong> <strong>${_escapeHtml(clientPhone)}</strong></div>
+                </div>
+                <div class="info-col">
+                  <div><strong>Date:</strong> $dateText</div>
+                  <div><strong>Vehicle:</strong> ${_escapeHtml(vehicleNumber)}</div>
+                  <div><strong>Driver:</strong> ${_escapeHtml(driverName)}</div>
+                </div>
+              </div>
+              <div class="product-table">
+                <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
+                <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>₹${_formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>₹${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="jurisdiction-note">
+            ${_escapeHtml(jurisdictionNote)}
+          </div>
+          <div class="footer">
+            <div class="signature">
+              <div>Received By</div>
+              <div class="signature-line"></div>
+            </div>
+            <div class="signature">
+              <div>Authorized Signature</div>
+              <div class="signature-line"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+''';
+    
+    return html;
+  }
+
+  /// Unified print flow using HTML-based generation (PrintDMPage system)
+  /// Generates HTML using same template as Web, converts to PDF, opens print preview
+  Future<void> printDeliveryMemo({
+    required int dmNumber,
+    required String organizationId,
+    Map<String, dynamic>? dmData,
+  }) async {
+    try {
+      print('[DmPrintService] Starting unified HTML-based print flow for DM $dmNumber');
+      
+      // Fetch DM data if not provided
+      Map<String, dynamic>? finalDmData = dmData;
+      if (finalDmData == null) {
+        print('[DmPrintService] Fetching DM data by number: $dmNumber');
+        finalDmData = await fetchDmByNumberOrId(
+          organizationId: organizationId,
+          dmNumber: dmNumber,
+          dmId: null,
+          tripData: null,
+        );
+        
+        if (finalDmData == null) {
+          throw Exception('DM not found for number: $dmNumber');
+        }
+      }
+      
+      // Load view payload (settings, payment account, QR code, logo)
+      print('[DmPrintService] Loading DM view data...');
+      final viewPayload = await loadDmViewData(
+        organizationId: organizationId,
+        dmData: finalDmData,
+      );
+      
+      // Generate HTML string using same method as Web
+      print('[DmPrintService] Generating HTML for print...');
+      final htmlString = generateDmHtmlForPrint(
+        dmData: finalDmData,
+        dmSettings: viewPayload.dmSettings,
+        paymentAccount: viewPayload.paymentAccount,
+        logoBytes: viewPayload.logoBytes,
+        qrCodeBytes: viewPayload.qrCodeBytes,
+      );
+      
+      // Convert HTML to PDF bytes using flutter_html_to_pdf_plus
+      print('[DmPrintService] Converting HTML to PDF...');
+      final pdfBytes = await _convertHtmlToPdf(htmlString);
+      
+      // Open print preview with PDF bytes
+      print('[DmPrintService] Opening print preview...');
+      await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
+      
+      print('[DmPrintService] Print preview opened successfully');
+    } catch (e, stackTrace) {
+      print('[DmPrintService] ERROR in print flow: $e');
+      print('[DmPrintService] Stack trace: $stackTrace');
+      throw Exception('Failed to print: $e');
+    }
+  }
+
+  /// Convert HTML string to PDF bytes using flutter_html_to_pdf_plus
+  Future<Uint8List> _convertHtmlToPdf(String htmlString) async {
+    try {
+      // Get temporary directory
+      final tempDir = await getTemporaryDirectory();
+      
+      // Convert HTML content directly to PDF bytes
+      final pdfBytes = await FlutterHtmlToPdf.convertFromHtmlContentBytes(
+        content: htmlString,
+        configuration: PrintPdfConfiguration(
+          targetDirectory: tempDir.path,
+          targetName: 'temp_dm_print',
+          printSize: PrintSize.A4,
+          printOrientation: PrintOrientation.Portrait,
+          margins: PdfPageMargin(
+            top: 15,
+            bottom: 15,
+            left: 15,
+            right: 15,
+          ),
+        ),
+      );
+      
+      return pdfBytes;
+    } catch (e) {
+      print('[DmPrintService] ERROR converting HTML to PDF: $e');
+      // Fallback to old PDF generation if HTML-to-PDF fails
+      print('[DmPrintService] Falling back to PDF template generation...');
+      rethrow;
+    }
   }
 
   /// Open system print dialog with the PDF

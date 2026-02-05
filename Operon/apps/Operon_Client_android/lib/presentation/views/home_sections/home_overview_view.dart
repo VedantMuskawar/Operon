@@ -90,12 +90,6 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
         color: _financialColor,
       ),
       const _TileData(
-        icon: Icons.local_gas_station,
-        title: 'Fuel Ledger',
-        route: '/fuel-ledger',
-        color: _financialColor,
-      ),
-      const _TileData(
         icon: Icons.payments_outlined,
         title: 'Employee Wages',
         route: '/employee-wages',

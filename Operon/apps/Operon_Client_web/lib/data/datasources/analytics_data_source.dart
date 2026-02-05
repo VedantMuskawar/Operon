@@ -27,6 +27,17 @@ class AnalyticsDataSource {
         .snapshots()
         .map((snapshot) => snapshot.exists ? snapshot.data() : null);
   }
+
+  /// Fetch multiple analytics documents by their IDs
+  Future<List<Map<String, dynamic>>> fetchAnalyticsDocuments(List<String> documentIds) async {
+    try {
+      final futures = documentIds.map((docId) => fetchAnalyticsDocument(docId));
+      final results = await Future.wait(futures);
+      return results.whereType<Map<String, dynamic>>().toList();
+    } catch (e) {
+      throw Exception('Failed to fetch analytics documents: $e');
+    }
+  }
 }
 
 

@@ -371,24 +371,34 @@ class TransactionsDataSource {
           .where('ledgerType', isEqualTo: LedgerType.clientLedger.name)
           .where('category', isEqualTo: TransactionCategory.tripPayment.name)
           .orderBy('createdAt', descending: true);
+      final clientCreditQuery = _transactionsRef()
+          .where('organizationId', isEqualTo: organizationId)
+          .where('ledgerType', isEqualTo: LedgerType.clientLedger.name)
+          .where('category', isEqualTo: TransactionCategory.clientCredit.name)
+          .orderBy('createdAt', descending: true);
 
       Query<Map<String, dynamic>> advanceQ = advanceQuery;
       Query<Map<String, dynamic>> tripQ = tripPaymentQuery;
+      Query<Map<String, dynamic>> clientCreditQ = clientCreditQuery;
       if (financialYear != null) {
         advanceQ = advanceQuery.where('financialYear', isEqualTo: financialYear);
         tripQ = tripPaymentQuery.where('financialYear', isEqualTo: financialYear);
+        clientCreditQ = clientCreditQuery.where('financialYear', isEqualTo: financialYear);
       }
       if (limit != null) {
         advanceQ = advanceQ.limit(limit);
         tripQ = tripQ.limit(limit);
+        clientCreditQ = clientCreditQ.limit(limit);
       }
 
-      final results = await Future.wait([advanceQ.get(), tripQ.get()]);
+      final results = await Future.wait([advanceQ.get(), tripQ.get(), clientCreditQ.get()]);
       final advanceDocs = results[0].docs;
       final tripDocs = results[1].docs;
+      final clientCreditDocs = results[2].docs;
       final list = <Transaction>[
         ...advanceDocs.map((doc) => Transaction.fromJson(doc.data(), doc.id)),
         ...tripDocs.map((doc) => Transaction.fromJson(doc.data(), doc.id)),
+        ...clientCreditDocs.map((doc) => Transaction.fromJson(doc.data(), doc.id)),
       ];
       list.sort((a, b) {
         final aDate = a.createdAt ?? DateTime(1970);
@@ -603,7 +613,8 @@ class TransactionsDataSource {
           final tx = Transaction.fromJson(doc.data(), doc.id);
           if (tx.ledgerType == LedgerType.clientLedger &&
               (tx.category == TransactionCategory.advance ||
-                  tx.category == TransactionCategory.tripPayment)) {
+                  tx.category == TransactionCategory.tripPayment ||
+                  tx.category == TransactionCategory.clientCredit)) {
             orderTransactions.add(tx);
           } else if (tx.category == TransactionCategory.clientPayment ||
               tx.category == TransactionCategory.refund) {

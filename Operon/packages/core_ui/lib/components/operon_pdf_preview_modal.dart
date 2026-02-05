@@ -90,15 +90,19 @@ class _OperonPdfPreviewModalState extends State<OperonPdfPreviewModal> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
+      insetPadding: EdgeInsets.all(isSmallScreen ? 8 : 20),
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.9,
+        width: isSmallScreen ? double.infinity : MediaQuery.of(context).size.width * 0.9,
+        height: isSmallScreen ? screenHeight * 0.95 : MediaQuery.of(context).size.height * 0.9,
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 24),
           border: Border.all(
             color: Colors.white.withOpacity(0.1),
             width: 1.5,
@@ -115,92 +119,196 @@ class _OperonPdfPreviewModalState extends State<OperonPdfPreviewModal> {
           children: [
             // Header with title and buttons
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
               decoration: BoxDecoration(
                 color: AuthColors.background,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(isSmallScreen ? 16 : 24),
+                  topRight: Radius.circular(isSmallScreen ? 16 : 24),
                 ),
               ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.picture_as_pdf,
-                    color: AuthColors.primary,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      style: const TextStyle(
-                        color: AuthColors.textMain,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'SF Pro Display',
-                      ),
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: _isSharing ? null : _handleShareOrDownload,
-                    icon: _isSharing
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AuthColors.primary,
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    // Title row
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.picture_as_pdf,
+                          color: AuthColors.primary,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            style: TextStyle(
+                              color: AuthColors.textMain,
+                              fontSize: isSmallScreen ? 16 : 18,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'SF Pro Display',
                             ),
-                          )
-                        : const Icon(
-                            Icons.download,
-                            color: AuthColors.primary,
-                            size: 20,
                           ),
-                    label: Text(
-                      _isSharing ? 'Downloading...' : 'Download',
-                      style: const TextStyle(
-                        color: AuthColors.primary,
-                        fontFamily: 'SF Pro Display',
-                      ),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: AuthColors.textSub,
+                            size: 24,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                          tooltip: 'Close',
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: _isPrinting ? null : _handlePrint,
-                    icon: _isPrinting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AuthColors.primary,
+                    // Action buttons - responsive layout
+                    if (isSmallScreen) ...[
+                      const SizedBox(height: 12),
+                      // Vertical layout for small screens
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _isSharing ? null : _handleShareOrDownload,
+                          icon: _isSharing
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AuthColors.textMain,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.download,
+                                  color: AuthColors.textMain,
+                                  size: 20,
+                                ),
+                          label: Text(
+                            _isSharing ? 'Downloading...' : 'Download',
+                            style: const TextStyle(
+                              color: AuthColors.textMain,
+                              fontFamily: 'SF Pro Display',
+                              fontSize: 16,
                             ),
-                          )
-                        : const Icon(
-                            Icons.print,
-                            color: AuthColors.primary,
-                            size: 20,
                           ),
-                    label: Text(
-                      _isPrinting ? 'Printing...' : 'Print',
-                      style: const TextStyle(
-                        color: AuthColors.primary,
-                        fontFamily: 'SF Pro Display',
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AuthColors.primary,
+                            foregroundColor: AuthColors.textMain,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.close,
-                      color: AuthColors.textSub,
-                      size: 20,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _isPrinting ? null : _handlePrint,
+                          icon: _isPrinting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AuthColors.textMain,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.print,
+                                  color: AuthColors.textMain,
+                                  size: 20,
+                                ),
+                          label: Text(
+                            _isPrinting ? 'Printing...' : 'Print',
+                            style: const TextStyle(
+                              color: AuthColors.textMain,
+                              fontFamily: 'SF Pro Display',
+                              fontSize: 16,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AuthColors.primary,
+                            foregroundColor: AuthColors.textMain,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 12),
+                      // Horizontal layout for larger screens
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton.icon(
+                            onPressed: _isSharing ? null : _handleShareOrDownload,
+                            icon: _isSharing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AuthColors.primary,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.download,
+                                    color: AuthColors.primary,
+                                    size: 20,
+                                  ),
+                            label: Text(
+                              _isSharing ? 'Downloading...' : 'Download',
+                              style: const TextStyle(
+                                color: AuthColors.primary,
+                                fontFamily: 'SF Pro Display',
+                                fontSize: 15,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              minimumSize: const Size(0, 48),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton.icon(
+                            onPressed: _isPrinting ? null : _handlePrint,
+                            icon: _isPrinting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AuthColors.primary,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.print,
+                                    color: AuthColors.primary,
+                                    size: 20,
+                                  ),
+                            label: Text(
+                              _isPrinting ? 'Printing...' : 'Print',
+                              style: const TextStyle(
+                                color: AuthColors.primary,
+                                fontFamily: 'SF Pro Display',
+                                fontSize: 15,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              minimumSize: const Size(0, 48),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
             // PdfPreview (no built-in action bar)

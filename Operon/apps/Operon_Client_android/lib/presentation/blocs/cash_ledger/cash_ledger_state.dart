@@ -34,6 +34,17 @@ class CashLedgerState extends BaseState {
     this.endDate,
     this.financialYear,
     this.message,
+    this.allRows = const [],
+    this.totalOrderTransactions = 0.0,
+    this.totalPayments = 0.0,
+    this.totalPurchases = 0.0,
+    this.totalExpenses = 0.0,
+    this.totalIncome = 0.0,
+    this.totalOutcome = 0.0,
+    this.netBalance = 0.0,
+    this.paymentAccountDistribution = const [],
+    this.totalCredit = 0.0,
+    this.totalDebit = 0.0,
   }) : super(message: message);
 
   final List<Transaction> orderTransactions;
@@ -47,6 +58,19 @@ class CashLedgerState extends BaseState {
   final String? financialYear;
   @override
   final String? message;
+  
+  // Cached computed values (computed once in cubit)
+  final List<Transaction> allRows;
+  final double totalOrderTransactions;
+  final double totalPayments;
+  final double totalPurchases;
+  final double totalExpenses;
+  final double totalIncome;
+  final double totalOutcome;
+  final double netBalance;
+  final List<PaymentAccountSummary> paymentAccountDistribution;
+  final double totalCredit;
+  final double totalDebit;
 
   List<Transaction> get currentList {
     switch (selectedTab) {
@@ -59,104 +83,6 @@ class CashLedgerState extends BaseState {
       case CashLedgerTabType.expenses:
         return expenses;
     }
-  }
-
-  /// All transactions in one list, sorted by date (newest first) and filtered by search query.
-  List<Transaction> get allRows {
-    // Combine all transaction lists
-    final list = <Transaction>[
-      ...orderTransactions,
-      ...payments,
-      ...purchases,
-      ...expenses,
-    ];
-
-    // Apply search filter if query exists
-    final filtered = searchQuery.trim().isEmpty
-        ? list
-        : list.where((tx) {
-            final query = searchQuery.toLowerCase();
-            final title = _getTransactionTitle(tx).toLowerCase();
-            final refNumber = (tx.referenceNumber ?? '').toLowerCase();
-            final vendorName = (tx.metadata?['vendorName']?.toString() ?? '').toLowerCase();
-            final description = (tx.description ?? '').toLowerCase();
-            final clientName = (tx.clientName ?? '').toLowerCase();
-
-            return title.contains(query) ||
-                refNumber.contains(query) ||
-                vendorName.contains(query) ||
-                description.contains(query) ||
-                clientName.contains(query);
-          }).toList();
-
-    // Sort by date descending (newest first)
-    filtered.sort((a, b) {
-      final aDate = a.createdAt ?? DateTime(1970);
-      final bDate = b.createdAt ?? DateTime(1970);
-      return bDate.compareTo(aDate);
-    });
-
-    return filtered;
-  }
-
-  String _getTransactionTitle(Transaction tx) {
-    switch (tx.category) {
-      case TransactionCategory.advance:
-        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Advance';
-      case TransactionCategory.tripPayment:
-        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Trip Payment';
-      case TransactionCategory.clientPayment:
-        return tx.clientName?.trim().isNotEmpty == true ? tx.clientName! : 'Payment';
-      case TransactionCategory.vendorPurchase:
-        return tx.metadata?['vendorName']?.toString() ?? 'Purchase';
-      case TransactionCategory.vendorPayment:
-        return tx.metadata?['vendorName']?.toString() ?? 'Vendor Payment';
-      default:
-        return tx.description ?? 'Transaction';
-    }
-  }
-
-  double get totalOrderTransactions =>
-      orderTransactions.fold(0.0, (sum, tx) => sum + tx.amount);
-  double get totalPayments => payments.fold(0.0, (sum, tx) => sum + tx.amount);
-  double get totalPurchases => purchases.fold(0.0, (sum, tx) => sum + tx.amount);
-  double get totalExpenses => expenses.fold(0.0, (sum, tx) => sum + tx.amount);
-
-  double get totalIncome => totalOrderTransactions + totalPayments;
-  double get totalOutcome => totalPurchases + totalExpenses;
-  double get netBalance => totalIncome - totalOutcome;
-
-  /// Per-account income and expense for display below the list.
-  List<PaymentAccountSummary> get paymentAccountDistribution {
-    final map = <String, PaymentAccountSummary>{};
-    void add(String? id, String? name, double income, double expense) {
-      final key = (id?.trim().isEmpty ?? true) ? (name ?? '') : id!;
-      final displayName = name?.trim().isEmpty != true ? name! : (id ?? 'Unknown');
-      if (!map.containsKey(key)) {
-        map[key] = PaymentAccountSummary(displayName: displayName, income: 0, expense: 0);
-      }
-      final cur = map[key]!;
-      map[key] = PaymentAccountSummary(
-        displayName: cur.displayName,
-        income: cur.income + income,
-        expense: cur.expense + expense,
-      );
-    }
-    for (final t in orderTransactions) {
-      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
-    }
-    for (final t in payments) {
-      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
-    }
-    for (final t in purchases) {
-      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', 0, t.amount);
-    }
-    for (final t in expenses) {
-      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', 0, t.amount);
-    }
-    final list = map.values.toList();
-    list.sort((a, b) => a.displayName.compareTo(b.displayName));
-    return list;
   }
 
   @override
@@ -172,6 +98,17 @@ class CashLedgerState extends BaseState {
     DateTime? endDate,
     String? financialYear,
     String? message,
+    List<Transaction>? allRows,
+    double? totalOrderTransactions,
+    double? totalPayments,
+    double? totalPurchases,
+    double? totalExpenses,
+    double? totalIncome,
+    double? totalOutcome,
+    double? netBalance,
+    List<PaymentAccountSummary>? paymentAccountDistribution,
+    double? totalCredit,
+    double? totalDebit,
   }) {
     return CashLedgerState(
       status: status ?? this.status,
@@ -185,6 +122,17 @@ class CashLedgerState extends BaseState {
       endDate: endDate ?? this.endDate,
       financialYear: financialYear ?? this.financialYear,
       message: message ?? this.message,
+      allRows: allRows ?? this.allRows,
+      totalOrderTransactions: totalOrderTransactions ?? this.totalOrderTransactions,
+      totalPayments: totalPayments ?? this.totalPayments,
+      totalPurchases: totalPurchases ?? this.totalPurchases,
+      totalExpenses: totalExpenses ?? this.totalExpenses,
+      totalIncome: totalIncome ?? this.totalIncome,
+      totalOutcome: totalOutcome ?? this.totalOutcome,
+      netBalance: netBalance ?? this.netBalance,
+      paymentAccountDistribution: paymentAccountDistribution ?? this.paymentAccountDistribution,
+      totalCredit: totalCredit ?? this.totalCredit,
+      totalDebit: totalDebit ?? this.totalDebit,
     );
   }
 }

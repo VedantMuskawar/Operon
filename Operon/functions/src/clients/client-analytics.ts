@@ -11,6 +11,7 @@ import {
   getFirestore,
   seedAnalyticsDoc,
 } from '../shared/firestore-helpers';
+import { getYearMonth } from '../shared/date-helpers';
 
 const db = getFirestore();
 
@@ -33,20 +34,19 @@ export const onClientCreated = functions.firestore
     }
 
     const createdAt = getCreationDate(snapshot);
-    const { fyLabel, monthKey } = getFinancialContext(createdAt);
+    const monthKey = getYearMonth(createdAt); // Use YYYY-MM format
     const analyticsRef = db
       .collection(ANALYTICS_COLLECTION)
-      .doc(`${SOURCE_KEY}_${organizationId}_${fyLabel}`);
+      .doc(`${SOURCE_KEY}_${organizationId}_${monthKey}`);
 
-    await seedAnalyticsDoc(analyticsRef, fyLabel, organizationId);
+    await seedAnalyticsDoc(analyticsRef, monthKey, organizationId);
 
     await analyticsRef.set(
       {
         generatedAt: admin.firestore.FieldValue.serverTimestamp(),
         'metrics.totalActiveClients':
           admin.firestore.FieldValue.increment(1),
-        [`metrics.userOnboarding.values.${monthKey}`]:
-          admin.firestore.FieldValue.increment(1),
+        'metrics.userOnboarding': admin.firestore.FieldValue.increment(1),
       },
       { merge: true },
     );
@@ -54,6 +54,7 @@ export const onClientCreated = functions.firestore
 
 /**
  * Core logic to rebuild client analytics for all organizations.
+ * Now writes to monthly documents instead of yearly.
  * Called by unified analytics scheduler.
  */
 export async function rebuildClientAnalyticsCore(fyLabel: string, fyStart: Date, fyEnd: Date): Promise<void> {
@@ -70,31 +71,49 @@ export async function rebuildClientAnalyticsCore(fyLabel: string, fyStart: Date,
     }
   });
 
-  const analyticsUpdates = Object.entries(clientsByOrg).map(async ([organizationId, orgClients]) => {
-    const analyticsRef = db
-      .collection(ANALYTICS_COLLECTION)
-      .doc(`${SOURCE_KEY}_${organizationId}_${fyLabel}`);
-
-    const onboardingCounts: Record<string, number> = {};
-    const totalActiveClients = orgClients.length;
-
+  // Group clients by organization and month
+  const clientsByOrgMonth: Record<string, Record<string, FirebaseFirestore.DocumentSnapshot[]>> = {};
+  
+  Object.entries(clientsByOrg).forEach(([organizationId, orgClients]) => {
+    clientsByOrgMonth[organizationId] = {};
     orgClients.forEach((doc) => {
       const createdAt = getCreationDate(doc);
       if (createdAt >= fyStart && createdAt < fyEnd) {
-        const { monthKey } = getFinancialContext(createdAt);
-        onboardingCounts[monthKey] = (onboardingCounts[monthKey] ?? 0) + 1;
+        const monthKey = getYearMonth(createdAt);
+        if (!clientsByOrgMonth[organizationId][monthKey]) {
+          clientsByOrgMonth[organizationId][monthKey] = [];
+        }
+        clientsByOrgMonth[organizationId][monthKey].push(doc);
       }
     });
+  });
 
-    await seedAnalyticsDoc(analyticsRef, fyLabel, organizationId);
-    await analyticsRef.set(
-      {
-        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        'metrics.totalActiveClients': totalActiveClients,
-        'metrics.userOnboarding.values': onboardingCounts,
-      },
-      { merge: true },
-    );
+  const analyticsUpdates: Promise<void>[] = [];
+  
+  Object.entries(clientsByOrgMonth).forEach(([organizationId, monthClients]) => {
+    // Calculate total active clients (all clients, not just in FY)
+    const totalActiveClients = clientsByOrg[organizationId].length;
+    
+    Object.entries(monthClients).forEach(([monthKey, monthDocs]) => {
+      const analyticsRef = db
+        .collection(ANALYTICS_COLLECTION)
+        .doc(`${SOURCE_KEY}_${organizationId}_${monthKey}`);
+      
+      const onboardingCount = monthDocs.length;
+      
+      analyticsUpdates.push(
+        seedAnalyticsDoc(analyticsRef, monthKey, organizationId).then(() =>
+          analyticsRef.set(
+            {
+              generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              'metrics.totalActiveClients': totalActiveClients,
+              'metrics.userOnboarding': onboardingCount,
+            },
+            { merge: true },
+          )
+        )
+      );
+    });
   });
 
   await Promise.all(analyticsUpdates);

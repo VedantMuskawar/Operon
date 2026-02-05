@@ -16,7 +16,7 @@ import {
 } from '../shared/constants';
 import { getFirestore, seedEmployeeAnalyticsDoc } from '../shared/firestore-helpers';
 import { getFinancialContext } from '../shared/financial-year';
-import { getISOWeek, formatDate, formatMonth, cleanDailyData, getYearMonthCompact } from '../shared/date-helpers';
+import { getISOWeek, formatDate, formatMonth, cleanDailyData, getYearMonthCompact, getYearMonth } from '../shared/date-helpers';
 import { getTransactionDate, removeUndefinedFields } from '../shared/transaction-helpers';
 // Note: transaction-handlers.ts still uses console.log for detailed ledger debugging
 // Consider migrating to logger helpers in future refactoring
@@ -1377,6 +1377,7 @@ async function updateEmployeeAnalytics(
 
 /**
  * Update analytics when transaction is created or cancelled
+ * Now stores data in monthly documents instead of yearly
  */
 async function updateTransactionAnalytics(
   organizationId: string,
@@ -1385,7 +1386,9 @@ async function updateTransactionAnalytics(
   transactionDate: Date,
   isCancellation: boolean = false
 ): Promise<void> {
-  const analyticsDocId = `${TRANSACTIONS_SOURCE_KEY}_${organizationId}_${financialYear}`;
+  // Use monthly document ID based on transaction date
+  const monthKey = getYearMonth(transactionDate); // Returns "YYYY-MM"
+  const analyticsDocId = `${TRANSACTIONS_SOURCE_KEY}_${organizationId}_${monthKey}`;
   const analyticsRef = db.collection(ANALYTICS_COLLECTION).doc(analyticsDocId);
   
   const amount = transaction.amount as number;
@@ -1399,9 +1402,8 @@ async function updateTransactionAnalytics(
   
   const dateString = formatDate(transactionDate);
   const weekString = getISOWeek(transactionDate);
-  const monthString = formatMonth(transactionDate);
   
-  // Get current analytics data
+  // Get current analytics data for this month
   const analyticsDoc = await analyticsRef.get();
   const analyticsData = analyticsDoc.exists ? analyticsDoc.data()! : {};
   
@@ -1432,15 +1434,6 @@ async function updateTransactionAnalytics(
     receivablesWeekly[weekString] = (receivablesWeekly[weekString] || 0) + (amount * multiplier);
   }
   
-  // Update monthly breakdown
-  const incomeMonthly = analyticsData.incomeMonthly || {};
-  const receivablesMonthly = analyticsData.receivablesMonthly || {};
-  if (isDebit && ledgerType === 'clientLedger') {
-    incomeMonthly[monthString] = (incomeMonthly[monthString] || 0) + (amount * multiplier);
-  } else if (isCredit && ledgerType === 'clientLedger') {
-    receivablesMonthly[monthString] = (receivablesMonthly[monthString] || 0) + (amount * multiplier);
-  }
-  
   // Update income by category (only for Debit transactions = actual income)
   const incomeByCategory = analyticsData.incomeByCategory || {};
   if (isDebit && ledgerType === 'clientLedger') {
@@ -1462,19 +1455,17 @@ async function updateTransactionAnalytics(
   // Update by type breakdown (for both credit and debit)
   const byType = analyticsData.byType || {};
   if (!byType[type]) {
-    byType[type] = { count: 0, total: 0, daily: {}, weekly: {}, monthly: {} };
+    byType[type] = { count: 0, total: 0, daily: {}, weekly: {} };
   }
   byType[type].count += multiplier;
   byType[type].total += (amount * multiplier);
   
-  // Update type daily/weekly/monthly
+  // Update type daily/weekly (no monthly maps needed - document is month-specific)
   if (!byType[type].daily) byType[type].daily = {};
   if (!byType[type].weekly) byType[type].weekly = {};
-  if (!byType[type].monthly) byType[type].monthly = {};
   
   byType[type].daily[dateString] = (byType[type].daily[dateString] || 0) + (amount * multiplier);
   byType[type].weekly[weekString] = (byType[type].weekly[weekString] || 0) + (amount * multiplier);
-  byType[type].monthly[monthString] = (byType[type].monthly[monthString] || 0) + (amount * multiplier);
   
   // Clean type daily data
   byType[type].daily = cleanDailyData(byType[type].daily, 90);
@@ -1493,7 +1484,6 @@ async function updateTransactionAnalytics(
         total: 0,
         daily: {},
         weekly: {},
-        monthly: {},
       };
     }
     byPaymentAccount[accountId].count += multiplier;
@@ -1501,11 +1491,9 @@ async function updateTransactionAnalytics(
     
     if (!byPaymentAccount[accountId].daily) byPaymentAccount[accountId].daily = {};
     if (!byPaymentAccount[accountId].weekly) byPaymentAccount[accountId].weekly = {};
-    if (!byPaymentAccount[accountId].monthly) byPaymentAccount[accountId].monthly = {};
     
     byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
     byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
-    byPaymentAccount[accountId].monthly[monthString] = (byPaymentAccount[accountId].monthly[monthString] || 0) + (amount * multiplier);
     
     byPaymentAccount[accountId].daily = cleanDailyData(byPaymentAccount[accountId].daily, 90);
   } else if (accountId === 'cash') {
@@ -1518,7 +1506,6 @@ async function updateTransactionAnalytics(
         total: 0,
         daily: {},
         weekly: {},
-        monthly: {},
       };
     }
     byPaymentAccount[accountId].count += multiplier;
@@ -1526,11 +1513,9 @@ async function updateTransactionAnalytics(
     
     if (!byPaymentAccount[accountId].daily) byPaymentAccount[accountId].daily = {};
     if (!byPaymentAccount[accountId].weekly) byPaymentAccount[accountId].weekly = {};
-    if (!byPaymentAccount[accountId].monthly) byPaymentAccount[accountId].monthly = {};
     
     byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
     byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
-    byPaymentAccount[accountId].monthly[monthString] = (byPaymentAccount[accountId].monthly[monthString] || 0) + (amount * multiplier);
     
     byPaymentAccount[accountId].daily = cleanDailyData(byPaymentAccount[accountId].daily, 90);
   }
@@ -1540,24 +1525,22 @@ async function updateTransactionAnalytics(
   const methodType = paymentAccountType || 'cash';
   
   if (!byPaymentMethodType[methodType]) {
-    byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {}, monthly: {} };
+    byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {} };
   }
   byPaymentMethodType[methodType].count += multiplier;
   byPaymentMethodType[methodType].total += (amount * multiplier);
   
   if (!byPaymentMethodType[methodType].daily) byPaymentMethodType[methodType].daily = {};
   if (!byPaymentMethodType[methodType].weekly) byPaymentMethodType[methodType].weekly = {};
-  if (!byPaymentMethodType[methodType].monthly) byPaymentMethodType[methodType].monthly = {};
   
   byPaymentMethodType[methodType].daily[dateString] = (byPaymentMethodType[methodType].daily[dateString] || 0) + (amount * multiplier);
   byPaymentMethodType[methodType].weekly[weekString] = (byPaymentMethodType[methodType].weekly[weekString] || 0) + (amount * multiplier);
-  byPaymentMethodType[methodType].monthly[monthString] = (byPaymentMethodType[methodType].monthly[monthString] || 0) + (amount * multiplier);
   
   byPaymentMethodType[methodType].daily = cleanDailyData(byPaymentMethodType[methodType].daily, 90);
   
-  // Calculate totals
-  const totalIncome = Object.values(incomeMonthly).reduce((sum: number, val: any) => sum + (val || 0), 0);
-  const totalReceivables = Object.values(receivablesMonthly).reduce((sum: number, val: any) => sum + (val || 0), 0);
+  // Calculate totals for this month (sum of daily values)
+  const totalIncome = Object.values(incomeDaily).reduce((sum: number, val: any) => sum + (val || 0), 0);
+  const totalReceivables = Object.values(receivablesDaily).reduce((sum: number, val: any) => sum + (val || 0), 0);
   const netReceivables = totalReceivables - totalIncome; // What's still owed
   
   const transactionCount = (analyticsData.transactionCount || 0) + multiplier;
@@ -1579,17 +1562,16 @@ async function updateTransactionAnalytics(
     receivableAging.current = Math.max(0, (receivableAging.current || 0) - amount);
   }
   
-  // Update analytics document
+  // Update analytics document (month-specific, no monthly maps)
   await analyticsRef.set({
     source: TRANSACTIONS_SOURCE_KEY,
     organizationId,
-    financialYear,
+    month: monthKey, // Store month for reference
+    financialYear, // Keep for backward compatibility during migration
     incomeDaily,
     receivablesDaily,
     incomeWeekly,
     receivablesWeekly,
-    incomeMonthly,
-    receivablesMonthly,
     incomeByCategory,
     receivablesByCategory,
     byType,

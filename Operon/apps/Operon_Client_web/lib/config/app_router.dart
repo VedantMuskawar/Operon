@@ -55,6 +55,7 @@ import 'package:dash_web/presentation/views/production_batches_page.dart' deferr
 import 'package:dash_web/presentation/views/production_wages_page.dart' deferred as production_wages;
 import 'package:dash_web/presentation/views/trip_wages_page.dart' deferred as trip_wages;
 import 'package:dash_web/presentation/views/salary_voucher_page.dart';
+import 'package:dash_web/presentation/views/print_dm_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -62,6 +63,8 @@ import 'package:go_router/go_router.dart';
 GoRouter buildRouter() {
   return GoRouter(
     initialLocation: '/splash',
+    // Use path-based routing (not hash-based) to avoid #/home issues with print route
+    routerNeglect: false,
     routes: [
       GoRoute(
         path: '/splash',
@@ -1090,6 +1093,16 @@ GoRouter buildRouter() {
             ),
           );
         },
+      ),
+      GoRoute(
+        path: '/print-dm/:dmNumber',
+        name: 'print-dm',
+        // No authentication redirect - public route for printing
+        pageBuilder: (context, state) => _buildTransitionPage(
+          key: state.pageKey,
+          routePath: state.uri.path,
+          child: const PrintDMPage(),
+        ),
       ),
     ],
   );

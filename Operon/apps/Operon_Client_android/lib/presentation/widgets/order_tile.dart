@@ -27,33 +27,116 @@ class OrderTile extends StatefulWidget {
 class _OrderTileState extends State<OrderTile> {
   bool _isDeleting = false;
 
+  // Cached computed values
+  int? _cachedTotalTrips;
+  int? _cachedTotalScheduledTrips;
+  int? _cachedEstimatedTrips;
+  String? _cachedProductName;
+  int? _cachedFixedQuantityPerTrip;
+  String? _cachedClientName;
+  String? _cachedZoneText;
+  dynamic _cachedCreatedAt;
+  String? _cachedFormattedCreatedAt;
+  Color? _cachedPriorityColor;
+  List<BoxShadow>? _cachedPriorityShadows;
+  dynamic _cachedEstimatedDeliveryDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _computeCachedValues();
+  }
+
+  @override
+  void didUpdateWidget(OrderTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Recompute if order changed
+    if (oldWidget.order != widget.order) {
+      _computeCachedValues();
+    }
+  }
+
+  void _computeCachedValues() {
+    final items = widget.order['items'] as List<dynamic>? ?? [];
+    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
+    final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
+    
+    // Calculate total trips
+    int totalTrips = 0;
+    if (autoSchedule?['totalTripsRequired'] != null) {
+      totalTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
+    } else {
+      for (final item in items) {
+        final itemMap = item as Map<String, dynamic>;
+        final itemEstimatedTrips = (itemMap['estimatedTrips'] as int? ?? 0);
+        final itemScheduledTrips = (itemMap['scheduledTrips'] as int? ?? 0);
+        totalTrips += (itemEstimatedTrips + itemScheduledTrips);
+      }
+      if (totalTrips == 0 && firstItem != null) {
+        final firstItemEstimated = firstItem['estimatedTrips'] as int? ?? 0;
+        final firstItemScheduled = firstItem['scheduledTrips'] as int? ?? 0;
+        totalTrips = firstItemEstimated + firstItemScheduled;
+        if (totalTrips == 0) {
+          totalTrips = (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
+        }
+      }
+    }
+    
+    final totalScheduledTrips = widget.order['totalScheduledTrips'] as int? ?? 0;
+    final estimatedTrips = totalTrips - totalScheduledTrips;
+    
+    final productName = firstItem?['productName'] as String? ?? 'N/A';
+    final fixedQuantityPerTrip = firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
+    final clientName = widget.order['clientName'] as String? ?? 'N/A';
+    final deliveryZone = widget.order['deliveryZone'] as Map<String, dynamic>?;
+    final zoneText = deliveryZone != null
+        ? '${deliveryZone['region'] ?? ''}, ${deliveryZone['city_name'] ?? deliveryZone['city'] ?? ''}'
+        : 'N/A';
+    final createdAt = widget.order['createdAt'];
+    final estimatedDeliveryDate = autoSchedule?['estimatedDeliveryDate'];
+    
+    // Cache formatted date string
+    _cachedFormattedCreatedAt = _formatDate(createdAt);
+    
+    // Compute priority-related values
+    final priority = widget.order['priority'] as String? ?? 'normal';
+    final isHighPriority = priority == 'high' || priority == 'priority';
+    final priorityColor = isHighPriority
+        ? AuthColors.secondary
+        : AuthColors.textMainWithOpacity(0.15);
+    final priorityShadows = isHighPriority
+        ? [
+            BoxShadow(
+              color: AuthColors.secondary.withOpacity(0.4),
+              blurRadius: 12,
+              spreadRadius: 0,
+              offset: const Offset(0, 0),
+            ),
+            BoxShadow(
+              color: AuthColors.secondary.withOpacity(0.2),
+              blurRadius: 6,
+              spreadRadius: -2,
+              offset: const Offset(0, 2),
+            ),
+          ]
+        : <BoxShadow>[];
+    
+    _cachedTotalTrips = totalTrips;
+    _cachedTotalScheduledTrips = totalScheduledTrips;
+    _cachedEstimatedTrips = estimatedTrips;
+    _cachedProductName = productName;
+    _cachedFixedQuantityPerTrip = fixedQuantityPerTrip;
+    _cachedClientName = clientName;
+    _cachedZoneText = zoneText;
+    _cachedCreatedAt = createdAt;
+    _cachedPriorityColor = priorityColor;
+    _cachedPriorityShadows = priorityShadows;
+    _cachedEstimatedDeliveryDate = estimatedDeliveryDate;
+  }
+
   bool _isHighPriority() {
     final priority = widget.order['priority'] as String? ?? 'normal';
     return priority == 'high' || priority == 'priority';
-  }
-
-  Color _getPriorityBorderColor() {
-    return _isHighPriority()
-        ? AuthColors.secondary
-        : AuthColors.textMainWithOpacity(0.15);
-  }
-
-  List<BoxShadow> _getPriorityShadows() {
-    if (!_isHighPriority()) return const [];
-    return [
-      BoxShadow(
-        color: AuthColors.secondary.withOpacity(0.4),
-        blurRadius: 12,
-        spreadRadius: 0,
-        offset: const Offset(0, 0),
-      ),
-      BoxShadow(
-        color: AuthColors.secondary.withOpacity(0.2),
-        blurRadius: 6,
-        spreadRadius: -2,
-        offset: const Offset(0, 2),
-      ),
-    ];
   }
 
   String _formatDate(dynamic timestamp) {
@@ -299,48 +382,18 @@ class _OrderTileState extends State<OrderTile> {
 
   @override
   Widget build(BuildContext context) {
-    final items = widget.order['items'] as List<dynamic>? ?? [];
-    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
-    final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
-    
-    // Calculate total trips (original total = estimated + scheduled for each item)
-    // This ensures the denominator stays constant (e.g., 4) even as trips are scheduled
-    int totalTrips = 0;
-    if (autoSchedule?['totalTripsRequired'] != null) {
-      totalTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
-    } else {
-      // Sum (estimatedTrips + scheduledTrips) for each item to get original total
-      for (final item in items) {
-        final itemMap = item as Map<String, dynamic>;
-        final itemEstimatedTrips = (itemMap['estimatedTrips'] as int? ?? 0);
-        final itemScheduledTrips = (itemMap['scheduledTrips'] as int? ?? 0);
-        totalTrips += (itemEstimatedTrips + itemScheduledTrips);
-      }
-      if (totalTrips == 0 && firstItem != null) {
-        final firstItemEstimated = firstItem['estimatedTrips'] as int? ?? 0;
-        final firstItemScheduled = firstItem['scheduledTrips'] as int? ?? 0;
-        totalTrips = firstItemEstimated + firstItemScheduled;
-        if (totalTrips == 0) {
-          totalTrips = (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
-        }
-      }
-    }
-    
-    final totalScheduledTrips = widget.order['totalScheduledTrips'] as int? ?? 0;
-    // Calculate remaining estimated trips for display
-    final estimatedTrips = totalTrips - totalScheduledTrips;
-    
-    final productName = firstItem?['productName'] as String? ?? 'N/A';
-    final fixedQuantityPerTrip = firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
-    final clientName = widget.order['clientName'] as String? ?? 'N/A';
-    final deliveryZone = widget.order['deliveryZone'] as Map<String, dynamic>?;
-    final zoneText = deliveryZone != null
-        ? '${deliveryZone['region'] ?? ''}, ${deliveryZone['city_name'] ?? deliveryZone['city'] ?? ''}'
-        : 'N/A';
-    final createdAt = widget.order['createdAt'];
-    final priorityColor = _getPriorityBorderColor();
-    final priorityShadows = _getPriorityShadows();
-    final estimatedDeliveryDate = autoSchedule?['estimatedDeliveryDate'];
+    // Use cached values
+    final totalTrips = _cachedTotalTrips ?? 0;
+    final totalScheduledTrips = _cachedTotalScheduledTrips ?? 0;
+    final estimatedTrips = _cachedEstimatedTrips ?? 0;
+    final productName = _cachedProductName ?? 'N/A';
+    final fixedQuantityPerTrip = _cachedFixedQuantityPerTrip ?? 0;
+    final clientName = _cachedClientName ?? 'N/A';
+    final zoneText = _cachedZoneText ?? 'N/A';
+    final createdAt = _cachedCreatedAt;
+    final priorityColor = _cachedPriorityColor ?? AuthColors.textMainWithOpacity(0.15);
+    final priorityShadows = _cachedPriorityShadows ?? const [];
+    final estimatedDeliveryDate = _cachedEstimatedDeliveryDate;
 
     return RepaintBoundary(
       child: InkWell(
@@ -398,8 +451,7 @@ class _OrderTileState extends State<OrderTile> {
               _ProductInfo(
                 productName: productName,
                 fixedQuantityPerTrip: fixedQuantityPerTrip,
-                createdAt: createdAt,
-                formatDate: _formatDate,
+                formattedCreatedAt: _cachedFormattedCreatedAt ?? _formatDate(createdAt),
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               // Action buttons
@@ -579,14 +631,12 @@ class _ProductInfo extends StatelessWidget {
   const _ProductInfo({
     required this.productName,
     required this.fixedQuantityPerTrip,
-    required this.createdAt,
-    required this.formatDate,
+    required this.formattedCreatedAt,
   });
 
   final String productName;
   final int fixedQuantityPerTrip;
-  final dynamic createdAt;
-  final String Function(dynamic) formatDate;
+  final String formattedCreatedAt;
 
   @override
   Widget build(BuildContext context) {
@@ -654,7 +704,7 @@ class _ProductInfo extends StatelessWidget {
         ),
         const Spacer(),
         Text(
-          formatDate(createdAt),
+          formattedCreatedAt,
           style: AppTypography.captionSmall.copyWith(
             color: AuthColors.textDisabled,
           ),

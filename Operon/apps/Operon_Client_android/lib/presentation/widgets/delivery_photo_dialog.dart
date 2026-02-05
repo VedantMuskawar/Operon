@@ -88,6 +88,18 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
             style: const TextStyle(color: Colors.white70),
           ),
         ),
+        if (_selectedImage == null)
+          TextButton(
+            onPressed: _isUploading
+                ? null
+                : () {
+                    Navigator.of(context).pop<File?>(null);
+                  },
+            child: const Text(
+              'Skip & Mark Delivered',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
         ElevatedButton(
           onPressed: (_selectedImage == null || _isUploading) ? null : _handleUpload,
           style: ElevatedButton.styleFrom(

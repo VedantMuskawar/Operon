@@ -8,64 +8,214 @@ class AnalyticsRepository {
 
   final AnalyticsService _service;
 
+  /// Get list of year-month strings (YYYY-MM) for a date range
+  List<String> _getMonthsInRange(DateTime startDate, DateTime endDate) {
+    final months = <String>[];
+    var current = DateTime(startDate.year, startDate.month, 1);
+    final end = DateTime(endDate.year, endDate.month, 1);
+    
+    while (current.isBefore(end) || current.isAtSameMomentAs(end)) {
+      final year = current.year;
+      final month = current.month.toString().padLeft(2, '0');
+      months.add('$year-$month');
+      // Move to next month
+      if (current.month == 12) {
+        current = DateTime(current.year + 1, 1, 1);
+      } else {
+        current = DateTime(current.year, current.month + 1, 1);
+      }
+    }
+    
+    return months;
+  }
+
+  /// Helper to calculate date range from financial year or use provided dates
+  (DateTime, DateTime) _calculateDateRange({
+    String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
+    DateTime? asOf,
+  }) {
+    if (startDate != null && endDate != null) {
+      return (startDate, endDate);
+    }
+    if (financialYear != null) {
+      final match = RegExp(r'FY(\d{2})(\d{2})').firstMatch(financialYear);
+      if (match != null) {
+        final startYear = 2000 + int.parse(match.group(1)!);
+        return (DateTime(startYear, 4, 1), DateTime(startYear + 1, 3, 31, 23, 59, 59));
+      }
+    }
+    // Default to current FY
+    final now = asOf ?? DateTime.now();
+    final fyStartYear = now.month >= 4 ? now.year : now.year - 1;
+    return (DateTime(fyStartYear, 4, 1), DateTime(fyStartYear + 1, 3, 31, 23, 59, 59));
+  }
+
   Future<ClientsAnalytics?> fetchClientsAnalytics({
     DateTime? asOf,
     String? financialYear,
     String? organizationId,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
-    final fyLabel = financialYear ?? _financialYearForDate(asOf ?? DateTime.now());
-    // Document ID format: clients_{organizationId}_{financialYear}
-    final docId = organizationId != null && organizationId.isNotEmpty
-        ? 'clients_${organizationId}_$fyLabel'
-        : 'clients_$fyLabel';
-    debugPrint('[AnalyticsRepository] Fetching $docId');
-    final payload = await _service.fetchAnalyticsDocument(docId);
-    if (payload == null) {
-      debugPrint('[AnalyticsRepository] No payload for $docId');
+    if (organizationId == null || organizationId.isEmpty) {
       return null;
     }
-    debugPrint('[AnalyticsRepository] Received analytics payload for $docId with keys: ${payload.keys}');
-    return ClientsAnalytics.fromMap(payload);
+
+    final (effectiveStartDate, effectiveEndDate) = _calculateDateRange(
+      financialYear: financialYear,
+      startDate: startDate,
+      endDate: endDate,
+      asOf: asOf,
+    );
+
+    final months = _getMonthsInRange(effectiveStartDate, effectiveEndDate);
+    if (months.isEmpty) return null;
+
+    final docIds = months.map((month) => 'clients_${organizationId}_$month').toList();
+    final docs = await _service.fetchAnalyticsDocuments(docIds);
+    if (docs.isEmpty) {
+      debugPrint('[AnalyticsRepository] No clients analytics documents found');
+      return null;
+    }
+
+    // Aggregate: sum totalActiveClients (use max since it's org-wide), sum onboarding
+    var totalActiveClients = 0;
+    final onboardingMonthly = <String, double>{};
+    
+    for (final doc in docs) {
+      final activeClients = (doc['metrics']?['totalActiveClients'] as num?)?.toInt() ?? 0;
+      if (activeClients > totalActiveClients) {
+        totalActiveClients = activeClients; // Use max since it's org-wide
+      }
+      final onboarding = (doc['metrics']?['userOnboarding'] as num?)?.toDouble() ?? 0.0;
+      final month = doc['month'] as String?;
+      if (month != null && onboarding > 0) {
+        onboardingMonthly[month] = (onboardingMonthly[month] ?? 0.0) + onboarding;
+      }
+    }
+
+    final aggregatedPayload = {
+      'metrics': {
+        'totalActiveClients': totalActiveClients,
+        'userOnboarding': {
+          'values': onboardingMonthly,
+        },
+      },
+      'generatedAt': docs.isNotEmpty ? docs.last['generatedAt'] : null,
+    };
+
+    debugPrint('[AnalyticsRepository] Received aggregated clients analytics with ${onboardingMonthly.length} months');
+    return ClientsAnalytics.fromMap(aggregatedPayload);
   }
 
   Future<EmployeesAnalytics?> fetchEmployeesAnalytics({
     DateTime? asOf,
     String? financialYear,
     String? organizationId,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
-    final fyLabel = financialYear ?? _financialYearForDate(asOf ?? DateTime.now());
-    // Document ID format: employees_{organizationId}_{financialYear}
-    final docId = organizationId != null && organizationId.isNotEmpty
-        ? 'employees_${organizationId}_$fyLabel'
-        : 'employees_$fyLabel';
-    debugPrint('[AnalyticsRepository] Fetching $docId');
-    final payload = await _service.fetchAnalyticsDocument(docId);
-    if (payload == null) {
-      debugPrint('[AnalyticsRepository] No payload for $docId');
+    if (organizationId == null || organizationId.isEmpty) {
       return null;
     }
-    debugPrint('[AnalyticsRepository] Received analytics payload for $docId with keys: ${payload.keys}');
-    return EmployeesAnalytics.fromMap(payload);
+
+    final (effectiveStartDate, effectiveEndDate) = _calculateDateRange(
+      financialYear: financialYear,
+      startDate: startDate,
+      endDate: endDate,
+      asOf: asOf,
+    );
+
+    final months = _getMonthsInRange(effectiveStartDate, effectiveEndDate);
+    if (months.isEmpty) return null;
+
+    final docIds = months.map((month) => 'employees_${organizationId}_$month').toList();
+    final docs = await _service.fetchAnalyticsDocuments(docIds);
+    if (docs.isEmpty) {
+      debugPrint('[AnalyticsRepository] No employees analytics documents found');
+      return null;
+    }
+
+    // Aggregate: use max totalActiveEmployees (org-wide), sum wagesCreditMonthly
+    var totalActiveEmployees = 0;
+    final wagesCreditMonthly = <String, double>{};
+    for (final doc in docs) {
+      final active = (doc['metrics']?['totalActiveEmployees'] as num?)?.toInt() ?? 0;
+      if (active > totalActiveEmployees) totalActiveEmployees = active;
+      final wages = (doc['metrics']?['wagesCreditMonthly'] as num?)?.toDouble() ?? 0.0;
+      final month = doc['month'] as String?;
+      if (month != null && wages > 0) {
+        wagesCreditMonthly[month] = (wagesCreditMonthly[month] ?? 0.0) + wages;
+      }
+    }
+    final aggregatedPayload = {
+      'metrics': {
+        'totalActiveEmployees': totalActiveEmployees,
+        'wagesCreditMonthly': {'values': wagesCreditMonthly},
+      },
+      'generatedAt': docs.isNotEmpty ? docs.last['generatedAt'] : null,
+    };
+    return EmployeesAnalytics.fromMap(aggregatedPayload);
   }
 
   Future<VendorsAnalytics?> fetchVendorsAnalytics({
     DateTime? asOf,
     String? financialYear,
     String? organizationId,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
-    final fyLabel = financialYear ?? _financialYearForDate(asOf ?? DateTime.now());
-    // Document ID format: vendors_{organizationId}_{financialYear}
-    final docId = organizationId != null && organizationId.isNotEmpty
-        ? 'vendors_${organizationId}_$fyLabel'
-        : 'vendors_$fyLabel';
-    debugPrint('[AnalyticsRepository] Fetching $docId');
-    final payload = await _service.fetchAnalyticsDocument(docId);
-    if (payload == null) {
-      debugPrint('[AnalyticsRepository] No payload for $docId');
+    if (organizationId == null || organizationId.isEmpty) {
       return null;
     }
-    debugPrint('[AnalyticsRepository] Received analytics payload for $docId with keys: ${payload.keys}');
-    return VendorsAnalytics.fromMap(payload);
+
+    final (effectiveStartDate, effectiveEndDate) = _calculateDateRange(
+      financialYear: financialYear,
+      startDate: startDate,
+      endDate: endDate,
+      asOf: asOf,
+    );
+
+    final months = _getMonthsInRange(effectiveStartDate, effectiveEndDate);
+    if (months.isEmpty) return null;
+
+    final docIds = months.map((month) => 'vendors_${organizationId}_$month').toList();
+    final docs = await _service.fetchAnalyticsDocuments(docIds);
+    if (docs.isEmpty) {
+      debugPrint('[AnalyticsRepository] No vendors analytics documents found');
+      return null;
+    }
+
+    // Aggregate: use max totalPayable (org-wide), merge purchasesByVendorType
+    var totalPayable = 0.0;
+    final purchasesByVendorType = <String, Map<String, double>>{};
+    for (final doc in docs) {
+      final payable = (doc['metrics']?['totalPayable'] as num?)?.toDouble() ?? 0.0;
+      if (payable > totalPayable) totalPayable = payable;
+      final purchases = doc['metrics']?['purchasesByVendorType'] as Map<String, dynamic>?;
+      if (purchases != null) {
+        purchases.forEach((vendorType, amount) {
+          if (amount is num) {
+            purchasesByVendorType.putIfAbsent(vendorType, () => <String, double>{});
+            final month = doc['month'] as String?;
+            if (month != null) {
+              purchasesByVendorType[vendorType]![month] = 
+                (purchasesByVendorType[vendorType]![month] ?? 0.0) + amount.toDouble();
+            }
+          }
+        });
+      }
+    }
+    final aggregatedPayload = {
+      'metrics': {
+        'totalPayable': totalPayable,
+        'purchasesByVendorType': {'values': purchasesByVendorType},
+      },
+      'generatedAt': docs.isNotEmpty ? docs.last['generatedAt'] : null,
+    };
+    return VendorsAnalytics.fromMap(aggregatedPayload);
   }
 
   String _financialYearForDate(DateTime date) {

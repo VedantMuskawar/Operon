@@ -28,9 +28,11 @@ dependencies:
   shared_preferences: ^2.3.2
   share_plus: ^10.0.0
   image_picker: ^1.0.7
+  cached_network_image: ^3.3.1
   http: ^1.2.0
   pdf: ^3.11.1
   printing: ^5.13.1
+  flutter_html_to_pdf_plus: ^1.0.0
   flutter_staggered_animations: ^1.1.1
   shimmer: ^3.0.0
   core_bloc:

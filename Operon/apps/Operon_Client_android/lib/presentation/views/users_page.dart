@@ -6,7 +6,6 @@ import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/domain/entities/organization_user.dart';
 import 'package:dash_mobile/presentation/blocs/users/users_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/roles/roles_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/quick_nav_bar.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
 import 'package:flutter/material.dart';
@@ -108,9 +107,36 @@ class UsersPage extends StatelessWidget {
                 ),
                       ),
                     ),
-            QuickNavBar(
+            FloatingNavBar(
+              items: const [
+                NavBarItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  heroTag: 'nav_home',
+                ),
+                NavBarItem(
+                  icon: Icons.pending_actions_rounded,
+                  label: 'Pending',
+                  heroTag: 'nav_pending',
+                ),
+                NavBarItem(
+                  icon: Icons.schedule_rounded,
+                  label: 'Schedule',
+                  heroTag: 'nav_schedule',
+                ),
+                NavBarItem(
+                  icon: Icons.map_rounded,
+                  label: 'Map',
+                  heroTag: 'nav_map',
+                ),
+                NavBarItem(
+                  icon: Icons.event_available_rounded,
+                  label: 'Cash Ledger',
+                  heroTag: 'nav_cash_ledger',
+                ),
+              ],
               currentIndex: -1, // -1 means no selection when on this page
-              onTap: (value) => context.go('/home', extra: value),
+              onItemTapped: (value) => context.go('/home', extra: value),
             ),
           ],
         ),

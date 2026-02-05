@@ -1024,7 +1024,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildPaymentOption('pay_now', 'Pay Now'),
+              child: _buildPaymentOption('pay_on_delivery', 'Pay Now'),
             ),
           ],
         ),

@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_bloc/core_bloc.dart';
-import 'package:core_models/core_models.dart';
+import 'package:core_models/core_models.dart' hide LatLng;
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -45,25 +45,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   @override
   void initState() {
     super.initState();
-    // #region agent log
-    try {
-      final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-      final logData = {'location': 'driver_home_screen.dart:47', 'message': 'initState called', 'data': {'mounted': mounted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'A'};
-      logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-    } catch (_) {}
-    // #endregion
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestPermissions());
   }
 
   @override
   void dispose() {
-    // #region agent log
-    try {
-      final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-      final logData = {'location': 'driver_home_screen.dart:dispose', 'message': 'dispose called', 'data': {'mounted': mounted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'A'};
-      logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-    } catch (_) {}
-    // #endregion
     super.dispose();
   }
 
@@ -90,13 +76,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
 
     // Determine if we should show path based on trip status
     final tripStatus = _selectedTrip != null ? getTripStatus(_selectedTrip!) : null;
-    // #region agent log
-    try {
-      final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-      final logData = {'location': 'driver_home_screen.dart:73', 'message': 'build called - trip status check', 'data': {'tripStatus': tripStatus, 'mounted': mounted, 'permissionsGranted': _permissionsGranted, 'willShowHUD': _permissionsGranted && tripStatus == 'dispatched'}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'A'};
-      logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-    } catch (_) {}
-    // #endregion
     final showPath = tripStatus == 'dispatched' ||
         tripStatus == 'delivered' ||
         tripStatus == 'returned';
@@ -136,13 +115,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
             key: const ValueKey('location_stream'),
             stream: locationService.currentLocationStream, // Always use same stream reference
             builder: (context, snapshot) {
-              // #region agent log
-              try {
-                final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-                final logData = {'location': 'driver_home_screen.dart:138', 'message': 'StreamBuilder builder called', 'data': {'mounted': mounted, 'contextMounted': context.mounted, 'hasData': snapshot.hasData, 'hasError': snapshot.hasError, 'connectionState': snapshot.connectionState.toString(), 'permissionsGranted': _permissionsGranted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'F'};
-                logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-              } catch (_) {}
-              // #endregion
               // Early return if widget is disposed - check before any context usage
               if (!mounted || !context.mounted) {
                 return const SizedBox.shrink();
@@ -156,13 +128,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
               // Read trip status directly from state, not from closure
               final currentTripStatus = _selectedTrip != null ? getTripStatus(_selectedTrip!) : null;
               
-              // #region agent log
-              try {
-                final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-                final logData = {'location': 'driver_home_screen.dart:153', 'message': 'StreamBuilder trip status check', 'data': {'currentTripStatus': currentTripStatus, 'willShowHUD': currentTripStatus == 'dispatched'}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'F'};
-                logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-              } catch (_) {}
-              // #endregion
               // Only show HUD when trip is dispatched
               if (currentTripStatus != 'dispatched') {
                 return const SizedBox.shrink();
@@ -220,32 +185,11 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                     final shouldRebuild = previous.isTracking != current.isTracking ||
                         previous.activeTrip?.id != current.activeTrip?.id ||
                         previous.status != current.status;
-                    // #region agent log
-                    try {
-                      final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-                      final logData = {'location': 'driver_home_screen.dart:164', 'message': 'BlocBuilder buildWhen', 'data': {'shouldRebuild': shouldRebuild, 'prevTracking': previous.isTracking, 'currTracking': current.isTracking, 'prevTripId': previous.activeTrip?.id, 'currTripId': current.activeTrip?.id, 'prevStatus': previous.status.toString(), 'currStatus': current.status.toString()}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'C'};
-                      logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-                    } catch (_) {}
-                    // #endregion
                     return shouldRebuild;
                   },
                   builder: (context, tripState) {
-                    // #region agent log
-                    try {
-                      final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-                      final logData = {'location': 'driver_home_screen.dart:175', 'message': 'BlocBuilder builder called', 'data': {'mounted': mounted, 'contextMounted': context.mounted, 'isTracking': tripState.isTracking, 'activeTripId': tripState.activeTrip?.id}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'C'};
-                      logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-                    } catch (_) {}
-                    // #endregion
                     // Guard against using context after disposal
                     if (!mounted || !context.mounted) {
-                      // #region agent log
-                      try {
-                        final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-                        final logData2 = {'location': 'driver_home_screen.dart:180', 'message': 'BlocBuilder early return - not mounted', 'data': {'mounted': mounted, 'contextMounted': context.mounted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'C'};
-                        logFile.writeAsStringSync('${jsonEncode(logData2)}\n', mode: FileMode.append);
-                      } catch (_) {}
-                      // #endregion
                       return const SizedBox.shrink();
                     }
                     return _ControlPanel(
@@ -377,13 +321,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
   // _askForReading method removed - functionality integrated into TripExecutionSheet
 
   Future<void> _handleDispatch(BuildContext context) async {
-    // #region agent log
-    try {
-      final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-      final logData = {'location': 'driver_home_screen.dart:419', 'message': '_handleDispatch called', 'data': {'mounted': mounted, 'permissionsGranted': _permissionsGranted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'F'};
-      logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-    } catch (_) {}
-    // #endregion
     if (_isRequestingPermissions) return;
     if (!_permissionsGranted) {
       showErrorSnackBar(context, 'Please grant permissions first.');
@@ -422,13 +359,6 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         return;
       }
 
-      // #region agent log
-      try {
-        final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-        final logData = {'location': 'driver_home_screen.dart:459', 'message': 'Before updateTripStatus', 'data': {'mounted': mounted, 'tripId': tripId}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'G'};
-        logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-      } catch (_) {}
-      // #endregion
       // Update scheduled trip status with initial reading
       // Note: TripBloc will also update status to dispatched, but we need to set initialReading here
       await scheduledTripsRepo.updateTripStatus(
@@ -439,56 +369,21 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
         source: 'driver',
       );
 
-      // #region agent log
-      try {
-        final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-        final logData = {'location': 'driver_home_screen.dart:472', 'message': 'After updateTripStatus, before delay', 'data': {'mounted': mounted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'G'};
-        logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-      } catch (_) {}
-      // #endregion
       // Wait a frame to ensure Firestore stream updates are processed
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // #region agent log
-      try {
-        final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-        final logData = {'location': 'driver_home_screen.dart:477', 'message': 'After delay, before setState', 'data': {'mounted': mounted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'G'};
-        logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-      } catch (_) {}
-      // #endregion
       // Reset path state for new tracking session
       if (mounted) {
         setState(() {
           _deliveryPointIndex = null;
           _currentPathLength = 0;
         });
-        // #region agent log
-        try {
-          final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-          final logData = {'location': 'driver_home_screen.dart:485', 'message': 'After setState, before StartTrip', 'data': {'mounted': mounted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'G'};
-          logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-        } catch (_) {}
-        // #endregion
       }
 
-      // #region agent log
-      try {
-        final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-        final logData = {'location': 'driver_home_screen.dart:492', 'message': 'Before TripBloc.add(StartTrip)', 'data': {'mounted': mounted, 'tripId': tripId}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'G'};
-        logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-      } catch (_) {}
-      // #endregion
       // Start location tracking via TripBloc
       // TripBloc will handle the status update atomically and start tracking
       context.read<TripBloc>().add(StartTrip(tripId: tripId, clientId: clientId));
 
-      // #region agent log
-      try {
-        final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-        final logData = {'location': 'driver_home_screen.dart:498', 'message': 'After TripBloc.add(StartTrip)', 'data': {'mounted': mounted}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'G'};
-        logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
-      } catch (_) {}
-      // #endregion
       if (mounted) {
         showSuccessSnackBar(context, 'Trip dispatched. Tracking started.');
       }
@@ -791,7 +686,7 @@ class _ControlPanel extends StatelessWidget {
         border: Border.all(color: border, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
+            color: AuthColors.background.withOpacity(0.18),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
