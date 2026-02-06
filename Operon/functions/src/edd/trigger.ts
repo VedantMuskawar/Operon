@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore } from '../shared/firestore-helpers';
 import {
   PENDING_ORDERS_COLLECTION,
@@ -7,7 +8,7 @@ import {
   SCHEDULE_TRIPS_COLLECTION,
   EDD_RECALC_QUEUE,
 } from '../shared/constants';
-import { DEFAULT_REGION } from '../shared/function-config';
+import { LIGHT_TRIGGER_OPTS, SCHEDULED_FUNCTION_OPTS } from '../shared/function-config';
 import { recalculateVehicleQueue } from './simulation-engine';
 
 const db = getFirestore();
@@ -81,13 +82,17 @@ async function getAffectedVehicleIds(
 /**
  * onWrite PENDING_ORDERS: enqueue EDD recalc for affected vehicles (debounced 60s).
  */
-export const onOrderWriteEddRecalc = functions
-  .region(DEFAULT_REGION)
-  .firestore.document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
-  .onWrite(async (change, context) => {
-    const orderId = context.params.orderId;
+export const onOrderWriteEddRecalc = onDocumentWritten(
+  {
+    document: `${PENDING_ORDERS_COLLECTION}/{orderId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const change = event.data;
+    if (!change) return;
     const before = change.before;
     const after = change.after;
+    const orderId = event.params.orderId;
 
     if (!orderRelevantChange(before, after)) {
       return;
@@ -127,15 +132,19 @@ export const onOrderWriteEddRecalc = functions
       vehicleIds: Array.from(vehicleIds),
       scheduledAt: scheduledAt.toISOString(),
     });
-  });
+  },
+);
 
 /**
  * Scheduled processor for EDD_RECALC_QUEUE. Runs every 2 minutes, processes due items.
  */
-export const processEddRecalcQueueScheduled = functions.pubsub
-  .schedule('*/2 * * * *')
-  .timeZone('UTC')
-  .onRun(async () => {
+export const processEddRecalcQueueScheduled = onSchedule(
+  {
+    schedule: '*/2 * * * *',
+    timeZone: 'UTC',
+    ...SCHEDULED_FUNCTION_OPTS,
+  },
+  async () => {
     const now = admin.firestore.Timestamp.now();
     const orgsSnap = await db.collection(ORGANIZATIONS_COLLECTION).get();
 
@@ -159,4 +168,5 @@ export const processEddRecalcQueueScheduled = functions.pubsub
         await doc.ref.delete();
       }
     }
-  });
+  },
+);

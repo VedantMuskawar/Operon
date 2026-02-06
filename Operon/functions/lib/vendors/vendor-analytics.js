@@ -56,22 +56,18 @@ async function rebuildVendorAnalyticsCore(fyLabel) {
             vendorsByOrg[organizationId].push(doc);
         }
     });
-    const analyticsUpdates = Object.entries(vendorsByOrg).map(async ([organizationId, orgVendors]) => {
-        const analyticsRef = db
-            .collection(constants_1.ANALYTICS_COLLECTION)
-            .doc(`${constants_1.VENDORS_SOURCE_KEY}_${organizationId}_${fyLabel}`);
+    // Calculate total payable (current balance across all vendors) - this is org-wide, not month-specific
+    const totalPayableByOrg = {};
+    Object.entries(vendorsByOrg).forEach(([organizationId, orgVendors]) => {
         let totalPayable = 0;
         orgVendors.forEach((doc) => {
             var _a;
             const currentBalance = ((_a = doc.data()) === null || _a === void 0 ? void 0 : _a.currentBalance) || 0;
             totalPayable += currentBalance;
         });
-        const purchaseTransactionsSnapshot = await db
-            .collection(constants_1.TRANSACTIONS_COLLECTION)
-            .where('organizationId', '==', organizationId)
-            .where('ledgerType', '==', 'vendorLedger')
-            .where('type', '==', 'credit')
-            .get();
+        totalPayableByOrg[organizationId] = totalPayable;
+    });
+    const analyticsUpdates = Object.entries(vendorsByOrg).map(async ([organizationId, orgVendors]) => {
         const vendorTypeMap = {};
         orgVendors.forEach((doc) => {
             var _a;
@@ -81,7 +77,14 @@ async function rebuildVendorAnalyticsCore(fyLabel) {
                 vendorTypeMap[vendorId] = vendorType;
             }
         });
-        const purchasesByVendorType = {};
+        const purchaseTransactionsSnapshot = await db
+            .collection(constants_1.TRANSACTIONS_COLLECTION)
+            .where('organizationId', '==', organizationId)
+            .where('ledgerType', '==', 'vendorLedger')
+            .where('type', '==', 'credit')
+            .get();
+        // Group purchases by month and vendor type
+        const purchasesByMonth = {};
         purchaseTransactionsSnapshot.forEach((doc) => {
             const transactionData = doc.data();
             const vendorId = transactionData.vendorId;
@@ -96,23 +99,29 @@ async function rebuildVendorAnalyticsCore(fyLabel) {
             if (transactionDate) {
                 const dateObj = transactionDate.toDate();
                 const monthKey = (0, date_helpers_1.getYearMonth)(dateObj);
-                if (!purchasesByVendorType[vendorType]) {
-                    purchasesByVendorType[vendorType] = {};
+                if (!purchasesByMonth[monthKey]) {
+                    purchasesByMonth[monthKey] = { byVendorType: {} };
                 }
-                purchasesByVendorType[vendorType][monthKey] = (purchasesByVendorType[vendorType][monthKey] || 0) + amount;
+                purchasesByMonth[monthKey].byVendorType[vendorType] =
+                    (purchasesByMonth[monthKey].byVendorType[vendorType] || 0) + amount;
             }
         });
-        await (0, firestore_helpers_1.seedVendorAnalyticsDoc)(analyticsRef, fyLabel, organizationId);
-        const updateData = {
-            generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            'metrics.totalPayable': totalPayable,
-        };
-        for (const [vendorType, monthlyData] of Object.entries(purchasesByVendorType)) {
-            for (const [monthKey, amount] of Object.entries(monthlyData)) {
-                updateData[`metrics.purchasesByVendorType.values.${vendorType}.${monthKey}`] = amount;
+        // Write to each month's document
+        const monthPromises = Object.entries(purchasesByMonth).map(async ([monthKey, monthData]) => {
+            const analyticsRef = db
+                .collection(constants_1.ANALYTICS_COLLECTION)
+                .doc(`${constants_1.VENDORS_SOURCE_KEY}_${organizationId}_${monthKey}`);
+            await (0, firestore_helpers_1.seedVendorAnalyticsDoc)(analyticsRef, monthKey, organizationId);
+            const updateData = {
+                generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                'metrics.totalPayable': totalPayableByOrg[organizationId], // Include total payable in each month doc
+            };
+            for (const [vendorType, amount] of Object.entries(monthData.byVendorType)) {
+                updateData[`metrics.purchasesByVendorType.${vendorType}`] = amount;
             }
-        }
-        await analyticsRef.set(updateData, { merge: true });
+            await analyticsRef.set(updateData, { merge: true });
+        });
+        await Promise.all(monthPromises);
     });
     await Promise.all(analyticsUpdates);
     console.log(`[Vendor Analytics] Rebuilt analytics for ${Object.keys(vendorsByOrg).length} organizations`);

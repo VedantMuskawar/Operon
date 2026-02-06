@@ -1,17 +1,17 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import {
   ANALYTICS_COLLECTION,
   CLIENTS_COLLECTION,
   SOURCE_KEY,
 } from '../shared/constants';
-import { getFinancialContext } from '../shared/financial-year';
 import {
   getCreationDate,
   getFirestore,
   seedAnalyticsDoc,
 } from '../shared/firestore-helpers';
 import { getYearMonth } from '../shared/date-helpers';
+import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 
@@ -19,13 +19,17 @@ const db = getFirestore();
  * Cloud Function: Triggered when a client is created
  * Updates client analytics for the organization
  */
-
-export const onClientCreated = functions.firestore
-  .document(`${CLIENTS_COLLECTION}/{clientId}`)
-  .onCreate(async (snapshot) => {
+export const onClientCreated = onDocumentCreated(
+  {
+    document: `${CLIENTS_COLLECTION}/{clientId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
     const clientData = snapshot.data();
     const organizationId = clientData?.organizationId as string | undefined;
-    
+
     if (!organizationId) {
       console.warn('[Client Analytics] Client created without organizationId', {
         clientId: snapshot.id,
@@ -34,7 +38,7 @@ export const onClientCreated = functions.firestore
     }
 
     const createdAt = getCreationDate(snapshot);
-    const monthKey = getYearMonth(createdAt); // Use YYYY-MM format
+    const monthKey = getYearMonth(createdAt);
     const analyticsRef = db
       .collection(ANALYTICS_COLLECTION)
       .doc(`${SOURCE_KEY}_${organizationId}_${monthKey}`);
@@ -50,7 +54,8 @@ export const onClientCreated = functions.firestore
       },
       { merge: true },
     );
-  });
+  },
+);
 
 /**
  * Core logic to rebuild client analytics for all organizations.
@@ -102,16 +107,16 @@ export async function rebuildClientAnalyticsCore(fyLabel: string, fyStart: Date,
       const onboardingCount = monthDocs.length;
       
       analyticsUpdates.push(
-        seedAnalyticsDoc(analyticsRef, monthKey, organizationId).then(() =>
-          analyticsRef.set(
+        seedAnalyticsDoc(analyticsRef, monthKey, organizationId).then(async () => {
+          await analyticsRef.set(
             {
               generatedAt: admin.firestore.FieldValue.serverTimestamp(),
               'metrics.totalActiveClients': totalActiveClients,
               'metrics.userOnboarding': onboardingCount,
             },
             { merge: true },
-          )
-        )
+          );
+        })
       );
     });
   });

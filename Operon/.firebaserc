@@ -12,6 +12,9 @@
         ],
         "lakshmee-site": [
           "lakshmeebrick"
+        ],
+        "operon-client": [
+          "operon-client"
         ]
       }
     }

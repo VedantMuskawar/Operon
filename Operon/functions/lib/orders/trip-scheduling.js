@@ -35,26 +35,18 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onScheduledTripDeleted = exports.onScheduledTripCreated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
-const firestore_2 = require("firebase-admin/firestore");
 const admin = __importStar(require("firebase-admin"));
 const constants_1 = require("../shared/constants");
-const db = (0, firestore_2.getFirestore)();
+const firestore_helpers_1 = require("../shared/firestore-helpers");
+const function_config_1 = require("../shared/function-config");
+const db = (0, firestore_helpers_1.getFirestore)();
 const TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
-// Function configuration for v2 functions
-// TEMPORARY: Using us-central1 to avoid Eventarc service identity errors in asia-south1
-// TODO: Switch back to 'asia-south1' after enabling Eventarc API and setting IAM permissions
-// See functions/DEPLOYMENT_FIX.md for details
-const functionOptions = {
-    region: 'us-central1', // Temporary: Changed from asia-south1 to avoid Eventarc issues
-    timeoutSeconds: 60,
-    maxInstances: 10,
-};
 /**
  * When a trip is scheduled:
  * 1. Update PENDING_ORDER: Add to scheduledTrips array, increment totalScheduledTrips, decrement estimatedTrips
  * 2. If estimatedTrips becomes 0: Set status to 'fully_scheduled' (don't delete order)
  */
-exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)(Object.assign({ document: 'SCHEDULE_TRIPS/{tripId}' }, functionOptions), async (event) => {
+exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)(Object.assign({ document: 'SCHEDULE_TRIPS/{tripId}' }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
     var _a, _b;
     const tripData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!tripData) {
@@ -347,7 +339,7 @@ exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)(Object.assig
  * 2. Update PENDING_ORDER: Remove from scheduledTrips, decrement totalScheduledTrips, increment estimatedTrips
  *    Note: Order always exists now (not deleted when fully scheduled), so no recreation needed
  */
-exports.onScheduledTripDeleted = (0, firestore_1.onDocumentDeleted)(Object.assign({ document: 'SCHEDULE_TRIPS/{tripId}' }, functionOptions), async (event) => {
+exports.onScheduledTripDeleted = (0, firestore_1.onDocumentDeleted)(Object.assign({ document: 'SCHEDULE_TRIPS/{tripId}' }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
     var _a;
     const tripData = (_a = event.data) === null || _a === void 0 ? void 0 : _a.data();
     if (!tripData) {

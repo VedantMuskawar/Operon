@@ -31,12 +31,34 @@
 
   <title>Operon Client Web</title>
   <link rel="manifest" href="manifest.json">
+  <!-- Google Maps API Key Configuration -->
+  <!-- Load config first to set window.GOOGLE_MAPS_API_KEY -->
+  <script src="maps-config.js"></script>
   <!-- Google Maps JS SDK (required for google_maps_flutter on web) -->
   <!-- Note: AdvancedMarkerElement deprecation warning is expected until google_maps_flutter migrates -->
   <!-- See: https://github.com/flutter/flutter/issues/130472 -->
-  <!-- API key should be replaced during build via environment variable GOOGLE_MAPS_API_KEY -->
-  <!-- Build script should replace {{GOOGLE_MAPS_API_KEY}} with actual key -->
-  <script src="https://maps.googleapis.com/maps/api/js?key={{GOOGLE_MAPS_API_KEY}}&libraries=marker"></script>
+  <!-- API key is loaded from maps-config.js or replaced during build -->
+  <script>
+    (function() {
+      var apiKey = window.GOOGLE_MAPS_API_KEY || '';
+      var placeholder = '{{GOOGLE_MAPS_API_KEY}}';
+      
+      // Validate API key
+      if (!apiKey || apiKey === placeholder || apiKey.includes('{{') || apiKey.length < 20) {
+        console.error('[Google Maps] API key not configured properly.');
+        console.error('Please either:');
+        console.error('1. Set GOOGLE_MAPS_API_KEY environment variable and run: node scripts/replace-maps-api-key.js');
+        console.error('2. Or manually edit web/maps-config.js and replace {{GOOGLE_MAPS_API_KEY}} with your API key');
+        return;
+      }
+      
+      // Load Google Maps script synchronously (must load before Flutter initializes)
+      // Using document.write ensures synchronous loading
+      document.write('<script src="https://maps.googleapis.com/maps/api/js?key=' + 
+                     encodeURIComponent(apiKey) + 
+                     '&libraries=marker"><\/script>');
+    })();
+  </script>
   <!-- Apple SF Pro Font (matching iCloud.com) -->
   <link rel="stylesheet" href="https://www.apple.com/wss/fonts?families=SF+Pro,v3|SF+Pro+Icons,v3">
   <!-- html2pdf.js for HTML to PDF conversion -->

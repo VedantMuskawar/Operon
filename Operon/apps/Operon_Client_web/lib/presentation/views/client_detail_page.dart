@@ -17,7 +17,6 @@ import 'package:dash_web/data/utils/financial_year_utils.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_web/presentation/widgets/pending_order_tile.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -1718,52 +1717,13 @@ class _LedgerTableRow extends StatelessWidget {
     final dmNum = dmNumber is int ? dmNumber : (dmNumber is num ? dmNumber.toInt() : null);
     if (dmNum == null) return;
     final printService = context.read<DmPrintService>();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Center(
-        child: Card(
-          color: AuthColors.surface,
-          child: const Padding(
-            padding: EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: AuthColors.info),
-                SizedBox(height: 16),
-                Text('Loading DM...', style: TextStyle(color: AuthColors.textMain)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
     try {
-      final dmData = await printService.fetchDmByNumberOrId(
-        organizationId: org.id,
-        dmNumber: dmNum,
-        dmId: null,
-        tripData: null,
-      );
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-      if (dmData == null) {
-        DashSnackbar.show(context, message: 'DM not found', isError: true);
-        return;
+      await printService.printDeliveryMemo(dmNum);
+      if (context.mounted) {
+        DashSnackbar.show(context, message: 'Print window opened');
       }
-      if (!context.mounted) return;
-      showDialog(
-        context: context,
-        builder: (_) => DmPrintDialog(
-          dmPrintService: printService,
-          organizationId: org.id,
-          dmData: dmData,
-          dmNumber: (dmData['dmNumber'] as int?) ?? dmNum,
-        ),
-      );
     } catch (e) {
       if (context.mounted) {
-        Navigator.of(context).pop();
         DashSnackbar.show(context, message: 'Failed to open print: $e', isError: true);
       }
     }

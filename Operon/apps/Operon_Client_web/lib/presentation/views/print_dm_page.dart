@@ -98,8 +98,8 @@ class _PrintDMPageState extends State<PrintDMPage> {
         
         print('[PrintDMPage] Replacing document and triggering print immediately...');
         
-        // Inject HTML and trigger print immediately (no delay needed - data is ready)
-        Future.delayed(const Duration(milliseconds: 300), () {
+        // Brief delay so replaced document can layout before print
+        Future.delayed(const Duration(milliseconds: 150), () {
           _replaceDocumentAndPrint(htmlString);
         });
         
@@ -141,25 +141,27 @@ class _PrintDMPageState extends State<PrintDMPage> {
         return;
       }
 
-      // Fetch related order data
+      // Fetch related order and DM view data in parallel (neither depends on the other)
       final orderId = dmData['orderID'] as String?;
-      if (orderId != null && orderId.isNotEmpty) {
-        final orderData = await _fetchRelatedOrder(orderId, orgId);
-        if (orderData != null) {
-          dmData['clientPhone'] = orderData['clientPhoneNumber'] as String? ?? 
-                                  dmData['clientPhone'] as String?;
-          dmData['driverName'] = orderData['driverName'] as String? ?? 
-                                 dmData['driverName'] as String?;
-          dmData['driverPhone'] = orderData['driverPhone'] as String? ?? 
-                                  dmData['driverPhone'] as String?;
-        }
-      }
-
-      // Load DM view data
-      final payload = await printService.loadDmViewData(
+      final orderFuture = (orderId != null && orderId.isNotEmpty)
+          ? _fetchRelatedOrder(orderId, orgId)
+          : Future<Map<String, dynamic>?>.value(null);
+      final payloadFuture = printService.loadDmViewData(
         organizationId: orgId,
         dmData: dmData,
       );
+      final results = await Future.wait([orderFuture, payloadFuture]);
+      final orderData = results[0] as Map<String, dynamic>?;
+      final payload = results[1] as DmViewPayload;
+
+      if (orderData != null) {
+        dmData['clientPhone'] = orderData['clientPhoneNumber'] as String? ??
+            dmData['clientPhone'] as String?;
+        dmData['driverName'] = orderData['driverName'] as String? ??
+            dmData['driverName'] as String?;
+        dmData['driverPhone'] = orderData['driverPhone'] as String? ??
+            dmData['driverPhone'] as String?;
+      }
 
       // Generate HTML
       final htmlString = printService.generateDmHtmlForPrint(
@@ -178,8 +180,8 @@ class _PrintDMPageState extends State<PrintDMPage> {
 
       print('[PrintDMPage] Replacing document and triggering print...');
 
-      // Inject HTML and trigger print
-      Future.delayed(const Duration(milliseconds: 600), () {
+      // Brief delay so replaced document can layout before print
+      Future.delayed(const Duration(milliseconds: 300), () {
         _replaceDocumentAndPrint(htmlString);
       });
     } catch (e, stackTrace) {
@@ -255,10 +257,10 @@ class _PrintDMPageState extends State<PrintDMPage> {
       print('[PrintDMPage] Executing JavaScript to replace document...');
       js.context.callMethod('eval', [jsCode]);
       
-      print('[PrintDMPage] Document replaced, will trigger print in 300ms...');
+      print('[PrintDMPage] Document replaced, will trigger print in 150ms...');
       
       // Trigger print dialog after content is rendered
-      Future.delayed(const Duration(milliseconds: 300), () {
+      Future.delayed(const Duration(milliseconds: 150), () {
         print('[PrintDMPage] Triggering window.print()...');
         html.window.print();
         print('[PrintDMPage] Print dialog triggered');

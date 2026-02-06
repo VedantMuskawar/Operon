@@ -36,10 +36,13 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.transactions = exports.orders = void 0;
 const admin = __importStar(require("firebase-admin"));
-// Initialize Firebase Admin
 admin.initializeApp();
-// Export all Cloud Functions
+// Eager init Firestore for global caching (optional; getFirestore() also inits on first use)
+const firestore_helpers_1 = require("./shared/firestore-helpers");
+(0, firestore_helpers_1.getFirestore)();
+// Re-export all Cloud Functions for Firebase deploy (root-level names required)
 __exportStar(require("./analytics"), exports);
 __exportStar(require("./clients/client-analytics"), exports);
 __exportStar(require("./clients/client-whatsapp"), exports);
@@ -55,4 +58,27 @@ __exportStar(require("./ledger-maintenance"), exports);
 __exportStar(require("./employees/employee-analytics"), exports);
 __exportStar(require("./geofences"), exports);
 __exportStar(require("./edd"), exports);
+// Grouped exports (domain objects) for clarity
+const ordersNs = __importStar(require("./orders"));
+const transactionsNs = __importStar(require("./transactions"));
+exports.orders = {
+    onOrderDeleted: ordersNs.onOrderDeleted,
+    onPendingOrderCreated: ordersNs.onPendingOrderCreated,
+    onOrderUpdated: ordersNs.onOrderUpdated,
+    onScheduledTripCreated: ordersNs.onScheduledTripCreated,
+    onScheduledTripDeleted: ordersNs.onScheduledTripDeleted,
+    onTripStatusUpdated: ordersNs.onTripStatusUpdated,
+    generateDM: ordersNs.generateDM,
+    cancelDM: ordersNs.cancelDM,
+    onOrderCreatedSendWhatsapp: ordersNs.onOrderCreatedSendWhatsapp,
+    onOrderUpdatedSendWhatsapp: ordersNs.onOrderUpdatedSendWhatsapp,
+    onTripDispatchedSendWhatsapp: ordersNs.onTripDispatchedSendWhatsapp,
+    onTripDeliveredSendWhatsapp: ordersNs.onTripDeliveredSendWhatsapp,
+    onTripReturnedCreateDM: ordersNs.onTripReturnedCreateDM,
+};
+exports.transactions = {
+    onTransactionCreated: transactionsNs.onTransactionCreated,
+    onTransactionDeleted: transactionsNs.onTransactionDeleted,
+    rebuildClientLedgers: transactionsNs.rebuildClientLedgers,
+};
 //# sourceMappingURL=index.js.map

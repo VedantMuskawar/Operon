@@ -1,10 +1,6 @@
-import 'dart:convert';
-
 import 'package:core_utils/core_utils.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
 
 /// State for a single marker's animation.
 class _MarkerState {
@@ -24,7 +20,7 @@ class _MarkerState {
 }
 
 /// Manages smooth animation of fleet markers between position updates.
-/// 
+///
 /// Prevents "teleporting" markers by interpolating between the previous and
 /// current positions over time. Uses shortest rotation path for bearings
 /// to prevent vehicles from spinning backwards.
@@ -34,71 +30,75 @@ class AnimatedMarkerManager {
   /// Map of driver ID to their current animation state.
   final Map<String, _MarkerState> _markerStates = {};
 
+  /// Expected update interval for smooth interpolation
+  static const _updateInterval = Duration(seconds: 5);
+
   /// Update the target position and bearing for a driver.
-  /// 
-  /// If the driver already has an animation state, the start position is set
-  /// to the current interpolated position to prevent jumps.
   void updateTarget({
     required String id,
     required LatLng newPos,
     required double newBearing,
-    double? animationProgress,
+    required DateTime now,
   }) {
     final existing = _markerStates[id];
-    
-    if (existing != null && animationProgress != null && animationProgress > 0) {
-      // Update from current interpolated position to prevent jumps
+
+    if (existing != null) {
+      // Calculate current interpolated position based on time elapsed
+      final elapsed = now.difference(existing.startTime).inMilliseconds;
+      final t = (elapsed / _updateInterval.inMilliseconds).clamp(0.0, 1.0);
+
       final interpolated = GeoMath.lerpLatLng(
         existing.startPos.latitude,
         existing.startPos.longitude,
         existing.targetPos.latitude,
         existing.targetPos.longitude,
-        animationProgress.clamp(0.0, 1.0),
+        t,
       );
-      existing.startPos = LatLng(interpolated['lat']!, interpolated['lng']!);
-      existing.startBearing = GeoMath.lerpBearing(
+
+      final currentBearing = GeoMath.lerpBearing(
         existing.startBearing,
         existing.targetBearing,
-        animationProgress.clamp(0.0, 1.0),
+        t,
       );
-    } else if (existing == null) {
-      // First update: start and target are the same (no animation yet)
+
+      // Start new animation segment from where we are now
+      existing.startPos = LatLng(interpolated['lat']!, interpolated['lng']!);
+      existing.startBearing = currentBearing;
+      existing.targetPos = newPos;
+      existing.targetBearing = newBearing;
+      existing.startTime = now;
+    } else {
+      // First update
       _markerStates[id] = _MarkerState(
         startPos: newPos,
         targetPos: newPos,
         startBearing: newBearing,
         targetBearing: newBearing,
-        startTime: DateTime.now(),
+        startTime: now,
       );
-      return;
     }
-
-    // Update target to new position
-    existing.targetPos = newPos;
-    existing.targetBearing = newBearing;
-    existing.startTime = DateTime.now();
   }
 
-  /// Get interpolated markers based on animation progress.
-  /// 
-  /// [animationValue] should be in range [0.0, 1.0] from AnimationController.
-  /// [icons] maps driver ID to their marker icon.
-  /// [vehicleNumbers] maps driver ID to vehicle number string.
-  /// [isOffline] maps driver ID to offline status.
-  /// [lastUpdatedMins] maps driver ID to minutes since last update.
+  /// Get interpolated markers based on time.
+  ///
+  /// [hasDirection] - When true for a driver, marker is rotated by bearing (moving vehicles).
+  /// When false or absent, rotation is 0 (idling/stopped/offline).
   Set<Marker> getMarkers({
-    required double animationValue,
+    required DateTime now,
     required Map<String, BitmapDescriptor> icons,
     required Map<String, String> vehicleNumbers,
     required Map<String, bool> isOffline,
     required Map<String, int> lastUpdatedMins,
+    Map<String, bool>? hasDirection,
   }) {
     final markers = <Marker>{};
-    final t = animationValue.clamp(0.0, 1.0);
 
     for (final entry in _markerStates.entries) {
       final id = entry.key;
       final state = entry.value;
+
+      final elapsed = now.difference(state.startTime).inMilliseconds;
+      final t = (elapsed / _updateInterval.inMilliseconds).clamp(0.0, 1.0);
 
       // Interpolate position
       final interpolated = GeoMath.lerpLatLng(
@@ -122,8 +122,12 @@ class AnimatedMarkerManager {
       final vehicleNumber = vehicleNumbers[id] ?? 'Unknown';
       final offline = isOffline[id] ?? false;
       final mins = lastUpdatedMins[id] ?? 0;
+      final useBearing = hasDirection?[id] ?? false;
 
       if (icon == null) continue;
+
+      final rotation =
+          useBearing && currentBearing.isFinite ? (currentBearing % 360) : 0.0;
 
       markers.add(
         Marker(
@@ -131,12 +135,14 @@ class AnimatedMarkerManager {
           position: currentPos,
           icon: icon,
           flat: true,
-          anchor: const Offset(0.5, 1.0), // Pin marker: anchor at bottom center (pointer tip)
-          rotation: currentBearing.isFinite ? (currentBearing % 360) : 0.0,
+          anchor: const Offset(
+              0.5, 1.0), // Pin marker: anchor at bottom center (pointer tip)
+          rotation: rotation,
           alpha: offline ? 0.35 : 1.0,
           infoWindow: InfoWindow(
             title: vehicleNumber,
-            snippet: offline ? 'Offline • ${mins}m ago' : 'Online • ${mins}m ago',
+            snippet:
+                offline ? 'Offline • ${mins}m ago' : 'Online • ${mins}m ago',
           ),
         ),
       );

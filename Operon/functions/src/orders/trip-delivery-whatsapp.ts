@@ -1,18 +1,23 @@
-import * as functions from 'firebase-functions';
-import {
-  CLIENTS_COLLECTION,
-} from '../shared/constants';
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { CLIENTS_COLLECTION } from '../shared/constants';
 import { getFirestore } from '../shared/firestore-helpers';
-import { loadWhatsappSettings, sendWhatsappTemplateMessage } from '../shared/whatsapp-service';
 import { logInfo, logWarning, logError } from '../shared/logger';
+import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
+import type { WhatsappSettings } from '../shared/whatsapp-service';
 
 const db = getFirestore();
 const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
+
+type WhatsappModule = {
+  loadWhatsappSettings: (orgId: string | undefined, verbose?: boolean) => Promise<WhatsappSettings | null>;
+  sendWhatsappTemplateMessage: (url: string, token: string, to: string, templateName: string, languageCode: string, parameters: string[], messageType: string, context: any) => Promise<void>;
+};
 
 /**
  * Sends WhatsApp notification to client when a trip is delivered
  */
 async function sendTripDeliveryMessage(
+  whatsapp: WhatsappModule,
   to: string,
   clientName: string | undefined,
   organizationId: string | undefined,
@@ -34,7 +39,7 @@ async function sendTripDeliveryMessage(
     deliveredAt?: any;
   },
 ): Promise<void> {
-  const settings = await loadWhatsappSettings(organizationId);
+  const settings = await whatsapp.loadWhatsappSettings(organizationId);
   if (!settings?.tripDeliveryTemplateId) {
     logWarning('Trip/WhatsApp', 'sendTripDeliveryMessage', 'Skipping send – no settings or disabled', {
       tripId,
@@ -91,7 +96,7 @@ async function sendTripDeliveryMessage(
     hasItems: tripData.items && tripData.items.length > 0,
   });
 
-  await sendWhatsappTemplateMessage(
+  await whatsapp.sendWhatsappTemplateMessage(
     url,
     settings.token,
     to,
@@ -110,12 +115,16 @@ async function sendTripDeliveryMessage(
  * Cloud Function: Triggered when a trip status is updated to 'delivered'
  * Sends WhatsApp notification to client with delivery confirmation
  */
-export const onTripDeliveredSendWhatsapp = functions.firestore
-  .document(`${SCHEDULED_TRIPS_COLLECTION}/{tripId}`)
-  .onUpdate(async (change, context) => {
-    const tripId = context.params.tripId;
-    const before = change.before.data();
-    const after = change.after.data();
+export const onTripDeliveredSendWhatsapp = onDocumentUpdated(
+  {
+    document: `${SCHEDULED_TRIPS_COLLECTION}/{tripId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const tripId = event.params.tripId;
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
 
     // Only proceed if trip status changed to 'delivered'
     const beforeStatus = (before.tripStatus as string | undefined)?.toLowerCase();
@@ -201,11 +210,14 @@ export const onTripDeliveredSendWhatsapp = functions.firestore
       return;
     }
 
+    const whatsapp = await import('../shared/whatsapp-service');
     await sendTripDeliveryMessage(
+      whatsapp,
       clientPhone,
       clientName,
       tripData.organizationId,
       tripId,
       tripData,
     );
-  });
+  },
+);

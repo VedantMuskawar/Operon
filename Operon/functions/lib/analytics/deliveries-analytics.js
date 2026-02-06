@@ -44,18 +44,15 @@ const db = (0, firestore_helpers_1.getFirestore)();
  * Tracks: total quantity delivered, quantity by region (city/region), top 20 clients by order value.
  */
 async function rebuildDeliveriesAnalyticsForOrg(organizationId, financialYear, fyStart, fyEnd) {
-    const analyticsDocId = `${constants_1.DELIVERIES_SOURCE_KEY}_${organizationId}_${financialYear}`;
-    const analyticsRef = db.collection(constants_1.ANALYTICS_COLLECTION).doc(analyticsDocId);
+    // Group deliveries by month - will write to multiple monthly documents
     const dmSnapshot = await db
         .collection(constants_1.DELIVERY_MEMOS_COLLECTION)
         .where('organizationId', '==', organizationId)
         .where('status', '==', 'delivered')
         .get();
-    const totalQuantityDeliveredMonthly = {};
-    let totalQuantityDeliveredYearly = 0;
-    const quantityByRegion = {};
-    const clientTotalsByMonth = {};
-    const clientTotalsByYear = {};
+    // Group deliveries by month
+    const deliveriesByMonth = {};
+    const clientNameMap = {};
     dmSnapshot.forEach((doc) => {
         var _a, _b, _c, _d, _e;
         const dm = doc.data();
@@ -66,6 +63,13 @@ async function rebuildDeliveriesAnalyticsForOrg(organizationId, financialYear, f
             return;
         }
         const monthKey = (0, date_helpers_1.getYearMonth)(dmDate);
+        if (!deliveriesByMonth[monthKey]) {
+            deliveriesByMonth[monthKey] = {
+                quantity: 0,
+                quantityByRegion: {},
+                clientTotals: {},
+            };
+        }
         // Sum quantity from items
         let qty = 0;
         const items = dm.items || [];
@@ -73,64 +77,38 @@ async function rebuildDeliveriesAnalyticsForOrg(organizationId, financialYear, f
             const fixedQty = (_e = item === null || item === void 0 ? void 0 : item.fixedQuantityPerTrip) !== null && _e !== void 0 ? _e : 0;
             qty += fixedQty;
         }
-        totalQuantityDeliveredMonthly[monthKey] =
-            (totalQuantityDeliveredMonthly[monthKey] || 0) + qty;
-        totalQuantityDeliveredYearly += qty;
-        // Region distribution: city_name primary, then region
+        deliveriesByMonth[monthKey].quantity += qty;
+        // Region distribution
         const dz = dm.deliveryZone || {};
         const city = dz.city_name || dz.city || 'Unknown';
         const region = dz.region || city;
-        if (!quantityByRegion[city]) {
-            quantityByRegion[city] = {};
-        }
-        quantityByRegion[city][monthKey] = (quantityByRegion[city][monthKey] || 0) + qty;
+        deliveriesByMonth[monthKey].quantityByRegion[city] =
+            (deliveriesByMonth[monthKey].quantityByRegion[city] || 0) + qty;
         if (region !== city) {
-            if (!quantityByRegion[region]) {
-                quantityByRegion[region] = {};
-            }
-            quantityByRegion[region][monthKey] = (quantityByRegion[region][monthKey] || 0) + qty;
+            deliveriesByMonth[monthKey].quantityByRegion[region] =
+                (deliveriesByMonth[monthKey].quantityByRegion[region] || 0) + qty;
         }
-        // Top clients: tripPricing.total as order value
+        // Top clients
         const tripPricing = dm.tripPricing || {};
         const totalAmount = tripPricing.total || 0;
         const clientId = dm.clientId || '';
         if (clientId) {
-            if (!clientTotalsByYear[clientId]) {
-                clientTotalsByYear[clientId] = { amount: 0, count: 0 };
+            if (!clientNameMap[clientId]) {
+                clientNameMap[clientId] = dm.clientName || 'Unknown';
             }
-            clientTotalsByYear[clientId].amount += totalAmount;
-            clientTotalsByYear[clientId].count += 1;
-            if (!clientTotalsByMonth[monthKey]) {
-                clientTotalsByMonth[monthKey] = {};
+            if (!deliveriesByMonth[monthKey].clientTotals[clientId]) {
+                deliveriesByMonth[monthKey].clientTotals[clientId] = { amount: 0, count: 0 };
             }
-            if (!clientTotalsByMonth[monthKey][clientId]) {
-                clientTotalsByMonth[monthKey][clientId] = { amount: 0, count: 0 };
-            }
-            clientTotalsByMonth[monthKey][clientId].amount += totalAmount;
-            clientTotalsByMonth[monthKey][clientId].count += 1;
+            deliveriesByMonth[monthKey].clientTotals[clientId].amount += totalAmount;
+            deliveriesByMonth[monthKey].clientTotals[clientId].count += 1;
         }
     });
-    // Get client names from first DM we find per client
-    const clientNameMap = {};
-    dmSnapshot.forEach((d) => {
-        const dta = d.data();
-        const cid = dta.clientId;
-        if (cid && !clientNameMap[cid]) {
-            clientNameMap[cid] = dta.clientName || 'Unknown';
-        }
-    });
-    const top20YearlyWithNames = Object.entries(clientTotalsByYear)
-        .map(([cid, data]) => ({
-        clientId: cid,
-        clientName: clientNameMap[cid] || 'Unknown',
-        totalAmount: data.amount,
-        orderCount: data.count,
-    }))
-        .sort((a, b) => b.totalAmount - a.totalAmount)
-        .slice(0, 20);
-    const top20ByMonth = {};
-    for (const [monthKey, clientData] of Object.entries(clientTotalsByMonth)) {
-        top20ByMonth[monthKey] = Object.entries(clientData)
+    // Write to each month's document
+    const monthPromises = Object.entries(deliveriesByMonth).map(async ([monthKey, monthData]) => {
+        const analyticsRef = db.collection(constants_1.ANALYTICS_COLLECTION)
+            .doc(`${constants_1.DELIVERIES_SOURCE_KEY}_${organizationId}_${monthKey}`);
+        // Calculate top 20 clients for this month
+        const top20Clients = Object.entries(monthData.clientTotals)
             .map(([cid, data]) => ({
             clientId: cid,
             clientName: clientNameMap[cid] || 'Unknown',
@@ -139,16 +117,14 @@ async function rebuildDeliveriesAnalyticsForOrg(organizationId, financialYear, f
         }))
             .sort((a, b) => b.totalAmount - a.totalAmount)
             .slice(0, 20);
-    }
-    await (0, firestore_helpers_1.seedDeliveriesAnalyticsDoc)(analyticsRef, financialYear, organizationId);
-    const updateData = {
-        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        'metrics.totalQuantityDeliveredMonthly.values': totalQuantityDeliveredMonthly,
-        'metrics.totalQuantityDeliveredYearly': totalQuantityDeliveredYearly,
-        'metrics.quantityByRegion': quantityByRegion,
-        'metrics.top20ClientsByOrderValueYearly': top20YearlyWithNames,
-        'metrics.top20ClientsByOrderValueMonthly': top20ByMonth,
-    };
-    await analyticsRef.set(updateData, { merge: true });
+        await (0, firestore_helpers_1.seedDeliveriesAnalyticsDoc)(analyticsRef, monthKey, organizationId);
+        await analyticsRef.set({
+            generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            'metrics.totalQuantityDeliveredMonthly': monthData.quantity,
+            'metrics.quantityByRegion': monthData.quantityByRegion,
+            'metrics.top20ClientsByOrderValueMonthly': top20Clients,
+        }, { merge: true });
+    });
+    await Promise.all(monthPromises);
 }
 //# sourceMappingURL=deliveries-analytics.js.map

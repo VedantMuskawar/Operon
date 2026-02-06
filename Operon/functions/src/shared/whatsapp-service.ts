@@ -1,4 +1,3 @@
-import * as functions from 'firebase-functions';
 import { WHATSAPP_SETTINGS_COLLECTION } from './constants';
 import { getFirestore } from './firestore-helpers';
 
@@ -212,25 +211,27 @@ export async function loadWhatsappSettings(
     }
   }
 
-  // Fallback to global config (for backward compatibility)
-  const globalConfig: any = (functions.config() as any).whatsapp ?? {};
+  // Fallback to env (v2: no functions.config(); set WHATSAPP_* in Firebase config or env)
+  const envToken = process.env.WHATSAPP_TOKEN;
+  const envPhoneId = process.env.WHATSAPP_PHONE_ID;
+  const envEnabled = process.env.WHATSAPP_ENABLED;
   if (
-    globalConfig.token &&
-    globalConfig.phone_id &&
-    globalConfig.enabled !== 'false'
+    envToken &&
+    envPhoneId &&
+    envEnabled !== 'false'
   ) {
     if (verbose) {
-      console.log('[WhatsApp Service] Using global config fallback');
+      console.log('[WhatsApp Service] Using env fallback');
     }
     return {
       enabled: true,
-      token: globalConfig.token,
-      phoneId: globalConfig.phone_id,
-      welcomeTemplateId: globalConfig.welcome_template_id ?? 'lakshmee_client_added',
-      languageCode: globalConfig.language_code ?? 'en',
-      orderConfirmationTemplateId: globalConfig.order_confirmation_template_id ?? 'lakshmee_order_added',
-      tripDispatchTemplateId: globalConfig.trip_dispatch_template_id ?? 'lakshmee_trip_dispatch',
-      tripDeliveryTemplateId: globalConfig.trip_delivery_template_id ?? 'lakshmee_trip_delivered',
+      token: envToken,
+      phoneId: envPhoneId,
+      welcomeTemplateId: process.env.WHATSAPP_WELCOME_TEMPLATE_ID ?? 'lakshmee_client_added',
+      languageCode: process.env.WHATSAPP_LANGUAGE_CODE ?? 'en',
+      orderConfirmationTemplateId: process.env.WHATSAPP_ORDER_CONFIRMATION_TEMPLATE_ID ?? 'lakshmee_order_added',
+      tripDispatchTemplateId: process.env.WHATSAPP_TRIP_DISPATCH_TEMPLATE_ID ?? 'lakshmee_trip_dispatch',
+      tripDeliveryTemplateId: process.env.WHATSAPP_TRIP_DELIVERY_TEMPLATE_ID ?? 'lakshmee_trip_delivered',
     };
   }
 

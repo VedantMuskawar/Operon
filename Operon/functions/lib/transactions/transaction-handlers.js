@@ -35,23 +35,14 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onTransactionDeleted = exports.onTransactionCreated = void 0;
 const admin = __importStar(require("firebase-admin"));
-const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-functions/v2/firestore");
 const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
 const financial_year_1 = require("../shared/financial-year");
 const date_helpers_1 = require("../shared/date-helpers");
 const transaction_helpers_1 = require("../shared/transaction-helpers");
-// Note: transaction-handlers.ts still uses console.log for detailed ledger debugging
-// Consider migrating to logger helpers in future refactoring
+const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
-/**
- * Get year-month string in format YYYYMM for document IDs
- * @param date - The date to format
- * @returns Year-month string (e.g., "202401" for January 2024)
- */
-function getYearMonth(date) {
-    return (0, date_helpers_1.getYearMonthCompact)(date);
-}
 /**
  * Get previous financial year label
  */
@@ -257,7 +248,7 @@ async function updateClientLedger(organizationId, clientId, financialYear, trans
     });
     const fyDates = getFinancialYearDates(financialYear);
     const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
-    const yearMonth = getYearMonth(transactionDate);
+    const yearMonth = (0, date_helpers_1.getYearMonthCompact)(transactionDate);
     const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
     let balanceBefore = 0;
     let balanceAfter = 0;
@@ -541,7 +532,7 @@ async function updateVendorLedger(organizationId, vendorId, financialYear, trans
         isCancellation,
     });
     const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
-    const yearMonth = getYearMonth(transactionDate);
+    const yearMonth = (0, date_helpers_1.getYearMonthCompact)(transactionDate);
     const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
     let balanceBefore = 0;
     let balanceAfter = 0;
@@ -752,7 +743,7 @@ async function updateEmployeeLedger(organizationId, employeeId, financialYear, t
         isCancellation,
     });
     const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
-    const yearMonth = getYearMonth(transactionDate);
+    const yearMonth = (0, date_helpers_1.getYearMonthCompact)(transactionDate);
     const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
     let balanceBefore = 0;
     let balanceAfter = 0;
@@ -957,7 +948,7 @@ async function updateOrganizationLedger(organizationId, financialYear, transacti
     });
     const fyDates = getFinancialYearDates(financialYear);
     const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
-    const yearMonth = getYearMonth(transactionDate);
+    const yearMonth = (0, date_helpers_1.getYearMonthCompact)(transactionDate);
     const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
     let balanceBefore = 0;
     let balanceAfter = 0;
@@ -1204,9 +1195,12 @@ async function updateEmployeeAnalytics(organizationId, financialYear, transactio
 }
 /**
  * Update analytics when transaction is created or cancelled
+ * Now stores data in monthly documents instead of yearly
  */
 async function updateTransactionAnalytics(organizationId, financialYear, transaction, transactionDate, isCancellation = false) {
-    const analyticsDocId = `${constants_1.TRANSACTIONS_SOURCE_KEY}_${organizationId}_${financialYear}`;
+    // Use monthly document ID based on transaction date
+    const monthKey = (0, date_helpers_1.getYearMonthCompact)(transactionDate);
+    const analyticsDocId = `${constants_1.TRANSACTIONS_SOURCE_KEY}_${organizationId}_${monthKey}`;
     const analyticsRef = db.collection(constants_1.ANALYTICS_COLLECTION).doc(analyticsDocId);
     const amount = transaction.amount;
     const ledgerType = transaction.ledgerType || 'clientLedger';
@@ -1217,8 +1211,7 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
     const multiplier = isCancellation ? -1 : 1;
     const dateString = (0, date_helpers_1.formatDate)(transactionDate);
     const weekString = (0, date_helpers_1.getISOWeek)(transactionDate);
-    const monthString = (0, date_helpers_1.formatMonth)(transactionDate);
-    // Get current analytics data
+    // Get current analytics data for this month
     const analyticsDoc = await analyticsRef.get();
     const analyticsData = analyticsDoc.exists ? analyticsDoc.data() : {};
     // For ClientLedger: Only Type: Debit counts as income (actual money received)
@@ -1246,15 +1239,6 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
     else if (isCredit && ledgerType === 'clientLedger') {
         receivablesWeekly[weekString] = (receivablesWeekly[weekString] || 0) + (amount * multiplier);
     }
-    // Update monthly breakdown
-    const incomeMonthly = analyticsData.incomeMonthly || {};
-    const receivablesMonthly = analyticsData.receivablesMonthly || {};
-    if (isDebit && ledgerType === 'clientLedger') {
-        incomeMonthly[monthString] = (incomeMonthly[monthString] || 0) + (amount * multiplier);
-    }
-    else if (isCredit && ledgerType === 'clientLedger') {
-        receivablesMonthly[monthString] = (receivablesMonthly[monthString] || 0) + (amount * multiplier);
-    }
     // Update income by category (only for Debit transactions = actual income)
     const incomeByCategory = analyticsData.incomeByCategory || {};
     if (isDebit && ledgerType === 'clientLedger') {
@@ -1274,20 +1258,17 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
     // Update by type breakdown (for both credit and debit)
     const byType = analyticsData.byType || {};
     if (!byType[type]) {
-        byType[type] = { count: 0, total: 0, daily: {}, weekly: {}, monthly: {} };
+        byType[type] = { count: 0, total: 0, daily: {}, weekly: {} };
     }
     byType[type].count += multiplier;
     byType[type].total += (amount * multiplier);
-    // Update type daily/weekly/monthly
+    // Update type daily/weekly (no monthly maps needed - document is month-specific)
     if (!byType[type].daily)
         byType[type].daily = {};
     if (!byType[type].weekly)
         byType[type].weekly = {};
-    if (!byType[type].monthly)
-        byType[type].monthly = {};
     byType[type].daily[dateString] = (byType[type].daily[dateString] || 0) + (amount * multiplier);
     byType[type].weekly[weekString] = (byType[type].weekly[weekString] || 0) + (amount * multiplier);
-    byType[type].monthly[monthString] = (byType[type].monthly[monthString] || 0) + (amount * multiplier);
     // Clean type daily data
     byType[type].daily = (0, date_helpers_1.cleanDailyData)(byType[type].daily, 90);
     // Update by payment account breakdown
@@ -1303,7 +1284,6 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
                 total: 0,
                 daily: {},
                 weekly: {},
-                monthly: {},
             };
         }
         byPaymentAccount[accountId].count += multiplier;
@@ -1312,11 +1292,8 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
             byPaymentAccount[accountId].daily = {};
         if (!byPaymentAccount[accountId].weekly)
             byPaymentAccount[accountId].weekly = {};
-        if (!byPaymentAccount[accountId].monthly)
-            byPaymentAccount[accountId].monthly = {};
         byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
         byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
-        byPaymentAccount[accountId].monthly[monthString] = (byPaymentAccount[accountId].monthly[monthString] || 0) + (amount * multiplier);
         byPaymentAccount[accountId].daily = (0, date_helpers_1.cleanDailyData)(byPaymentAccount[accountId].daily, 90);
     }
     else if (accountId === 'cash') {
@@ -1329,7 +1306,6 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
                 total: 0,
                 daily: {},
                 weekly: {},
-                monthly: {},
             };
         }
         byPaymentAccount[accountId].count += multiplier;
@@ -1338,18 +1314,15 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
             byPaymentAccount[accountId].daily = {};
         if (!byPaymentAccount[accountId].weekly)
             byPaymentAccount[accountId].weekly = {};
-        if (!byPaymentAccount[accountId].monthly)
-            byPaymentAccount[accountId].monthly = {};
         byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
         byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
-        byPaymentAccount[accountId].monthly[monthString] = (byPaymentAccount[accountId].monthly[monthString] || 0) + (amount * multiplier);
         byPaymentAccount[accountId].daily = (0, date_helpers_1.cleanDailyData)(byPaymentAccount[accountId].daily, 90);
     }
     // Update by payment method type breakdown
     const byPaymentMethodType = analyticsData.byPaymentMethodType || {};
     const methodType = paymentAccountType || 'cash';
     if (!byPaymentMethodType[methodType]) {
-        byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {}, monthly: {} };
+        byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {} };
     }
     byPaymentMethodType[methodType].count += multiplier;
     byPaymentMethodType[methodType].total += (amount * multiplier);
@@ -1357,15 +1330,12 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
         byPaymentMethodType[methodType].daily = {};
     if (!byPaymentMethodType[methodType].weekly)
         byPaymentMethodType[methodType].weekly = {};
-    if (!byPaymentMethodType[methodType].monthly)
-        byPaymentMethodType[methodType].monthly = {};
     byPaymentMethodType[methodType].daily[dateString] = (byPaymentMethodType[methodType].daily[dateString] || 0) + (amount * multiplier);
     byPaymentMethodType[methodType].weekly[weekString] = (byPaymentMethodType[methodType].weekly[weekString] || 0) + (amount * multiplier);
-    byPaymentMethodType[methodType].monthly[monthString] = (byPaymentMethodType[methodType].monthly[monthString] || 0) + (amount * multiplier);
     byPaymentMethodType[methodType].daily = (0, date_helpers_1.cleanDailyData)(byPaymentMethodType[methodType].daily, 90);
-    // Calculate totals
-    const totalIncome = Object.values(incomeMonthly).reduce((sum, val) => sum + (val || 0), 0);
-    const totalReceivables = Object.values(receivablesMonthly).reduce((sum, val) => sum + (val || 0), 0);
+    // Calculate totals for this month (sum of daily values)
+    const totalIncome = Object.values(incomeDaily).reduce((sum, val) => sum + (val || 0), 0);
+    const totalReceivables = Object.values(receivablesDaily).reduce((sum, val) => sum + (val || 0), 0);
     const netReceivables = totalReceivables - totalIncome; // What's still owed
     const transactionCount = (analyticsData.transactionCount || 0) + multiplier;
     // Calculate receivable aging (for Credit transactions)
@@ -1384,17 +1354,16 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
         // When cancelling, reduce receivables (simplified - should calculate actual aging)
         receivableAging.current = Math.max(0, (receivableAging.current || 0) - amount);
     }
-    // Update analytics document
+    // Update analytics document (month-specific, no monthly maps)
     await analyticsRef.set({
         source: constants_1.TRANSACTIONS_SOURCE_KEY,
         organizationId,
-        financialYear,
+        month: monthKey, // Store month for reference
+        financialYear, // Keep for backward compatibility during migration
         incomeDaily,
         receivablesDaily,
         incomeWeekly,
         receivablesWeekly,
-        incomeMonthly,
-        receivablesMonthly,
         incomeByCategory,
         receivablesByCategory,
         byType,
@@ -1551,11 +1520,17 @@ async function revertInvoicePayment(paymentTransactionId, paymentAmount, linkedI
 /**
  * Cloud Function: Triggered when a transaction is created
  */
-exports.onTransactionCreated = functions.firestore
-    .document(`${constants_1.TRANSACTIONS_COLLECTION}/{transactionId}`)
-    .onCreate(async (snapshot, context) => {
+exports.onTransactionCreated = (0, firestore_1.onDocumentCreated)(Object.assign({ document: `${constants_1.TRANSACTIONS_COLLECTION}/{transactionId}` }, function_config_1.CRITICAL_TRIGGER_OPTS), async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
     const transaction = snapshot.data();
-    const transactionId = context.params.transactionId;
+    const transactionId = event.params.transactionId;
+    // Idempotency: skip if already processed (balanceBefore/balanceAfter set)
+    if (transaction.balanceBefore !== undefined && transaction.balanceAfter !== undefined) {
+        console.log('[Transaction] Already processed, skipping', { transactionId });
+        return;
+    }
     const organizationId = transaction === null || transaction === void 0 ? void 0 : transaction.organizationId;
     const financialYear = transaction === null || transaction === void 0 ? void 0 : transaction.financialYear;
     const ledgerType = transaction.ledgerType || 'clientLedger';
@@ -1685,11 +1660,12 @@ exports.onTransactionCreated = functions.firestore
 /**
  * Cloud Function: Triggered when a transaction is deleted (for cancellations)
  */
-exports.onTransactionDeleted = functions.firestore
-    .document(`${constants_1.TRANSACTIONS_COLLECTION}/{transactionId}`)
-    .onDelete(async (snapshot, context) => {
+exports.onTransactionDeleted = (0, firestore_1.onDocumentDeleted)(Object.assign({ document: `${constants_1.TRANSACTIONS_COLLECTION}/{transactionId}` }, function_config_1.STANDARD_TRIGGER_OPTS), async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
     const transaction = snapshot.data();
-    const transactionId = context.params.transactionId;
+    const transactionId = event.params.transactionId;
     if (!transaction) {
         console.error('[Transaction] No data for deletion', { transactionId });
         return;

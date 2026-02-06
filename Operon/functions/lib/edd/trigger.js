@@ -35,7 +35,8 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.processEddRecalcQueueScheduled = exports.onOrderWriteEddRecalc = void 0;
 const admin = __importStar(require("firebase-admin"));
-const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-functions/v2/firestore");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
 const constants_1 = require("../shared/constants");
 const function_config_1 = require("../shared/function-config");
@@ -120,13 +121,13 @@ async function getAffectedVehicleIds(orderId, organizationId, before, after) {
 /**
  * onWrite PENDING_ORDERS: enqueue EDD recalc for affected vehicles (debounced 60s).
  */
-exports.onOrderWriteEddRecalc = functions
-    .region(function_config_1.DEFAULT_REGION)
-    .firestore.document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
-    .onWrite(async (change, context) => {
-    const orderId = context.params.orderId;
+exports.onOrderWriteEddRecalc = (0, firestore_1.onDocumentWritten)(Object.assign({ document: `${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}` }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
+    const change = event.data;
+    if (!change)
+        return;
     const before = change.before;
     const after = change.after;
+    const orderId = event.params.orderId;
     if (!orderRelevantChange(before, after)) {
         return;
     }
@@ -161,10 +162,7 @@ exports.onOrderWriteEddRecalc = functions
 /**
  * Scheduled processor for EDD_RECALC_QUEUE. Runs every 2 minutes, processes due items.
  */
-exports.processEddRecalcQueueScheduled = functions.pubsub
-    .schedule('*/2 * * * *')
-    .timeZone('UTC')
-    .onRun(async () => {
+exports.processEddRecalcQueueScheduled = (0, scheduler_1.onSchedule)(Object.assign({ schedule: '*/2 * * * *', timeZone: 'UTC' }, function_config_1.SCHEDULED_FUNCTION_OPTS), async () => {
     const now = admin.firestore.Timestamp.now();
     const orgsSnap = await db.collection(constants_1.ORGANIZATIONS_COLLECTION).get();
     for (const orgDoc of orgsSnap.docs) {

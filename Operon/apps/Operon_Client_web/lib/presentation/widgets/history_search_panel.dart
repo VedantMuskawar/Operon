@@ -103,12 +103,13 @@ class _HistorySearchPanelState extends State<HistorySearchPanel> {
       color: Colors.transparent,
       child: GlassPanel(
         padding: const EdgeInsets.all(16),
-        child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Search mode toggle
-          Row(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Search mode toggle
+              Row(
             children: [
               Expanded(
                 child: _SearchModeButton(
@@ -168,7 +169,8 @@ class _HistorySearchPanelState extends State<HistorySearchPanel> {
             ),
           ),
         ],
-      ),
+          ),
+        ),
       ),
     );
   }

@@ -8,6 +8,7 @@ import {
   TRIP_WAGES_ANALYTICS_SOURCE_KEY,
 } from './constants';
 
+// Single Firestore instance at module load (global caching). Do not initialize DB inside handler bodies.
 const db = admin.firestore();
 
 /**

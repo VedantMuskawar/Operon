@@ -1,42 +1,10 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onTripReturnedCreateDM = void 0;
-const functions = __importStar(require("firebase-functions"));
-const firestore_1 = require("firebase-admin/firestore");
-const db = (0, firestore_1.getFirestore)();
+const firestore_1 = require("firebase-functions/v2/firestore");
+const firestore_helpers_1 = require("../shared/firestore-helpers");
+const function_config_1 = require("../shared/function-config");
+const db = (0, firestore_helpers_1.getFirestore)();
 const DELIVERY_MEMOS_COLLECTION = 'DELIVERY_MEMOS';
 const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
 /**
@@ -48,17 +16,11 @@ const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
  * 3. If payment type is 'pay_on_delivery', add payment details array
  * Note: DM status is NOT changed - it remains as is (typically 'active')
  */
-exports.onTripReturnedCreateDM = functions.firestore
-    .document(`${SCHEDULE_TRIPS_COLLECTION}/{tripId}`)
-    .onUpdate(async (change, context) => {
-    var _a, _b, _c, _d, _e, _f;
-    // #region agent log
-    console.log('[DEBUG] onTripReturnedCreateDM triggered', { tripId: context.params.tripId, hypothesisId: 'A' });
-    fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'trip-return-dm.ts:20', message: 'onTripReturnedCreateDM triggered', data: { tripId: context.params.tripId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
-    // #endregion
-    const before = change.before.data();
-    const after = change.after.data();
-    const tripId = context.params.tripId;
+exports.onTripReturnedCreateDM = (0, firestore_1.onDocumentUpdated)(Object.assign({ document: `${SCHEDULE_TRIPS_COLLECTION}/{tripId}` }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    const tripId = event.params.tripId;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
     // #region agent log
     console.log('[DEBUG] Before/after data check', { tripId, hasBefore: !!before, hasAfter: !!after, beforeStatus: before === null || before === void 0 ? void 0 : before.tripStatus, afterStatus: after === null || after === void 0 ? void 0 : after.tripStatus, hypothesisId: 'A' });
     fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'trip-return-dm.ts:25', message: 'Before/after data check', data: { tripId, hasBefore: !!before, hasAfter: !!after, beforeStatus: before === null || before === void 0 ? void 0 : before.tripStatus, afterStatus: after === null || after === void 0 ? void 0 : after.tripStatus }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
@@ -107,7 +69,7 @@ exports.onTripReturnedCreateDM = functions.firestore
         return;
     }
     const dmDoc = dmQuery.docs[0];
-    const paymentType = ((_a = after.paymentType) === null || _a === void 0 ? void 0 : _a.toLowerCase()) || '';
+    const paymentType = ((_c = after.paymentType) === null || _c === void 0 ? void 0 : _c.toLowerCase()) || '';
     // Prepare update data
     // Note: Do NOT change DM status - keep it as is (typically 'active')
     const updateData = {
@@ -117,9 +79,9 @@ exports.onTripReturnedCreateDM = functions.firestore
         returnedBy: after.returnedBy || null,
         returnedByRole: after.returnedByRole || null,
         meters: {
-            initialReading: (_b = after.initialReading) !== null && _b !== void 0 ? _b : null,
-            finalReading: (_c = after.finalReading) !== null && _c !== void 0 ? _c : null,
-            distanceTravelled: (_d = after.distanceTravelled) !== null && _d !== void 0 ? _d : null,
+            initialReading: (_d = after.initialReading) !== null && _d !== void 0 ? _d : null,
+            finalReading: (_e = after.finalReading) !== null && _e !== void 0 ? _e : null,
+            distanceTravelled: (_f = after.distanceTravelled) !== null && _f !== void 0 ? _f : null,
         },
         updatedAt: new Date(),
     };
@@ -132,8 +94,8 @@ exports.onTripReturnedCreateDM = functions.firestore
         const paymentDetails = after.paymentDetails || [];
         updateData.paymentDetails = paymentDetails;
         updateData.paymentStatus = after.paymentStatus || 'pending';
-        updateData.totalPaidOnReturn = (_e = after.totalPaidOnReturn) !== null && _e !== void 0 ? _e : null;
-        updateData.remainingAmount = (_f = after.remainingAmount) !== null && _f !== void 0 ? _f : null;
+        updateData.totalPaidOnReturn = (_g = after.totalPaidOnReturn) !== null && _g !== void 0 ? _g : null;
+        updateData.remainingAmount = (_h = after.remainingAmount) !== null && _h !== void 0 ? _h : null;
     }
     // Update delivery memo document
     // #region agent log

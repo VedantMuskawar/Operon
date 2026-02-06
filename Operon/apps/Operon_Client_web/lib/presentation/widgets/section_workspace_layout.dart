@@ -263,11 +263,10 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                           if (name != null && name.isNotEmpty && name != 'Unnamed') {
                             return name;
                           }
-                          // Fallback to user's displayName from auth
-                          return authState.userProfile?.displayName;
+                          // Fallback to user's displayName from auth, then generic fallback
+                          return authState.userProfile?.displayName ?? 'User';
                         } catch (e) {
-                          // On error, return user's displayName as fallback
-                          return authState.userProfile?.displayName;
+                          return authState.userProfile?.displayName ?? 'User';
                         }
                       }
                     : null,
@@ -362,6 +361,12 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                   _isSettingsOpen = false;
                   _contentPage = ContentPage.expenseSubCategories;
                 }),
+                onOpenAccessControl: isAdminRole
+                    ? () {
+                        setState(() => _isSettingsOpen = false);
+                        context.go('/access-control');
+                      }
+                    : null,
                 ),
               ),
             ),
@@ -1457,6 +1462,7 @@ class _SettingsSideSheet extends StatelessWidget {
     this.onOpenProductionBatchTemplates,
     this.onOpenDmSettings,
     this.onOpenExpenseSubCategories,
+    this.onOpenAccessControl,
   });
 
   final bool canManageRoles;
@@ -1477,6 +1483,7 @@ class _SettingsSideSheet extends StatelessWidget {
   final VoidCallback? onOpenProductionBatchTemplates;
   final VoidCallback? onOpenDmSettings;
   final VoidCallback? onOpenExpenseSubCategories;
+  final VoidCallback? onOpenAccessControl;
 
   @override
   Widget build(BuildContext context) {
@@ -1545,6 +1552,16 @@ class _SettingsSideSheet extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 12),
+              // Access Control (admin only)
+              if (onOpenAccessControl != null)
+                _SettingsTile(
+                  label: 'Access Control',
+                  onTap: () {
+                    onClose();
+                    onOpenAccessControl!();
+                  },
+                ),
+              if (onOpenAccessControl != null) const SizedBox(height: 12),
               // 2. Products
               _SettingsTile(
                 label: 'Products',

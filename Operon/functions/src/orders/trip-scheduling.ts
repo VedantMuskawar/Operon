@@ -1,20 +1,11 @@
-import {onDocumentCreated, onDocumentDeleted} from 'firebase-functions/v2/firestore';
-import {getFirestore} from 'firebase-admin/firestore';
+import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
-import {PENDING_ORDERS_COLLECTION, TRANSACTIONS_COLLECTION} from '../shared/constants';
+import { PENDING_ORDERS_COLLECTION, TRANSACTIONS_COLLECTION } from '../shared/constants';
+import { getFirestore } from '../shared/firestore-helpers';
+import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 const TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
-
-// Function configuration for v2 functions
-// TEMPORARY: Using us-central1 to avoid Eventarc service identity errors in asia-south1
-// TODO: Switch back to 'asia-south1' after enabling Eventarc API and setting IAM permissions
-// See functions/DEPLOYMENT_FIX.md for details
-const functionOptions = {
-  region: 'us-central1' as const, // Temporary: Changed from asia-south1 to avoid Eventarc issues
-  timeoutSeconds: 60,
-  maxInstances: 10,
-};
 
 /**
  * When a trip is scheduled:
@@ -24,7 +15,7 @@ const functionOptions = {
 export const onScheduledTripCreated = onDocumentCreated(
   {
     document: 'SCHEDULE_TRIPS/{tripId}',
-    ...functionOptions,
+    ...LIGHT_TRIGGER_OPTS,
   },
   async (event) => {
     const tripData = event.data?.data();
@@ -353,7 +344,7 @@ export const onScheduledTripCreated = onDocumentCreated(
 export const onScheduledTripDeleted = onDocumentDeleted(
   {
     document: 'SCHEDULE_TRIPS/{tripId}',
-    ...functionOptions,
+    ...LIGHT_TRIGGER_OPTS,
   },
   async (event) => {
     const tripData = event.data?.data();

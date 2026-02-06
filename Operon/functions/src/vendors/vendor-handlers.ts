@@ -1,11 +1,12 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import {
   VENDORS_COLLECTION,
   VENDOR_LEDGERS_COLLECTION,
 } from '../shared/constants';
 import { getFirestore } from '../shared/firestore-helpers';
 import { getFinancialContext } from '../shared/financial-year';
+import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 
@@ -91,10 +92,15 @@ async function createVendorLedger(
  * - Creates initial ledger for current financial year
  * - Updates search indexes
  */
-export const onVendorCreated = functions.firestore
-  .document(`${VENDORS_COLLECTION}/{vendorId}`)
-  .onCreate(async (snapshot, context) => {
-    const vendorId = context.params.vendorId;
+export const onVendorCreated = onDocumentCreated(
+  {
+    document: `${VENDORS_COLLECTION}/{vendorId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    const vendorId = event.params.vendorId;
     const vendorData = snapshot.data();
 
     if (!vendorData) {
@@ -175,7 +181,8 @@ export const onVendorCreated = functions.firestore
       vendorCode,
       organizationId,
     });
-  });
+  },
+);
 
 /**
  * Cloud Function: Triggered when a vendor is updated
@@ -183,12 +190,17 @@ export const onVendorCreated = functions.firestore
  * - Validates status changes (prevents delete/suspend with non-zero balance)
  * - Prevents openingBalance and vendorCode updates
  */
-export const onVendorUpdated = functions.firestore
-  .document(`${VENDORS_COLLECTION}/{vendorId}`)
-  .onUpdate(async (change, context) => {
-    const vendorId = context.params.vendorId;
-    const beforeData = change.before.data();
-    const afterData = change.after.data();
+export const onVendorUpdated = onDocumentUpdated(
+  {
+    document: `${VENDORS_COLLECTION}/{vendorId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const vendorId = event.params.vendorId;
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+    const afterRef = event.data?.after.ref;
+    if (!beforeData || !afterData || !afterRef) return;
 
     if (!beforeData || !afterData) {
       console.warn('[Vendor] Missing data in update', { vendorId });
@@ -296,8 +308,9 @@ export const onVendorUpdated = functions.firestore
     const hasActualChanges = Object.keys(updates).length > 0;
     if (hasActualChanges) {
       updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-      await change.after.ref.update(updates);
+      await afterRef.update(updates);
       console.log('[Vendor] Updated vendor', { vendorId, updates });
     }
-  });
+  },
+);
 

@@ -1,18 +1,18 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import {
   ANALYTICS_COLLECTION,
   EMPLOYEES_COLLECTION,
   TRANSACTIONS_COLLECTION,
   EMPLOYEES_SOURCE_KEY,
 } from '../shared/constants';
-import { getFinancialContext } from '../shared/financial-year';
 import {
   getCreationDate,
   getFirestore,
   seedEmployeeAnalyticsDoc,
 } from '../shared/firestore-helpers';
 import { getYearMonth } from '../shared/date-helpers';
+import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 
@@ -20,12 +20,17 @@ const db = getFirestore();
  * Cloud Function: Triggered when an employee is created
  * Updates employee analytics for the organization
  */
-export const onEmployeeCreated = functions.firestore
-  .document(`${EMPLOYEES_COLLECTION}/{employeeId}`)
-  .onCreate(async (snapshot) => {
+export const onEmployeeCreated = onDocumentCreated(
+  {
+    document: `${EMPLOYEES_COLLECTION}/{employeeId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
     const employeeData = snapshot.data();
     const organizationId = employeeData?.organizationId as string | undefined;
-    
+
     if (!organizationId) {
       console.warn('[Employee Analytics] Employee created without organizationId', {
         employeeId: snapshot.id,
@@ -49,7 +54,8 @@ export const onEmployeeCreated = functions.firestore
       },
       { merge: true },
     );
-  });
+  },
+);
 
 /**
  * Core logic to rebuild employee analytics for all organizations.

@@ -34,19 +34,19 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onTripDeliveredSendWhatsapp = void 0;
-const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-functions/v2/firestore");
 const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
-const whatsapp_service_1 = require("../shared/whatsapp-service");
 const logger_1 = require("../shared/logger");
+const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
 const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
 /**
  * Sends WhatsApp notification to client when a trip is delivered
  */
-async function sendTripDeliveryMessage(to, clientName, organizationId, tripId, tripData) {
+async function sendTripDeliveryMessage(whatsapp, to, clientName, organizationId, tripId, tripData) {
     var _a;
-    const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId);
+    const settings = await whatsapp.loadWhatsappSettings(organizationId);
     if (!(settings === null || settings === void 0 ? void 0 : settings.tripDeliveryTemplateId)) {
         (0, logger_1.logWarning)('Trip/WhatsApp', 'sendTripDeliveryMessage', 'Skipping send – no settings or disabled', {
             tripId,
@@ -98,7 +98,7 @@ async function sendTripDeliveryMessage(to, clientName, organizationId, tripId, t
         templateId: settings.tripDeliveryTemplateId,
         hasItems: tripData.items && tripData.items.length > 0,
     });
-    await (0, whatsapp_service_1.sendWhatsappTemplateMessage)(url, settings.token, to, settings.tripDeliveryTemplateId, (_a = settings.languageCode) !== null && _a !== void 0 ? _a : 'en', parameters, 'trip-delivery', {
+    await whatsapp.sendWhatsappTemplateMessage(url, settings.token, to, settings.tripDeliveryTemplateId, (_a = settings.languageCode) !== null && _a !== void 0 ? _a : 'en', parameters, 'trip-delivery', {
         organizationId,
         tripId,
     });
@@ -107,16 +107,16 @@ async function sendTripDeliveryMessage(to, clientName, organizationId, tripId, t
  * Cloud Function: Triggered when a trip status is updated to 'delivered'
  * Sends WhatsApp notification to client with delivery confirmation
  */
-exports.onTripDeliveredSendWhatsapp = functions.firestore
-    .document(`${SCHEDULED_TRIPS_COLLECTION}/{tripId}`)
-    .onUpdate(async (change, context) => {
-    var _a, _b;
-    const tripId = context.params.tripId;
-    const before = change.before.data();
-    const after = change.after.data();
+exports.onTripDeliveredSendWhatsapp = (0, firestore_1.onDocumentUpdated)(Object.assign({ document: `${SCHEDULED_TRIPS_COLLECTION}/{tripId}` }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
+    var _a, _b, _c, _d;
+    const tripId = event.params.tripId;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!before || !after)
+        return;
     // Only proceed if trip status changed to 'delivered'
-    const beforeStatus = (_a = before.tripStatus) === null || _a === void 0 ? void 0 : _a.toLowerCase();
-    const afterStatus = (_b = after.tripStatus) === null || _b === void 0 ? void 0 : _b.toLowerCase();
+    const beforeStatus = (_c = before.tripStatus) === null || _c === void 0 ? void 0 : _c.toLowerCase();
+    const afterStatus = (_d = after.tripStatus) === null || _d === void 0 ? void 0 : _d.toLowerCase();
     if (beforeStatus === afterStatus || afterStatus !== 'delivered') {
         (0, logger_1.logInfo)('Trip/WhatsApp', 'onTripDeliveredSendWhatsapp', 'Trip status not changed to delivered, skipping', {
             tripId,
@@ -171,6 +171,7 @@ exports.onTripDeliveredSendWhatsapp = functions.firestore
         });
         return;
     }
-    await sendTripDeliveryMessage(clientPhone, clientName, tripData.organizationId, tripId, tripData);
+    const whatsapp = await Promise.resolve().then(() => __importStar(require('../shared/whatsapp-service')));
+    await sendTripDeliveryMessage(whatsapp, clientPhone, clientName, tripData.organizationId, tripId, tripData);
 });
 //# sourceMappingURL=trip-delivery-whatsapp.js.map

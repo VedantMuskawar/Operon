@@ -125,4 +125,3 @@ export function getMonthsInRange(startDate: Date, endDate: Date): string[] {
   
   return months;
 }
-

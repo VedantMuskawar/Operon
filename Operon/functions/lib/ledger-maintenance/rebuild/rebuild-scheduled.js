@@ -1,54 +1,19 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.rebuildAllLedgersScheduled = void 0;
-const functions = __importStar(require("firebase-functions"));
-const firestore_1 = require("firebase-admin/firestore");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const logger_1 = require("../../shared/logger");
 const financial_year_1 = require("../../shared/financial-year");
+const firestore_helpers_1 = require("../../shared/firestore-helpers");
+const function_config_1 = require("../../shared/function-config");
 const ledger_types_1 = require("../ledger-types");
 const rebuild_ledger_core_1 = require("./rebuild-ledger-core");
-const db = (0, firestore_1.getFirestore)();
+const db = (0, firestore_helpers_1.getFirestore)();
 /**
  * Scheduled rebuild of all ledgers
  * Runs daily at 2 AM UTC
  */
-exports.rebuildAllLedgersScheduled = functions.pubsub
-    .schedule('0 2 * * *') // Daily at 2 AM UTC
-    .timeZone('UTC')
-    .onRun(async () => {
+exports.rebuildAllLedgersScheduled = (0, scheduler_1.onSchedule)(Object.assign({ schedule: '0 2 * * *', timeZone: 'UTC' }, function_config_1.SCHEDULED_FUNCTION_OPTS), async (_event) => {
     const now = new Date();
     const { fyLabel } = (0, financial_year_1.getFinancialContext)(now);
     (0, logger_1.logInfo)('LedgerMaintenance', 'rebuildAllLedgersScheduled', 'Starting scheduled rebuild', {
@@ -119,12 +84,5 @@ exports.rebuildAllLedgersScheduled = functions.pubsub
         failed,
         financialYear: fyLabel,
     });
-    return {
-        success: true,
-        totalRebuilt,
-        successful,
-        failed,
-        financialYear: fyLabel,
-    };
 });
 //# sourceMappingURL=rebuild-scheduled.js.map

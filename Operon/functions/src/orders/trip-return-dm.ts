@@ -1,5 +1,6 @@
-import * as functions from 'firebase-functions';
-import {getFirestore} from 'firebase-admin/firestore';
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
+import { getFirestore } from '../shared/firestore-helpers';
+import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 
@@ -8,23 +9,22 @@ const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
 
 /**
  * On trip status change to "returned", update the existing Delivery Memo document.
- * 
+ *
  * Flow:
  * 1. Find existing DM document by tripId
  * 2. Add return-related fields (returnedAt, meters, etc.)
  * 3. If payment type is 'pay_on_delivery', add payment details array
  * Note: DM status is NOT changed - it remains as is (typically 'active')
  */
-export const onTripReturnedCreateDM = functions.firestore
-  .document(`${SCHEDULE_TRIPS_COLLECTION}/{tripId}`)
-  .onUpdate(async (change, context) => {
-    // #region agent log
-    console.log('[DEBUG] onTripReturnedCreateDM triggered', {tripId: context.params.tripId, hypothesisId: 'A'});
-    fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'trip-return-dm.ts:20',message:'onTripReturnedCreateDM triggered',data:{tripId:context.params.tripId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    const before = change.before.data();
-    const after = change.after.data();
-    const tripId = context.params.tripId as string;
+export const onTripReturnedCreateDM = onDocumentUpdated(
+  {
+    document: `${SCHEDULE_TRIPS_COLLECTION}/{tripId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const tripId = event.params.tripId as string;
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
 
     // #region agent log
     console.log('[DEBUG] Before/after data check', {tripId, hasBefore: !!before, hasAfter: !!after, beforeStatus: before?.tripStatus, afterStatus: after?.tripStatus, hypothesisId: 'A'});
@@ -132,6 +132,7 @@ export const onTripReturnedCreateDM = functions.firestore
       paymentType,
       hasPaymentDetails: paymentType === 'pay_on_delivery' && !!updateData.paymentDetails,
     });
-  });
+  },
+);
 
 

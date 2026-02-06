@@ -1,7 +1,8 @@
-import {onDocumentUpdated} from 'firebase-functions/v2/firestore';
-import {getFirestore} from 'firebase-admin/firestore';
+import { onDocumentUpdated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
-import {PENDING_ORDERS_COLLECTION, TRANSACTIONS_COLLECTION} from '../shared/constants';
+import { PENDING_ORDERS_COLLECTION, TRANSACTIONS_COLLECTION } from '../shared/constants';
+import { getFirestore } from '../shared/firestore-helpers';
+import { STANDARD_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
@@ -11,7 +12,10 @@ const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
  * Update the corresponding trip entry in PENDING_ORDERS.scheduledTrips array
  */
 export const onTripStatusUpdated = onDocumentUpdated(
-  `${SCHEDULED_TRIPS_COLLECTION}/{tripId}`,
+  {
+    document: `${SCHEDULED_TRIPS_COLLECTION}/{tripId}`,
+    ...STANDARD_TRIGGER_OPTS,
+  },
   async (event) => {
     const tripId = event.params.tripId;
     const before = event.data?.before.data();

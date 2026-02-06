@@ -70,9 +70,15 @@ class LogisticsColors {
   /// On Trip - Vehicle currently on a trip
   static const Color vehicleOnTrip = Color(0xFF2980B9);
   
-  /// Offline - Vehicle not reporting location
+  /// Offline - Vehicle not reporting location (muted slate for dark map contrast)
   static const Color vehicleOffline = Color(0xFF95A5A6);
-  
+
+  /// Idling - Vehicle online but stationary (amber, high-contrast on dark map)
+  static const Color vehicleIdlingAmber = Color(0xFFFFB300);
+
+  /// Offline muted slate - Alternative for dark map (0xFF607D8B)
+  static const Color vehicleOfflineSlate = Color(0xFF546E7A);
+
   /// Alert - Vehicle needs attention/issue
   static const Color vehicleAlert = Color(0xFFE74C3C);
 

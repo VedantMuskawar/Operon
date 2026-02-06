@@ -34,19 +34,19 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onTripDispatchedSendWhatsapp = void 0;
-const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-functions/v2/firestore");
 const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
-const whatsapp_service_1 = require("../shared/whatsapp-service");
 const logger_1 = require("../shared/logger");
+const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
 const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
 /**
  * Sends WhatsApp notification to client when a trip is dispatched
  */
-async function sendTripDispatchMessage(to, clientName, organizationId, tripId, tripData) {
+async function sendTripDispatchMessage(whatsapp, to, clientName, organizationId, tripId, tripData) {
     var _a;
-    const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId);
+    const settings = await whatsapp.loadWhatsappSettings(organizationId);
     if (!(settings === null || settings === void 0 ? void 0 : settings.tripDispatchTemplateId)) {
         (0, logger_1.logWarning)('Trip/WhatsApp', 'sendTripDispatchMessage', 'Skipping send – no settings or disabled', {
             tripId,
@@ -120,7 +120,7 @@ async function sendTripDispatchMessage(to, clientName, organizationId, tripId, t
         templateId: settings.tripDispatchTemplateId,
         hasItems: tripData.items && tripData.items.length > 0,
     });
-    await (0, whatsapp_service_1.sendWhatsappTemplateMessage)(url, settings.token, to, settings.tripDispatchTemplateId, (_a = settings.languageCode) !== null && _a !== void 0 ? _a : 'en', parameters, 'trip-dispatch', {
+    await whatsapp.sendWhatsappTemplateMessage(url, settings.token, to, settings.tripDispatchTemplateId, (_a = settings.languageCode) !== null && _a !== void 0 ? _a : 'en', parameters, 'trip-dispatch', {
         organizationId,
         tripId,
     });
@@ -129,12 +129,13 @@ async function sendTripDispatchMessage(to, clientName, organizationId, tripId, t
  * Cloud Function: Triggered when a trip status is updated to 'dispatched'
  * Sends WhatsApp notification to client with trip details and driver information
  */
-exports.onTripDispatchedSendWhatsapp = functions.firestore
-    .document(`${SCHEDULED_TRIPS_COLLECTION}/{tripId}`)
-    .onUpdate(async (change, context) => {
-    const tripId = context.params.tripId;
-    const before = change.before.data();
-    const after = change.after.data();
+exports.onTripDispatchedSendWhatsapp = (0, firestore_1.onDocumentUpdated)(Object.assign({ document: `${SCHEDULED_TRIPS_COLLECTION}/{tripId}` }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
+    var _a, _b;
+    const tripId = event.params.tripId;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!before || !after)
+        return;
     // Only proceed if trip status changed to 'dispatched'
     const beforeStatus = before.tripStatus;
     const afterStatus = after.tripStatus;
@@ -183,6 +184,7 @@ exports.onTripDispatchedSendWhatsapp = functions.firestore
         });
         return;
     }
-    await sendTripDispatchMessage(clientPhone, clientName, tripData.organizationId, tripId, tripData);
+    const whatsapp = await Promise.resolve().then(() => __importStar(require('../shared/whatsapp-service')));
+    await sendTripDispatchMessage(whatsapp, clientPhone, clientName, tripData.organizationId, tripId, tripData);
 });
 //# sourceMappingURL=trip-dispatch-whatsapp.js.map

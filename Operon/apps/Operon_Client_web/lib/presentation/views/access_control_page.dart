@@ -9,30 +9,33 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:go_router/go_router.dart';
 
-// Navigation Sections
+// Navigation Sections (AuthColors for consistency)
 const _sections = [
-  _ItemInfo('pendingOrders', 'Pending Orders', Icons.pending_actions, Color(0xFFFF6B6B)),
-  _ItemInfo('scheduleOrders', 'Schedule', Icons.schedule, Color(0xFF4ECDC4)),
-  _ItemInfo('ordersMap', 'Orders Map', Icons.map_outlined, Color(0xFF95E1D3)),
-  _ItemInfo('analyticsDashboard', 'Analytics', Icons.analytics_outlined, Color(0xFFF38181)),
+  _ItemInfo('pendingOrders', 'Pending Orders', Icons.pending_actions, AuthColors.primary),
+  _ItemInfo('scheduleOrders', 'Schedule', Icons.schedule, AuthColors.info),
+  _ItemInfo('ordersMap', 'Orders Map', Icons.map_outlined, AuthColors.successVariant),
+  _ItemInfo('analyticsDashboard', 'Analytics', Icons.analytics_outlined, AuthColors.warning),
 ];
 
-// Pages
+// Pages (includes financialTransactions, vendors, rawMaterials, geofences)
 const _pages = [
-  _ItemInfo('products', 'Products', Icons.inventory_2_outlined, Color(0xFF6F4BFF)),
-  _ItemInfo('employees', 'Employees', Icons.people_outline, Color(0xFF5AD8A4)),
-  _ItemInfo('users', 'Users', Icons.person_outline, Color(0xFFFFC857)),
-  _ItemInfo('clients', 'Clients', Icons.business_outlined, Color(0xFF4BD6FF)),
-  _ItemInfo('zonesCity', 'Zones • City', Icons.location_city_outlined, Color(0xFF4BD6FF)),
-  _ItemInfo('zonesRegion', 'Zones • Region', Icons.map_outlined, Color(0xFFFF6B6B)),
-  _ItemInfo('zonesPrice', 'Zones • Price', Icons.attach_money_outlined, Color(0xFF95E1D3)),
-  _ItemInfo('vehicles', 'Vehicles', Icons.directions_car_outlined, Color(0xFFF38181)),
-  _ItemInfo('paymentAccounts', 'Payment Accounts', Icons.account_balance_wallet_outlined, Color(0xFF6F4BFF)),
-  _ItemInfo('roles', 'Roles', Icons.badge_outlined, Color(0xFF9C27B0)),
-  _ItemInfo('deliveryMemos', 'Delivery Memos', Icons.description_outlined, Color(0xFF2196F3)),
+  _ItemInfo('products', 'Products', Icons.inventory_2_outlined, AuthColors.primary),
+  _ItemInfo('employees', 'Employees', Icons.people_outline, AuthColors.successVariant),
+  _ItemInfo('users', 'Users', Icons.person_outline, AuthColors.secondary),
+  _ItemInfo('clients', 'Clients', Icons.business_outlined, AuthColors.info),
+  _ItemInfo('zonesCity', 'Zones • City', Icons.location_city_outlined, AuthColors.info),
+  _ItemInfo('zonesRegion', 'Zones • Region', Icons.map_outlined, AuthColors.primary),
+  _ItemInfo('zonesPrice', 'Zones • Price', Icons.attach_money_outlined, AuthColors.successVariant),
+  _ItemInfo('vehicles', 'Vehicles', Icons.directions_car_outlined, AuthColors.warning),
+  _ItemInfo('paymentAccounts', 'Payment Accounts', Icons.account_balance_wallet_outlined, AuthColors.primary),
+  _ItemInfo('roles', 'Roles', Icons.badge_outlined, AuthColors.accentPurple),
+  _ItemInfo('deliveryMemos', 'Delivery Memos', Icons.description_outlined, AuthColors.info),
+  _ItemInfo('financialTransactions', 'Financial Transactions', Icons.receipt_long_outlined, AuthColors.success),
+  _ItemInfo('vendors', 'Vendors', Icons.storefront_outlined, AuthColors.warning),
+  _ItemInfo('rawMaterials', 'Raw Materials', Icons.inventory_outlined, AuthColors.secondary),
+  _ItemInfo('geofences', 'Geofences', Icons.fence, AuthColors.accentPurple),
 ];
 
 class _ItemInfo {
@@ -43,6 +46,137 @@ class _ItemInfo {
   final Color color;
 }
 
+/// Reusable content for Access Control (full page or settings side sheet).
+/// Expects [AppAccessRolesCubit] and [AccessControlCubit] in context.
+class AccessControlPageContent extends StatefulWidget {
+  const AccessControlPageContent({super.key});
+
+  @override
+  State<AccessControlPageContent> createState() => _AccessControlPageContentState();
+}
+
+class _AccessControlPageContentState extends State<AccessControlPageContent> {
+  String? _selectedRoleId;
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<AccessControlCubit, AccessControlState>(
+          listener: (context, state) {
+            if (state.status == ViewStatus.failure && state.message != null) {
+              DashSnackbar.show(context, message: state.message!, isError: true);
+            }
+            if (state.status == ViewStatus.success && state.showSaveSuccess) {
+              DashSnackbar.show(
+                context,
+                message: 'Permissions saved successfully',
+                isError: false,
+              );
+            }
+          },
+        ),
+        BlocListener<AppAccessRolesCubit, AppAccessRolesState>(
+          listener: (context, state) {
+            if (state.status == ViewStatus.failure && state.message != null) {
+              DashSnackbar.show(context, message: state.message!, isError: true);
+            }
+            if (state.status == ViewStatus.success) {
+              context.read<AccessControlCubit>().load();
+              if (_selectedRoleId != null) {
+                final stillExists = state.roles.any((r) => r.id == _selectedRoleId);
+                if (!stillExists) {
+                  setState(() => _selectedRoleId = null);
+                }
+              }
+            }
+          },
+        ),
+      ],
+      child: BlocBuilder<AccessControlCubit, AccessControlState>(
+        builder: (context, state) {
+          if (_selectedRoleId == null && state.roles.isNotEmpty) {
+            final firstNonAdmin = state.roles.firstWhere(
+              (r) => !r.isAdmin,
+              orElse: () => state.roles.first,
+            );
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _selectedRoleId = firstNonAdmin.id);
+            });
+          }
+
+          if (state.status == ViewStatus.loading) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
+                ),
+              ),
+            );
+          }
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final maxHeight = constraints.maxHeight.isFinite
+                  ? constraints.maxHeight
+                  : 700.0;
+              return SizedBox(
+                height: maxHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Flexible(
+                      flex: 0,
+                      fit: FlexFit.tight,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+                        child: _RoleRail(
+                          selectedRoleId: _selectedRoleId,
+                          onRoleSelected: (roleId) =>
+                              setState(() => _selectedRoleId = roleId),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    Expanded(
+                      child: _selectedRoleId == null
+                          ? const _EmptyPermissionPanel()
+                          : _PermissionAssignmentPanel(
+                        roleId: _selectedRoleId!,
+                        roles: state.roles,
+                        permissions: state.permissions,
+                        sections: state.sections,
+                        hasChanges: state.hasChanges,
+                        isSaving: state.isSaving,
+                        onPermissionChanged: (pageKey, roleId, action, value) =>
+                            context.read<AccessControlCubit>().updatePermission(
+                                  pageKey,
+                                  roleId,
+                                  action,
+                                  value,
+                                ),
+                        onSectionChanged: (sectionKey, roleId, value) =>
+                            context.read<AccessControlCubit>().updateSectionAccess(
+                                  sectionKey,
+                                  roleId,
+                                  value,
+                                ),
+                        onSave: () =>
+                            context.read<AccessControlCubit>().saveChanges(),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
 class AccessControlPage extends StatefulWidget {
   const AccessControlPage({super.key});
 
@@ -51,140 +185,49 @@ class AccessControlPage extends StatefulWidget {
 }
 
 class _AccessControlPageState extends State<AccessControlPage> {
-  String? _selectedRoleId;
-
   @override
   Widget build(BuildContext context) {
     final orgState = context.watch<OrganizationContextCubit>().state;
     final orgId = orgState.organization?.id;
-    
+
     if (orgId == null) {
       return SectionWorkspaceLayout(
         panelTitle: 'Access Control',
         currentIndex: -1,
         onNavTap: (index) => context.go('/home?section=$index'),
-        child: const Center(child: Text('No organization selected')),
+        child: Center(
+          child: Text(
+            'No organization selected',
+            style: TextStyle(color: AuthColors.textMain),
+          ),
+        ),
       );
     }
-    
+
     return BlocProvider(
       create: (context) => AppAccessRolesCubit(
         repository: context.read<AppAccessRolesRepository>(),
         orgId: orgId,
       ),
-      child: MultiBlocListener(
-        listeners: [
-          BlocListener<AccessControlCubit, AccessControlState>(
-            listener: (context, state) {
-              if (state.status == ViewStatus.failure && state.message != null) {
-                DashSnackbar.show(context, message: state.message!, isError: true);
-              }
-              if (state.status == ViewStatus.success && state.showSaveSuccess) {
-                DashSnackbar.show(
-                  context,
-                  message: 'Permissions saved successfully',
-                  isError: false,
-                );
-              }
-            },
-          ),
-          BlocListener<AppAccessRolesCubit, AppAccessRolesState>(
-            listener: (context, state) {
-              if (state.status == ViewStatus.failure && state.message != null) {
-                DashSnackbar.show(context, message: state.message!, isError: true);
-              }
-              if (state.status == ViewStatus.success) {
-                context.read<AccessControlCubit>().load();
-                // Reset selection if selected role was deleted
-                if (_selectedRoleId != null) {
-                  final stillExists = state.roles.any((r) => r.id == _selectedRoleId);
-                  if (!stillExists) {
-                    setState(() => _selectedRoleId = null);
-                  }
-                }
-              }
-            },
-          ),
-        ],
-        child: BlocBuilder<AccessControlCubit, AccessControlState>(
-          builder: (context, state) {
-            // Auto-select first non-admin role if none selected
-            if (_selectedRoleId == null && state.roles.isNotEmpty) {
-              final firstNonAdmin = state.roles.firstWhere(
-                (r) => !r.isAdmin,
-                orElse: () => state.roles.first,
-              );
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() => _selectedRoleId = firstNonAdmin.id);
-                }
-              });
-            }
-
-            return SectionWorkspaceLayout(
-              panelTitle: 'Access Control',
-              currentIndex: -1,
-              onNavTap: (index) => context.go('/home?section=$index'),
-              child: state.status == ViewStatus.loading
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(40),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Left Panel: Role Management
-                        Expanded(
-                          flex: 1,
-                          child: _RoleManagementPanel(
-                            selectedRoleId: _selectedRoleId,
-                            onRoleSelected: (roleId) => setState(() => _selectedRoleId = roleId),
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        // Right Panel: Permission Assignment
-                        Expanded(
-                          flex: 2,
-                          child: _selectedRoleId == null
-                              ? const _EmptyPermissionPanel()
-                              : _PermissionAssignmentPanel(
-                                  roleId: _selectedRoleId!,
-                                  roles: state.roles,
-                                  permissions: state.permissions,
-                                  sections: state.sections,
-                                  hasChanges: state.hasChanges,
-                                  isSaving: state.isSaving,
-                                  onPermissionChanged: (pageKey, roleId, action, value) =>
-                                      context.read<AccessControlCubit>().updatePermission(
-                                            pageKey,
-                                            roleId,
-                                            action,
-                                            value,
-                                          ),
-                                  onSectionChanged: (sectionKey, roleId, value) =>
-                                      context.read<AccessControlCubit>().updateSectionAccess(
-                                            sectionKey,
-                                            roleId,
-                                            value,
-                                          ),
-                                  onSave: () => context.read<AccessControlCubit>().saveChanges(),
-                                ),
-                        ),
-                      ],
-                    ),
-            );
-          },
+      child: BlocProvider(
+        create: (context) => AccessControlCubit(
+          appAccessRolesRepository: context.read<AppAccessRolesRepository>(),
+          orgId: orgId,
+        ),
+        child: SectionWorkspaceLayout(
+          panelTitle: 'Access Control',
+          currentIndex: -1,
+          onNavTap: (index) => context.go('/home?section=$index'),
+          child: const AccessControlPageContent(),
         ),
       ),
     );
   }
 }
 
-// Left Panel: Role Management
-class _RoleManagementPanel extends StatelessWidget {
-  const _RoleManagementPanel({
+// Narrow left rail: role list
+class _RoleRail extends StatelessWidget {
+  const _RoleRail({
     required this.selectedRoleId,
     required this.onRoleSelected,
   });
@@ -197,146 +240,93 @@ class _RoleManagementPanel extends StatelessWidget {
     return BlocBuilder<AppAccessRolesCubit, AppAccessRolesState>(
       builder: (context, rolesState) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
+            color: AuthColors.surface,
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 1.5,
+              color: AuthColors.textMainWithOpacity(0.1),
+              width: 1,
             ),
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.badge_outlined, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Text(
-                      'App Access Roles',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
+              Material(
+                color: AuthColors.primary,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  onTap: () => _openRoleDialog(context),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add, color: AuthColors.textMain, size: 16),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Add role',
+                            style: TextStyle(
+                              color: AuthColors.textMain,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => _openRoleDialog(context),
-                        borderRadius: BorderRadius.circular(12),
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.add, color: Colors.white, size: 20),
-                              SizedBox(width: 8),
-                              Text(
-                                'Add Role',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (rolesState.status == ViewStatus.loading)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              if (rolesState.status == ViewStatus.loading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: CircularProgressIndicator(),
                   ),
                 )
               else if (rolesState.roles.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'No roles yet.\nClick "Add Role" to create one.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'No roles yet.\nTap "Add role" to create one.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AuthColors.textSub,
+                      fontSize: 12,
                     ),
                   ),
                 )
               else
-                AnimationLimiter(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: rolesState.roles.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final role = rolesState.roles[index];
-                      final isSelected = role.id == selectedRoleId;
-                      return AnimationConfiguration.staggeredList(
-                        position: index,
-                        duration: const Duration(milliseconds: 200),
-                        child: SlideAnimation(
-                          verticalOffset: 50.0,
-                          child: FadeInAnimation(
-                            curve: Curves.easeOut,
-                            child: _RoleCard(
-                              role: role,
-                              isSelected: isSelected,
-                              onTap: () => onRoleSelected(role.id),
-                              onEdit: () => _openRoleDialog(context, role: role),
-                              onDelete: () => _confirmDeleteRole(context, role),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: rolesState.roles.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final role = rolesState.roles[index];
+                    final isSelected = role.id == selectedRoleId;
+                    return _RoleRailTile(
+                      role: role,
+                      isSelected: isSelected,
+                      onTap: () => onRoleSelected(role.id),
+                      onEdit: () => _openRoleDialog(context, role: role),
+                      onDelete: () => _confirmDeleteRole(context, role),
+                    );
+                  },
                 ),
             ],
           ),
@@ -352,7 +342,7 @@ class _RoleManagementPanel extends StatelessWidget {
     final cubit = context.read<AppAccessRolesCubit>();
     await showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.7),
+      barrierColor: AuthColors.background.withValues(alpha: 0.7),
       builder: (dialogContext) => BlocProvider.value(
         value: cubit,
         child: _RoleDialog(role: role),
@@ -372,16 +362,16 @@ class _RoleManagementPanel extends StatelessWidget {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.7),
+      barrierColor: AuthColors.background.withValues(alpha: 0.7),
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF11111B),
-        title: const Text(
+        backgroundColor: AuthColors.background,
+        title: Text(
           'Delete Role',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete "${role.name}"? This action cannot be undone.',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           DashButton(
@@ -422,8 +412,8 @@ class _RoleManagementPanel extends StatelessWidget {
   }
 }
 
-class _RoleCard extends StatelessWidget {
-  const _RoleCard({
+class _RoleRailTile extends StatelessWidget {
+  const _RoleRailTile({
     required this.role,
     required this.isSelected,
     required this.onTap,
@@ -449,158 +439,80 @@ class _RoleCard extends StatelessWidget {
     final color = _hexToColor(role.colorHex);
     return Material(
       color: Colors.transparent,
-      child: Stack(
-        children: [
-          InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: isSelected
-                    ? LinearGradient(
-                        colors: [
-                          color.withValues(alpha: 0.3),
-                          color.withValues(alpha: 0.15),
-                        ],
-                      )
-                    : null,
-                color: isSelected ? null : Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isSelected
-                      ? color.withValues(alpha: 0.6)
-                      : Colors.white.withValues(alpha: 0.1),
-                  width: isSelected ? 2 : 1,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withValues(alpha: 0.5),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              role.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                            if (role.isAdmin) ...[
-                              const SizedBox(width: 8),
-                              const Icon(Icons.shield, color: Colors.amber, size: 16),
-                            ],
-                          ],
-                        ),
-                        if (role.description != null && role.description!.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            role.description!,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8), // Space for buttons
-                ],
-              ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AuthColors.primary.withValues(alpha: 0.15)
+                : AuthColors.textMainWithOpacity(0.05),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected
+                  ? AuthColors.primary
+                  : AuthColors.textMainWithOpacity(0.1),
+              width: isSelected ? 1.5 : 1,
             ),
           ),
-          // Action buttons positioned to prevent InkWell interference
-          Positioned(
-            right: 8,
-            top: 8,
-            bottom: 8,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => onEdit(),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.edit_outlined, size: 18, color: Colors.white70),
-                    ),
-                  ),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(width: 8),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: role.isAdmin
-                        ? null
-                        : () {
-                            onDelete();
-                          },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: role.isAdmin
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.redAccent.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.delete_outline,
-                        size: 18,
-                        color: role.isAdmin ? Colors.white30 : Colors.redAccent,
-                      ),
-                    ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  role.name,
+                  style: TextStyle(
+                    color: AuthColors.textMain,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontSize: 13,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
+              ),
+              if (role.isAdmin)
+                Icon(Icons.shield, color: AuthColors.warning, size: 14),
+              IconButton(
+                icon: Icon(Icons.edit_outlined, size: 14, color: AuthColors.textSub),
+                onPressed: onEdit,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 14,
+                  color: role.isAdmin ? AuthColors.textDisabled : AuthColors.error,
+                ),
+                onPressed: role.isAdmin ? null : onDelete,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-// Right Panel: Permission Assignment
+// Right: Permission Assignment (cards)
 class _PermissionAssignmentPanel extends StatelessWidget {
   const _PermissionAssignmentPanel({
     required this.roleId,
@@ -641,15 +553,10 @@ class _PermissionAssignmentPanel extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Colors.amber.withValues(alpha: 0.2),
-              Colors.amber.withValues(alpha: 0.1),
-            ],
-          ),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.amber.withValues(alpha: 0.4),
+            color: AuthColors.warning.withValues(alpha: 0.4),
             width: 1.5,
           ),
         ),
@@ -659,16 +566,16 @@ class _PermissionAssignmentPanel extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.2),
+                color: AuthColors.warning.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.shield, color: Colors.amber, size: 48),
+              child: Icon(Icons.shield, color: AuthColors.warning, size: 48),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Admin Role',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
               ),
@@ -678,7 +585,7 @@ class _PermissionAssignmentPanel extends StatelessWidget {
               'This role has full access to all pages and sections.\nNo permissions need to be configured.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
             ),
@@ -690,19 +597,16 @@ class _PermissionAssignmentPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textMainWithOpacity(0.1),
           width: 1.5,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Header
           Row(
@@ -710,12 +614,7 @@ class _PermissionAssignmentPanel extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      _hexToColor(role.colorHex).withValues(alpha: 0.3),
-                      _hexToColor(role.colorHex).withValues(alpha: 0.15),
-                    ],
-                  ),
+                  color: _hexToColor(role.colorHex).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -731,8 +630,8 @@ class _PermissionAssignmentPanel extends StatelessWidget {
                   children: [
                     Text(
                       'Permissions for ${role.name}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -741,7 +640,7 @@ class _PermissionAssignmentPanel extends StatelessWidget {
                     Text(
                       'Configure what this role can access and do',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: AuthColors.textSub,
                         fontSize: 13,
                       ),
                     ),
@@ -750,81 +649,89 @@ class _PermissionAssignmentPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 32),
-          
-          // Navigation Sections
-          _PermissionSection(
-            title: 'Navigation Sections',
-            icon: Icons.dashboard_outlined,
-            items: _sections,
-            roleId: roleId,
-            sections: sections,
-            onChanged: (key, value) => onSectionChanged(key, roleId, value),
-          ),
-          const SizedBox(height: 32),
-          
-          // Pages
-          _PermissionSection(
-            title: 'Pages',
-            icon: Icons.pages_outlined,
-            items: _pages,
-            roleId: roleId,
-            permissions: permissions,
-            onPermissionChanged: (pageKey, action, value) =>
-                onPermissionChanged(pageKey, roleId, action, value),
-          ),
-          
-          // Save Button
-          if (hasChanges) ...[
-            const SizedBox(height: 32),
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+          const SizedBox(height: 24),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Card 1: Navigation sections
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AuthColors.backgroundAlt,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                    ),
+                    child: _PermissionSection(
+                      title: 'Navigation sections',
+                      icon: Icons.dashboard_outlined,
+                      items: _sections,
+                      roleId: roleId,
+                      sections: sections,
+                      onChanged: (key, value) => onSectionChanged(key, roleId, value),
+                    ),
                   ),
+                  const SizedBox(height: 20),
+                  // Card 2: Page permissions
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AuthColors.backgroundAlt,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                    ),
+                    child: _PermissionSection(
+                      title: 'Pages & CRUD',
+                      icon: Icons.pages_outlined,
+                      items: _pages,
+                      roleId: roleId,
+                      permissions: permissions,
+                      onPermissionChanged: (pageKey, action, value) =>
+                          onPermissionChanged(pageKey, roleId, action, value),
+                    ),
+                  ),
+                  if (hasChanges) const SizedBox(height: 24),
                 ],
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: isSaving ? null : onSave,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (isSaving)
-                          const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        else ...[
-                          const Icon(Icons.save, color: Colors.white, size: 20),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Save Changes',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
+            ),
+          ),
+          // Save Button (sticky when hasChanges)
+          if (hasChanges) ...[
+            const SizedBox(height: 32),
+            Material(
+              color: AuthColors.primary,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: isSaving ? null : onSave,
+                borderRadius: BorderRadius.circular(16),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (isSaving)
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                           ),
-                        ],
+                        )
+                      else ...[
+                        Icon(Icons.save, color: AuthColors.textMain, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Save Changes',
+                          style: TextStyle(
+                            color: AuthColors.textMain,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
@@ -874,18 +781,16 @@ class _PermissionSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6F4BFF), Color(0xFF5A3FE0)],
-                ),
+                color: AuthColors.primary,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: Colors.white, size: 20),
+              child: Icon(icon, color: AuthColors.textMain, size: 20),
             ),
             const SizedBox(width: 12),
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -935,12 +840,12 @@ class _SectionPermissionItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: AuthColors.textMainWithOpacity(0.05),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: hasAccess
               ? item.color.withValues(alpha: 0.4)
-              : Colors.white.withValues(alpha: 0.1),
+              : AuthColors.textMainWithOpacity(0.1),
           width: hasAccess ? 1.5 : 1,
         ),
       ),
@@ -958,8 +863,8 @@ class _SectionPermissionItem extends StatelessWidget {
           Expanded(
             child: Text(
               item.label,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AuthColors.textMain,
                 fontWeight: FontWeight.w500,
                 fontSize: 14,
               ),
@@ -968,7 +873,8 @@ class _SectionPermissionItem extends StatelessWidget {
           Switch(
             value: hasAccess,
             onChanged: onChanged,
-            activeThumbColor: item.color,
+            activeTrackColor: AuthColors.primary.withValues(alpha: 0.5),
+            activeThumbColor: AuthColors.primary,
           ),
         ],
       ),
@@ -993,10 +899,10 @@ class _PagePermissionItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: AuthColors.textMainWithOpacity(0.05),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textMainWithOpacity(0.1),
           width: 1,
         ),
       ),
@@ -1017,8 +923,8 @@ class _PagePermissionItem extends StatelessWidget {
               Expanded(
                 child: Text(
                   item.label,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
@@ -1094,12 +1000,12 @@ class _CrudToggle extends StatelessWidget {
           decoration: BoxDecoration(
             color: enabled
                 ? color.withValues(alpha: 0.2)
-                : Colors.white.withValues(alpha: 0.05),
+                : AuthColors.textMainWithOpacity(0.05),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: enabled
                   ? color
-                  : Colors.white.withValues(alpha: 0.1),
+                  : AuthColors.textMainWithOpacity(0.1),
               width: enabled ? 1.5 : 1,
             ),
           ),
@@ -1109,13 +1015,13 @@ class _CrudToggle extends StatelessWidget {
               Icon(
                 icon,
                 size: 18,
-                color: enabled ? color : Colors.white54,
+                color: enabled ? color : AuthColors.textSub,
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
-                  color: enabled ? Colors.white : Colors.white70,
+                  color: enabled ? AuthColors.textMain : AuthColors.textSub,
                   fontWeight: enabled ? FontWeight.w600 : FontWeight.w500,
                   fontSize: 11,
                 ),
@@ -1145,14 +1051,10 @@ class _EmptyPermissionPanel extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(40),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF11111B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AuthColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textMainWithOpacity(0.1),
           width: 1.5,
         ),
       ),
@@ -1163,13 +1065,13 @@ class _EmptyPermissionPanel extends StatelessWidget {
             Icon(
               Icons.touch_app_outlined,
               size: 64,
-              color: Colors.white.withValues(alpha: 0.3),
+              color: AuthColors.textMainWithOpacity(0.3),
             ),
             const SizedBox(height: 24),
             Text(
               'Select a role to configure permissions',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: AuthColors.textSub,
                 fontSize: 16,
               ),
             ),
@@ -1232,10 +1134,10 @@ class _RoleDialogState extends State<_RoleDialog> {
     final dialogWidth = (screenWidth * 0.9).clamp(400.0, 600.0);
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.background,
       title: Text(
         isEditing ? 'Edit App Access Role' : 'Add App Access Role',
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -1247,7 +1149,7 @@ class _RoleDialogState extends State<_RoleDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Role Name *'),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
@@ -1257,7 +1159,7 @@ class _RoleDialogState extends State<_RoleDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _descriptionController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Description (optional)'),
                   maxLines: 2,
                 ),
@@ -1269,19 +1171,19 @@ class _RoleDialogState extends State<_RoleDialog> {
                 ),
                 const SizedBox(height: 12),
                 SwitchListTile(
-                  title: const Text(
+                  title: Text(
                     'Admin Role (Full Access)',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: AuthColors.textSub),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Admin roles have full access to all pages and sections',
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
+                    style: TextStyle(color: AuthColors.textDisabled, fontSize: 12),
                   ),
                   value: _isAdmin,
                   onChanged: isEditing && widget.role?.isAdmin == true
                       ? null
                       : (value) => setState(() => _isAdmin = value),
-                  activeThumbColor: const Color(0xFF6F4BFF),
+                  activeColor: AuthColors.primary,
                 ),
               ],
             ),
@@ -1352,8 +1254,8 @@ class _RoleDialogState extends State<_RoleDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.surface,
+      labelStyle: TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -1385,9 +1287,9 @@ class _ColorSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Accent Color',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+          style: TextStyle(color: AuthColors.textSub, fontSize: 14),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -1403,7 +1305,7 @@ class _ColorSelector extends StatelessWidget {
                   color: _hexToColor(color),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isActive ? Colors.white : Colors.transparent,
+                    color: isActive ? AuthColors.textMain : Colors.transparent,
                     width: 3,
                   ),
                   boxShadow: isActive
@@ -1417,7 +1319,7 @@ class _ColorSelector extends StatelessWidget {
                       : null,
                 ),
                 child: isActive
-                    ? const Icon(Icons.check, color: Colors.white, size: 20)
+                    ? Icon(Icons.check, color: AuthColors.textMain, size: 20)
                     : null,
               ),
             );

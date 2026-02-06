@@ -1,43 +1,10 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.rebuildAllAnalytics = void 0;
-const functions = __importStar(require("firebase-functions"));
-const firestore_1 = require("firebase-admin/firestore");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const constants_1 = require("../shared/constants");
 const financial_year_1 = require("../shared/financial-year");
+const firestore_helpers_1 = require("../shared/firestore-helpers");
 const client_analytics_1 = require("../clients/client-analytics");
 const employee_analytics_1 = require("../employees/employee-analytics");
 const vendor_analytics_1 = require("../vendors/vendor-analytics");
@@ -45,7 +12,8 @@ const transaction_rebuild_1 = require("../transactions/transaction-rebuild");
 const deliveries_analytics_1 = require("./deliveries-analytics");
 const productions_analytics_1 = require("./productions-analytics");
 const trip_wages_analytics_1 = require("./trip-wages-analytics");
-const db = (0, firestore_1.getFirestore)();
+const function_config_1 = require("../shared/function-config");
+const db = (0, firestore_helpers_1.getFirestore)();
 /**
  * Discover all organization IDs for analytics rebuild.
  * Uses ORGANIZATIONS collection and TRANSACTIONS (for orgs with transactions only).
@@ -74,31 +42,25 @@ async function discoverOrganizationIds(fyLabel) {
 }
 /**
  * Unified scheduled function to rebuild all ANALYTICS documents.
- * Runs every 24 hours. Replaces the four separate scheduled functions.
+ * Runs every 24 hours (midnight UTC).
  */
-exports.rebuildAllAnalytics = functions.pubsub
-    .schedule('every 24 hours')
-    .timeZone('UTC')
-    .onRun(async () => {
+exports.rebuildAllAnalytics = (0, scheduler_1.onSchedule)(Object.assign({ schedule: '0 0 * * *', timeZone: 'UTC' }, function_config_1.SCHEDULED_FUNCTION_OPTS), async () => {
     const now = new Date();
     const { fyLabel, fyStart, fyEnd } = (0, financial_year_1.getFinancialContext)(now);
     console.log('[Analytics Rebuild] Starting unified rebuild', { fyLabel });
     try {
-        // 1. Clients analytics (batch by org from CLIENTS)
         await (0, client_analytics_1.rebuildClientAnalyticsCore)(fyLabel, fyStart, fyEnd);
     }
     catch (error) {
         console.error('[Analytics Rebuild] Client analytics failed', error);
     }
     try {
-        // 2. Employee analytics
         await (0, employee_analytics_1.rebuildEmployeeAnalyticsCore)(fyLabel);
     }
     catch (error) {
         console.error('[Analytics Rebuild] Employee analytics failed', error);
     }
     try {
-        // 3. Vendor analytics
         await (0, vendor_analytics_1.rebuildVendorAnalyticsCore)(fyLabel);
     }
     catch (error) {

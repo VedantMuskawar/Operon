@@ -1,11 +1,12 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import {
   TRANSACTIONS_COLLECTION,
   PENDING_ORDERS_COLLECTION,
 } from '../shared/constants';
-import { getFirestore } from '../shared/firestore-helpers';
 import { getFinancialContext } from '../shared/financial-year';
+import { getFirestore } from '../shared/firestore-helpers';
+import { LIGHT_TRIGGER_OPTS, STANDARD_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
@@ -105,13 +106,17 @@ async function markTripsAsOrderDeleted(
  * Cloud Function: Triggered when an order is deleted
  * Automatically deletes all associated transactions and marks trips for audit
  */
-export const onOrderDeleted = functions
-  .region('us-central1')
-  .firestore
-  .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
-  .onDelete(async (snapshot, context) => {
-    const orderId = context.params.orderId;
-    const deletedBy = (snapshot.data() as any)?.deletedBy as string | undefined;
+export const onOrderDeleted = onDocumentDeleted(
+  {
+    document: `${PENDING_ORDERS_COLLECTION}/{orderId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const orderId = event.params.orderId;
+    const snapshot = event.data;
+    if (!snapshot) return;
+    const data = snapshot.data();
+    const deletedBy = (data as any)?.deletedBy as string | undefined;
     
     console.log('[Order Deletion] Processing order deletion', {
       orderId,
@@ -294,7 +299,8 @@ export const onOrderDeleted = functions
       orderId,
       tripsMarked: tripsCount,
     });
-  });
+  },
+);
 
 /**
  * Helper function to generate order number
@@ -348,15 +354,30 @@ async function generateOrderNumber(organizationId: string): Promise<string> {
  * Cloud Function: Triggered when an order is created
  * Generates order number and creates advance transaction if advance payment was provided
  */
-export const onPendingOrderCreated = functions
-  .region('us-central1')
-  .firestore
-  .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
-  .onCreate(async (snapshot, context) => {
-    const orderId = context.params.orderId;
+export const onPendingOrderCreated = onDocumentCreated(
+  {
+    document: `${PENDING_ORDERS_COLLECTION}/{orderId}`,
+    ...STANDARD_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
+    const orderId = event.params.orderId;
     const orderData = snapshot.data();
     const organizationId = orderData.organizationId as string;
-    
+
+    // Idempotency: skip if advance transaction already created for this order
+    const existingAdvance = await db
+      .collection(TRANSACTIONS_COLLECTION)
+      .where('orderId', '==', orderId)
+      .where('category', '==', 'advance')
+      .limit(1)
+      .get();
+    if (!existingAdvance.empty) {
+      console.log('[Order Created] Advance transaction already exists, skipping', { orderId });
+      return;
+    }
+
     // Generate order number if not already set
     let orderNumber = orderData.orderNumber as string | undefined;
     if (!orderNumber || orderNumber.trim() === '') {
@@ -592,34 +613,37 @@ export const onPendingOrderCreated = functions
       // Don't throw - we don't want to block order creation if transaction creation fails
       // The transaction can be created manually if needed
     }
-  });
+  },
+);
 
 /**
  * Cloud Function: Triggered when an order is updated
  * Cleans up auto-schedule data if order is cancelled
  */
-export const onOrderUpdated = functions
-  .region('us-central1')
-  .firestore
-  .document(`${PENDING_ORDERS_COLLECTION}/{orderId}`)
-  .onUpdate(async (change, context) => {
-    const orderId = context.params.orderId;
-    const before = change.before.data();
-    const after = change.after.data();
-    
+export const onOrderUpdated = onDocumentUpdated(
+  {
+    document: `${PENDING_ORDERS_COLLECTION}/{orderId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const orderId = event.params.orderId;
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    const afterRef = event.data?.after.ref;
+    if (!before || !after || !afterRef) return;
+
     const beforeStatus = (before.status as string) || 'pending';
     const afterStatus = (after.status as string) || 'pending';
-    
+
     // Only process if status changed to cancelled
     if (beforeStatus !== 'cancelled' && afterStatus === 'cancelled') {
       console.log('[Order Update] Order cancelled, cleaning up auto-schedule data', {
         orderId,
         previousStatus: beforeStatus,
       });
-      
+
       try {
-        // Remove auto-schedule data since order is cancelled
-        await change.after.ref.update({
+        await afterRef.update({
           autoSchedule: admin.firestore.FieldValue.delete(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
@@ -632,8 +656,8 @@ export const onOrderUpdated = functions
           orderId,
           error,
         });
-        // Don't throw - cleanup failure shouldn't block order cancellation
       }
     }
-  });
+  },
+);
 

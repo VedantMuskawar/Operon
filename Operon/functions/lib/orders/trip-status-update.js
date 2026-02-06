@@ -35,16 +35,17 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onTripStatusUpdated = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
-const firestore_2 = require("firebase-admin/firestore");
 const admin = __importStar(require("firebase-admin"));
 const constants_1 = require("../shared/constants");
-const db = (0, firestore_2.getFirestore)();
+const firestore_helpers_1 = require("../shared/firestore-helpers");
+const function_config_1 = require("../shared/function-config");
+const db = (0, firestore_helpers_1.getFirestore)();
 const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
 /**
  * When a trip's tripStatus is updated:
  * Update the corresponding trip entry in PENDING_ORDERS.scheduledTrips array
  */
-exports.onTripStatusUpdated = (0, firestore_1.onDocumentUpdated)(`${SCHEDULED_TRIPS_COLLECTION}/{tripId}`, async (event) => {
+exports.onTripStatusUpdated = (0, firestore_1.onDocumentUpdated)(Object.assign({ document: `${SCHEDULED_TRIPS_COLLECTION}/{tripId}` }, function_config_1.STANDARD_TRIGGER_OPTS), async (event) => {
     var _a, _b, _c;
     const tripId = event.params.tripId;
     const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();

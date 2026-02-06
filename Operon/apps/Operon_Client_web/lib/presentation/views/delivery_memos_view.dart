@@ -9,7 +9,6 @@ import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:dash_web/presentation/blocs/delivery_memos/delivery_memos_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
-import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_web/presentation/widgets/dm_export_dialog.dart';
 import 'package:flutter/material.dart' hide DataTable;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -118,25 +117,20 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
       return;
     }
     final dmNumber = dm['dmNumber'] as int?;
-    final dmId = dm['dmId'] as String? ?? dm['id'] as String?;
-    if (dmNumber == null && dmId == null) {
-      DashSnackbar.show(context, message: 'DM number or ID not found', isError: true);
+    if (dmNumber == null) {
+      DashSnackbar.show(context, message: 'DM number required to print', isError: true);
       return;
     }
-    try {
-      final svc = context.read<DmPrintService>();
-      showDialog(
-        context: context,
-        builder: (_) => DmPrintDialog(
-          dmPrintService: svc,
-          organizationId: org.id,
-          dmData: dm,
-          dmNumber: dmNumber ?? 0,
-        ),
-      );
-    } catch (e) {
-      DashSnackbar.show(context, message: 'Failed to open print: $e', isError: true);
-    }
+    final svc = context.read<DmPrintService>();
+    svc.printDeliveryMemo(dmNumber).then((_) {
+      if (context.mounted) {
+        DashSnackbar.show(context, message: 'Print window opened');
+      }
+    }).catchError((e) {
+      if (context.mounted) {
+        DashSnackbar.show(context, message: 'Failed to open print: $e', isError: true);
+      }
+    });
   }
 
   @override

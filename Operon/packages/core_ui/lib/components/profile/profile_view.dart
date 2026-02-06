@@ -42,68 +42,33 @@ class ProfileView extends StatelessWidget {
     
     // Helper to get initial display name for immediate display (without phone fallback)
     String getInitialDisplayName() {
-      debugPrint('[ProfileView] getInitialDisplayName - actualUserName: $actualUserName');
-      debugPrint('[ProfileView] getInitialDisplayName - user.displayName: ${user?.displayName}');
-      
-      if (actualUserName != null && actualUserName!.isNotEmpty) {
-        debugPrint('[ProfileView] Using actualUserName: $actualUserName');
-        return actualUserName!;
-      }
+      if (actualUserName != null && actualUserName!.isNotEmpty) return actualUserName!;
       final displayName = user?.displayName;
-      if (displayName != null && displayName.isNotEmpty) {
-        debugPrint('[ProfileView] Using user.displayName: $displayName');
-        return displayName;
-      }
-      debugPrint('[ProfileView] Using fallback: User');
+      if (displayName != null && displayName.isNotEmpty) return displayName;
       return 'User';
     }
-    
+
     if (fetchUserName != null) {
-      debugPrint('[ProfileView] fetchUserName provided, using FutureBuilder');
       nameWidget = FutureBuilder<String?>(
         future: fetchUserName!(),
         builder: (context, snapshot) {
-          debugPrint('[ProfileView] FutureBuilder state: ${snapshot.connectionState}');
-          debugPrint('[ProfileView] FutureBuilder data: ${snapshot.data}');
-          debugPrint('[ProfileView] FutureBuilder error: ${snapshot.error}');
-          
-          // Show loading state with initial name (without phone fallback)
           if (snapshot.connectionState == ConnectionState.waiting) {
-            final initialName = getInitialDisplayName();
-            debugPrint('[ProfileView] Loading state - showing initial name: $initialName');
             return _buildProfileContent(
               context,
-              displayName: initialName,
+              displayName: getInitialDisplayName(),
               isLoading: true,
             );
           }
-          
-          // Use fetched name, fallback to actualUserName, then user.displayName
-          String displayName = snapshot.data ?? 
-                              actualUserName ?? 
-                              user?.displayName ?? 
-                              '';
-          
-          debugPrint('[ProfileView] Final displayName before validation: $displayName');
-          debugPrint('[ProfileView] snapshot.data: ${snapshot.data}');
-          debugPrint('[ProfileView] actualUserName: $actualUserName');
-          debugPrint('[ProfileView] user?.displayName: ${user?.displayName}');
-          
-          // Only use 'User' as fallback, don't use phone number
-          if (displayName.isEmpty || displayName == 'Unnamed') {
-            debugPrint('[ProfileView] DisplayName is empty or Unnamed, using fallback: User');
-            displayName = 'User';
-          }
-          
-          debugPrint('[ProfileView] Final displayName: $displayName');
+          String displayName = snapshot.data ??
+              actualUserName ??
+              user?.displayName ??
+              '';
+          if (displayName.isEmpty || displayName == 'Unnamed') displayName = 'User';
           return _buildProfileContent(context, displayName: displayName);
         },
       );
     } else {
-      debugPrint('[ProfileView] fetchUserName not provided, using direct display');
-      String displayName = getInitialDisplayName();
-      debugPrint('[ProfileView] Direct displayName: $displayName');
-      nameWidget = _buildProfileContent(context, displayName: displayName);
+      nameWidget = _buildProfileContent(context, displayName: getInitialDisplayName());
     }
 
     return SingleChildScrollView(

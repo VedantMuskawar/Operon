@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import {
   TRANSACTIONS_COLLECTION,
   CLIENT_LEDGERS_COLLECTION,
@@ -16,21 +16,11 @@ import {
 } from '../shared/constants';
 import { getFirestore, seedEmployeeAnalyticsDoc } from '../shared/firestore-helpers';
 import { getFinancialContext } from '../shared/financial-year';
-import { getISOWeek, formatDate, formatMonth, cleanDailyData, getYearMonthCompact, getYearMonth } from '../shared/date-helpers';
+import { getISOWeek, formatDate, cleanDailyData, getYearMonthCompact } from '../shared/date-helpers';
 import { getTransactionDate, removeUndefinedFields } from '../shared/transaction-helpers';
-// Note: transaction-handlers.ts still uses console.log for detailed ledger debugging
-// Consider migrating to logger helpers in future refactoring
+import { CRITICAL_TRIGGER_OPTS, STANDARD_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
-
-/**
- * Get year-month string in format YYYYMM for document IDs
- * @param date - The date to format
- * @returns Year-month string (e.g., "202401" for January 2024)
- */
-function getYearMonth(date: Date): string {
-  return getYearMonthCompact(date);
-}
 
 /**
  * Get previous financial year label
@@ -280,7 +270,7 @@ async function updateClientLedger(
   
   const fyDates = getFinancialYearDates(financialYear);
   const transactionDate = getTransactionDate(snapshot);
-  const yearMonth = getYearMonth(transactionDate);
+  const yearMonth = getYearMonthCompact(transactionDate);
   const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
   
   let balanceBefore: number = 0;
@@ -603,7 +593,7 @@ async function updateVendorLedger(
   });
   
   const transactionDate = getTransactionDate(snapshot);
-  const yearMonth = getYearMonth(transactionDate);
+  const yearMonth = getYearMonthCompact(transactionDate);
   const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
   
   let balanceBefore: number = 0;
@@ -847,7 +837,7 @@ async function updateEmployeeLedger(
   });
   
   const transactionDate = getTransactionDate(snapshot);
-  const yearMonth = getYearMonth(transactionDate);
+  const yearMonth = getYearMonthCompact(transactionDate);
   const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
   
   let balanceBefore: number = 0;
@@ -1085,7 +1075,7 @@ async function updateOrganizationLedger(
   
   const fyDates = getFinancialYearDates(financialYear);
   const transactionDate = getTransactionDate(snapshot);
-  const yearMonth = getYearMonth(transactionDate);
+  const yearMonth = getYearMonthCompact(transactionDate);
   const monthlyRef = ledgerRef.collection('TRANSACTIONS').doc(yearMonth);
   
   let balanceBefore: number = 0;
@@ -1387,7 +1377,7 @@ async function updateTransactionAnalytics(
   isCancellation: boolean = false
 ): Promise<void> {
   // Use monthly document ID based on transaction date
-  const monthKey = getYearMonth(transactionDate); // Returns "YYYY-MM"
+  const monthKey = getYearMonthCompact(transactionDate);
   const analyticsDocId = `${TRANSACTIONS_SOURCE_KEY}_${organizationId}_${monthKey}`;
   const analyticsRef = db.collection(ANALYTICS_COLLECTION).doc(analyticsDocId);
   
@@ -1769,16 +1759,27 @@ async function revertInvoicePayment(
 /**
  * Cloud Function: Triggered when a transaction is created
  */
-export const onTransactionCreated = functions.firestore
-  .document(`${TRANSACTIONS_COLLECTION}/{transactionId}`)
-  .onCreate(async (snapshot, context) => {
+export const onTransactionCreated = onDocumentCreated(
+  {
+    document: `${TRANSACTIONS_COLLECTION}/{transactionId}`,
+    ...CRITICAL_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
     const transaction = snapshot.data();
-    const transactionId = context.params.transactionId;
-    
+    const transactionId = event.params.transactionId;
+
+    // Idempotency: skip if already processed (balanceBefore/balanceAfter set)
+    if (transaction.balanceBefore !== undefined && transaction.balanceAfter !== undefined) {
+      console.log('[Transaction] Already processed, skipping', { transactionId });
+      return;
+    }
+
     const organizationId = transaction?.organizationId as string;
     const financialYear = transaction?.financialYear as string;
     const ledgerType = (transaction.ledgerType as string) || 'clientLedger';
-    
+
     if (!organizationId || !financialYear) {
       console.error('[Transaction] Missing required fields', {
         transactionId,
@@ -1787,7 +1788,7 @@ export const onTransactionCreated = functions.firestore
       });
       return;
     }
-    
+
     const transactionDate = getTransactionDate(snapshot);
     const amount = transaction.amount as number;
     const type = transaction.type as string;
@@ -1964,26 +1965,32 @@ export const onTransactionCreated = functions.firestore
       });
       throw error;
     }
-  });
+  },
+);
 
 /**
  * Cloud Function: Triggered when a transaction is deleted (for cancellations)
  */
-export const onTransactionDeleted = functions.firestore
-  .document(`${TRANSACTIONS_COLLECTION}/{transactionId}`)
-  .onDelete(async (snapshot, context) => {
+export const onTransactionDeleted = onDocumentDeleted(
+  {
+    document: `${TRANSACTIONS_COLLECTION}/{transactionId}`,
+    ...STANDARD_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
     const transaction = snapshot.data();
-    const transactionId = context.params.transactionId;
-    
+    const transactionId = event.params.transactionId;
+
     if (!transaction) {
       console.error('[Transaction] No data for deletion', { transactionId });
       return;
     }
-    
+
     const organizationId = transaction.organizationId as string;
     const financialYear = transaction.financialYear as string;
     const ledgerType = (transaction.ledgerType as string) || 'clientLedger';
-    
+
     if (!organizationId || !financialYear) {
       console.error('[Transaction] Missing fields for deletion', {
         transactionId,
@@ -1992,7 +1999,7 @@ export const onTransactionDeleted = functions.firestore
       });
       return;
     }
-    
+
     const transactionDate = getTransactionDate(snapshot);
     const amount = transaction.amount as number;
     const type = transaction.type as string;
@@ -2168,5 +2175,6 @@ export const onTransactionDeleted = functions.firestore
       });
       throw error;
     }
-  });
+  },
+);
 

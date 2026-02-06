@@ -35,8 +35,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onPurchaseTransactionDeleted = exports.onPurchaseTransactionCreated = void 0;
 const admin = __importStar(require("firebase-admin"));
-const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-functions/v2/firestore");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
+const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
 const RAW_MATERIALS_COLLECTION = 'RAW_MATERIALS';
 const STOCK_HISTORY_COLLECTION = 'STOCK_HISTORY';
@@ -44,11 +45,12 @@ const TRANSACTIONS_COLLECTION = 'TRANSACTIONS';
 /**
  * Update raw material stock when a purchase transaction is created
  */
-exports.onPurchaseTransactionCreated = functions.firestore
-    .document(`${TRANSACTIONS_COLLECTION}/{transactionId}`)
-    .onCreate(async (snapshot, context) => {
+exports.onPurchaseTransactionCreated = (0, firestore_1.onDocumentCreated)(Object.assign({ document: `${TRANSACTIONS_COLLECTION}/{transactionId}` }, function_config_1.STANDARD_TRIGGER_OPTS), async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
     const transaction = snapshot.data();
-    const transactionId = context.params.transactionId;
+    const transactionId = event.params.transactionId;
     const organizationId = transaction === null || transaction === void 0 ? void 0 : transaction.organizationId;
     const ledgerType = (transaction === null || transaction === void 0 ? void 0 : transaction.ledgerType) || 'clientLedger';
     const category = (transaction === null || transaction === void 0 ? void 0 : transaction.category) || '';
@@ -200,11 +202,12 @@ exports.onPurchaseTransactionCreated = functions.firestore
 /**
  * Reverse raw material stock when a purchase transaction is deleted
  */
-exports.onPurchaseTransactionDeleted = functions.firestore
-    .document(`${TRANSACTIONS_COLLECTION}/{transactionId}`)
-    .onDelete(async (snapshot, context) => {
+exports.onPurchaseTransactionDeleted = (0, firestore_1.onDocumentDeleted)(Object.assign({ document: `${TRANSACTIONS_COLLECTION}/{transactionId}` }, function_config_1.STANDARD_TRIGGER_OPTS), async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
     const transaction = snapshot.data();
-    const transactionId = context.params.transactionId;
+    const transactionId = event.params.transactionId;
     const organizationId = transaction === null || transaction === void 0 ? void 0 : transaction.organizationId;
     const ledgerType = (transaction === null || transaction === void 0 ? void 0 : transaction.ledgerType) || 'clientLedger';
     const category = (transaction === null || transaction === void 0 ? void 0 : transaction.category) || '';

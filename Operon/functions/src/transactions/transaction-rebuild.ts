@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import {
   TRANSACTIONS_COLLECTION,
   CLIENT_LEDGERS_COLLECTION,
@@ -8,7 +8,8 @@ import {
 } from '../shared/constants';
 import { getFinancialContext } from '../shared/financial-year';
 import { getFirestore } from '../shared/firestore-helpers';
-import { getISOWeek, formatDate, formatMonth, cleanDailyData, getYearMonth, getMonthsInRange } from '../shared/date-helpers';
+import { getISOWeek, formatDate, cleanDailyData, getYearMonth } from '../shared/date-helpers';
+import { SCHEDULED_FUNCTION_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 
@@ -195,10 +196,7 @@ export async function rebuildTransactionAnalyticsForOrg(
   if (!match) {
     throw new Error(`Invalid financial year format: ${financialYear}`);
   }
-  const startYear = 2000 + parseInt(match[1], 10);
-  const fyStart = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0)); // April 1
-  const fyEnd = new Date(Date.UTC(startYear + 1, 3, 1, 0, 0, 0)); // April 1 next year
-  
+
   // Get all transactions for this organization in this FY
   const transactionsSnapshot = await db
     .collection(TRANSACTIONS_COLLECTION)
@@ -384,27 +382,29 @@ export async function rebuildTransactionAnalyticsForOrg(
 
 /**
  * Cloud Function: Scheduled function to rebuild all client ledgers
- * Runs every 24 hours to recalculate ledger balances
+ * Runs every 24 hours (midnight UTC) to recalculate ledger balances
  */
-export const rebuildClientLedgers = functions.pubsub
-  .schedule('every 24 hours')
-  .timeZone('UTC')
-  .onRun(async () => {
+export const rebuildClientLedgers = onSchedule(
+  {
+    schedule: '0 0 * * *',
+    timeZone: 'UTC',
+    ...SCHEDULED_FUNCTION_OPTS,
+  },
+  async () => {
     const now = new Date();
     const { fyLabel } = getFinancialContext(now);
-    
-    // Get all client ledger documents for current FY
+
     const ledgersSnapshot = await db
       .collection(CLIENT_LEDGERS_COLLECTION)
       .where('financialYear', '==', fyLabel)
       .get();
-    
+
     const rebuildPromises = ledgersSnapshot.docs.map(async (ledgerDoc) => {
       const ledgerData = ledgerDoc.data();
       const organizationId = ledgerData.organizationId as string;
       const clientId = ledgerData.clientId as string;
       const financialYear = ledgerData.financialYear as string;
-      
+
       if (!organizationId || !clientId || !financialYear) {
         console.warn('[Client Ledger Rebuild] Missing required fields', {
           ledgerId: ledgerDoc.id,
@@ -414,7 +414,7 @@ export const rebuildClientLedgers = functions.pubsub
         });
         return;
       }
-      
+
       try {
         await rebuildClientLedger(organizationId, clientId, financialYear);
         console.log('[Client Ledger Rebuild] Successfully rebuilt', {
@@ -431,8 +431,9 @@ export const rebuildClientLedgers = functions.pubsub
         });
       }
     });
-    
+
     await Promise.all(rebuildPromises);
     console.log(`[Client Ledger Rebuild] Rebuilt ${ledgersSnapshot.size} client ledgers`);
-  });
+  },
+);
 

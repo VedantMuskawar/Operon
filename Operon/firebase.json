@@ -1,13 +1,16 @@
 {
-  "hosting": {
-    "target": "lakshmee-site",
-    "public": "apps/marketing/out",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ]
-  },
+  "hosting": [
+    {
+      "target": "lakshmee-site",
+      "public": "apps/marketing/out",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    },
+    {
+      "target": "operon-client",
+      "public": "apps/Operon_Client_web/build/web",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    }
+  ],
   "firestore": {
     "database": "(default)",
     "location": "asia-south1",

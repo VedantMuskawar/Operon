@@ -4,7 +4,6 @@ import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_web/data/repositories/delivery_memo_repository.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
-import 'package:dash_web/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/schedule_trip_modal.dart';
 import 'package:core_ui/core_ui.dart';
@@ -379,65 +378,24 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
       return;
     }
 
-    // Show loading overlay while fetching DM data
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => Center(
-        child: Card(
-          color: AuthColors.surface,
-          child: const Padding(
-            padding: EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: AuthColors.info),
-                SizedBox(height: 16),
-                Text('Loading DM...', style: TextStyle(color: AuthColors.textMain)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    final resolvedDmNumber = dmNumber ?? (widget.trip['dmNumber'] as int?);
+    if (resolvedDmNumber == null) {
+      DashSnackbar.show(
+        context,
+        message: 'DM number required to print',
+        isError: true,
+      );
+      return;
+    }
 
     try {
       final printService = context.read<DmPrintService>();
-
-      // Load full DM document from Firestore, or convert from trip data if DM doesn't exist
-      final dmData = await printService.fetchDmByNumberOrId(
-        organizationId: organization.id,
-        dmNumber: dmNumber,
-        dmId: dmId,
-        tripData: widget.trip, // Pass trip data as fallback
-      );
-
-      if (!context.mounted) return;
-      Navigator.of(context).pop();
-
-      if (dmData == null) {
-        DashSnackbar.show(
-          context,
-          message: 'DM not found and unable to generate from trip data',
-          isError: true,
-        );
-        return;
+      await printService.printDeliveryMemo(resolvedDmNumber);
+      if (context.mounted) {
+        DashSnackbar.show(context, message: 'Print window opened');
       }
-
-      final resolvedDmNumber = (dmData['dmNumber'] as int?) ?? dmNumber ?? 0;
-      if (!context.mounted) return;
-      showDialog(
-        context: context,
-        builder: (_) => DmPrintDialog(
-          dmPrintService: printService,
-          organizationId: organization.id,
-          dmData: dmData,
-          dmNumber: resolvedDmNumber,
-        ),
-      );
     } catch (e) {
       if (context.mounted) {
-        Navigator.of(context).pop();
         DashSnackbar.show(
           context,
           message: 'Failed to print DM: ${e.toString()}',

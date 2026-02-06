@@ -316,16 +316,19 @@ class DmPrintService with PrintViewDataMixin {
 
 
   /// Load view data only (no PDF). Use for "view first" UI; same data as PDF.
+  /// DM settings loaded first; then payment account+QR and logo load in parallel.
   Future<DmViewPayload> loadDmViewData({
     required String organizationId,
     required Map<String, dynamic> dmData,
   }) async {
     final dmSettings = await loadDmSettings(organizationId);
-    final paymentAccountResult = await loadPaymentAccountWithQr(
+    final paymentFuture = loadPaymentAccountWithQr(
       organizationId: organizationId,
       dmSettings: dmSettings,
     );
-    final logoBytes = await loadImageBytes(dmSettings.header.logoImageUrl);
+    final logoFuture = loadImageBytes(dmSettings.header.logoImageUrl);
+    final paymentAccountResult = await paymentFuture;
+    final logoBytes = await logoFuture;
 
     return DmViewPayload(
       dmSettings: dmSettings,
@@ -453,9 +456,11 @@ class DmPrintService with PrintViewDataMixin {
     // Extract data from dmData
     final dmNumber = dmData['dmNumber'] as int? ?? 0;
     final clientName = dmData['clientName'] as String? ?? 'N/A';
-    final clientPhoneRaw = dmData['clientPhone'] as String?;
-    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty) 
-        ? clientPhoneRaw.trim() 
+    final clientPhoneRaw = dmData['clientPhone'] as String? ??
+        dmData['clientPhoneNumber'] as String? ??
+        dmData['customerNumber'] as String?;
+    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty)
+        ? clientPhoneRaw.trim()
         : 'N/A';
     final deliveryZone = dmData['deliveryZone'] as Map<String, dynamic>?;
     String clientAddress = 'N/A';
@@ -781,20 +786,17 @@ class DmPrintService with PrintViewDataMixin {
         filter: grayscale(100%) contrast(120%);
       }
     }
-    /* Header styles (no-print) */
+    /* Header styles (no-print) – Operon app UI */
     .print-header {
-      background: rgba(20,20,22,0.8);
+      background: #1E1E1E;
       border-bottom: 1px solid rgba(255,255,255,0.08);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 1rem 2rem;
+      padding: 1rem 1.5rem;
       position: sticky;
       top: 0;
       z-index: 100;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      transition: padding 160ms ease;
     }
     .print-header-left {
       display: flex;
@@ -804,90 +806,124 @@ class DmPrintService with PrintViewDataMixin {
     .print-header-icon {
       width: 40px;
       height: 40px;
-      background: linear-gradient(135deg, #0A84FF, #0066CC);
+      background: #5D1C19;
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.2rem;
-      color: white;
-      box-shadow: 0 8px 20px rgba(10,132,255,0.25);
+      color: #E0E0E0;
     }
     .print-header-title {
       margin: 0;
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       font-weight: 700;
-      color: #ffffff;
+      color: #E0E0E0;
       letter-spacing: -0.02em;
     }
     .print-header-subtitle {
       margin: 0;
-      font-size: 0.9rem;
-      color: #a1a1aa;
+      font-size: 0.85rem;
+      color: #A1A1A1;
       font-weight: 400;
     }
     .print-header-buttons {
       display: flex;
-      gap: 1rem;
+      gap: 0.75rem;
       align-items: center;
     }
     .print-header-btn {
-      border-radius: 12px;
-      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      padding: 0.6rem 1.25rem;
       font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 200ms ease;
-      border: none;
-      display: flex;
+      transition: all 180ms ease;
+      display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
+    }
+    .print-header-btn-share {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #E0E0E0;
+    }
+    .print-header-btn-share:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.35);
     }
     .print-header-btn-print {
-      background: linear-gradient(135deg, #0A84FF, #0066CC);
-      border: 1px solid rgba(255,255,255,0.14);
-      color: #ffffff;
-      box-shadow: 0 8px 20px rgba(10,132,255,0.25);
+      background: #5D1C19;
+      border: 1px solid #871C1C;
+      color: #E0E0E0;
     }
     .print-header-btn-print:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 30px rgba(10,132,255,0.35);
+      background: #871C1C;
+      filter: brightness(1.1);
     }
-    .print-header-btn-close {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #f5f5f7;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    .print-header-btn-cancel {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #A1A1A1;
     }
-    .print-header-btn-close:hover {
-      background: rgba(255,255,255,0.15);
-      transform: translateY(-1px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.35);
+    .print-header-btn-cancel:hover {
+      background: rgba(255,255,255,0.06);
+      color: #E0E0E0;
+    }
+    .print-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1E1E1E;
+      color: #E0E0E0;
+      padding: 0.6rem 1.2rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      z-index: 1000;
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      pointer-events: none;
+    }
+    .print-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
     }
   </style>
   <script>
     function handleClose() {
-      if (window.opener) {
-        window.close();
+      if (window.opener) window.close();
+      else window.history.back();
+    }
+    function handleShare() {
+      var title = 'Delivery Memo #$dmNumber';
+      var url = location.href;
+      if (navigator.share) {
+        navigator.share({ title: title, url: url }).catch(function() {});
       } else {
-        window.history.back();
+        navigator.clipboard.writeText(url).then(function() {
+          var t = document.getElementById('share-toast');
+          if (t) { t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2000); }
+        });
       }
     }
   </script>
 </head>
 <body>
-  <!-- Header with Print and Close buttons (hidden when printing) -->
+  <div id="share-toast" class="print-toast">Link copied to clipboard</div>
   <div class="no-print print-header">
     <div class="print-header-left">
       <div class="print-header-icon">🚚</div>
       <div>
         <h1 class="print-header-title">Delivery Memo #$dmNumber</h1>
-        <p class="print-header-subtitle">Print Preview & Document Management</p>
+        <p class="print-header-subtitle">Operon</p>
       </div>
     </div>
     <div class="print-header-buttons">
-      <button class="print-header-btn print-header-btn-print" onclick="window.print()">🖨️ Print</button>
-      <button class="print-header-btn print-header-btn-close" onclick="handleClose()">← Back</button>
+      <button type="button" class="print-header-btn print-header-btn-share" onclick="handleShare()">Share</button>
+      <button type="button" class="print-header-btn print-header-btn-print" onclick="window.print()">Print</button>
+      <button type="button" class="print-header-btn print-header-btn-cancel" onclick="handleClose()">Cancel</button>
     </div>
   </div>
   
@@ -1157,11 +1193,13 @@ class DmPrintService with PrintViewDataMixin {
     // Extract data from dmData
     final dmNumber = dmData['dmNumber'] as int? ?? 0;
     final clientName = dmData['clientName'] as String? ?? 'N/A';
-    final clientPhoneRaw = dmData['clientPhone'] as String?;
-    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty) 
-        ? clientPhoneRaw.trim() 
+    final clientPhoneRaw = dmData['clientPhone'] as String? ??
+        dmData['clientPhoneNumber'] as String? ??
+        dmData['customerNumber'] as String?;
+    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty)
+        ? clientPhoneRaw.trim()
         : 'N/A';
-    
+
     // Extract address
     final deliveryZone = dmData['deliveryZone'] as Map<String, dynamic>?;
     String address = 'N/A';
@@ -1204,13 +1242,36 @@ class DmPrintService with PrintViewDataMixin {
     // Extract driver and vehicle info
     final driverName = dmData['driverName'] as String? ?? 'N/A';
     final vehicleNumber = dmData['vehicleNumber'] as String? ?? 'N/A';
-    
-    // Extract product info (for single product DMs)
-    final productName = dmData['productName'] as String? ?? 'N/A';
-    final productQuant = (dmData['productQuant'] as num?)?.toDouble() ?? 0.0;
-    final productUnitPrice = (dmData['productUnitPrice'] as num?)?.toDouble() ?? 0.0;
-    final total = productQuant * productUnitPrice;
-    
+
+    // Extract product info: use top-level fields if present, else derive from items + tripPricing
+    final items = (dmData['items'] as List<dynamic>?) ?? [];
+    final tripPricing = dmData['tripPricing'] as Map<String, dynamic>? ?? {};
+    String productName = dmData['productName'] as String? ?? 'N/A';
+    double productQuant = (dmData['productQuant'] as num?)?.toDouble() ?? 0.0;
+    double productUnitPrice =
+        (dmData['productUnitPrice'] as num?)?.toDouble() ?? 0.0;
+    double total;
+    if (productName != 'N/A' && productQuant > 0) {
+      total = productQuant * productUnitPrice;
+    } else if (items.isNotEmpty) {
+      final item = items.first as Map<String, dynamic>;
+      productName = item['productName'] as String? ??
+          item['name'] as String? ??
+          'N/A';
+      productQuant = (item['fixedQuantityPerTrip'] as num?)?.toDouble() ??
+          (item['totalQuantity'] as num?)?.toDouble() ??
+          (item['quantity'] as num?)?.toDouble() ??
+          0.0;
+      productUnitPrice = (item['unitPrice'] as num?)?.toDouble() ??
+          (item['price'] as num?)?.toDouble() ??
+          0.0;
+      total = (tripPricing['total'] as num?)?.toDouble() ??
+          (productQuant * productUnitPrice);
+    } else {
+      total = (tripPricing['total'] as num?)?.toDouble() ??
+          (productQuant * productUnitPrice);
+    }
+
     // Extract payment info - handle both bool and string values from Firestore
     final paymentStatusValue = dmData['paymentStatus'];
     final paymentStatus = paymentStatusValue is bool
@@ -1230,8 +1291,13 @@ class DmPrintService with PrintViewDataMixin {
       paymentMode = 'Credit';
     } else if (paySchedule != null) {
       paymentMode = paySchedule;
+    } else {
+      final paymentModeRaw = dmData['paymentMode'] as String?;
+      if (paymentModeRaw != null && paymentModeRaw.trim().isNotEmpty) {
+        paymentMode = paymentModeRaw.trim();
+      }
     }
-    
+
     // Convert images to base64
     String? logoDataUri;
     if (logoBytes != null && logoBytes.isNotEmpty) {
@@ -1267,12 +1333,18 @@ class DmPrintService with PrintViewDataMixin {
         ? dmSettings.footer.customText!
         : 'Note: Subject to Chandrapur Jurisdiction';
     
+    // Address display: match PrintDM.jsx (address || "—")
+    final addressDisplay = (address.isEmpty || address == 'N/A') ? '—' : address;
+    
     // Build Lakshmee HTML (matches PaveBoard's PrintDM.jsx)
     final html = '''
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
   <style>
     * {
       -webkit-print-color-adjust: exact;
@@ -1312,24 +1384,18 @@ class DmPrintService with PrintViewDataMixin {
         align-items: center !important;
         overflow: visible !important;
       }
-      .page-shadow {
+      .page-shadow.page {
         box-shadow: none !important;
         border-radius: 0 !important;
-        margin: 5mm auto !important;
-        padding: 0 !important;
+        margin: 0 auto !important;
+        padding: 10mm 0 !important;
         width: 200mm !important;
-        height: 287mm !important;
-        display: block !important;
-        overflow: visible !important;
-      }
-      .page {
-        box-shadow: none !important;
-        border-radius: 0 !important;
-        width: 200mm !important;
-        height: 287mm !important;
-        margin: 0 !important;
-        padding: 5mm !important;
-        display: block !important;
+        height: auto !important;
+        min-height: 277mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
         overflow: visible !important;
       }
       .wrapper {
@@ -1342,6 +1408,10 @@ class DmPrintService with PrintViewDataMixin {
         justify-content: center !important;
         align-items: center !important;
         overflow: visible !important;
+      }
+      .print-page {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
       }
       .ticket {
         width: 190mm !important;
@@ -1358,20 +1428,17 @@ class DmPrintService with PrintViewDataMixin {
         print-color-adjust: exact !important;
       }
     }
-    /* Header styles (no-print) */
+    /* Header styles (no-print) – Operon app UI */
     .print-header {
-      background: rgba(20,20,22,0.8);
+      background: #1E1E1E;
       border-bottom: 1px solid rgba(255,255,255,0.08);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 1rem 2rem;
+      padding: 1rem 1.5rem;
       position: sticky;
       top: 0;
       z-index: 100;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      transition: padding 160ms ease;
     }
     .print-header-left {
       display: flex;
@@ -1381,65 +1448,89 @@ class DmPrintService with PrintViewDataMixin {
     .print-header-icon {
       width: 40px;
       height: 40px;
-      background: linear-gradient(135deg, #0A84FF, #0066CC);
+      background: #5D1C19;
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.2rem;
-      color: white;
-      box-shadow: 0 8px 20px rgba(10,132,255,0.25);
+      color: #E0E0E0;
     }
     .print-header-title {
       margin: 0;
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       font-weight: 700;
-      color: #ffffff;
+      color: #E0E0E0;
       letter-spacing: -0.02em;
     }
     .print-header-subtitle {
       margin: 0;
-      font-size: 0.9rem;
-      color: #a1a1aa;
+      font-size: 0.85rem;
+      color: #A1A1A1;
       font-weight: 400;
     }
     .print-header-buttons {
       display: flex;
-      gap: 1rem;
+      gap: 0.75rem;
       align-items: center;
     }
     .print-header-btn {
-      border-radius: 12px;
-      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      padding: 0.6rem 1.25rem;
       font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 200ms ease;
-      border: none;
-      display: flex;
+      transition: all 180ms ease;
+      display: inline-flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
+    }
+    .print-header-btn-share {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #E0E0E0;
+    }
+    .print-header-btn-share:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.35);
     }
     .print-header-btn-print {
-      background: linear-gradient(135deg, #0A84FF, #0066CC);
-      border: 1px solid rgba(255,255,255,0.14);
-      color: #ffffff;
-      box-shadow: 0 8px 20px rgba(10,132,255,0.25);
+      background: #5D1C19;
+      border: 1px solid #871C1C;
+      color: #E0E0E0;
     }
     .print-header-btn-print:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 30px rgba(10,132,255,0.35);
+      background: #871C1C;
+      filter: brightness(1.1);
     }
-    .print-header-btn-close {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #f5f5f7;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    .print-header-btn-cancel {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #A1A1A1;
     }
-    .print-header-btn-close:hover {
-      background: rgba(255,255,255,0.15);
-      transform: translateY(-1px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.35);
+    .print-header-btn-cancel:hover {
+      background: rgba(255,255,255,0.06);
+      color: #E0E0E0;
+    }
+    .print-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1E1E1E;
+      color: #E0E0E0;
+      padding: 0.6rem 1.2rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      z-index: 1000;
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      pointer-events: none;
+    }
+    .print-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
     }
     .print-preview-container {
       width: 210mm;
@@ -1458,7 +1549,24 @@ class DmPrintService with PrintViewDataMixin {
       position: relative;
       padding: 5mm;
     }
-    .page-shadow {
+    .page-shadow.page {
+      width: 210mm;
+      height: 297mm;
+      background-color: white;
+      color: black;
+      font-family: 'Inter', sans-serif;
+      print-color-adjust: exact;
+      overflow: hidden;
+      margin: auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
+      border-radius: 2px;
+      position: relative;
+      padding: 5mm;
+    }
+    .wrapper {
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -1467,24 +1575,10 @@ class DmPrintService with PrintViewDataMixin {
       margin: auto;
       gap: 1mm;
       height: 277mm;
-      padding: 0mm;
+      padding: 0;
     }
-    .page {
-      width: 200mm;
-      max-width: 200mm;
-      height: 138mm;
-      padding: 4mm 5mm;
-      border: 1px solid black;
-      box-sizing: border-box;
-      font-size: 11px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 1px;
-      font-family: 'Inter', sans-serif;
-      position: relative;
-      z-index: 1;
-      background-color: #fff;
+    .print-page {
+      page-break-after: avoid;
     }
     .ticket {
       width: 200mm;
@@ -1634,6 +1728,7 @@ class DmPrintService with PrintViewDataMixin {
       gap: 1px;
       font-size: 14px;
     }
+    .table,
     .product-table {
       border: 1px solid black;
       padding: 3px 4px;
@@ -1700,35 +1795,45 @@ class DmPrintService with PrintViewDataMixin {
   </style>
   <script>
     function handleClose() {
-      if (window.opener) {
-        window.close();
+      if (window.opener) window.close();
+      else window.history.back();
+    }
+    function handleShare() {
+      var title = 'Delivery Memo #$dmNumber';
+      var url = location.href;
+      if (navigator.share) {
+        navigator.share({ title: title, url: url }).catch(function() {});
       } else {
-        window.history.back();
+        navigator.clipboard.writeText(url).then(function() {
+          var t = document.getElementById('share-toast');
+          if (t) { t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2000); }
+        });
       }
     }
   </script>
 </head>
 <body>
-  <!-- Header with Print and Close buttons (hidden when printing) -->
+  <div id="share-toast" class="print-toast">Link copied to clipboard</div>
   <div class="no-print print-header">
     <div class="print-header-left">
       <div class="print-header-icon">🚚</div>
       <div>
         <h1 class="print-header-title">Delivery Memo #$dmNumber</h1>
-        <p class="print-header-subtitle">Print Preview & Document Management</p>
+        <p class="print-header-subtitle">Operon</p>
       </div>
     </div>
     <div class="print-header-buttons">
-      <button class="print-header-btn print-header-btn-print" onclick="window.print()">🖨️ Print</button>
-      <button class="print-header-btn print-header-btn-close" onclick="handleClose()">← Back</button>
+      <button type="button" class="print-header-btn print-header-btn-share" onclick="handleShare()">Share</button>
+      <button type="button" class="print-header-btn print-header-btn-print" onclick="window.print()">Print</button>
+      <button type="button" class="print-header-btn print-header-btn-cancel" onclick="handleClose()">Cancel</button>
     </div>
   </div>
   
   <div class="print-preview-container">
-    <div class="page-shadow">
-      <!-- Original Ticket -->
-      <div class="page">
-        <div class="ticket">
+    <div class="page-shadow page">
+      <div class="wrapper">
+        <div class="print-page">
+          <div class="ticket">
           ${logoDataUri != null ? '<img src="$logoDataUri" alt="Watermark" class="watermark" />' : ''}
           <div class="flag-text">🚩 जय श्री राम 🚩</div>
           <div class="branding">
@@ -1748,14 +1853,14 @@ class DmPrintService with PrintViewDataMixin {
                   ${qrDataUri != null ? '<img src="$qrDataUri" alt="Payment QR Code" class="qr-image-large" />' : '<div style="font-size: 22px; color: #666;">QR Code</div>'}
                 </div>
                 <div class="qr-label-large">${_escapeHtml(qrLabel ?? companyName)}</div>
-                <div class="qr-amount-large">Scan to pay ₹${_formatCurrency(total)}</div>
+                <div class="qr-amount-large">Scan to pay ${_formatCurrency(total)}</div>
               </div>
             </div>
             <div class="right-column">
               <div class="info-box">
                 <div class="info-col">
                   <div><strong>Client:</strong> <strong>${_escapeHtml(clientName)}</strong></div>
-                  <div><strong>Address:</strong> ${_escapeHtml(address)}, ${_escapeHtml(regionName)}</div>
+                  <div><strong>Address:</strong> ${_escapeHtml(addressDisplay)}, ${_escapeHtml(regionName)}</div>
                   <div><strong>Phone:</strong> <strong>${_escapeHtml(clientPhone)}</strong></div>
                 </div>
                 <div class="info-col">
@@ -1764,11 +1869,11 @@ class DmPrintService with PrintViewDataMixin {
                   <div><strong>Driver:</strong> ${_escapeHtml(driverName)}</div>
                 </div>
               </div>
-              <div class="product-table">
+              <div class="table">
                 <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
                 <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
-                <div class="table-row"><span>💰 Unit Price</span><span>₹${_formatCurrency(productUnitPrice)}</span></div>
-                <div class="table-row-total"><span>🧾 Total</span><span>₹${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>${_formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>${_formatCurrency(total)}</span></div>
                 <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
               </div>
             </div>
@@ -1787,17 +1892,13 @@ class DmPrintService with PrintViewDataMixin {
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Cut Line -->
-      <div class="cut-line">
-        <hr />
-        <div class="cut-line-text">✂️ Cut Here</div>
-      </div>
-      
-      <!-- Duplicate Ticket -->
-      <div class="page">
-        <div class="ticket duplicate">
+        </div>
+        <div style="width: 100%; text-align: center; margin: 0.5mm 0;">
+          <hr style="border-top: 1px dashed #555; margin: 0;" />
+          <div style="font-size: 5px; color: #888;">✂️ Cut Here</div>
+        </div>
+        <div class="print-page">
+          <div class="ticket duplicate">
           ${logoDataUri != null ? '<img src="$logoDataUri" alt="Watermark" class="watermark" />' : ''}
           <div class="flag-text">🚩 जय श्री राम 🚩</div>
           <div class="branding">
@@ -1817,14 +1918,14 @@ class DmPrintService with PrintViewDataMixin {
                   ${qrDataUri != null ? '<img src="$qrDataUri" alt="Payment QR Code" class="qr-image-large" />' : '<div style="font-size: 22px; color: #666;">QR Code</div>'}
                 </div>
                 <div class="qr-label-large">${_escapeHtml(qrLabel ?? companyName)}</div>
-                <div class="qr-amount-large">Scan to pay ₹${_formatCurrency(total)}</div>
+                <div class="qr-amount-large">Scan to pay ${_formatCurrency(total)}</div>
               </div>
             </div>
             <div class="right-column">
               <div class="info-box">
                 <div class="info-col">
                   <div><strong>Client:</strong> <strong>${_escapeHtml(clientName)}</strong></div>
-                  <div><strong>Address:</strong> ${_escapeHtml(address)}, ${_escapeHtml(regionName)}</div>
+                  <div><strong>Address:</strong> ${_escapeHtml(addressDisplay)}, ${_escapeHtml(regionName)}</div>
                   <div><strong>Phone:</strong> <strong>${_escapeHtml(clientPhone)}</strong></div>
                 </div>
                 <div class="info-col">
@@ -1833,11 +1934,11 @@ class DmPrintService with PrintViewDataMixin {
                   <div><strong>Driver:</strong> ${_escapeHtml(driverName)}</div>
                 </div>
               </div>
-              <div class="product-table">
+              <div class="table">
                 <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
                 <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
-                <div class="table-row"><span>💰 Unit Price</span><span>₹${_formatCurrency(productUnitPrice)}</span></div>
-                <div class="table-row-total"><span>🧾 Total</span><span>₹${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>${_formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>${_formatCurrency(total)}</span></div>
                 <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
               </div>
             </div>
@@ -1855,6 +1956,7 @@ class DmPrintService with PrintViewDataMixin {
               <div class="signature-line"></div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
@@ -1974,29 +2076,29 @@ class DmPrintService with PrintViewDataMixin {
     
     print('[DmPrintService] Organization ID: $orgId');
     
-    // Fetch related order data (like PrintDMPage does)
+    // Fetch related order and view payload in parallel (neither depends on the other)
     final orderId = finalDmData['orderID'] as String?;
-    if (orderId != null && orderId.isNotEmpty) {
-      print('[DmPrintService] Fetching related order data for orderID: $orderId');
-      final orderData = await _fetchRelatedOrder(orderId, orgId);
-      if (orderData != null) {
-        print('[DmPrintService] Order data fetched, merging phone/driver info');
-        // Merge phone/driver data from order into DM data
-        finalDmData['clientPhone'] = orderData['clientPhoneNumber'] as String? ?? 
-                                    finalDmData['clientPhone'] as String?;
-        finalDmData['driverName'] = orderData['driverName'] as String? ?? 
-                                   finalDmData['driverName'] as String?;
-        finalDmData['driverPhone'] = orderData['driverPhone'] as String? ?? 
-                                    finalDmData['driverPhone'] as String?;
-      }
-    }
-    
-    // Load view payload (settings, payment account, QR code, logo)
-    print('[DmPrintService] Loading DM view data...');
-    final viewPayload = await loadDmViewData(
+    final orderFuture = (orderId != null && orderId.isNotEmpty)
+        ? _fetchRelatedOrder(orderId, orgId)
+        : Future<Map<String, dynamic>?>.value(null);
+    final viewPayloadFuture = loadDmViewData(
       organizationId: orgId,
       dmData: finalDmData,
     );
+
+    final results = await Future.wait([orderFuture, viewPayloadFuture]);
+    final orderData = results[0] as Map<String, dynamic>?;
+    final viewPayload = results[1] as DmViewPayload;
+
+    if (orderData != null) {
+      print('[DmPrintService] Order data fetched, merging phone/driver info');
+      finalDmData['clientPhone'] = orderData['clientPhoneNumber'] as String? ??
+          finalDmData['clientPhone'] as String?;
+      finalDmData['driverName'] = orderData['driverName'] as String? ??
+          finalDmData['driverName'] as String?;
+      finalDmData['driverPhone'] = orderData['driverPhone'] as String? ??
+          finalDmData['driverPhone'] as String?;
+    }
     
     // Generate HTML string
     print('[DmPrintService] Generating HTML for print...');
@@ -2125,15 +2227,27 @@ class DmPrintService with PrintViewDataMixin {
       );
       
       // Open print window - PrintDMPage will use cached data from sessionStorage
+      // Use explicit size + position + window-only features so browser opens a popup
+      // instead of a new tab (especially in fullscreen).
       final url = '/print-dm/$dmNumber';
       print('[DmPrintService] Opening print window for DM $dmNumber at URL: $url');
       
+      const width = 900;
+      const height = 700;
+      // Center on screen when possible; fallback left/top for popup
+      final left = (html.window.outerWidth - width) ~/ 2;
+      final top = (html.window.outerHeight - height) ~/ 2;
+      final features = 'width=$width,height=$height,'
+          'left=${left > 0 ? left : 100},top=${top > 0 ? top : 100},'
+          'scrollbars=yes,resizable=yes,'
+          'location=no,menubar=no,toolbar=no,status=no';
+      
       final printWindow = html.window.open(
         url,
-        '_blank',
-        'width=900,height=700,scrollbars=yes,resizable=yes',
+        'operon_print_dm',
+        features,
       );
-      
+      // ignore: unnecessary_null_comparison -- browsers can return null when popup is blocked
       if (printWindow == null) {
         print('[DmPrintService] ERROR: Popup blocked');
         throw Exception('Popup blocked. Please allow popups for this site to print delivery memos.');

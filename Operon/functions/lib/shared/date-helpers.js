@@ -7,6 +7,7 @@ exports.cleanDailyData = cleanDailyData;
 exports.getYearMonth = getYearMonth;
 exports.getYearMonthCompact = getYearMonthCompact;
 exports.normalizeDate = normalizeDate;
+exports.getMonthsInRange = getMonthsInRange;
 /**
  * Get ISO week number for a date
  * ISO week starts on Monday and week 1 is the first week with at least 4 days in the new year
@@ -93,5 +94,26 @@ function getYearMonthCompact(date) {
  */
 function normalizeDate(date) {
     return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+/**
+ * Get list of year-month strings (YYYY-MM) for a date range
+ * @param startDate - Start date (inclusive)
+ * @param endDate - End date (inclusive)
+ * @returns Array of year-month strings (e.g., ["2024-04", "2024-05", "2024-06"])
+ */
+function getMonthsInRange(startDate, endDate) {
+    const months = [];
+    const current = new Date(startDate);
+    current.setUTCDate(1); // Start from first day of month
+    current.setUTCHours(0, 0, 0, 0);
+    const end = new Date(endDate);
+    end.setUTCDate(1);
+    end.setUTCHours(0, 0, 0, 0);
+    while (current <= end) {
+        months.push(getYearMonth(current));
+        // Move to next month
+        current.setUTCMonth(current.getUTCMonth() + 1);
+    }
+    return months;
 }
 //# sourceMappingURL=date-helpers.js.map

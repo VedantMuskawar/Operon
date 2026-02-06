@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { getFirestore } from '../shared/firestore-helpers';
+import { STANDARD_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 
@@ -11,11 +12,16 @@ const TRANSACTIONS_COLLECTION = 'TRANSACTIONS';
 /**
  * Update raw material stock when a purchase transaction is created
  */
-export const onPurchaseTransactionCreated = functions.firestore
-  .document(`${TRANSACTIONS_COLLECTION}/{transactionId}`)
-  .onCreate(async (snapshot, context) => {
+export const onPurchaseTransactionCreated = onDocumentCreated(
+  {
+    document: `${TRANSACTIONS_COLLECTION}/{transactionId}`,
+    ...STANDARD_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
     const transaction = snapshot.data();
-    const transactionId = context.params.transactionId;
+    const transactionId = event.params.transactionId;
 
     const organizationId = transaction?.organizationId as string;
     const ledgerType = (transaction?.ledgerType as string) || 'clientLedger';
@@ -207,16 +213,22 @@ export const onPurchaseTransactionCreated = functions.firestore
       // Don't throw - we don't want to fail the transaction creation
       // The stock update can be retried manually if needed
     }
-  });
+  },
+);
 
 /**
  * Reverse raw material stock when a purchase transaction is deleted
  */
-export const onPurchaseTransactionDeleted = functions.firestore
-  .document(`${TRANSACTIONS_COLLECTION}/{transactionId}`)
-  .onDelete(async (snapshot, context) => {
+export const onPurchaseTransactionDeleted = onDocumentDeleted(
+  {
+    document: `${TRANSACTIONS_COLLECTION}/{transactionId}`,
+    ...STANDARD_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
     const transaction = snapshot.data();
-    const transactionId = context.params.transactionId;
+    const transactionId = event.params.transactionId;
 
     const organizationId = transaction?.organizationId as string;
     const ledgerType = (transaction?.ledgerType as string) || 'clientLedger';
@@ -423,5 +435,6 @@ export const onPurchaseTransactionDeleted = functions.firestore
       // Don't throw - we don't want to fail the transaction deletion
       // The stock reversal can be retried manually if needed
     }
-  });
+  },
+);
 

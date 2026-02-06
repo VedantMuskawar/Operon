@@ -35,11 +35,12 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cancelDM = exports.generateDM = void 0;
 const https_1 = require("firebase-functions/v2/https");
-const firestore_1 = require("firebase-admin/firestore");
 const admin = __importStar(require("firebase-admin"));
 const financial_year_1 = require("../shared/financial-year");
 const constants_1 = require("../shared/constants");
-const db = (0, firestore_1.getFirestore)();
+const firestore_helpers_1 = require("../shared/firestore-helpers");
+const function_config_1 = require("../shared/function-config");
+const db = (0, firestore_helpers_1.getFirestore)();
 const DELIVERY_MEMOS_COLLECTION = 'DELIVERY_MEMOS';
 const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
 const ORGANIZATIONS_COLLECTION = 'ORGANIZATIONS';
@@ -56,8 +57,8 @@ const ORGANIZATIONS_COLLECTION = 'ORGANIZATIONS';
  * 6. Update SCHEDULE_TRIPS with dmNumber
  * 7. Update FY document with new currentDMNumber
  */
-exports.generateDM = (0, https_1.onCall)(async (request) => {
-    var _a, _b;
+exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CALLABLE_OPTS), async (request) => {
+    var _a, _b, _c;
     const { organizationId, tripId, scheduleTripId, tripData, generatedBy } = request.data;
     console.log('[DM Generation] Request received', {
         organizationId,
@@ -65,17 +66,10 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
         scheduleTripId,
         hasTripData: !!tripData,
         generatedBy,
-        scheduledDateType: (tripData === null || tripData === void 0 ? void 0 : tripData.scheduledDate) ? typeof tripData.scheduledDate : 'missing',
+        scheduledDateType: tripData && typeof tripData === 'object' && 'scheduledDate' in tripData ? typeof tripData.scheduledDate : 'missing',
     });
     if (!organizationId || !tripId || !scheduleTripId || !tripData || !generatedBy) {
-        console.error('[DM Generation] Missing required parameters', {
-            hasOrganizationId: !!organizationId,
-            hasTripId: !!tripId,
-            hasScheduleTripId: !!scheduleTripId,
-            hasTripData: !!tripData,
-            hasGeneratedBy: !!generatedBy,
-        });
-        throw new Error('Missing required parameters');
+        throw new https_1.HttpsError('invalid-argument', 'Missing required parameters');
     }
     try {
         // Check if DM number already exists for this trip
@@ -94,23 +88,18 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
         }
         // Get financial year from scheduled date
         // Handle serialized Timestamp format from client (map with _seconds and _nanoseconds)
+        const tripDataAny = tripData;
         let scheduledDate;
-        if (tripData.scheduledDate && typeof tripData.scheduledDate === 'object' && '_seconds' in tripData.scheduledDate) {
-            // Deserialize Timestamp from client
-            scheduledDate = new Date(tripData.scheduledDate._seconds * 1000);
+        if (tripDataAny.scheduledDate && typeof tripDataAny.scheduledDate === 'object' && '_seconds' in tripDataAny.scheduledDate) {
+            scheduledDate = new Date(tripDataAny.scheduledDate._seconds * 1000);
             console.log('[DM Generation] Deserialized scheduledDate from client format', { scheduledDate: scheduledDate.toISOString() });
         }
-        else if (tripData.scheduledDate && typeof tripData.scheduledDate.toDate === 'function') {
-            // Firestore Timestamp object
-            scheduledDate = tripData.scheduledDate.toDate();
+        else if (tripDataAny.scheduledDate && typeof ((_b = tripDataAny.scheduledDate) === null || _b === void 0 ? void 0 : _b.toDate) === 'function') {
+            scheduledDate = tripDataAny.scheduledDate.toDate();
             console.log('[DM Generation] Used Firestore Timestamp toDate()', { scheduledDate: scheduledDate.toISOString() });
         }
         else {
-            console.error('[DM Generation] Invalid scheduledDate format', {
-                scheduledDate: tripData.scheduledDate,
-                scheduledDateType: typeof tripData.scheduledDate,
-            });
-            throw new Error(`Invalid scheduledDate format: ${JSON.stringify(tripData.scheduledDate)}`);
+            throw new https_1.HttpsError('invalid-argument', `Invalid scheduledDate format: ${JSON.stringify(tripDataAny.scheduledDate)}`);
         }
         const fyContext = (0, financial_year_1.getFinancialContext)(scheduledDate);
         const financialYear = fyContext.fyLabel; // e.g., "FY2425"
@@ -150,10 +139,10 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
             const newDMNumber = currentDMNumber + 1;
             const dmId = `DM/${financialYear}/${newDMNumber}`;
             // Get itemIndex and productId from trip data (required for multi-product support)
-            const itemIndex = (_a = tripData.itemIndex) !== null && _a !== void 0 ? _a : 0;
-            const productId = tripData.productId || null;
+            const itemIndex = (_a = tripDataAny.itemIndex) !== null && _a !== void 0 ? _a : 0;
+            const productId = tripDataAny.productId || null;
             // Extract tripPricing and conditionally include GST fields
-            const tripPricingData = tripData.tripPricing || {};
+            const tripPricingData = tripDataAny.tripPricing || {};
             const tripPricing = {
                 subtotal: tripPricingData.subtotal || 0,
                 total: tripPricingData.total || 0,
@@ -174,29 +163,28 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
                 scheduleTripId: scheduleTripId,
                 financialYear,
                 organizationId,
-                orderId: tripData.orderId || '',
-                itemIndex: itemIndex, // ✅ Store which item this DM belongs to
-                productId: productId || '', // ✅ Store product reference
-                clientId: tripData.clientId || '',
-                clientName: tripData.clientName || '',
-                customerNumber: tripData.clientPhone || tripData.customerNumber || '',
-                scheduledDate: scheduledDate,
-                scheduledDay: tripData.scheduledDay || '',
-                vehicleId: tripData.vehicleId || '',
-                vehicleNumber: tripData.vehicleNumber || '',
-                slot: tripData.slot || 0,
-                slotName: tripData.slotName || '',
-                driverId: tripData.driverId || null,
-                driverName: tripData.driverName || null,
-                driverPhone: tripData.driverPhone || null,
-                deliveryZone: tripData.deliveryZone || {},
-                items: tripData.items || [],
-                // ❌ REMOVED: pricing snapshot (redundant, use tripPricing only)
-                tripPricing: tripPricing,
-                priority: tripData.priority || 'normal',
-                paymentType: tripData.paymentType || '',
+                orderId: tripDataAny.orderId || '',
+                itemIndex,
+                productId: productId || '',
+                clientId: tripDataAny.clientId || '',
+                clientName: tripDataAny.clientName || '',
+                customerNumber: tripDataAny.clientPhone || tripDataAny.customerNumber || '',
+                scheduledDate,
+                scheduledDay: tripDataAny.scheduledDay || '',
+                vehicleId: tripDataAny.vehicleId || '',
+                vehicleNumber: tripDataAny.vehicleNumber || '',
+                slot: tripDataAny.slot || 0,
+                slotName: tripDataAny.slotName || '',
+                driverId: tripDataAny.driverId || null,
+                driverName: tripDataAny.driverName || null,
+                driverPhone: tripDataAny.driverPhone || null,
+                deliveryZone: tripDataAny.deliveryZone || {},
+                items: tripDataAny.items || [],
+                tripPricing,
+                priority: tripDataAny.priority || 'normal',
+                paymentType: tripDataAny.paymentType || '',
                 tripStatus: 'scheduled',
-                orderStatus: tripData.orderStatus || 'pending',
+                orderStatus: tripDataAny.orderStatus || 'pending',
                 status: 'active', // DM status: active, cancelled, returned
                 generatedAt: new Date(),
                 generatedBy,
@@ -205,7 +193,6 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
             };
             const dmRef = db.collection(DELIVERY_MEMOS_COLLECTION).doc();
             transaction.set(dmRef, deliveryMemoData);
-            // Update SCHEDULE_TRIPS with dmNumber
             const tripRef = db.collection(SCHEDULE_TRIPS_COLLECTION).doc(tripId);
             transaction.update(tripRef, {
                 dmNumber: newDMNumber,
@@ -217,12 +204,12 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
                 currentDMNumber: newDMNumber,
                 updatedAt: new Date(),
             });
-            return { dmId, dmNumber: newDMNumber, financialYear, tripData, dmDocumentId: dmRef.id };
+            return { dmId, dmNumber: newDMNumber, financialYear, tripData: tripDataAny, dmDocumentId: dmRef.id };
         });
         // After DM is generated, create credit transaction if payment type requires it
-        const paymentType = ((_b = tripData.paymentType) === null || _b === void 0 ? void 0 : _b.toLowerCase()) || '';
+        const paymentType = ((_c = tripDataAny.paymentType) === null || _c === void 0 ? void 0 : _c.toLowerCase()) || '';
         if (paymentType === 'pay_later' || paymentType === 'pay_on_delivery') {
-            const tripPricing = tripData.tripPricing || {};
+            const tripPricing = tripDataAny.tripPricing || {};
             const tripTotal = tripPricing.total || 0;
             if (tripTotal > 0) {
                 try {
@@ -232,7 +219,7 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
                     const transactionData = {
                         transactionId, // Include transactionId field for consistency
                         organizationId,
-                        clientId: tripData.clientId || '',
+                        clientId: tripDataAny.clientId || '',
                         ledgerType: 'clientLedger',
                         type: 'credit', // Credit = client owes us (increases receivable)
                         category: 'clientCredit', // Client owes (PayLater order)
@@ -283,17 +270,17 @@ exports.generateDM = (0, https_1.onCall)(async (request) => {
     }
     catch (error) {
         console.error('[DM Generation] Error:', error);
-        throw new Error(`Failed to generate DM: ${error}`);
+        throw new https_1.HttpsError('internal', error instanceof Error ? error.message : 'Failed to generate DM');
     }
 });
 /**
  * Cancel DM (mark as CANCELLED, remove dmNumber from trip)
  * Called from Flutter when user clicks "Cancel DM"
  */
-exports.cancelDM = (0, https_1.onCall)(async (request) => {
+exports.cancelDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CALLABLE_OPTS), async (request) => {
     const { tripId, dmId, cancelledBy, cancellationReason } = request.data;
     if (!tripId || !cancelledBy) {
-        throw new Error('Missing required parameters: tripId and cancelledBy');
+        throw new https_1.HttpsError('invalid-argument', 'Missing required parameters: tripId and cancelledBy');
     }
     try {
         // Find DELIVERY_MEMOS document
@@ -317,9 +304,7 @@ exports.cancelDM = (0, https_1.onCall)(async (request) => {
                 .get();
         }
         if (dmQuery.empty) {
-            // DM document should always exist if DM was generated
-            // If not found, it means DM was never generated or was already deleted
-            throw new Error('DM document not found. DM must be generated before it can be cancelled.');
+            throw new https_1.HttpsError('not-found', 'DM document not found. DM must be generated before it can be cancelled.');
         }
         // Update existing DM document status to 'cancelled'
         const dmDoc = dmQuery.docs[0];
@@ -389,7 +374,7 @@ exports.cancelDM = (0, https_1.onCall)(async (request) => {
     }
     catch (error) {
         console.error('[DM Cancellation] Error:', error);
-        throw new Error(`Failed to cancel DM: ${error}`);
+        throw new https_1.HttpsError('internal', error instanceof Error ? error.message : 'Failed to cancel DM');
     }
 });
 //# sourceMappingURL=delivery-memo.js.map

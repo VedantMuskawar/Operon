@@ -5,593 +5,593 @@ import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-/// Status enum for vehicle markers.
+/// Movement state for vehicle markers (TIER 1: Visual Hierarchy).
+enum MovementState {
+  /// Online, speed > 5 km/h - Neon-green arrow with pulse
+  moving,
+
+  /// Online, speed ≤ 5 km/h, engine ON (or inferred) - Neon orange/yellow hexagon
+  idling,
+
+  /// Online, engine OFF - Solid blue rounded square
+  stopped,
+
+  /// Stale location (>10 min) - Ghost icon + optional Last Seen badge
+  offline,
+}
+
+/// Vehicle type for marker icons (TIER 2).
+enum VehicleType {
+  truck,
+  van,
+  bike,
+  unknown,
+}
+
+/// Legacy status enum - kept for backward compatibility during migration.
+/// Prefer [MovementState] for new code.
 enum VehicleStatus {
   active,
   offline,
   warning,
-  available,   // Vehicle ready for assignment - Green (#2ECC71)
-  onTrip,      // Vehicle currently on a trip - Blue (#2980B9)
-  alert,       // Vehicle needs attention/issue - Red (#E74C3C)
+  available,
+  idling,
+  onTrip,
+  alert,
 }
 
 /// Marker tier based on zoom level for Level of Detail (LOD) system.
 enum MarkerTier {
-  nano,      // Zoom < 11: Simple 12px circle
-  standard,  // Zoom 11-15: Halo Pin with last 4 digits
-  detailed,  // Zoom > 15: Rich capsule with full vehicle number
+  nano, // Zoom < 11: Simple colored dot
+  standard, // Zoom 11-15: Shape + vehicle type icon
+  detailed, // Zoom > 15: Shape + icon + vehicle ID + speed label
 }
 
-/// Utility for generating custom map markers with donut ring design.
-/// 
-/// Creates premium markers with:
-/// - Colored ring indicating status (green/orange/yellow)
-/// - White center with vehicle ID or icon
-/// - Bearing indicator (triangle) showing direction of travel
+/// Utility for generating custom map markers.
 class MarkerGenerator {
   MarkerGenerator._();
 
-  /// Create a donut ring marker with status color and bearing indicator.
-  /// 
-  /// [vehicleId] - Short identifier to display in center (max 4 chars recommended)
-  /// [status] - Vehicle status determining ring color
-  /// [bearing] - Direction of travel in degrees (0-360)
-  /// [size] - Logical size of marker (default: 48x48)
-  /// [devicePixelRatio] - Device pixel ratio for crisp rendering (default: 3.0)
-  /// [showIcon] - If true, shows car icon instead of text (default: false)
-  static Future<BitmapDescriptor> createDonutMarker({
-    required String vehicleId,
-    required VehicleStatus status,
-    required double bearing,
-    double size = 48.0,
-    double devicePixelRatio = 3.0,
-    bool showIcon = false,
-  }) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-
-    // Scale for high-DPI rendering
-    canvas.scale(devicePixelRatio);
-
-    final center = Offset(size / 2, size / 2);
-    final outerRadius = size / 2;
-    final ringWidth = 6.0;
-    final innerRadius = outerRadius - ringWidth;
-    final centerRadius = innerRadius - 4.0; // Center circle radius
-
-    // Determine ring color based on status
-    final ringColor = _getStatusColor(status);
-
-    // Draw outer ring (status indicator)
-    final ringPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = ringWidth
-      ..color = ringColor;
-    canvas.drawCircle(center, outerRadius - ringWidth / 2, ringPaint);
-
-    // Draw white center circle
-    final centerPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = Colors.white;
-    canvas.drawCircle(center, centerRadius, centerPaint);
-
-    // Draw center content (icon or text)
-    if (showIcon) {
-      _drawCarIcon(canvas, center, centerRadius * 0.6);
-    } else {
-      _drawVehicleId(canvas, center, centerRadius, vehicleId);
-    }
-
-    // Draw bearing indicator (triangle on ring)
-    _drawBearingIndicator(canvas, center, outerRadius, bearing, ringColor);
-
-    // Add shadow
-    final shadowPath = Path()
-      ..addOval(Rect.fromCircle(center: center, radius: outerRadius));
-    canvas.drawShadow(
-      shadowPath,
-      Colors.black.withOpacity(0.3),
-      4,
-      false,
-    );
-
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(
-      (size * devicePixelRatio).round(),
-      (size * devicePixelRatio).round(),
-    );
-    final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
-
-    return BitmapDescriptor.bytes(bytes);
-  }
-
-  /// Get color for vehicle status.
-  static Color _getStatusColor(VehicleStatus status) {
-    switch (status) {
-      case VehicleStatus.active:
-        return LogisticsColors.neonGreen;
-      case VehicleStatus.offline:
-        return LogisticsColors.burntOrange;
-      case VehicleStatus.warning:
-        return LogisticsColors.warningYellow;
-      case VehicleStatus.available:
-        return LogisticsColors.vehicleAvailable;
-      case VehicleStatus.onTrip:
-        return LogisticsColors.vehicleOnTrip;
-      case VehicleStatus.alert:
-        return LogisticsColors.vehicleAlert;
+  /// Tier-based canvas sizes.
+  static double _sizeForTier(MarkerTier tier) {
+    switch (tier) {
+      case MarkerTier.nano:
+        return 24.0;
+      case MarkerTier.standard:
+        return 48.0;
+      case MarkerTier.detailed:
+        return 72.0;
     }
   }
 
-  /// Draw vehicle ID text in center.
-  static void _drawVehicleId(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    String vehicleId,
-  ) {
-    // Shorten vehicle ID if too long
-    final displayText = vehicleId.length > 4
-        ? vehicleId.substring(0, 4)
-        : vehicleId;
-
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: displayText,
-        style: TextStyle(
-          color: LogisticsColors.hudBlack,
-          fontSize: radius * 0.7,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final textOffset = Offset(
-      center.dx - textPainter.width / 2,
-      center.dy - textPainter.height / 2,
-    );
-    textPainter.paint(canvas, textOffset);
-  }
-
-  /// Draw car icon in center.
-  static void _drawCarIcon(Canvas canvas, Offset center, double size) {
-    // Simple car icon using path
-    final carPath = Path()
-      ..moveTo(center.dx - size * 0.4, center.dy)
-      ..lineTo(center.dx - size * 0.3, center.dy - size * 0.3)
-      ..lineTo(center.dx + size * 0.3, center.dy - size * 0.3)
-      ..lineTo(center.dx + size * 0.4, center.dy)
-      ..lineTo(center.dx + size * 0.35, center.dy + size * 0.2)
-      ..lineTo(center.dx - size * 0.35, center.dy + size * 0.2)
-      ..close();
-
-    final iconPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = LogisticsColors.hudBlack;
-    canvas.drawPath(carPath, iconPaint);
-
-    // Draw wheels
-    final wheelPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = LogisticsColors.hudBlack;
-    canvas.drawCircle(
-      Offset(center.dx - size * 0.25, center.dy + size * 0.15),
-      size * 0.08,
-      wheelPaint,
-    );
-    canvas.drawCircle(
-      Offset(center.dx + size * 0.25, center.dy + size * 0.15),
-      size * 0.08,
-      wheelPaint,
-    );
-  }
-
-  /// Draw bearing indicator (triangle) on ring edge.
-  static void _drawBearingIndicator(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    double bearing,
-    Color color,
-  ) {
-    // Convert bearing to radians (bearing is 0-360, where 0 is North)
-    // Map to standard math coordinates (0 is right, counter-clockwise)
-    final angleRad = (bearing - 90) * math.pi / 180;
-
-    // Calculate triangle position on ring edge
-    final triangleCenter = Offset(
-      center.dx + radius * math.cos(angleRad),
-      center.dy + radius * math.sin(angleRad),
-    );
-
-    // Triangle size
-    final triangleSize = 6.0;
-
-    // Create triangle path pointing outward
-    final trianglePath = Path()
-      ..moveTo(
-        triangleCenter.dx + triangleSize * math.cos(angleRad),
-        triangleCenter.dy + triangleSize * math.sin(angleRad),
-      )
-      ..lineTo(
-        triangleCenter.dx +
-            triangleSize * 0.5 * math.cos(angleRad + 2.5),
-        triangleCenter.dy +
-            triangleSize * 0.5 * math.sin(angleRad + 2.5),
-      )
-      ..lineTo(
-        triangleCenter.dx +
-            triangleSize * 0.5 * math.cos(angleRad - 2.5),
-        triangleCenter.dy +
-            triangleSize * 0.5 * math.sin(angleRad - 2.5),
-      )
-      ..close();
-
-    final trianglePaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = color;
-    canvas.drawPath(trianglePath, trianglePaint);
-  }
-
-  /// Extract last 4 digits from vehicle number.
-  static String _extractLastFourDigits(String vehicleNumber) {
-    if (vehicleNumber.length <= 4) return vehicleNumber;
-    return vehicleNumber.substring(vehicleNumber.length - 4);
-  }
-
-  /// Get color for pin marker status.
-  static Color _getPinStatusColor(VehicleStatus status) {
-    switch (status) {
-      case VehicleStatus.available:
-        return LogisticsColors.vehicleAvailable; // #2ECC71
-      case VehicleStatus.onTrip:
-        return LogisticsColors.vehicleOnTrip;    // #2980B9
-      case VehicleStatus.offline:
-        return LogisticsColors.vehicleOffline;  // #95A5A6
-      case VehicleStatus.alert:
-        return LogisticsColors.vehicleAlert;    // #E74C3C
-      // Legacy statuses map to closest match
-      case VehicleStatus.active:
-        return LogisticsColors.vehicleAvailable;
-      case VehicleStatus.warning:
-        return LogisticsColors.vehicleAlert;
+  static IconData _iconForVehicleType(VehicleType type) {
+    switch (type) {
+      case VehicleType.truck:
+        return Icons.local_shipping;
+      case VehicleType.van:
+        return Icons.directions_car;
+      case VehicleType.bike:
+        return Icons.two_wheeler;
+      case VehicleType.unknown:
+        return Icons.directions_car;
     }
   }
 
-  /// Draw pin shape (circle + triangle pointer).
-  static void _drawPinShape(
-    Canvas canvas,
-    Offset center,
-    double pinHeadRadius,
-    double pointerHeight,
-    double pointerWidth,
-    Color fillColor,
-  ) {
-    // Draw pin head (circle)
-    final pinHeadPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = fillColor;
-    canvas.drawCircle(center, pinHeadRadius, pinHeadPaint);
-
-    // Draw pointer/beak (triangle pointing down)
-    final pointerPath = Path()
-      ..moveTo(center.dx, center.dy + pinHeadRadius) // Top of pointer
-      ..lineTo(center.dx - pointerWidth / 2, center.dy + pinHeadRadius + pointerHeight) // Bottom left
-      ..lineTo(center.dx + pointerWidth / 2, center.dy + pinHeadRadius + pointerHeight) // Bottom right
-      ..close();
-    
-    canvas.drawPath(pointerPath, pinHeadPaint);
-  }
-
-  /// Draw white border ring around pin head.
-  static void _drawPinBorder(
-    Canvas canvas,
-    Offset center,
-    double pinHeadRadius,
-    double borderWidth,
-  ) {
-    final borderPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = borderWidth
-      ..color = Colors.white;
-    canvas.drawCircle(center, pinHeadRadius, borderPaint);
-  }
-
-  /// Draw text (last 4 digits) in pin head.
-  static void _drawPinText(
-    Canvas canvas,
-    Offset center,
-    double pinHeadRadius,
-    String text,
-  ) {
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: pinHeadRadius * 0.6,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final textOffset = Offset(
-      center.dx - textPainter.width / 2,
-      center.dy - textPainter.height / 2,
-    );
-    textPainter.paint(canvas, textOffset);
-  }
-
-  /// Create a pin-style marker with status color and vehicle number.
-  /// 
-  /// Creates a modern pin marker with:
-  /// - Circular pin head with triangular pointer/beak at bottom
-  /// - Status-based color coding (Available/On Trip/Offline/Alert)
-  /// - White border ring for visibility
-  /// - Last 4 digits of vehicle number displayed in white text
-  /// - Subtle drop shadow for depth
-  /// 
-  /// [vehicleNumber] - Full vehicle number (e.g., "MH12JM9999")
-  /// [status] - Vehicle status determining pin color
-  /// [size] - Logical size of marker (default: 64x64)
-  /// [devicePixelRatio] - Device pixel ratio for crisp rendering (default: 3.0)
-  static Future<BitmapDescriptor> createPinMarker({
-    required String vehicleNumber,
-    required VehicleStatus status,
-    double size = 64.0,
-    double devicePixelRatio = 3.0,
-  }) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-
-    // Scale for high-DPI rendering
-    canvas.scale(devicePixelRatio);
-
-    // Pin structure calculations
-    final pointerHeight = size * 0.2;
-    final pointerWidth = size * 0.3;
-    final pinHeadRadius = size * 0.4;
-    final borderWidth = 2.5;
-    
-    // Center point (pin head center, not including pointer)
-    final center = Offset(size / 2, size / 2 - pointerHeight / 2);
-    
-    // Get status color
-    final statusColor = _getPinStatusColor(status);
-    
-    // Extract last 4 digits
-    final displayText = _extractLastFourDigits(vehicleNumber);
-
-    // Draw pin shape (circle + triangle)
-    _drawPinShape(
-      canvas,
-      center,
-      pinHeadRadius,
-      pointerHeight,
-      pointerWidth,
-      statusColor,
-    );
-
-    // Draw white border ring
-    _drawPinBorder(
-      canvas,
-      center,
-      pinHeadRadius,
-      borderWidth,
-    );
-
-    // Draw text (last 4 digits)
-    _drawPinText(
-      canvas,
-      center,
-      pinHeadRadius,
-      displayText,
-    );
-
-    // Add shadow for depth
-    final shadowPath = Path()
-      ..addOval(Rect.fromCircle(center: center, radius: pinHeadRadius))
-      ..addPath(
-        Path()
-          ..moveTo(center.dx, center.dy + pinHeadRadius)
-          ..lineTo(center.dx - pointerWidth / 2, center.dy + pinHeadRadius + pointerHeight)
-          ..lineTo(center.dx + pointerWidth / 2, center.dy + pinHeadRadius + pointerHeight)
-          ..close(),
-        Offset.zero,
-      );
-    
-    canvas.drawShadow(
-      shadowPath,
-      Colors.black.withOpacity(0.3),
-      4,
-      false,
-    );
-
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(
-      (size * devicePixelRatio).round(),
-      (size * devicePixelRatio).round(),
-    );
-    final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
-
-    return BitmapDescriptor.bytes(bytes);
-  }
-
-  // ============================================================================
-  // Dynamic LOD Marker System - "The Halo Pin"
-  // ============================================================================
-
-  /// Get halo color based on vehicle status (high-contrast palette).
-  static Color _getHaloColor(VehicleStatus status) {
-    switch (status) {
-      case VehicleStatus.available:
-        return const Color(0xFF00E676); // Neon Green
-      case VehicleStatus.onTrip:
-        return const Color(0xFF29B6F6); // Bright Blue
-      case VehicleStatus.offline:
-        return const Color(0xFFB0BEC5); // Medium Grey
-      case VehicleStatus.alert:
-        return const Color(0xFFFF3D00); // Red Orange
-      // Legacy statuses map to closest match
-      case VehicleStatus.active:
-        return const Color(0xFF00E676); // Neon Green
-      case VehicleStatus.warning:
-        return const Color(0xFFFF3D00); // Red Orange
-    }
-  }
-
-  /// Get core color based on vehicle status.
-  static Color _getCoreColor(VehicleStatus status) {
-    switch (status) {
-      case VehicleStatus.offline:
-        return Colors.white; // White for offline
-      default:
-        return const Color(0xFF263238); // Dark Slate for all others
-    }
-  }
-
-  /// Get text color based on vehicle status.
-  static Color _getTextColor(VehicleStatus status) {
-    switch (status) {
-      case VehicleStatus.offline:
-        return const Color(0xFF263238); // Dark Grey for offline
-      default:
-        return Colors.white; // White for all others
-    }
-  }
-
-  /// Create a marker with dynamic Level of Detail (LOD) based on tier.
-  /// 
-  /// [text] - Vehicle number or identifier to display
-  /// [status] - Vehicle status determining colors
-  /// [tier] - Marker tier (nano/standard/detailed) based on zoom level
-  /// [devicePixelRatio] - Device pixel ratio for crisp rendering (default: 3.0)
+  /// Create a marker based on movement state and vehicle type.
+  ///
+  /// [text] - Vehicle number or identifier
+  /// [movementState] - Movement state (moving/idling/stopped/offline)
+  /// [vehicleType] - Vehicle type for icon
+  /// [tier] - Marker tier (nano/standard/detailed)
+  /// [subtitle] - Optional subtitle (e.g. "5m ago" for offline)
+  /// [speedLabel] - Speed string for Detailed tier when moving (e.g. "60 km/h")
   static Future<BitmapDescriptor> createMarker({
+    required String text,
+    required MovementState movementState,
+    required MarkerTier tier,
+    VehicleType vehicleType = VehicleType.van,
+    double devicePixelRatio = 3.0,
+    String? subtitle,
+    String? speedLabel,
+  }) async {
+    final cacheKey =
+        '$tier|${movementState.name}|${vehicleType.name}|$text|$subtitle|$speedLabel';
+    final cached = _markerCache[cacheKey];
+    if (cached != null) return cached;
+
+    final descriptor = await _createMarkerInternal(
+      text: text,
+      movementState: movementState,
+      vehicleType: vehicleType,
+      tier: tier,
+      devicePixelRatio: devicePixelRatio,
+      subtitle: subtitle,
+      speedLabel: speedLabel,
+    );
+    _markerCache[cacheKey] = descriptor;
+    return descriptor;
+  }
+
+  /// Legacy API - maps [VehicleStatus] to [MovementState] and calls [createMarker].
+  static Future<BitmapDescriptor> createMarkerLegacy({
     required String text,
     required VehicleStatus status,
     required MarkerTier tier,
+    VehicleType vehicleType = VehicleType.van,
     double devicePixelRatio = 3.0,
+    String? subtitle,
+    String? speedLabel,
   }) async {
-    switch (tier) {
-      case MarkerTier.nano:
-        return _createNanoMarker(status, devicePixelRatio);
-      case MarkerTier.standard:
-        return _createStandardMarker(text, status, devicePixelRatio);
-      case MarkerTier.detailed:
-        return _createDetailedMarker(text, status, devicePixelRatio);
+    final movementState = _statusToMovementState(status);
+    return createMarker(
+      text: text,
+      movementState: movementState,
+      vehicleType: vehicleType,
+      tier: tier,
+      devicePixelRatio: devicePixelRatio,
+      subtitle: subtitle,
+      speedLabel: speedLabel,
+    );
+  }
+
+  static MovementState _statusToMovementState(VehicleStatus status) {
+    switch (status) {
+      case VehicleStatus.offline:
+        return MovementState.offline;
+      case VehicleStatus.idling:
+        return MovementState.idling;
+      case VehicleStatus.available:
+      case VehicleStatus.active:
+      case VehicleStatus.onTrip:
+        return MovementState.moving;
+      case VehicleStatus.alert:
+      case VehicleStatus.warning:
+        return MovementState.idling; // Fallback
     }
   }
 
-  /// Create nano tier marker (zoom < 11): Simple 12px circle.
-  static Future<BitmapDescriptor> _createNanoMarker(
-    VehicleStatus status,
-    double devicePixelRatio,
-  ) async {
-    const size = 12.0;
+  static Future<BitmapDescriptor> _createMarkerInternal({
+    required String text,
+    required MovementState movementState,
+    required VehicleType vehicleType,
+    required MarkerTier tier,
+    required double devicePixelRatio,
+    String? subtitle,
+    String? speedLabel,
+  }) async {
+    switch (movementState) {
+      case MovementState.offline:
+        return _createOfflineGhostMarker(
+          text: text,
+          vehicleType: vehicleType,
+          tier: tier,
+          devicePixelRatio: devicePixelRatio,
+          subtitle: subtitle,
+        );
+      case MovementState.moving:
+        return _createMovingMarker(
+          text: text,
+          vehicleType: vehicleType,
+          tier: tier,
+          devicePixelRatio: devicePixelRatio,
+          speedLabel: speedLabel,
+        );
+      case MovementState.idling:
+        return _createIdlingMarker(
+          text: text,
+          vehicleType: vehicleType,
+          tier: tier,
+          devicePixelRatio: devicePixelRatio,
+        );
+      case MovementState.stopped:
+        return _createStoppedMarker(
+          text: text,
+          vehicleType: vehicleType,
+          tier: tier,
+          devicePixelRatio: devicePixelRatio,
+        );
+    }
+  }
+
+  /// Moving: Neon-green arrow with trailing pulse/glow; show direction.
+  static Future<BitmapDescriptor> _createMovingMarker({
+    required String text,
+    required VehicleType vehicleType,
+    required MarkerTier tier,
+    required double devicePixelRatio,
+    String? speedLabel,
+  }) async {
+    final size = _sizeForTier(tier);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.scale(devicePixelRatio);
 
     final center = Offset(size / 2, size / 2);
-    final radius = size / 2;
-    final haloColor = _getHaloColor(status);
 
-    // Draw solid circle with status color
-    final paint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = haloColor;
-    canvas.drawCircle(center, radius, paint);
+    // Nano: just colored dot
+    if (tier == MarkerTier.nano) {
+      _drawNanoDot(canvas, center, LogisticsColors.neonGreen, size);
+    } else {
+      // Arrow geometry (pointing Up)
+      final scale = size / 64.0;
+      final path = Path()
+        ..moveTo(center.dx, center.dy - 20 * scale)
+        ..lineTo(center.dx + 14 * scale, center.dy + 16 * scale)
+        ..lineTo(center.dx, center.dy + 8 * scale)
+        ..lineTo(center.dx - 14 * scale, center.dy + 16 * scale)
+        ..close();
 
-    // Add subtle shadow
-    final shadowPath = Path()..addOval(Rect.fromCircle(center: center, radius: radius));
-    canvas.drawShadow(shadowPath, Colors.black.withOpacity(0.3), 2, false);
+      // Trailing pulse / glow
+      final glowPaint = Paint()
+        ..color = LogisticsColors.neonGreen.withOpacity(0.4)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8.0 * scale);
+      canvas.drawPath(path, glowPaint);
 
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(
-      (size * devicePixelRatio).round(),
-      (size * devicePixelRatio).round(),
-    );
-    final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
+      // Main arrow
+      final paint = Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(center.dx, center.dy - 20 * scale),
+          Offset(center.dx, center.dy + 16 * scale),
+          [Colors.white, LogisticsColors.neonGreen],
+        )
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(path, paint);
 
-    return BitmapDescriptor.bytes(bytes);
+      final borderPaint = Paint()
+        ..color = Colors.black.withOpacity(0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawPath(path, borderPaint);
+
+      // Standard/Detailed: add icon in center
+      if (tier == MarkerTier.standard || tier == MarkerTier.detailed) {
+        _paintVehicleIcon(
+          canvas,
+          Offset(center.dx, center.dy - 2 * scale),
+          vehicleType,
+          size * 0.35,
+          Colors.white,
+        );
+      }
+
+      // Detailed: vehicle ID + speed label below
+      if (tier == MarkerTier.detailed) {
+        var y = center.dy + 14 * scale;
+        final idText = _extractLastFourDigits(text);
+        _paintText(canvas, center.dx, y, idText, 10, Colors.white);
+        if (speedLabel != null && speedLabel.isNotEmpty) {
+          y += 12;
+          _paintText(canvas, center.dx, y, speedLabel, 9, Colors.white70);
+        }
+      }
+    }
+
+    return _finishCanvas(recorder, size, size, devicePixelRatio);
   }
 
-  /// Create standard tier marker (zoom 11-15): "Halo Pin" design.
-  static Future<BitmapDescriptor> _createStandardMarker(
-    String text,
-    VehicleStatus status,
-    double devicePixelRatio,
-  ) async {
-    const size = 48.0;
+  /// Idling: Neon orange/yellow hexagon + pause symbol or vehicle ID.
+  static Future<BitmapDescriptor> _createIdlingMarker({
+    required String text,
+    required VehicleType vehicleType,
+    required MarkerTier tier,
+    required double devicePixelRatio,
+  }) async {
+    final size = _sizeForTier(tier);
+    const idlingColor = Color(0xFFFFB300); // Neon orange/yellow
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.scale(devicePixelRatio);
 
-    // Pin structure calculations
-    final pointerHeight = size * 0.2;
-    final pointerWidth = size * 0.3;
-    final pinHeadRadius = size * 0.4;
-    final haloWidth = 3.0;
-    
-    // Center point (pin head center, not including pointer)
-    final center = Offset(size / 2, size / 2 - pointerHeight / 2);
-    
-    final haloColor = _getHaloColor(status);
-    final coreColor = _getCoreColor(status);
-    final textColor = _getTextColor(status);
-    
-    // Extract last 4 digits
-    final displayText = _extractLastFourDigits(text);
+    final center = Offset(size / 2, size / 2);
 
-    // Draw core circle
-    final corePaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = coreColor;
-    canvas.drawCircle(center, pinHeadRadius, corePaint);
+    if (tier == MarkerTier.nano) {
+      _drawNanoDot(canvas, center, idlingColor, size);
+    } else {
+      final hexPath = _createHexagonPath(center, size * 0.35);
+      final paint = Paint()
+        ..color = idlingColor
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(hexPath, paint);
+      final borderPaint = Paint()
+        ..color = Colors.black.withOpacity(0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawPath(hexPath, borderPaint);
 
-    // Draw halo (colored stroke ring)
-    final haloPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = haloWidth
-      ..color = haloColor;
-    canvas.drawCircle(center, pinHeadRadius, haloPaint);
+      if (tier == MarkerTier.standard || tier == MarkerTier.detailed) {
+        _paintVehicleIcon(
+            canvas, center, vehicleType, size * 0.3, Colors.white);
+      }
 
-    // Draw pointer/beak (triangle pointing down)
-    final pointerPath = Path()
-      ..moveTo(center.dx, center.dy + pinHeadRadius) // Top of pointer
-      ..lineTo(center.dx - pointerWidth / 2, center.dy + pinHeadRadius + pointerHeight) // Bottom left
-      ..lineTo(center.dx + pointerWidth / 2, center.dy + pinHeadRadius + pointerHeight) // Bottom right
-      ..close();
-    
-    final pointerPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = coreColor;
-    canvas.drawPath(pointerPath, pointerPaint);
+      if (tier == MarkerTier.detailed) {
+        _paintText(
+          canvas,
+          center.dx,
+          center.dy + size * 0.28,
+          _extractLastFourDigits(text),
+          10,
+          Colors.white,
+        );
+      }
+    }
 
-    // Draw halo on pointer too
-    final pointerHaloPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = haloWidth
-      ..color = haloColor;
-    canvas.drawPath(pointerPath, pointerHaloPaint);
+    return _finishCanvas(recorder, size, size, devicePixelRatio);
+  }
 
-    // Draw text (last 4 digits)
+  /// Stopped: Solid blue rounded square.
+  static Future<BitmapDescriptor> _createStoppedMarker({
+    required String text,
+    required VehicleType vehicleType,
+    required MarkerTier tier,
+    required double devicePixelRatio,
+  }) async {
+    final size = _sizeForTier(tier);
+    const stoppedColor = Color(0xFF2980B9); // Solid blue
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.scale(devicePixelRatio);
+
+    final center = Offset(size / 2, size / 2);
+
+    if (tier == MarkerTier.nano) {
+      _drawNanoDot(canvas, center, stoppedColor, size);
+    } else {
+      final half = size * 0.35;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: center,
+          width: half * 2,
+          height: half * 2,
+        ),
+        const Radius.circular(6),
+      );
+      final paint = Paint()
+        ..color = stoppedColor
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(rect, paint);
+      final borderPaint = Paint()
+        ..color = Colors.black.withOpacity(0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawRRect(rect, borderPaint);
+
+      if (tier == MarkerTier.standard || tier == MarkerTier.detailed) {
+        _paintVehicleIcon(
+            canvas, center, vehicleType, size * 0.28, Colors.white);
+      }
+
+      if (tier == MarkerTier.detailed) {
+        _paintText(
+          canvas,
+          center.dx,
+          center.dy + size * 0.28,
+          _extractLastFourDigits(text),
+          10,
+          Colors.white,
+        );
+      }
+    }
+
+    return _finishCanvas(recorder, size, size, devicePixelRatio);
+  }
+
+  /// Offline: Ghost version of vehicle icon + optional Last Seen badge (Detailed tier only).
+  static Future<BitmapDescriptor> _createOfflineGhostMarker({
+    required String text,
+    required VehicleType vehicleType,
+    required MarkerTier tier,
+    required double devicePixelRatio,
+    String? subtitle,
+  }) async {
+    final size = _sizeForTier(tier);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.scale(devicePixelRatio);
+
+    final center = Offset(size / 2, size / 2);
+    const ghostColor = Color(0xFF546E7A); // vehicleOfflineSlate
+    final ghostFill = ghostColor.withOpacity(0.5);
+    final ghostIcon = Colors.white.withOpacity(0.6);
+
+    if (tier == MarkerTier.nano) {
+      _drawNanoDot(canvas, center, ghostFill, size);
+    } else {
+      // Rounded square as ghost shape
+      final half = size * 0.32;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: center,
+          width: half * 2,
+          height: half * 2,
+        ),
+        const Radius.circular(6),
+      );
+      final paint = Paint()
+        ..color = ghostFill
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(rect, paint);
+      final borderPaint = Paint()
+        ..color = Colors.white.withOpacity(0.4)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawRRect(rect, borderPaint);
+
+      _paintVehicleIcon(canvas, center, vehicleType, size * 0.26, ghostIcon);
+
+      if (tier == MarkerTier.detailed &&
+          subtitle != null &&
+          subtitle.isNotEmpty) {
+        _paintText(
+          canvas,
+          center.dx,
+          center.dy + size * 0.38,
+          subtitle,
+          9,
+          const Color(0xFFAAAAAA),
+        );
+      }
+    }
+
+    return _finishCanvas(recorder, size, size, devicePixelRatio);
+  }
+
+  static void _drawNanoDot(
+      Canvas canvas, Offset center, Color color, double size) {
+    final r = size * 0.2;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, r, paint);
+  }
+
+  static Path _createHexagonPath(Offset center, double radius) {
+    final path = Path();
+    for (var i = 0; i < 6; i++) {
+      final angleRad = (i * 60 - 90) * (math.pi / 180);
+      final x = center.dx + radius * math.cos(angleRad);
+      final y = center.dy + radius * math.sin(angleRad);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+    return path;
+  }
+
+  static void _paintVehicleIcon(
+    Canvas canvas,
+    Offset center,
+    VehicleType vehicleType,
+    double size,
+    Color color,
+  ) {
+    final iconData = _iconForVehicleType(vehicleType);
     final textPainter = TextPainter(
       text: TextSpan(
-        text: displayText,
+        text: String.fromCharCode(iconData.codePoint),
+        style: TextStyle(
+          fontFamily: iconData.fontFamily ?? 'MaterialIcons',
+          fontSize: size,
+          color: color,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(
+      canvas,
+      Offset(center.dx - textPainter.width / 2,
+          center.dy - textPainter.height / 2),
+    );
+  }
+
+  static void _paintText(
+    Canvas canvas,
+    double centerX,
+    double y,
+    String text,
+    double fontSize,
+    Color color,
+  ) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+          shadows: const [Shadow(color: Colors.black, blurRadius: 2)],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(centerX - tp.width / 2, y));
+  }
+
+  static String _extractLastFourDigits(String text) {
+    if (text.length <= 4) return text;
+    if (text.startsWith('VH-')) return text.substring(3);
+    return text.substring(text.length - 4);
+  }
+
+  static Future<BitmapDescriptor> _finishCanvas(
+    ui.PictureRecorder recorder,
+    double width,
+    double height,
+    double devicePixelRatio,
+  ) async {
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(
+      (width * devicePixelRatio).round(),
+      (height * devicePixelRatio).round(),
+    );
+    final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!
+        .buffer
+        .asUint8List();
+    return BitmapDescriptor.bytes(bytes);
+  }
+
+  /// Clears the marker cache. Call when tier changes or to free memory.
+  static void clearMarkerCache() {
+    _markerCache.clear();
+  }
+
+  static final Map<String, BitmapDescriptor> _markerCache = {};
+
+  // ============================================================================
+  // Cluster icons
+  // ============================================================================
+
+  static final Map<String, BitmapDescriptor> _clusterIconCache = {};
+
+  static Future<BitmapDescriptor> createClusterIcon(
+    int count, {
+    bool hasAlert = false,
+  }) async {
+    final cacheKey = '$count|$hasAlert';
+    final cached = _clusterIconCache[cacheKey];
+    if (cached != null) return cached;
+
+    const size = 48.0;
+    const devicePixelRatio = 3.0;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.scale(devicePixelRatio);
+
+    final center = Offset(size / 2, size / 2);
+    final radius = size / 2 - 4;
+
+    // Status ring: red when cluster has alert vehicle
+    final ringColor =
+        hasAlert ? LogisticsColors.vehicleAlert : LogisticsColors.neonGreen;
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = ringColor.withOpacity(0.9);
+    canvas.drawCircle(center, radius + 2, ringPaint);
+
+    // Glassmorphism: semi-transparent fill + soft border
+    final fillColor = LogisticsColors.neonGreen.withOpacity(0.85);
+    final fillPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = fillColor;
+    canvas.drawCircle(center, radius - 1, fillPaint);
+
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = Colors.white.withOpacity(0.5);
+    canvas.drawCircle(center, radius - 1, borderPaint);
+
+    // Count text
+    final text = count > 99 ? '99+' : count.toString();
+    final textColor = const Color(0xFF263238);
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
         style: TextStyle(
           color: textColor,
-          fontSize: pinHeadRadius * 0.6,
+          fontSize: radius * 0.9,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.5,
         ),
@@ -599,165 +599,17 @@ class MarkerGenerator {
       textDirection: TextDirection.ltr,
     )..layout();
 
-    final textOffset = Offset(
-      center.dx - textPainter.width / 2,
-      center.dy - textPainter.height / 2,
-    );
-    textPainter.paint(canvas, textOffset);
-
-    // Add shadow for depth
-    final shadowPath = Path()
-      ..addOval(Rect.fromCircle(center: center, radius: pinHeadRadius))
-      ..addPath(pointerPath, Offset.zero);
-    
-    canvas.drawShadow(
-      shadowPath,
-      Colors.black.withOpacity(0.3),
-      4,
-      false,
-    );
-
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(
-      (size * devicePixelRatio).round(),
-      (size * devicePixelRatio).round(),
-    );
-    final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
-
-    return BitmapDescriptor.bytes(bytes);
-  }
-
-  /// Create detailed tier marker (zoom > 15): Rich capsule with icon and full text.
-  static Future<BitmapDescriptor> _createDetailedMarker(
-    String text,
-    VehicleStatus status,
-    double devicePixelRatio,
-  ) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder);
-    canvas.scale(devicePixelRatio);
-
-    const minHeight = 64.0;
-    const iconSize = 32.0;
-    const paddingX = 16.0;
-    const iconPadding = 12.0;
-    const cornerRadius = 16.0;
-
-    final haloColor = _getHaloColor(status);
-    final coreColor = _getCoreColor(status);
-    final textColor = _getTextColor(status);
-
-    // Measure text to determine capsule width
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 16.0,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.3,
-        ),
+    textPainter.paint(
+      canvas,
+      Offset(
+        center.dx - textPainter.width / 2,
+        center.dy - textPainter.height / 2,
       ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final textWidth = textPainter.width;
-    final capsuleWidth = iconSize + iconPadding + textWidth + paddingX * 2;
-    final capsuleHeight = minHeight;
-
-    // Create rounded rectangle path
-    final capsuleRect = Rect.fromLTWH(0, 0, capsuleWidth, capsuleHeight);
-    final capsulePath = Path()
-      ..addRRect(RRect.fromRectAndRadius(capsuleRect, Radius.circular(cornerRadius)));
-
-    // Draw core background
-    final corePaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = coreColor;
-    canvas.drawPath(capsulePath, corePaint);
-
-    // Draw halo border
-    final haloPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0
-      ..color = haloColor;
-    canvas.drawPath(capsulePath, haloPaint);
-
-    // Draw vehicle icon on left
-    final iconCenter = Offset(iconSize / 2 + paddingX, capsuleHeight / 2);
-    _drawVehicleIcon(canvas, iconCenter, iconSize * 0.7, textColor);
-
-    // Draw text on right
-    final textOffset = Offset(
-      iconSize + iconPadding + paddingX,
-      (capsuleHeight - textPainter.height) / 2,
-    );
-    textPainter.paint(canvas, textOffset);
-
-    // Add shadow
-    canvas.drawShadow(
-      capsulePath,
-      Colors.black.withOpacity(0.3),
-      6,
-      false,
     );
 
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(
-      (capsuleWidth * devicePixelRatio).round(),
-      (capsuleHeight * devicePixelRatio).round(),
-    );
-    final bytes = (await image.toByteData(format: ui.ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
-
-    return BitmapDescriptor.bytes(bytes);
-  }
-
-  /// Draw vehicle icon (truck/car) for detailed tier marker.
-  static void _drawVehicleIcon(
-    Canvas canvas,
-    Offset center,
-    double size,
-    Color color,
-  ) {
-    // Draw truck icon using path
-    final truckPath = Path()
-      // Main body
-      ..moveTo(center.dx - size * 0.4, center.dy + size * 0.15)
-      ..lineTo(center.dx - size * 0.4, center.dy - size * 0.2)
-      ..lineTo(center.dx - size * 0.15, center.dy - size * 0.2)
-      ..lineTo(center.dx - size * 0.1, center.dy - size * 0.35)
-      ..lineTo(center.dx + size * 0.3, center.dy - size * 0.35)
-      ..lineTo(center.dx + size * 0.3, center.dy + size * 0.15)
-      ..close()
-      // Cab window
-      ..moveTo(center.dx - size * 0.3, center.dy - size * 0.15)
-      ..lineTo(center.dx - size * 0.15, center.dy - size * 0.15)
-      ..lineTo(center.dx - size * 0.15, center.dy - size * 0.05)
-      ..lineTo(center.dx - size * 0.3, center.dy - size * 0.05)
-      ..close();
-
-    final iconPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = color;
-    canvas.drawPath(truckPath, iconPaint);
-
-    // Draw wheels
-    final wheelPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = color;
-    canvas.drawCircle(
-      Offset(center.dx - size * 0.15, center.dy + size * 0.15),
-      size * 0.1,
-      wheelPaint,
-    );
-    canvas.drawCircle(
-      Offset(center.dx + size * 0.15, center.dy + size * 0.15),
-      size * 0.1,
-      wheelPaint,
-    );
+    final descriptor =
+        await _finishCanvas(recorder, size, size, devicePixelRatio);
+    _clusterIconCache[cacheKey] = descriptor;
+    return descriptor;
   }
 }

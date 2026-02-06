@@ -1,9 +1,41 @@
+import { HttpsError } from 'firebase-functions/v2/https';
+
 /**
  * Standardized logging helper for Cloud Functions
- * 
+ *
  * Provides consistent logging format across all functions:
  * Format: [Module/Function] Message with context
  */
+
+export type HttpsErrorCode =
+  | 'ok'
+  | 'cancelled'
+  | 'unknown'
+  | 'invalid-argument'
+  | 'deadline-exceeded'
+  | 'not-found'
+  | 'already-exists'
+  | 'permission-denied'
+  | 'resource-exhausted'
+  | 'failed-precondition'
+  | 'aborted'
+  | 'out-of-range'
+  | 'unauthenticated'
+  | 'internal'
+  | 'unavailable'
+  | 'data-loss';
+
+/**
+ * Map a thrown error to HttpsError for callables. Use in catch blocks.
+ */
+export function toHttpsError(
+  err: unknown,
+  defaultCode: HttpsErrorCode = 'internal',
+): HttpsError {
+  if (err instanceof HttpsError) return err;
+  const message = err instanceof Error ? err.message : String(err);
+  return new HttpsError(defaultCode, message);
+}
 
 export interface LogContext {
   [key: string]: any;

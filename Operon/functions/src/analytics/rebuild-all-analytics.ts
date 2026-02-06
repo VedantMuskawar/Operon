@@ -1,10 +1,10 @@
-import * as functions from 'firebase-functions';
-import { getFirestore } from 'firebase-admin/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import {
   ORGANIZATIONS_COLLECTION,
   TRANSACTIONS_COLLECTION,
 } from '../shared/constants';
 import { getFinancialContext } from '../shared/financial-year';
+import { getFirestore } from '../shared/firestore-helpers';
 import { rebuildClientAnalyticsCore } from '../clients/client-analytics';
 import { rebuildEmployeeAnalyticsCore } from '../employees/employee-analytics';
 import { rebuildVendorAnalyticsCore } from '../vendors/vendor-analytics';
@@ -12,6 +12,7 @@ import { rebuildTransactionAnalyticsForOrg } from '../transactions/transaction-r
 import { rebuildDeliveriesAnalyticsForOrg } from './deliveries-analytics';
 import { rebuildProductionsAnalyticsForOrg } from './productions-analytics';
 import { rebuildTripWagesAnalyticsForOrg } from './trip-wages-analytics';
+import { SCHEDULED_FUNCTION_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
 
@@ -46,33 +47,33 @@ async function discoverOrganizationIds(fyLabel: string): Promise<Set<string>> {
 
 /**
  * Unified scheduled function to rebuild all ANALYTICS documents.
- * Runs every 24 hours. Replaces the four separate scheduled functions.
+ * Runs every 24 hours (midnight UTC).
  */
-export const rebuildAllAnalytics = functions.pubsub
-  .schedule('every 24 hours')
-  .timeZone('UTC')
-  .onRun(async () => {
+export const rebuildAllAnalytics = onSchedule(
+  {
+    schedule: '0 0 * * *',
+    timeZone: 'UTC',
+    ...SCHEDULED_FUNCTION_OPTS,
+  },
+  async () => {
     const now = new Date();
     const { fyLabel, fyStart, fyEnd } = getFinancialContext(now);
 
     console.log('[Analytics Rebuild] Starting unified rebuild', { fyLabel });
 
     try {
-      // 1. Clients analytics (batch by org from CLIENTS)
       await rebuildClientAnalyticsCore(fyLabel, fyStart, fyEnd);
     } catch (error) {
       console.error('[Analytics Rebuild] Client analytics failed', error);
     }
 
     try {
-      // 2. Employee analytics
       await rebuildEmployeeAnalyticsCore(fyLabel);
     } catch (error) {
       console.error('[Analytics Rebuild] Employee analytics failed', error);
     }
 
     try {
-      // 3. Vendor analytics
       await rebuildVendorAnalyticsCore(fyLabel);
     } catch (error) {
       console.error('[Analytics Rebuild] Vendor analytics failed', error);
@@ -108,4 +109,5 @@ export const rebuildAllAnalytics = functions.pubsub
     }
 
     console.log('[Analytics Rebuild] Unified rebuild completed', { fyLabel });
-  });
+  },
+);

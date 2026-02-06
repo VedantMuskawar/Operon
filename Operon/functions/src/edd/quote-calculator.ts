@@ -1,10 +1,10 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from '../shared/firestore-helpers';
 import {
   ORGANIZATIONS_COLLECTION,
   VEHICLE_AVAILABILITY_FORECAST,
 } from '../shared/constants';
-import { CALLABLE_FUNCTION_CONFIG } from '../shared/function-config';
+import { CALLABLE_OPTS } from '../shared/function-config';
 import type { QuoteResult } from './models';
 
 const db = getFirestore();
@@ -55,26 +55,22 @@ function staggeredFit(
  * Callable: getDeliveryQuote(totalQuantity, productType, organizationId).
  * Returns QuoteResult[] sorted by estimatedCompletionDate ascending.
  */
-export const getDeliveryQuote = functions
-  .region(CALLABLE_FUNCTION_CONFIG.region)
-  .runWith({
-    timeoutSeconds: CALLABLE_FUNCTION_CONFIG.timeoutSeconds,
-    memory: '512MB',
-  })
-  .https.onCall(async (data: unknown, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+export const getDeliveryQuote = onCall(
+  { ...CALLABLE_OPTS },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in.');
     }
 
-    const { totalQuantity, productType, organizationId } = (data || {}) as GetDeliveryQuotePayload;
+    const { totalQuantity, productType, organizationId } = (request.data || {}) as GetDeliveryQuotePayload;
     if (typeof totalQuantity !== 'number' || totalQuantity <= 0) {
-      throw new functions.https.HttpsError('invalid-argument', 'totalQuantity must be a positive number.');
+      throw new HttpsError('invalid-argument', 'totalQuantity must be a positive number.');
     }
     if (typeof productType !== 'string' || !productType.trim()) {
-      throw new functions.https.HttpsError('invalid-argument', 'productType is required.');
+      throw new HttpsError('invalid-argument', 'productType is required.');
     }
     if (typeof organizationId !== 'string' || !organizationId.trim()) {
-      throw new functions.https.HttpsError('invalid-argument', 'organizationId is required.');
+      throw new HttpsError('invalid-argument', 'organizationId is required.');
     }
 
     const orgRef = db.collection(ORGANIZATIONS_COLLECTION).doc(organizationId);
@@ -122,4 +118,5 @@ export const getDeliveryQuote = functions
     );
 
     return results;
-  });
+  },
+);

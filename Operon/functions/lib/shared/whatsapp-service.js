@@ -1,43 +1,9 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendWhatsappTemplateMessage = sendWhatsappTemplateMessage;
 exports.loadWhatsappSettings = loadWhatsappSettings;
 exports.sendWhatsappMessage = sendWhatsappMessage;
 exports.checkWhatsappMessageStatus = checkWhatsappMessageStatus;
-const functions = __importStar(require("firebase-functions"));
 const constants_1 = require("./constants");
 const firestore_helpers_1 = require("./firestore-helpers");
 const db = (0, firestore_helpers_1.getFirestore)();
@@ -111,7 +77,7 @@ async function sendWhatsappTemplateMessage(url, token, to, templateName, languag
  * @returns WhatsApp settings or null if not enabled/configured
  */
 async function loadWhatsappSettings(organizationId, verbose = false) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     // First, try to load organization-specific settings
     if (organizationId) {
         const trimmedOrgId = organizationId.trim();
@@ -208,23 +174,25 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
             }
         }
     }
-    // Fallback to global config (for backward compatibility)
-    const globalConfig = (_f = functions.config().whatsapp) !== null && _f !== void 0 ? _f : {};
-    if (globalConfig.token &&
-        globalConfig.phone_id &&
-        globalConfig.enabled !== 'false') {
+    // Fallback to env (v2: no functions.config(); set WHATSAPP_* in Firebase config or env)
+    const envToken = process.env.WHATSAPP_TOKEN;
+    const envPhoneId = process.env.WHATSAPP_PHONE_ID;
+    const envEnabled = process.env.WHATSAPP_ENABLED;
+    if (envToken &&
+        envPhoneId &&
+        envEnabled !== 'false') {
         if (verbose) {
-            console.log('[WhatsApp Service] Using global config fallback');
+            console.log('[WhatsApp Service] Using env fallback');
         }
         return {
             enabled: true,
-            token: globalConfig.token,
-            phoneId: globalConfig.phone_id,
-            welcomeTemplateId: (_g = globalConfig.welcome_template_id) !== null && _g !== void 0 ? _g : 'lakshmee_client_added',
-            languageCode: (_h = globalConfig.language_code) !== null && _h !== void 0 ? _h : 'en',
-            orderConfirmationTemplateId: (_j = globalConfig.order_confirmation_template_id) !== null && _j !== void 0 ? _j : 'lakshmee_order_added',
-            tripDispatchTemplateId: (_k = globalConfig.trip_dispatch_template_id) !== null && _k !== void 0 ? _k : 'lakshmee_trip_dispatch',
-            tripDeliveryTemplateId: (_l = globalConfig.trip_delivery_template_id) !== null && _l !== void 0 ? _l : 'lakshmee_trip_delivered',
+            token: envToken,
+            phoneId: envPhoneId,
+            welcomeTemplateId: (_f = process.env.WHATSAPP_WELCOME_TEMPLATE_ID) !== null && _f !== void 0 ? _f : 'lakshmee_client_added',
+            languageCode: (_g = process.env.WHATSAPP_LANGUAGE_CODE) !== null && _g !== void 0 ? _g : 'en',
+            orderConfirmationTemplateId: (_h = process.env.WHATSAPP_ORDER_CONFIRMATION_TEMPLATE_ID) !== null && _h !== void 0 ? _h : 'lakshmee_order_added',
+            tripDispatchTemplateId: (_j = process.env.WHATSAPP_TRIP_DISPATCH_TEMPLATE_ID) !== null && _j !== void 0 ? _j : 'lakshmee_trip_dispatch',
+            tripDeliveryTemplateId: (_k = process.env.WHATSAPP_TRIP_DELIVERY_TEMPLATE_ID) !== null && _k !== void 0 ? _k : 'lakshmee_trip_delivered',
         };
     }
     if (verbose) {

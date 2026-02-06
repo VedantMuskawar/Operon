@@ -34,18 +34,18 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onOrderUpdatedSendWhatsapp = exports.onOrderCreatedSendWhatsapp = void 0;
-const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-functions/v2/firestore");
 const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
-const whatsapp_service_1 = require("../shared/whatsapp-service");
 const logger_1 = require("../shared/logger");
+const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
 /**
  * Sends WhatsApp notification to client when an order is created
  */
-async function sendOrderConfirmationMessage(to, clientName, organizationId, orderId, orderData) {
+async function sendOrderConfirmationMessage(whatsapp, to, clientName, organizationId, orderId, orderData) {
     var _a, _b;
-    const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId, true);
+    const settings = await whatsapp.loadWhatsappSettings(organizationId, true);
     if (!(settings === null || settings === void 0 ? void 0 : settings.orderConfirmationTemplateId)) {
         (0, logger_1.logInfo)('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Skipping – no WhatsApp settings or orderConfirmationTemplateId for org', {
             orderId,
@@ -100,7 +100,7 @@ async function sendOrderConfirmationMessage(to, clientName, organizationId, orde
         templateId: settings.orderConfirmationTemplateId,
         hasItems: orderData.items.length > 0,
     });
-    await (0, whatsapp_service_1.sendWhatsappTemplateMessage)(url, settings.token, to, settings.orderConfirmationTemplateId, (_b = settings.languageCode) !== null && _b !== void 0 ? _b : 'en', parameters, 'order-confirmation', {
+    await whatsapp.sendWhatsappTemplateMessage(url, settings.token, to, settings.orderConfirmationTemplateId, (_b = settings.languageCode) !== null && _b !== void 0 ? _b : 'en', parameters, 'order-confirmation', {
         organizationId,
         orderId,
     });
@@ -108,9 +108,9 @@ async function sendOrderConfirmationMessage(to, clientName, organizationId, orde
 /**
  * Sends WhatsApp notification to client when an order is updated
  */
-async function sendOrderUpdateMessage(to, clientName, organizationId, orderId, orderData) {
+async function sendOrderUpdateMessage(whatsapp, to, clientName, organizationId, orderId, orderData) {
     var _a;
-    const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId);
+    const settings = await whatsapp.loadWhatsappSettings(organizationId);
     if (!settings) {
         console.log('[WhatsApp Order] Skipping send – no settings or disabled.', { orderId, organizationId });
         return;
@@ -164,7 +164,7 @@ async function sendOrderUpdateMessage(to, clientName, organizationId, orderId, o
         hasItems: orderData.items.length > 0,
         status: orderData.status,
     });
-    await (0, whatsapp_service_1.sendWhatsappMessage)(url, settings.token, to, messageBody, 'update', {
+    await whatsapp.sendWhatsappMessage(url, settings.token, to, messageBody, 'update', {
         organizationId,
         orderId,
     });
@@ -173,12 +173,11 @@ async function sendOrderUpdateMessage(to, clientName, organizationId, orderId, o
  * Cloud Function: Triggered when an order is created
  * Sends WhatsApp notification to client with order details
  */
-exports.onOrderCreatedSendWhatsapp = functions
-    .region('us-central1')
-    .firestore
-    .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
-    .onCreate(async (snapshot, context) => {
-    const orderId = context.params.orderId;
+exports.onOrderCreatedSendWhatsapp = (0, firestore_1.onDocumentCreated)(Object.assign({ document: `${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}` }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
+    const orderId = event.params.orderId;
     const orderData = snapshot.data();
     if (!orderData) {
         (0, logger_1.logInfo)('Order/WhatsApp', 'onOrderCreatedSendWhatsapp', 'No order data in snapshot, skipping', { orderId });
@@ -226,8 +225,9 @@ exports.onOrderCreatedSendWhatsapp = functions
         });
         return;
     }
+    const whatsapp = await Promise.resolve().then(() => __importStar(require('../shared/whatsapp-service')));
     try {
-        await sendOrderConfirmationMessage(clientPhone, clientName, orderData.organizationId, orderId, {
+        await sendOrderConfirmationMessage(whatsapp, clientPhone, clientName, orderData.organizationId, orderId, {
             orderNumber: orderData.orderNumber,
             items: orderData.items,
             pricing: orderData.pricing,
@@ -249,14 +249,13 @@ exports.onOrderCreatedSendWhatsapp = functions
  * Sends WhatsApp notification to client with updated order details
  * Only sends for significant changes (items, pricing, status, delivery zone)
  */
-exports.onOrderUpdatedSendWhatsapp = functions
-    .region('us-central1')
-    .firestore
-    .document(`${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}`)
-    .onUpdate(async (change, context) => {
-    const orderId = context.params.orderId;
-    const before = change.before.data();
-    const after = change.after.data();
+exports.onOrderUpdatedSendWhatsapp = (0, firestore_1.onDocumentUpdated)(Object.assign({ document: `${constants_1.PENDING_ORDERS_COLLECTION}/{orderId}` }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
+    var _a, _b;
+    const orderId = event.params.orderId;
+    const before = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
+    const after = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
+    if (!before || !after)
+        return;
     // Check if significant fields changed
     const itemsChanged = JSON.stringify(before.items) !== JSON.stringify(after.items);
     const pricingChanged = JSON.stringify(before.pricing) !== JSON.stringify(after.pricing);
@@ -316,7 +315,8 @@ exports.onOrderUpdatedSendWhatsapp = functions
         });
         return;
     }
-    await sendOrderUpdateMessage(clientPhone, clientName, orderData.organizationId, orderId, {
+    const whatsapp = await Promise.resolve().then(() => __importStar(require('../shared/whatsapp-service')));
+    await sendOrderUpdateMessage(whatsapp, clientPhone, clientName, orderData.organizationId, orderId, {
         orderNumber: orderData.orderNumber,
         items: orderData.items,
         pricing: orderData.pricing,

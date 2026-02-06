@@ -44,15 +44,12 @@ const db = (0, firestore_helpers_1.getFirestore)();
  * Tracks: total production (bricks produced/stacked) per month and year.
  */
 async function rebuildProductionsAnalyticsForOrg(organizationId, financialYear, fyStart, fyEnd) {
-    const analyticsDocId = `${constants_1.PRODUCTIONS_SOURCE_KEY}_${organizationId}_${financialYear}`;
-    const analyticsRef = db.collection(constants_1.ANALYTICS_COLLECTION).doc(analyticsDocId);
     const batchesSnapshot = await db
         .collection(constants_1.PRODUCTION_BATCHES_COLLECTION)
         .where('organizationId', '==', organizationId)
         .get();
-    const totalProductionMonthly = {};
-    let totalProductionYearly = 0;
-    const totalRawMaterialsMonthly = {};
+    // Group batches by month
+    const batchesByMonth = {};
     batchesSnapshot.forEach((doc) => {
         var _a, _b, _c;
         const batch = doc.data();
@@ -61,25 +58,33 @@ async function rebuildProductionsAnalyticsForOrg(organizationId, financialYear, 
             return;
         }
         const monthKey = (0, date_helpers_1.getYearMonth)(batchDate);
+        if (!batchesByMonth[monthKey]) {
+            batchesByMonth[monthKey] = {
+                totalProduction: 0,
+                totalRawMaterials: 0,
+            };
+        }
         const produced = batch.totalBricksProduced || 0;
         const stacked = batch.totalBricksStacked || 0;
         const total = produced + stacked;
-        totalProductionMonthly[monthKey] = (totalProductionMonthly[monthKey] || 0) + total;
-        totalProductionYearly += total;
-        // Raw materials: if metadata.rawMaterialsConsumed or similar exists, aggregate
+        batchesByMonth[monthKey].totalProduction += total;
         const metadata = batch.metadata || {};
         const rawConsumed = (_c = metadata.rawMaterialsConsumed) !== null && _c !== void 0 ? _c : 0;
         if (rawConsumed > 0) {
-            totalRawMaterialsMonthly[monthKey] =
-                (totalRawMaterialsMonthly[monthKey] || 0) + rawConsumed;
+            batchesByMonth[monthKey].totalRawMaterials += rawConsumed;
         }
     });
-    await (0, firestore_helpers_1.seedProductionsAnalyticsDoc)(analyticsRef, financialYear, organizationId);
-    await analyticsRef.set({
-        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        'metrics.totalProductionMonthly.values': totalProductionMonthly,
-        'metrics.totalProductionYearly': totalProductionYearly,
-        'metrics.totalRawMaterialsMonthly.values': totalRawMaterialsMonthly,
-    }, { merge: true });
+    // Write to each month's document
+    const monthPromises = Object.entries(batchesByMonth).map(async ([monthKey, monthData]) => {
+        const analyticsRef = db.collection(constants_1.ANALYTICS_COLLECTION)
+            .doc(`${constants_1.PRODUCTIONS_SOURCE_KEY}_${organizationId}_${monthKey}`);
+        await (0, firestore_helpers_1.seedProductionsAnalyticsDoc)(analyticsRef, monthKey, organizationId);
+        await analyticsRef.set({
+            generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            'metrics.totalProductionMonthly': monthData.totalProduction,
+            'metrics.totalRawMaterialsMonthly': monthData.totalRawMaterials,
+        }, { merge: true });
+    });
+    await Promise.all(monthPromises);
 }
 //# sourceMappingURL=productions-analytics.js.map

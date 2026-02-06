@@ -1,23 +1,26 @@
-import * as functions from 'firebase-functions';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { CLIENTS_COLLECTION } from '../shared/constants';
-import { loadWhatsappSettings } from '../shared/whatsapp-service';
 import { logInfo, logWarning, logError } from '../shared/logger';
+import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
+import type { WhatsappSettings } from '../shared/whatsapp-service';
+
+type WhatsappModule = {
+  loadWhatsappSettings: (orgId: string | undefined, verbose?: boolean) => Promise<WhatsappSettings | null>;
+};
 
 async function sendWhatsappWelcomeMessage(
+  whatsapp: WhatsappModule,
   to: string,
   clientName: string | undefined,
   organizationId: string | undefined,
   clientId: string,
 ): Promise<void> {
-  // Normalize phone number format (E.164: should have + but WhatsApp also accepts without)
   let normalizedPhone = to.trim();
-  // If phone doesn't start with +, add it (E.164 standard)
-  // WhatsApp API accepts both formats, but + is standard
   if (!normalizedPhone.startsWith('+')) {
     normalizedPhone = '+' + normalizedPhone;
   }
 
-  const settings = await loadWhatsappSettings(organizationId, true); // verbose=true for client welcome
+  const settings = await whatsapp.loadWhatsappSettings(organizationId, true);
   if (!settings) {
     logWarning('Client/WhatsApp', 'sendWhatsappWelcomeMessage', 'Skipping send – no settings or disabled', {
       clientId,
@@ -165,9 +168,14 @@ async function sendWhatsappWelcomeMessage(
  * Cloud Function: Triggered when a client is created
  * Sends a WhatsApp welcome message to the new client
  */
-export const onClientCreatedSendWhatsappWelcome = functions.firestore
-  .document(`${CLIENTS_COLLECTION}/{clientId}`)
-  .onCreate(async (snapshot, context) => {
+export const onClientCreatedSendWhatsappWelcome = onDocumentCreated(
+  {
+    document: `${CLIENTS_COLLECTION}/{clientId}`,
+    ...LIGHT_TRIGGER_OPTS,
+  },
+  async (event) => {
+    const snapshot = event.data;
+    if (!snapshot) return;
     const data = snapshot.data() as {
       name?: string;
       primaryPhone?: string;
@@ -177,37 +185,33 @@ export const onClientCreatedSendWhatsappWelcome = functions.firestore
 
     if (!data) return;
 
+    const clientId = event.params.clientId;
     const phone = (data.primaryPhoneNormalized || data.primaryPhone || '').trim();
     if (!phone) {
       logWarning('Client/WhatsApp', 'onClientCreatedSendWhatsappWelcome', 'No phone found on client, skipping welcome', {
-        clientId: context.params.clientId,
+        clientId,
       });
       return;
     }
 
-    // Try to get organizationId from client document, or use default
     let organizationId = data.organizationId;
     if (!organizationId) {
-      // Fallback: try to infer from global config or use a default org
-      const globalConfig: any = (functions.config() as any).whatsapp ?? {};
-      if (globalConfig.default_org_id) {
-        organizationId = globalConfig.default_org_id;
-        logInfo('Client/WhatsApp', 'onClientCreatedSendWhatsappWelcome', 'Using default org from config', {
+      const defaultOrgId = process.env.WHATSAPP_DEFAULT_ORG_ID;
+      if (defaultOrgId) {
+        organizationId = defaultOrgId;
+        logInfo('Client/WhatsApp', 'onClientCreatedSendWhatsappWelcome', 'Using default org from env', {
           organizationId,
         });
       } else {
         logWarning('Client/WhatsApp', 'onClientCreatedSendWhatsappWelcome', 'No organizationId on client and no default configured, skipping', {
-          clientId: context.params.clientId,
+          clientId,
         });
         return;
       }
     }
 
-    await sendWhatsappWelcomeMessage(
-      phone,
-      data.name,
-      organizationId,
-      context.params.clientId,
-    );
-  });
+    const whatsapp = await import('../shared/whatsapp-service');
+    await sendWhatsappWelcomeMessage(whatsapp, phone, data.name, organizationId, clientId);
+  },
+);
 

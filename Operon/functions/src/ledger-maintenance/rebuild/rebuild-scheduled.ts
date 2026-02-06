@@ -1,7 +1,8 @@
-import * as functions from 'firebase-functions';
-import { getFirestore } from 'firebase-admin/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logInfo, logWarning, logError } from '../../shared/logger';
 import { getFinancialContext } from '../../shared/financial-year';
+import { getFirestore } from '../../shared/firestore-helpers';
+import { SCHEDULED_FUNCTION_OPTS } from '../../shared/function-config';
 import { LedgerType, getLedgerConfig } from '../ledger-types';
 import { rebuildLedgerCore } from './rebuild-ledger-core';
 
@@ -11,10 +12,13 @@ const db = getFirestore();
  * Scheduled rebuild of all ledgers
  * Runs daily at 2 AM UTC
  */
-export const rebuildAllLedgersScheduled = functions.pubsub
-  .schedule('0 2 * * *') // Daily at 2 AM UTC
-  .timeZone('UTC')
-  .onRun(async () => {
+export const rebuildAllLedgersScheduled = onSchedule(
+  {
+    schedule: '0 2 * * *',
+    timeZone: 'UTC',
+    ...SCHEDULED_FUNCTION_OPTS,
+  },
+  async (_event) => {
     const now = new Date();
     const { fyLabel } = getFinancialContext(now);
 
@@ -103,12 +107,5 @@ export const rebuildAllLedgersScheduled = functions.pubsub
       failed,
       financialYear: fyLabel,
     });
-
-    return {
-      success: true,
-      totalRebuilt,
-      successful,
-      failed,
-      financialYear: fyLabel,
-    };
-  });
+  },
+);

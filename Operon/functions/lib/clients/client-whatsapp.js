@@ -34,20 +34,17 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onClientCreatedSendWhatsappWelcome = void 0;
-const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-functions/v2/firestore");
 const constants_1 = require("../shared/constants");
-const whatsapp_service_1 = require("../shared/whatsapp-service");
 const logger_1 = require("../shared/logger");
-async function sendWhatsappWelcomeMessage(to, clientName, organizationId, clientId) {
+const function_config_1 = require("../shared/function-config");
+async function sendWhatsappWelcomeMessage(whatsapp, to, clientName, organizationId, clientId) {
     var _a, _b, _c, _d, _e, _f;
-    // Normalize phone number format (E.164: should have + but WhatsApp also accepts without)
     let normalizedPhone = to.trim();
-    // If phone doesn't start with +, add it (E.164 standard)
-    // WhatsApp API accepts both formats, but + is standard
     if (!normalizedPhone.startsWith('+')) {
         normalizedPhone = '+' + normalizedPhone;
     }
-    const settings = await (0, whatsapp_service_1.loadWhatsappSettings)(organizationId, true); // verbose=true for client welcome
+    const settings = await whatsapp.loadWhatsappSettings(organizationId, true);
     if (!settings) {
         (0, logger_1.logWarning)('Client/WhatsApp', 'sendWhatsappWelcomeMessage', 'Skipping send – no settings or disabled', {
             clientId,
@@ -169,38 +166,38 @@ async function sendWhatsappWelcomeMessage(to, clientName, organizationId, client
  * Cloud Function: Triggered when a client is created
  * Sends a WhatsApp welcome message to the new client
  */
-exports.onClientCreatedSendWhatsappWelcome = functions.firestore
-    .document(`${constants_1.CLIENTS_COLLECTION}/{clientId}`)
-    .onCreate(async (snapshot, context) => {
-    var _a;
+exports.onClientCreatedSendWhatsappWelcome = (0, firestore_1.onDocumentCreated)(Object.assign({ document: `${constants_1.CLIENTS_COLLECTION}/{clientId}` }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
     const data = snapshot.data();
     if (!data)
         return;
+    const clientId = event.params.clientId;
     const phone = (data.primaryPhoneNormalized || data.primaryPhone || '').trim();
     if (!phone) {
         (0, logger_1.logWarning)('Client/WhatsApp', 'onClientCreatedSendWhatsappWelcome', 'No phone found on client, skipping welcome', {
-            clientId: context.params.clientId,
+            clientId,
         });
         return;
     }
-    // Try to get organizationId from client document, or use default
     let organizationId = data.organizationId;
     if (!organizationId) {
-        // Fallback: try to infer from global config or use a default org
-        const globalConfig = (_a = functions.config().whatsapp) !== null && _a !== void 0 ? _a : {};
-        if (globalConfig.default_org_id) {
-            organizationId = globalConfig.default_org_id;
-            (0, logger_1.logInfo)('Client/WhatsApp', 'onClientCreatedSendWhatsappWelcome', 'Using default org from config', {
+        const defaultOrgId = process.env.WHATSAPP_DEFAULT_ORG_ID;
+        if (defaultOrgId) {
+            organizationId = defaultOrgId;
+            (0, logger_1.logInfo)('Client/WhatsApp', 'onClientCreatedSendWhatsappWelcome', 'Using default org from env', {
                 organizationId,
             });
         }
         else {
             (0, logger_1.logWarning)('Client/WhatsApp', 'onClientCreatedSendWhatsappWelcome', 'No organizationId on client and no default configured, skipping', {
-                clientId: context.params.clientId,
+                clientId,
             });
             return;
         }
     }
-    await sendWhatsappWelcomeMessage(phone, data.name, organizationId, context.params.clientId);
+    const whatsapp = await Promise.resolve().then(() => __importStar(require('../shared/whatsapp-service')));
+    await sendWhatsappWelcomeMessage(whatsapp, phone, data.name, organizationId, clientId);
 });
 //# sourceMappingURL=client-whatsapp.js.map

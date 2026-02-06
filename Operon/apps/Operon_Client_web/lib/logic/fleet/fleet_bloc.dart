@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_bloc/core_bloc.dart';
@@ -16,7 +15,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_polyline_algorithm/google_polyline_algorithm.dart';
-
 
 sealed class FleetEvent {
   const FleetEvent();
@@ -105,11 +103,15 @@ class FleetDriver {
     required this.uid,
     required this.location,
     required this.isOffline,
+    this.batteryLevel,
+    this.dailyDistanceKm,
   });
 
   final String uid;
   final DriverLocation location;
   final bool isOffline;
+  final double? batteryLevel;
+  final double? dailyDistanceKm;
 }
 
 class FleetState extends BaseState {
@@ -133,7 +135,7 @@ class FleetState extends BaseState {
   final DateTime? selectedDateTime;
   final bool isLiveMode;
   final FleetStatusFilter selectedFilter;
-  
+
   /// Full history points for selected vehicle (for playback).
   final List<DriverLocation>? selectedVehicleHistory;
 
@@ -175,7 +177,8 @@ class FleetState extends BaseState {
       selectedDateTime: selectedDateTime ?? this.selectedDateTime,
       isLiveMode: isLiveMode ?? this.isLiveMode,
       selectedFilter: selectedFilter ?? this.selectedFilter,
-      selectedVehicleHistory: selectedVehicleHistory ?? this.selectedVehicleHistory,
+      selectedVehicleHistory:
+          selectedVehicleHistory ?? this.selectedVehicleHistory,
       selectedVehicleId: selectedVehicleId ?? this.selectedVehicleId,
       vehicleNumbers: vehicleNumbers ?? this.vehicleNumbers,
       historyPolylines: historyPolylines ?? this.historyPolylines,
@@ -211,7 +214,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
   final FirebaseFirestore _firestore;
 
   StreamSubscription<DatabaseEvent>? _sub;
-  final Map<String, BitmapDescriptor> _badgeCache = <String, BitmapDescriptor>{};
+  final Map<String, BitmapDescriptor> _badgeCache =
+      <String, BitmapDescriptor>{};
   final Map<String, Future<BitmapDescriptor>> _badgeInFlight =
       <String, Future<BitmapDescriptor>>{};
   final AnimatedMarkerManager _animatedMarkerManager = AnimatedMarkerManager();
@@ -220,6 +224,7 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
   final Map<String, String> _vehicleNumbers = {};
   final Map<String, bool> _isOffline = {};
   final Map<String, int> _lastUpdatedMins = {};
+  final Map<String, MovementState> _movementStates = {};
   // Map driver UID to icon (for getMarkers lookup)
   final Map<String, BitmapDescriptor> _iconMap = <String, BitmapDescriptor>{};
 
@@ -228,7 +233,9 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
   Future<void> _onLoad(LoadFleetData event, Emitter<FleetState> emit) async {
     final selectedDateTime = event.selectedDateTime ?? state.selectedDateTime;
     final organizationId = event.organizationId;
-    final isLive = selectedDateTime == null || selectedDateTime.isAfter(DateTime.now().subtract(const Duration(seconds: 5)));
+    final isLive = selectedDateTime == null ||
+        selectedDateTime
+            .isAfter(DateTime.now().subtract(const Duration(seconds: 5)));
 
     emit(state.copyWith(
       status: ViewStatus.loading,
@@ -271,13 +278,14 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           ? url
           : 'https://operonappsuite-default-rtdb.firebaseio.com';
 
-      final db =
-          _databaseOverride ?? FirebaseDatabase.instanceFor(app: app, databaseURL: resolvedUrl);
+      final db = _databaseOverride ??
+          FirebaseDatabase.instanceFor(app: app, databaseURL: resolvedUrl);
 
       _sub = db.ref('active_drivers').onValue.listen(
-        (e) => add(_FleetSnapshotUpdated(e)),
-        onError: (e) => add(_FleetListenerError(e is Object ? e : Exception('$e'))),
-      );
+            (e) => add(_FleetSnapshotUpdated(e)),
+            onError: (e) =>
+                add(_FleetListenerError(e is Object ? e : Exception('$e'))),
+          );
     } on MissingPluginException catch (e) {
       // This usually means the app wasn't fully restarted after adding the plugin,
       // or you're running on a platform where the plugin isn't registered/supported.
@@ -319,11 +327,17 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     emit(state.copyWith(status: ViewStatus.success));
   }
 
-  Future<void> _onSetDateTime(SetDateTime event, Emitter<FleetState> emit) async {
-    await _onLoad(LoadFleetData(selectedDateTime: event.dateTime, organizationId: event.organizationId), emit);
+  Future<void> _onSetDateTime(
+      SetDateTime event, Emitter<FleetState> emit) async {
+    await _onLoad(
+        LoadFleetData(
+            selectedDateTime: event.dateTime,
+            organizationId: event.organizationId),
+        emit);
   }
 
-  Future<void> _onSetLiveMode(SetLiveMode event, Emitter<FleetState> emit) async {
+  Future<void> _onSetLiveMode(
+      SetLiveMode event, Emitter<FleetState> emit) async {
     emit(state.copyWith(
       selectedFilter: FleetStatusFilter.all,
       selectedVehicleId: null,
@@ -343,11 +357,13 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     emit(state.copyWith(markers: filteredMarkers));
   }
 
-  Future<void> _onSelectVehicle(SelectVehicle event, Emitter<FleetState> emit) async {
+  Future<void> _onSelectVehicle(
+      SelectVehicle event, Emitter<FleetState> emit) async {
     emit(state.copyWith(selectedVehicleId: event.vehicleId));
   }
 
-  Future<void> _onClearVehicleSelection(ClearVehicleSelection event, Emitter<FleetState> emit) async {
+  Future<void> _onClearVehicleSelection(
+      ClearVehicleSelection event, Emitter<FleetState> emit) async {
     emit(state.copyWith(selectedVehicleId: null));
   }
 
@@ -415,7 +431,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
       final tripsSnapshot = await _firestore
           .collection('SCHEDULE_TRIPS')
           .where('organizationId', isEqualTo: event.organizationId)
-          .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('scheduledDate',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
           .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
           .where('vehicleId', isEqualTo: vehicleId)
           .where('slot', isEqualTo: event.slot)
@@ -453,21 +470,22 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     ));
 
     try {
-      
       // Query SCHEDULE_TRIPS by DM number
       // Try both int and string in case of type mismatch
       var query = _firestore
           .collection('SCHEDULE_TRIPS')
           .where('organizationId', isEqualTo: event.organizationId);
-      
+
       // Try int first (most common)
-      var tripsSnapshot = await query.where('dmNumber', isEqualTo: event.dmNumber).get();
-      
+      var tripsSnapshot =
+          await query.where('dmNumber', isEqualTo: event.dmNumber).get();
+
       // If no results, try as string
       if (tripsSnapshot.docs.isEmpty) {
-        tripsSnapshot = await query.where('dmNumber', isEqualTo: event.dmNumber.toString()).get();
+        tripsSnapshot = await query
+            .where('dmNumber', isEqualTo: event.dmNumber.toString())
+            .get();
       }
-
 
       if (tripsSnapshot.docs.isEmpty) {
         emit(state.copyWith(
@@ -480,14 +498,11 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
         return;
       }
 
-      // Debug: Print trip details
-      for (final doc in tripsSnapshot.docs) {
-        final data = doc.data();
-      }
-
       // Get the scheduled date from the first trip
       final firstTrip = tripsSnapshot.docs.first.data();
-      final scheduledDate = (firstTrip['scheduledDate'] as Timestamp?)?.toDate() ?? DateTime.now();
+      final scheduledDate =
+          (firstTrip['scheduledDate'] as Timestamp?)?.toDate() ??
+              DateTime.now();
 
       // Load history for the matching trip(s)
       await _loadHistoryForTrips(emit, tripsSnapshot.docs, scheduledDate);
@@ -518,13 +533,14 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
 
       final locations = <DriverLocation>[];
       final pointCount = decoded.length;
-      
+
       // Distribute timestamps evenly across the polyline points
       for (int i = 0; i < pointCount; i++) {
         final timestamp = pointCount > 1
-            ? startTimestamp + ((endTimestamp - startTimestamp) * i ~/ (pointCount - 1))
+            ? startTimestamp +
+                ((endTimestamp - startTimestamp) * i ~/ (pointCount - 1))
             : startTimestamp;
-        
+
         locations.add(DriverLocation(
           lat: decoded[i][0].toDouble(),
           lng: decoded[i][1].toDouble(),
@@ -547,7 +563,7 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     DocumentSnapshot<Map<String, dynamic>> tripDoc,
   ) async {
     final tripData = tripDoc.data();
-    
+
     // Try new polyline format first
     final routePolyline = tripData?['routePolyline'] as String?;
     if (routePolyline != null && routePolyline.isNotEmpty) {
@@ -555,16 +571,17 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
       final dispatchedAt = tripData?['dispatchedAt'] as Timestamp?;
       final deliveredAt = tripData?['deliveredAt'] as Timestamp?;
       final returnedAt = tripData?['returnedAt'] as Timestamp?;
-      
+
       // Use available timestamps, fallback to current time if missing
-      final startTimestamp = dispatchedAt?.millisecondsSinceEpoch ?? 
-          (tripData?['scheduledDate'] as Timestamp?)?.millisecondsSinceEpoch ?? 
+      final startTimestamp = dispatchedAt?.millisecondsSinceEpoch ??
+          (tripData?['scheduledDate'] as Timestamp?)?.millisecondsSinceEpoch ??
           DateTime.now().millisecondsSinceEpoch;
-      final endTimestamp = returnedAt?.millisecondsSinceEpoch ?? 
-          deliveredAt?.millisecondsSinceEpoch ?? 
+      final endTimestamp = returnedAt?.millisecondsSinceEpoch ??
+          deliveredAt?.millisecondsSinceEpoch ??
           startTimestamp + const Duration(hours: 2).inMilliseconds;
-      
-      final locations = _decodePolylineToLocations(routePolyline, startTimestamp, endTimestamp);
+
+      final locations = _decodePolylineToLocations(
+          routePolyline, startTimestamp, endTimestamp);
       if (locations.isNotEmpty) {
         return locations;
       }
@@ -586,7 +603,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
         if (locations != null) {
           for (final locJson in locations) {
             try {
-              final loc = DriverLocation.fromJson(Map<String, dynamic>.from(locJson));
+              final loc =
+                  DriverLocation.fromJson(Map<String, dynamic>.from(locJson));
               allLocations.add(loc);
             } catch (_) {
               // Skip invalid entries
@@ -628,10 +646,11 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           continue;
         }
 
-
         // Create polyline from all locations to show full route
         if (allLocations.length > 1) {
-          final polylinePoints = allLocations.map<LatLng>((loc) => LatLng(loc.lat, loc.lng)).toList();
+          final polylinePoints = allLocations
+              .map<LatLng>((loc) => LatLng(loc.lat, loc.lng))
+              .toList();
           polylines.add(
             Polyline(
               polylineId: PolylineId('trip_${tripDoc.id}'),
@@ -658,14 +677,25 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
         // If no location before target time, use first location (closest we have)
         selectedLocation ??= allLocations.first;
 
-        final isOffline = (targetMs - selectedLocation.timestamp).abs() > _staleThreshold.inMilliseconds;
-        final bearing = selectedLocation.bearing.isFinite ? selectedLocation.bearing : 0.0;
+        final isOffline = (targetMs - selectedLocation.timestamp).abs() >
+            _staleThreshold.inMilliseconds;
+        final bearing =
+            selectedLocation.bearing.isFinite ? selectedLocation.bearing : 0.0;
+        final speed = selectedLocation.speed.toDouble();
+
+        final movementState = _computeMovementState(
+          isOffline: isOffline,
+          speed: speed,
+          engineOn: null,
+        );
 
         final markerIcon = await _getVehicleBadge(
           vehicleNumber: vehicleNumber,
           isOffline: isOffline,
           bearing: bearing,
+          timestamp: selectedLocation.timestamp,
           tier: state.currentTier,
+          speed: speed,
         );
 
         drivers.add(
@@ -676,7 +706,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           ),
         );
 
-        final rotation = selectedLocation.bearing.isFinite ? (selectedLocation.bearing % 360) : 0.0;
+        final useBearing = movementState == MovementState.moving;
+        final rotation = useBearing && bearing.isFinite ? (bearing % 360) : 0.0;
 
         markers.add(
           Marker(
@@ -707,7 +738,9 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
         drivers: drivers,
         markers: filteredMarkers,
         historyPolylines: polylines,
-        message: drivers.isEmpty ? 'No vehicle locations found for selected search' : null,
+        message: drivers.isEmpty
+            ? 'No vehicle locations found for selected search'
+            : null,
       ));
     } catch (e, st) {
       debugPrint('[FleetBloc] Error loading history: $e');
@@ -738,7 +771,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
       final tripsSnapshot = await _firestore
           .collection('SCHEDULE_TRIPS')
           .where('organizationId', isEqualTo: event.organizationId)
-          .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('scheduledDate',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
           .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
@@ -748,7 +782,7 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
       for (final tripDoc in tripsSnapshot.docs) {
         final tripData = tripDoc.data();
         final driverId = tripData['driverId'] as String?;
-        
+
         // Check if this trip belongs to the selected vehicle
         if (driverId != event.vehicleId) continue;
 
@@ -861,13 +895,15 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
   ) async {
     try {
       // Get all trips for the selected date
-      final startOfDay = DateTime(targetTime.year, targetTime.month, targetTime.day);
+      final startOfDay =
+          DateTime(targetTime.year, targetTime.month, targetTime.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
       final tripsSnapshot = await _firestore
           .collection('SCHEDULE_TRIPS')
           .where('organizationId', isEqualTo: organizationId)
-          .where('scheduledDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
+          .where('scheduledDate',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
           .where('scheduledDate', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
@@ -909,7 +945,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           if (locations != null) {
             for (final locJson in locations) {
               try {
-                final loc = DriverLocation.fromJson(Map<String, dynamic>.from(locJson));
+                final loc =
+                    DriverLocation.fromJson(Map<String, dynamic>.from(locJson));
                 allLocations.add(loc);
               } catch (_) {
                 // Skip invalid entries
@@ -935,14 +972,25 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
         // If no location before target time, use first location (closest we have)
         selectedLocation ??= allLocations.first;
 
-        final isOffline = (targetMs - selectedLocation.timestamp).abs() > _staleThreshold.inMilliseconds;
-        final bearing = selectedLocation.bearing.isFinite ? selectedLocation.bearing : 0.0;
+        final isOffline = (targetMs - selectedLocation.timestamp).abs() >
+            _staleThreshold.inMilliseconds;
+        final bearing =
+            selectedLocation.bearing.isFinite ? selectedLocation.bearing : 0.0;
+        final speed = selectedLocation.speed.toDouble();
+
+        final movementState = _computeMovementState(
+          isOffline: isOffline,
+          speed: speed,
+          engineOn: null,
+        );
 
         final markerIcon = await _getVehicleBadge(
           vehicleNumber: vehicleNumber,
           isOffline: isOffline,
           bearing: bearing,
+          timestamp: selectedLocation.timestamp,
           tier: state.currentTier,
+          speed: speed,
         );
 
         drivers.add(
@@ -953,7 +1001,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           ),
         );
 
-        final rotation = selectedLocation.bearing.isFinite ? (selectedLocation.bearing % 360) : 0.0;
+        final useBearing = movementState == MovementState.moving;
+        final rotation = useBearing && bearing.isFinite ? (bearing % 360) : 0.0;
 
         markers.add(
           Marker(
@@ -961,7 +1010,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
             position: LatLng(selectedLocation.lat, selectedLocation.lng),
             icon: markerIcon,
             flat: true,
-            anchor: const Offset(0.5, 1.0), // Pin marker: anchor at bottom center (pointer tip)
+            anchor: const Offset(
+                0.5, 1.0), // Pin marker: anchor at bottom center (pointer tip)
             rotation: rotation,
             alpha: isOffline ? 0.35 : 1.0,
             infoWindow: InfoWindow(
@@ -983,7 +1033,9 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
         status: ViewStatus.success,
         drivers: drivers,
         markers: filteredMarkers,
-        message: drivers.isEmpty ? 'No vehicle locations found for selected time' : null,
+        message: drivers.isEmpty
+            ? 'No vehicle locations found for selected time'
+            : null,
       ));
     } catch (e) {
       emit(state.copyWith(
@@ -1000,10 +1052,11 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     // Only update if tier actually changed
     if (state.currentTier == event.tier) return;
 
-    // Clear badge cache when tier changes (markers need regeneration)
+    // Clear badge cache and marker generator cache when tier changes
     _badgeCache.clear();
     _badgeInFlight.clear();
     _iconMap.clear();
+    MarkerGenerator.clearMarkerCache();
 
     // Update tier in state
     emit(state.copyWith(currentTier: event.tier));
@@ -1015,23 +1068,38 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
   }
 
   /// Regenerate all markers with the specified tier.
-  Future<void> _regenerateMarkersForCurrentTier(Emitter<FleetState> emit, MarkerTier tier) async {
+  Future<void> _regenerateMarkersForCurrentTier(
+      Emitter<FleetState> emit, MarkerTier tier) async {
     final markers = <Marker>{};
-    
+
     for (final driver in state.drivers) {
       final vehicleNumber = state.vehicleNumbers[driver.uid] ?? driver.uid;
       final isOffline = driver.isOffline;
-      final bearing = driver.location.bearing.isFinite ? driver.location.bearing : 0.0;
+      final bearing =
+          driver.location.bearing.isFinite ? driver.location.bearing : 0.0;
+      final speed = driver.location.speed.toDouble();
+
+      final movementState = _computeMovementState(
+        isOffline: isOffline,
+        speed: speed,
+        engineOn: null,
+      );
+      _movementStates[driver.uid] = movementState;
 
       final markerIcon = await _getVehicleBadge(
         vehicleNumber: vehicleNumber,
         isOffline: isOffline,
         bearing: bearing,
+        timestamp: driver.location.timestamp,
         tier: tier,
+        speed: speed,
       );
 
       // Update icon map for animated markers
       _iconMap[driver.uid] = markerIcon;
+
+      final useBearing = movementState == MovementState.moving;
+      final rotation = useBearing && bearing.isFinite ? (bearing % 360) : 0.0;
 
       markers.add(
         Marker(
@@ -1040,7 +1108,7 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           icon: markerIcon,
           flat: true,
           anchor: const Offset(0.5, 1.0),
-          rotation: bearing.isFinite ? (bearing % 360) : 0.0,
+          rotation: rotation,
           alpha: isOffline ? 0.35 : 1.0,
           infoWindow: InfoWindow(
             title: vehicleNumber,
@@ -1103,7 +1171,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     Emitter<FleetState> emit,
   ) async {
     // #region agent log
-    _debugLog('fleet_bloc.dart:607', '_onSnapshotUpdated called', {'hasRaw': event.snapshot.snapshot.value != null}, 'A');
+    _debugLog('fleet_bloc.dart:607', '_onSnapshotUpdated called',
+        {'hasRaw': event.snapshot.snapshot.value != null}, 'A');
     // #endregion
     final raw = event.snapshot.snapshot.value;
     if (raw == null) {
@@ -1116,7 +1185,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
 
     if (raw is! Map) {
       // #region agent log
-      _debugLog('fleet_bloc.dart:617', 'Raw is not Map', {'type': raw.runtimeType.toString()}, 'A');
+      _debugLog('fleet_bloc.dart:617', 'Raw is not Map',
+          {'type': raw.runtimeType.toString()}, 'A');
       // #endregion
       emit(
         state.copyWith(
@@ -1134,7 +1204,7 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     for (final entry in raw.entries) {
       final uid = entry.key?.toString();
       if (uid == null || uid.isEmpty) continue;
-      
+
       currentDriverIds.add(uid);
 
       final value = entry.value;
@@ -1154,14 +1224,33 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
 
       final vehicleNumber = _extractVehicleNumber(uid: uid, json: json);
       final bearing = loc.bearing.isFinite ? loc.bearing : 0.0;
-      
+      final speed = loc.speed.toDouble();
+      final battery = (json['battery'] ?? json['batteryLevel']) as num?;
+      final distance = (json['dailyDistance'] ??
+          json['daily_distance'] ??
+          json['distance']) as num?;
+      final engineOnRaw = json['engineOn'] ?? json['engine_on'];
+      final bool? engineOn = engineOnRaw == null
+          ? null
+          : (engineOnRaw == true || engineOnRaw == 'true');
+
+      // Compute movement state for marker rotation (moving = use bearing, else 0)
+      final movementState = _computeMovementState(
+        isOffline: isOffline,
+        speed: speed,
+        engineOn: engineOn,
+      );
+      _movementStates[uid] = movementState;
+
       // Get marker icon and cache it for animated marker manager (icon is cached internally)
-      // Note: bearing is not used in icon generation (rotation is applied to marker instead)
       final icon = await _getVehicleBadge(
         vehicleNumber: vehicleNumber,
         isOffline: isOffline,
         bearing: bearing,
+        timestamp: loc.timestamp,
         tier: state.currentTier,
+        speed: speed,
+        engineOn: engineOn,
       );
 
       // Store icon in UID-keyed map for getMarkers lookup
@@ -1172,6 +1261,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
           uid: uid,
           location: loc,
           isOffline: isOffline,
+          batteryLevel: battery?.toDouble(),
+          dailyDistanceKm: distance?.toDouble(),
         ),
       );
 
@@ -1185,6 +1276,7 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
         id: uid,
         newPos: LatLng(loc.lat, loc.lng),
         newBearing: loc.bearing.isFinite ? loc.bearing : 0.0,
+        now: DateTime.now(),
       );
     }
 
@@ -1194,18 +1286,25 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
       _iconMap.remove(removedId);
       _vehicleNumbers.remove(removedId);
       _isOffline.remove(removedId);
+      _movementStates.remove(removedId);
       _lastUpdatedMins.remove(removedId);
       _animatedMarkerManager.removeDriver(removedId);
     }
 
-    // Generate markers with current animation progress (0.0 = start, 1.0 = target)
-    // The screen's AnimationController will provide the actual progress value
+    final hasDirection = {
+      for (final e in _movementStates.entries)
+        e.key: e.value == MovementState.moving,
+    };
+
+    // Generate markers with current animation progress
+    // The screen's AnimationController triggers updates which call getAnimatedMarkers
     final animatedMarkers = _animatedMarkerManager.getMarkers(
-      animationValue: 0.0, // Will be updated by screen's AnimationController
-      icons: _iconMap, // Use UID-keyed map instead of cache-keyed map
+      now: DateTime.now(),
+      icons: _iconMap,
       vehicleNumbers: _vehicleNumbers,
       isOffline: _isOffline,
       lastUpdatedMins: _lastUpdatedMins,
+      hasDirection: hasDirection,
     );
 
     // Apply filter to markers
@@ -1243,34 +1342,82 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     return 'VH-$suffix';
   }
 
+  String _formatTimeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
+  }
+
+  /// Speed threshold for moving vs idling: 5 km/h = 1.39 m/s
+  static const double _speedThresholdMovingMs = 1.39;
+
+  MovementState _computeMovementState({
+    required bool isOffline,
+    required double speed,
+    bool? engineOn,
+  }) {
+    if (isOffline) return MovementState.offline;
+    if (engineOn == false) return MovementState.stopped;
+    if (speed > _speedThresholdMovingMs) return MovementState.moving;
+    return MovementState.idling;
+  }
+
   Future<BitmapDescriptor> _getVehicleBadge({
     required String vehicleNumber,
     required bool isOffline,
     required double bearing,
+    required int timestamp,
     MarkerTier? tier,
+    double speed = 0.0,
+    bool? engineOn,
+    VehicleType vehicleType = VehicleType.van,
   }) async {
     // Use current tier from state if not provided
     final currentTier = tier ?? state.currentTier;
-    
-    // Convert to VehicleStatus enum
-    // Map to pin marker statuses: available (active), offline, or alert
-    final status = isOffline
-        ? VehicleStatus.offline
-        : VehicleStatus.available; // Use 'available' instead of 'active' for pin markers
 
-    // Cache key includes tier to prevent cache collisions
-    final key = '${currentTier.name}|${status.name}|$vehicleNumber';
+    // Compute MovementState
+    final MovementState movementState;
+    if (isOffline) {
+      movementState = MovementState.offline;
+    } else if (engineOn == false) {
+      movementState = MovementState.stopped;
+    } else if (speed > _speedThresholdMovingMs) {
+      movementState = MovementState.moving;
+    } else {
+      movementState = MovementState.idling;
+    }
+
+    final subtitle = isOffline
+        ? _formatTimeAgo(DateTime.fromMillisecondsSinceEpoch(timestamp))
+        : null;
+    final speedKmh = speed * 3.6;
+    final speedLabel = (currentTier == MarkerTier.detailed &&
+            movementState == MovementState.moving)
+        ? '${speedKmh.toStringAsFixed(0)} km/h'
+        : null;
+
+    final key =
+        '${currentTier.name}|${movementState.name}|${vehicleType.name}|$vehicleNumber|$subtitle|$speedLabel';
     final cached = _badgeCache[key];
     if (cached != null) return cached;
 
     final inFlight = _badgeInFlight[key];
     if (inFlight != null) return inFlight;
 
-    // Generate marker with LOD tier
     final fut = MarkerGenerator.createMarker(
       text: vehicleNumber,
-      status: status,
+      movementState: movementState,
+      vehicleType: vehicleType,
       tier: currentTier,
+      subtitle: subtitle,
+      speedLabel: speedLabel,
     ).then((icon) {
       _badgeCache[key] = icon;
       _badgeInFlight.remove(key);
@@ -1282,18 +1429,23 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
   }
 
   /// Get markers with animation progress.
-  /// 
+  ///
   /// Called by the screen's AnimationController listener to update marker positions
   /// smoothly between RTDB updates.
-  Set<Marker> getAnimatedMarkers(double animationValue) {
+  Set<Marker> getAnimatedMarkers(DateTime now) {
+    final hasDirection = {
+      for (final e in _movementStates.entries)
+        e.key: e.value == MovementState.moving,
+    };
     final markers = _animatedMarkerManager.getMarkers(
-      animationValue: animationValue,
-      icons: _iconMap, // Use UID-keyed map instead of cache-keyed map
+      now: now,
+      icons: _iconMap,
       vehicleNumbers: _vehicleNumbers,
       isOffline: _isOffline,
       lastUpdatedMins: _lastUpdatedMins,
+      hasDirection: hasDirection,
     );
-    
+
     // Apply current filter
     return _getFilteredMarkers(
       markers,
@@ -1302,7 +1454,8 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     );
   }
 
-  void _debugLog(String location, String message, Map<String, dynamic> data, String level) {
+  void _debugLog(String location, String message, Map<String, dynamic> data,
+      String level) {
     if (kDebugMode) {
       debugPrint('[$level] $location: $message ${data.isNotEmpty ? data : ""}');
     }
@@ -1318,8 +1471,9 @@ class FleetBloc extends BaseBloc<FleetEvent, FleetState> {
     _vehicleNumbers.clear();
     _isOffline.clear();
     _lastUpdatedMins.clear();
+    _movementStates.clear();
     _iconMap.clear();
+    MarkerGenerator.clearMarkerCache();
     return super.close();
   }
 }
-

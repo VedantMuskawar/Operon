@@ -36,19 +36,20 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.onEmployeeCreated = void 0;
 exports.rebuildEmployeeAnalyticsCore = rebuildEmployeeAnalyticsCore;
 const admin = __importStar(require("firebase-admin"));
-const functions = __importStar(require("firebase-functions"));
+const firestore_1 = require("firebase-functions/v2/firestore");
 const constants_1 = require("../shared/constants");
-const financial_year_1 = require("../shared/financial-year");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
 const date_helpers_1 = require("../shared/date-helpers");
+const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
 /**
  * Cloud Function: Triggered when an employee is created
  * Updates employee analytics for the organization
  */
-exports.onEmployeeCreated = functions.firestore
-    .document(`${constants_1.EMPLOYEES_COLLECTION}/{employeeId}`)
-    .onCreate(async (snapshot) => {
+exports.onEmployeeCreated = (0, firestore_1.onDocumentCreated)(Object.assign({ document: `${constants_1.EMPLOYEES_COLLECTION}/{employeeId}` }, function_config_1.LIGHT_TRIGGER_OPTS), async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
     const employeeData = snapshot.data();
     const organizationId = employeeData === null || employeeData === void 0 ? void 0 : employeeData.organizationId;
     if (!organizationId) {
@@ -58,11 +59,11 @@ exports.onEmployeeCreated = functions.firestore
         return;
     }
     const createdAt = (0, firestore_helpers_1.getCreationDate)(snapshot);
-    const { fyLabel } = (0, financial_year_1.getFinancialContext)(createdAt);
+    const monthKey = (0, date_helpers_1.getYearMonth)(createdAt);
     const analyticsRef = db
         .collection(constants_1.ANALYTICS_COLLECTION)
-        .doc(`${constants_1.EMPLOYEES_SOURCE_KEY}_${organizationId}_${fyLabel}`);
-    await (0, firestore_helpers_1.seedEmployeeAnalyticsDoc)(analyticsRef, fyLabel, organizationId);
+        .doc(`${constants_1.EMPLOYEES_SOURCE_KEY}_${organizationId}_${monthKey}`);
+    await (0, firestore_helpers_1.seedEmployeeAnalyticsDoc)(analyticsRef, monthKey, organizationId);
     await analyticsRef.set({
         generatedAt: admin.firestore.FieldValue.serverTimestamp(),
         'metrics.totalActiveEmployees': admin.firestore.FieldValue.increment(1),
@@ -70,6 +71,7 @@ exports.onEmployeeCreated = functions.firestore
 });
 /**
  * Core logic to rebuild employee analytics for all organizations.
+ * Now writes to monthly documents instead of yearly.
  * Called by unified analytics scheduler.
  */
 async function rebuildEmployeeAnalyticsCore(fyLabel) {
@@ -86,9 +88,6 @@ async function rebuildEmployeeAnalyticsCore(fyLabel) {
         }
     });
     const analyticsUpdates = Object.entries(employeesByOrg).map(async ([organizationId, orgEmployees]) => {
-        const analyticsRef = db
-            .collection(constants_1.ANALYTICS_COLLECTION)
-            .doc(`${constants_1.EMPLOYEES_SOURCE_KEY}_${organizationId}_${fyLabel}`);
         const totalActiveEmployees = orgEmployees.length;
         const wageCreditsSnapshot = await db
             .collection(constants_1.TRANSACTIONS_COLLECTION)
@@ -97,6 +96,7 @@ async function rebuildEmployeeAnalyticsCore(fyLabel) {
             .where('type', '==', 'credit')
             .where('category', '==', 'wageCredit')
             .get();
+        // Group wages by month
         const wagesByMonth = {};
         wageCreditsSnapshot.forEach((doc) => {
             const transactionData = doc.data();
@@ -110,12 +110,19 @@ async function rebuildEmployeeAnalyticsCore(fyLabel) {
                 wagesByMonth[monthKey] = (wagesByMonth[monthKey] || 0) + amount;
             }
         });
-        await (0, firestore_helpers_1.seedEmployeeAnalyticsDoc)(analyticsRef, fyLabel, organizationId);
-        await analyticsRef.set({
-            generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            'metrics.totalActiveEmployees': totalActiveEmployees,
-            'metrics.wagesCreditMonthly.values': wagesByMonth,
-        }, { merge: true });
+        // Write to each month's document
+        const monthPromises = Object.entries(wagesByMonth).map(async ([monthKey, wagesAmount]) => {
+            const analyticsRef = db
+                .collection(constants_1.ANALYTICS_COLLECTION)
+                .doc(`${constants_1.EMPLOYEES_SOURCE_KEY}_${organizationId}_${monthKey}`);
+            await (0, firestore_helpers_1.seedEmployeeAnalyticsDoc)(analyticsRef, monthKey, organizationId);
+            await analyticsRef.set({
+                generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                'metrics.totalActiveEmployees': totalActiveEmployees,
+                'metrics.wagesCreditMonthly': wagesAmount,
+            }, { merge: true });
+        });
+        await Promise.all(monthPromises);
     });
     await Promise.all(analyticsUpdates);
     console.log(`[Employee Analytics] Rebuilt analytics for ${Object.keys(employeesByOrg).length} organizations`);

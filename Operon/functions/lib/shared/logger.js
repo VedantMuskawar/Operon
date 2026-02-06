@@ -1,14 +1,19 @@
 "use strict";
-/**
- * Standardized logging helper for Cloud Functions
- *
- * Provides consistent logging format across all functions:
- * Format: [Module/Function] Message with context
- */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.toHttpsError = toHttpsError;
 exports.logInfo = logInfo;
 exports.logWarning = logWarning;
 exports.logError = logError;
+const https_1 = require("firebase-functions/v2/https");
+/**
+ * Map a thrown error to HttpsError for callables. Use in catch blocks.
+ */
+function toHttpsError(err, defaultCode = 'internal') {
+    if (err instanceof https_1.HttpsError)
+        return err;
+    const message = err instanceof Error ? err.message : String(err);
+    return new https_1.HttpsError(defaultCode, message);
+}
 /**
  * Log an info message
  *

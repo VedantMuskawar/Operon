@@ -43,6 +43,7 @@ exports.seedTripWagesAnalyticsDoc = seedTripWagesAnalyticsDoc;
 exports.getFirestore = getFirestore;
 const admin = __importStar(require("firebase-admin"));
 const constants_1 = require("./constants");
+// Single Firestore instance at module load (global caching). Do not initialize DB inside handler bodies.
 const db = admin.firestore();
 /**
  * Get creation date from a Firestore document snapshot
