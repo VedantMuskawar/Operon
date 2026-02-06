@@ -10,8 +10,8 @@ class DeliveryMemoDataSource {
         _functions = functions ?? _initializeFunctions();
 
   static FirebaseFunctions _initializeFunctions() {
-    // Match web app initialization exactly
-    return FirebaseFunctions.instanceFor(region: 'us-central1');
+    // Must match functions region (asia-south1) in functions/src/shared/function-config.ts
+    return FirebaseFunctions.instanceFor(region: 'asia-south1');
   }
 
   final FirebaseFirestore _firestore;

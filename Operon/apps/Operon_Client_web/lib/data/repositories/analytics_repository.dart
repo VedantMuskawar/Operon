@@ -219,8 +219,6 @@ class AnalyticsRepository {
   TransactionAnalytics _aggregateTransactionAnalytics(List<Map<String, dynamic>> docs) {
     final incomeDaily = <String, double>{};
     final receivablesDaily = <String, double>{};
-    final incomeWeekly = <String, double>{};
-    final receivablesWeekly = <String, double>{};
     final incomeMonthly = <String, double>{};
     final receivablesMonthly = <String, double>{};
     final incomeByCategory = <String, double>{};
@@ -249,18 +247,6 @@ class AnalyticsRepository {
       if (doc['receivablesDaily'] is Map) {
         (doc['receivablesDaily'] as Map).forEach((key, value) {
           receivablesDaily[key.toString()] = (receivablesDaily[key.toString()] ?? 0.0) + (value as num).toDouble();
-        });
-      }
-
-      // Aggregate weekly data
-      if (doc['incomeWeekly'] is Map) {
-        (doc['incomeWeekly'] as Map).forEach((key, value) {
-          incomeWeekly[key.toString()] = (incomeWeekly[key.toString()] ?? 0.0) + (value as num).toDouble();
-        });
-      }
-      if (doc['receivablesWeekly'] is Map) {
-        (doc['receivablesWeekly'] as Map).forEach((key, value) {
-          receivablesWeekly[key.toString()] = (receivablesWeekly[key.toString()] ?? 0.0) + (value as num).toDouble();
         });
       }
 
@@ -294,7 +280,6 @@ class AnalyticsRepository {
                 'count': 0,
                 'total': 0.0,
                 'daily': <String, double>{},
-                'weekly': <String, double>{},
               };
             }
             byType[typeKey.toString()]!['count'] = (byType[typeKey.toString()]!['count'] as int) + ((typeData['count'] as num?)?.toInt() ?? 0);
@@ -303,12 +288,6 @@ class AnalyticsRepository {
               (typeData['daily'] as Map).forEach((dayKey, dayValue) {
                 final dailyMap = byType[typeKey.toString()]!['daily'] as Map<String, double>;
                 dailyMap[dayKey.toString()] = (dailyMap[dayKey.toString()] ?? 0.0) + (dayValue as num).toDouble();
-              });
-            }
-            if (typeData['weekly'] is Map) {
-              (typeData['weekly'] as Map).forEach((weekKey, weekValue) {
-                final weeklyMap = byType[typeKey.toString()]!['weekly'] as Map<String, double>;
-                weeklyMap[weekKey.toString()] = (weeklyMap[weekKey.toString()] ?? 0.0) + (weekValue as num).toDouble();
               });
             }
           }
@@ -364,8 +343,6 @@ class AnalyticsRepository {
       'source': 'transactions',
       'incomeDaily': incomeDaily,
       'receivablesDaily': receivablesDaily,
-      'incomeWeekly': incomeWeekly,
-      'receivablesWeekly': receivablesWeekly,
       'incomeMonthly': finalIncomeMonthly,
       'receivablesMonthly': finalReceivablesMonthly,
       'incomeByCategory': incomeByCategory,

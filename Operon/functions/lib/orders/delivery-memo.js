@@ -57,8 +57,24 @@ const ORGANIZATIONS_COLLECTION = 'ORGANIZATIONS';
  * 6. Update SCHEDULE_TRIPS with dmNumber
  * 7. Update FY document with new currentDMNumber
  */
+/** Recursively remove undefined values (Firestore does not allow undefined). */
+function stripUndefined(obj) {
+    if (obj === null || typeof obj !== 'object')
+        return obj;
+    if (Array.isArray(obj))
+        return obj.map(stripUndefined);
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+        if (v !== undefined)
+            out[k] = stripUndefined(v);
+    }
+    return out;
+}
 exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CALLABLE_OPTS), async (request) => {
     var _a, _b, _c;
+    if (!request.data || typeof request.data !== 'object') {
+        throw new https_1.HttpsError('invalid-argument', 'Missing request data');
+    }
     const { organizationId, tripId, scheduleTripId, tripData, generatedBy } = request.data;
     console.log('[DM Generation] Request received', {
         organizationId,
@@ -69,7 +85,7 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
         scheduledDateType: tripData && typeof tripData === 'object' && 'scheduledDate' in tripData ? typeof tripData.scheduledDate : 'missing',
     });
     if (!organizationId || !tripId || !scheduleTripId || !tripData || !generatedBy) {
-        throw new https_1.HttpsError('invalid-argument', 'Missing required parameters');
+        throw new https_1.HttpsError('invalid-argument', 'Missing required parameters: organizationId, tripId, scheduleTripId, tripData, or generatedBy');
     }
     try {
         // Check if DM number already exists for this trip
@@ -91,7 +107,11 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
         const tripDataAny = tripData;
         let scheduledDate;
         if (tripDataAny.scheduledDate && typeof tripDataAny.scheduledDate === 'object' && '_seconds' in tripDataAny.scheduledDate) {
-            scheduledDate = new Date(tripDataAny.scheduledDate._seconds * 1000);
+            const sec = tripDataAny.scheduledDate._seconds;
+            if (typeof sec !== 'number' || !Number.isFinite(sec)) {
+                throw new https_1.HttpsError('invalid-argument', 'Invalid scheduledDate: _seconds must be a finite number');
+            }
+            scheduledDate = new Date(sec * 1000);
             console.log('[DM Generation] Deserialized scheduledDate from client format', { scheduledDate: scheduledDate.toISOString() });
         }
         else if (tripDataAny.scheduledDate && typeof ((_b = tripDataAny.scheduledDate) === null || _b === void 0 ? void 0 : _b.toDate) === 'function') {
@@ -99,13 +119,24 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
             console.log('[DM Generation] Used Firestore Timestamp toDate()', { scheduledDate: scheduledDate.toISOString() });
         }
         else {
-            throw new https_1.HttpsError('invalid-argument', `Invalid scheduledDate format: ${JSON.stringify(tripDataAny.scheduledDate)}`);
+            throw new https_1.HttpsError('invalid-argument', `Invalid scheduledDate format. Expected Timestamp with _seconds or toDate(). Got: ${typeof tripDataAny.scheduledDate}`);
+        }
+        if (Number.isNaN(scheduledDate.getTime())) {
+            throw new https_1.HttpsError('invalid-argument', 'Invalid scheduledDate: date is not valid');
         }
         const fyContext = (0, financial_year_1.getFinancialContext)(scheduledDate);
         const financialYear = fyContext.fyLabel; // e.g., "FY2425"
         // Use transaction for atomicity
         const result = await db.runTransaction(async (transaction) => {
-            var _a;
+            var _a, _b;
+            const tripRef = db.collection(SCHEDULE_TRIPS_COLLECTION).doc(tripId);
+            const tripDoc = await transaction.get(tripRef);
+            if (!tripDoc.exists) {
+                throw new https_1.HttpsError('not-found', 'Trip not found. It may have been deleted or the trip ID is incorrect.');
+            }
+            if (((_a = tripDoc.data()) === null || _a === void 0 ? void 0 : _a.dmNumber) != null) {
+                throw new https_1.HttpsError('already-exists', 'DM already exists for this trip');
+            }
             // Get or create FY document
             const fyRef = db
                 .collection(ORGANIZATIONS_COLLECTION)
@@ -129,17 +160,17 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
                     previousFYStartDMNumber: null,
                     previousFYEndDMNumber: null,
                     financialYear: financialYear,
-                    startDate: fyStart,
-                    endDate: fyEnd,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
+                    startDate: admin.firestore.Timestamp.fromDate(fyStart),
+                    endDate: admin.firestore.Timestamp.fromDate(fyEnd),
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
             // Generate new DM number
             const newDMNumber = currentDMNumber + 1;
             const dmId = `DM/${financialYear}/${newDMNumber}`;
             // Get itemIndex and productId from trip data (required for multi-product support)
-            const itemIndex = (_a = tripDataAny.itemIndex) !== null && _a !== void 0 ? _a : 0;
+            const itemIndex = (_b = tripDataAny.itemIndex) !== null && _b !== void 0 ? _b : 0;
             const productId = tripDataAny.productId || null;
             // Extract tripPricing and conditionally include GST fields
             const tripPricingData = tripDataAny.tripPricing || {};
@@ -155,7 +186,7 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
             if (tripPricingData.advanceAmountDeducted !== undefined) {
                 tripPricing.advanceAmountDeducted = tripPricingData.advanceAmountDeducted;
             }
-            // Create DELIVERY_MEMOS document with all scheduled trip data
+            // Create DELIVERY_MEMOS document with all scheduled trip data (use Firestore Timestamp for dates)
             const deliveryMemoData = {
                 dmId,
                 dmNumber: newDMNumber,
@@ -169,7 +200,7 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
                 clientId: tripDataAny.clientId || '',
                 clientName: tripDataAny.clientName || '',
                 customerNumber: tripDataAny.clientPhone || tripDataAny.customerNumber || '',
-                scheduledDate,
+                scheduledDate: admin.firestore.Timestamp.fromDate(scheduledDate),
                 scheduledDay: tripDataAny.scheduledDay || '',
                 vehicleId: tripDataAny.vehicleId || '',
                 vehicleNumber: tripDataAny.vehicleNumber || '',
@@ -178,31 +209,30 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
                 driverId: tripDataAny.driverId || null,
                 driverName: tripDataAny.driverName || null,
                 driverPhone: tripDataAny.driverPhone || null,
-                deliveryZone: tripDataAny.deliveryZone || {},
-                items: tripDataAny.items || [],
+                deliveryZone: stripUndefined(tripDataAny.deliveryZone || {}),
+                items: (tripDataAny.items || []).map((item) => stripUndefined(item)),
                 tripPricing,
                 priority: tripDataAny.priority || 'normal',
                 paymentType: tripDataAny.paymentType || '',
                 tripStatus: 'scheduled',
                 orderStatus: tripDataAny.orderStatus || 'pending',
                 status: 'active', // DM status: active, cancelled, returned
-                generatedAt: new Date(),
+                generatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 generatedBy,
                 source: 'dm_generation',
-                updatedAt: new Date(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             };
             const dmRef = db.collection(DELIVERY_MEMOS_COLLECTION).doc();
             transaction.set(dmRef, deliveryMemoData);
-            const tripRef = db.collection(SCHEDULE_TRIPS_COLLECTION).doc(tripId);
             transaction.update(tripRef, {
                 dmNumber: newDMNumber,
                 dmId: dmId,
-                updatedAt: new Date(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
             // Update FY document with new currentDMNumber
             transaction.update(fyRef, {
                 currentDMNumber: newDMNumber,
-                updatedAt: new Date(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
             return { dmId, dmNumber: newDMNumber, financialYear, tripData: tripDataAny, dmDocumentId: dmRef.id };
         });
@@ -269,8 +299,13 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
         };
     }
     catch (error) {
-        console.error('[DM Generation] Error:', error);
-        throw new https_1.HttpsError('internal', error instanceof Error ? error.message : 'Failed to generate DM');
+        const message = error instanceof Error ? error.message : 'Failed to generate DM';
+        const stack = error instanceof Error ? error.stack : undefined;
+        console.error('[DM Generation] Error:', message, stack);
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        // Surface a clear message so client doesn't only see "internal"
+        throw new https_1.HttpsError('internal', `Failed to generate DM: ${message}`);
     }
 });
 /**
@@ -330,12 +365,14 @@ exports.cancelDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CALLA
         });
         // Delete the credit transaction if it exists
         // This will trigger onTransactionDeleted Cloud Function to reverse the ledger and analytics
+        let transactionDeleted = false;
         if (creditTransactionId) {
             try {
                 const transactionRef = db.collection(constants_1.TRANSACTIONS_COLLECTION).doc(creditTransactionId);
                 const transactionDoc = await transactionRef.get();
                 if (transactionDoc.exists) {
                     await transactionRef.delete();
+                    transactionDeleted = true;
                     console.log('[DM Cancellation] Credit transaction deleted', {
                         tripId,
                         dmId,
@@ -358,10 +395,39 @@ exports.cancelDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CALLA
                     error: txnError,
                 });
                 // Don't throw - transaction deletion failure shouldn't prevent DM cancellation
-                // The DM is already marked as cancelled and trip is updated
             }
         }
-        else {
+        // Fallback: if trip had no creditTransactionId (e.g. DM generation's trip update failed),
+        // find and delete the credit transaction by tripId + type/category
+        if (!transactionDeleted) {
+            try {
+                const creditTxns = await db
+                    .collection(constants_1.TRANSACTIONS_COLLECTION)
+                    .where('tripId', '==', tripId)
+                    .where('type', '==', 'credit')
+                    .where('category', '==', 'clientCredit')
+                    .limit(1)
+                    .get();
+                if (!creditTxns.empty) {
+                    const txnDoc = creditTxns.docs[0];
+                    await txnDoc.ref.delete();
+                    transactionDeleted = true;
+                    console.log('[DM Cancellation] Credit transaction deleted (found by tripId)', {
+                        tripId,
+                        dmId,
+                        transactionId: txnDoc.id,
+                    });
+                }
+            }
+            catch (fallbackError) {
+                console.error('[DM Cancellation] Error in fallback credit transaction lookup/delete', {
+                    tripId,
+                    dmId,
+                    error: fallbackError,
+                });
+            }
+        }
+        if (!transactionDeleted) {
             console.log('[DM Cancellation] No credit transaction to delete (payment type may not have required it)', {
                 tripId,
                 dmId,
@@ -374,6 +440,8 @@ exports.cancelDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CALLA
     }
     catch (error) {
         console.error('[DM Cancellation] Error:', error);
+        if (error instanceof https_1.HttpsError)
+            throw error;
         throw new https_1.HttpsError('internal', error instanceof Error ? error.message : 'Failed to cancel DM');
     }
 });

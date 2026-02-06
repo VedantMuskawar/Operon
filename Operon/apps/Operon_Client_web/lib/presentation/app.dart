@@ -143,7 +143,7 @@ class DashWebApp extends StatelessWidget {
         RepositoryProvider<DeliveryMemoRepository>(
           create: (_) => DeliveryMemoRepository(
             dataSource: DeliveryMemoDataSource(
-              functions: FirebaseFunctions.instanceFor(region: 'us-central1'),
+              functions: FirebaseFunctions.instanceFor(region: 'asia-south1'),
             ),
           ),
         ),

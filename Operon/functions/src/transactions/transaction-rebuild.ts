@@ -8,7 +8,7 @@ import {
 } from '../shared/constants';
 import { getFinancialContext } from '../shared/financial-year';
 import { getFirestore } from '../shared/firestore-helpers';
-import { getISOWeek, formatDate, cleanDailyData, getYearMonth } from '../shared/date-helpers';
+import { formatDate, cleanDailyData, getYearMonth } from '../shared/date-helpers';
 import { SCHEDULED_FUNCTION_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
@@ -227,12 +227,9 @@ export async function rebuildTransactionAnalyticsForOrg(
     const incomeDaily: Record<string, number> = {};
     const receivablesDaily: Record<string, number> = {};
     const expenseDaily: Record<string, number> = {};
-    const incomeWeekly: Record<string, number> = {};
-    const receivablesWeekly: Record<string, number> = {};
-    const expenseWeekly: Record<string, number> = {};
-    const byType: Record<string, { count: number; total: number; daily: Record<string, number>; weekly: Record<string, number> }> = {};
-    const byPaymentAccount: Record<string, { accountId: string; accountName: string; accountType: string; count: number; total: number; daily: Record<string, number>; weekly: Record<string, number> }> = {};
-    const byPaymentMethodType: Record<string, { count: number; total: number; daily: Record<string, number>; weekly: Record<string, number> }> = {};
+    const byType: Record<string, { count: number; total: number; daily: Record<string, number> }> = {};
+    const byPaymentAccount: Record<string, { accountId: string; accountName: string; accountType: string; count: number; total: number; daily: Record<string, number> }> = {};
+    const byPaymentMethodType: Record<string, { count: number; total: number; daily: Record<string, number> }> = {};
     const incomeByCategory: Record<string, number> = {};
     const receivablesByCategory: Record<string, number> = {};
     let totalPayableToVendors = 0;
@@ -269,32 +266,27 @@ export async function rebuildTransactionAnalyticsForOrg(
       const transactionDate = createdAt ? createdAt.toDate() : doc.createTime?.toDate() ?? new Date();
       
       const dateString = formatDate(transactionDate);
-      const weekString = getISOWeek(transactionDate);
-      
+
       if (isClientLedgerDebit) {
         incomeDaily[dateString] = (incomeDaily[dateString] || 0) + (amount * multiplier);
-        incomeWeekly[weekString] = (incomeWeekly[weekString] || 0) + (amount * multiplier);
         incomeByCategory[category] = (incomeByCategory[category] || 0) + (amount * multiplier);
       }
       if (isClientLedgerCredit) {
         receivablesDaily[dateString] = (receivablesDaily[dateString] || 0) + (amount * multiplier);
-        receivablesWeekly[weekString] = (receivablesWeekly[weekString] || 0) + (amount * multiplier);
         receivablesByCategory[category] = (receivablesByCategory[category] || 0) + (amount * multiplier);
         receivableAging.current += amount;
       }
       if (isExpenseByCategory) {
         expenseDaily[dateString] = (expenseDaily[dateString] || 0) + (amount * multiplier);
-        expenseWeekly[weekString] = (expenseWeekly[weekString] || 0) + (amount * multiplier);
       }
-      
+
       if (!byType[type]) {
-        byType[type] = { count: 0, total: 0, daily: {}, weekly: {} };
+        byType[type] = { count: 0, total: 0, daily: {} };
       }
       byType[type].count += multiplier;
       byType[type].total += (amount * multiplier);
       byType[type].daily[dateString] = (byType[type].daily[dateString] || 0) + (amount * multiplier);
-      byType[type].weekly[weekString] = (byType[type].weekly[weekString] || 0) + (amount * multiplier);
-      
+
       const accountId = paymentAccountId || 'cash';
       if (!byPaymentAccount[accountId]) {
         byPaymentAccount[accountId] = {
@@ -304,22 +296,19 @@ export async function rebuildTransactionAnalyticsForOrg(
           count: 0,
           total: 0,
           daily: {},
-          weekly: {},
         };
       }
       byPaymentAccount[accountId].count += multiplier;
       byPaymentAccount[accountId].total += (amount * multiplier);
       byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
-      byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
-      
+
       const methodType = paymentAccountType || 'cash';
       if (!byPaymentMethodType[methodType]) {
-        byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {} };
+        byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {} };
       }
       byPaymentMethodType[methodType].count += multiplier;
       byPaymentMethodType[methodType].total += (amount * multiplier);
       byPaymentMethodType[methodType].daily[dateString] = (byPaymentMethodType[methodType].daily[dateString] || 0) + (amount * multiplier);
-      byPaymentMethodType[methodType].weekly[weekString] = (byPaymentMethodType[methodType].weekly[weekString] || 0) + (amount * multiplier);
 
       if (ledgerType === 'vendorLedger' && type === 'credit') {
         totalPayableToVendors += amount;
@@ -356,9 +345,6 @@ export async function rebuildTransactionAnalyticsForOrg(
       incomeDaily: cleanedIncomeDaily,
       receivablesDaily: cleanedReceivablesDaily,
       expenseDaily: cleanedExpenseDaily,
-      incomeWeekly,
-      receivablesWeekly,
-      expenseWeekly,
       incomeByCategory,
       receivablesByCategory,
       byType,

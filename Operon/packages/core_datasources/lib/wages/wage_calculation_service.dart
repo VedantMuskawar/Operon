@@ -19,8 +19,8 @@ class WageCalculationService {
         _functions = functions ?? _initializeFunctions();
 
   static FirebaseFunctions _initializeFunctions() {
-    // Initialize with us-central1 region to match Cloud Function
-    return FirebaseFunctions.instanceFor(region: 'us-central1');
+    // Must match functions region (asia-south1) in functions/src/shared/function-config.ts
+    return FirebaseFunctions.instanceFor(region: 'asia-south1');
   }
 
   final EmployeeWagesDataSource _employeeWagesDataSource;

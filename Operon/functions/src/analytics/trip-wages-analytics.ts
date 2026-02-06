@@ -5,7 +5,7 @@ import {
   TRIP_WAGES_ANALYTICS_SOURCE_KEY,
 } from '../shared/constants';
 import { getFirestore, seedTripWagesAnalyticsDoc } from '../shared/firestore-helpers';
-import { getYearMonth } from '../shared/date-helpers';
+import { getYearMonth, formatDate } from '../shared/date-helpers';
 
 const db = getFirestore();
 
@@ -25,10 +25,10 @@ export async function rebuildTripWagesAnalyticsForOrg(
     .where('status', '==', 'processed')
     .get();
 
-  // Group wages by month
-  const wagesByMonth: Record<string, {
-    totalTripWages: number;
-    wagesByQuantity: Record<string, number>;
+  // Group wages by month and by day (daily data only)
+  const wagesByMonthDay: Record<string, {
+    tripWagesDaily: Record<string, number>;
+    wagesByQuantityDaily: Record<string, Record<string, number>>;
   }> = {};
 
   tripWagesSnapshot.forEach((doc) => {
@@ -46,21 +46,26 @@ export async function rebuildTripWagesAnalyticsForOrg(
     }
 
     const monthKey = getYearMonth(wageDate);
+    const dateString = formatDate(wageDate);
 
-    if (!wagesByMonth[monthKey]) {
-      wagesByMonth[monthKey] = {
-        totalTripWages: 0,
-        wagesByQuantity: {},
+    if (!wagesByMonthDay[monthKey]) {
+      wagesByMonthDay[monthKey] = {
+        tripWagesDaily: {},
+        wagesByQuantityDaily: {},
       };
     }
 
-    wagesByMonth[monthKey].totalTripWages += totalWages;
-    wagesByMonth[monthKey].wagesByQuantity[qtyKey] =
-      (wagesByMonth[monthKey].wagesByQuantity[qtyKey] || 0) + totalWages;
+    wagesByMonthDay[monthKey].tripWagesDaily[dateString] =
+      (wagesByMonthDay[monthKey].tripWagesDaily[dateString] || 0) + totalWages;
+
+    if (!wagesByMonthDay[monthKey].wagesByQuantityDaily[dateString]) {
+      wagesByMonthDay[monthKey].wagesByQuantityDaily[dateString] = {};
+    }
+    wagesByMonthDay[monthKey].wagesByQuantityDaily[dateString][qtyKey] =
+      (wagesByMonthDay[monthKey].wagesByQuantityDaily[dateString][qtyKey] || 0) + totalWages;
   });
 
-  // Write to each month's document
-  const monthPromises = Object.entries(wagesByMonth).map(async ([monthKey, monthData]) => {
+  const monthPromises = Object.entries(wagesByMonthDay).map(async ([monthKey, monthData]) => {
     const analyticsRef = db.collection(ANALYTICS_COLLECTION)
       .doc(`${TRIP_WAGES_ANALYTICS_SOURCE_KEY}_${organizationId}_${monthKey}`);
 
@@ -68,8 +73,8 @@ export async function rebuildTripWagesAnalyticsForOrg(
 
     await analyticsRef.set({
       generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      'metrics.totalTripWagesMonthly': monthData.totalTripWages,
-      'metrics.wagesPaidByFixedQuantityMonthly': monthData.wagesByQuantity,
+      'metrics.tripWagesDaily': monthData.tripWagesDaily,
+      'metrics.wagesByQuantityDaily': monthData.wagesByQuantityDaily,
     }, { merge: true });
   });
 

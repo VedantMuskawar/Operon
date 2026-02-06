@@ -68,19 +68,22 @@ class DashTheme {
       // Explicitly override all background-related properties
       canvasColor: scaffoldBackground,
       cardColor: surfaceColor,
-      textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
-        bodyColor: AuthColors.textMain,
-        displayColor: AuthColors.textMain,
+      // Roboto includes ₹ (U+20B9); fallback on all styles avoids "Noto fonts" missing-character warning.
+      textTheme: _withFontFallback(
+        GoogleFonts.robotoTextTheme(base.textTheme).apply(
+          bodyColor: AuthColors.textMain,
+          displayColor: AuthColors.textMain,
+        ),
       ),
       scaffoldBackgroundColor: scaffoldBackground, // Use AuthColors.background instead of transparent
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: AuthColors.textMain),
-        titleTextStyle: TextStyle(
-          color: AuthColors.textMain,
+        iconTheme: const IconThemeData(color: AuthColors.textMain),
+        titleTextStyle: GoogleFonts.roboto(
           fontSize: 20,
           fontWeight: FontWeight.w700,
+          color: AuthColors.textMain,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -136,6 +139,28 @@ class DashTheme {
         backgroundColor: AuthColors.backgroundAlt,
         elevation: 0,
       ),
+    );
+  }
+
+  /// Applies fontFamilyFallback so symbols like ₹ render when primary font lacks them.
+  static TextTheme _withFontFallback(TextTheme theme) {
+    const fallback = ['Roboto'];
+    return TextTheme(
+      displayLarge: theme.displayLarge?.copyWith(fontFamilyFallback: fallback),
+      displayMedium: theme.displayMedium?.copyWith(fontFamilyFallback: fallback),
+      displaySmall: theme.displaySmall?.copyWith(fontFamilyFallback: fallback),
+      headlineLarge: theme.headlineLarge?.copyWith(fontFamilyFallback: fallback),
+      headlineMedium: theme.headlineMedium?.copyWith(fontFamilyFallback: fallback),
+      headlineSmall: theme.headlineSmall?.copyWith(fontFamilyFallback: fallback),
+      titleLarge: theme.titleLarge?.copyWith(fontFamilyFallback: fallback),
+      titleMedium: theme.titleMedium?.copyWith(fontFamilyFallback: fallback),
+      titleSmall: theme.titleSmall?.copyWith(fontFamilyFallback: fallback),
+      bodyLarge: theme.bodyLarge?.copyWith(fontFamilyFallback: fallback),
+      bodyMedium: theme.bodyMedium?.copyWith(fontFamilyFallback: fallback),
+      bodySmall: theme.bodySmall?.copyWith(fontFamilyFallback: fallback),
+      labelLarge: theme.labelLarge?.copyWith(fontFamilyFallback: fallback),
+      labelMedium: theme.labelMedium?.copyWith(fontFamilyFallback: fallback),
+      labelSmall: theme.labelSmall?.copyWith(fontFamilyFallback: fallback),
     );
   }
 }

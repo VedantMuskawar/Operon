@@ -166,7 +166,7 @@ class DashMobileApp extends StatelessWidget {
     final deliveryMemoRepository = DeliveryMemoRepository(
       dataSource: DeliveryMemoDataSource(
         firestore: authRepository.firestore,
-        functions: FirebaseFunctions.instanceFor(region: 'us-central1'),
+        functions: FirebaseFunctions.instanceFor(region: 'asia-south1'),
       ),
     );
 

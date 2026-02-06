@@ -1,0 +1,50 @@
+# Flutter web build for Operon_Client_web (CI / deployment)
+# Trigger: push to main (optional: or manual workflow_dispatch)
+
+name: Build Flutter Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/Operon_Client_web/**'
+      - 'packages/**'
+      - 'melos.yaml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/Operon_Client_web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build web (release)
+        run: flutter build web --release --web-renderer canvaskit --base-href "/"
+
+      - name: Validate build output
+        run: |
+          if [[ ! -d build/web ]]; then echo "ERROR: build/web missing"; exit 1; fi
+          if [[ ! -f build/web/index.html ]]; then echo "ERROR: index.html missing"; exit 1; fi
+          echo "Build artifacts:"
+          ls -la build/web
+
+      - name: Upload web build (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: operon-client-web-build
+          path: apps/Operon_Client_web/build/web

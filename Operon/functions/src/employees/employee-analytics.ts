@@ -11,7 +11,7 @@ import {
   getFirestore,
   seedEmployeeAnalyticsDoc,
 } from '../shared/firestore-helpers';
-import { getYearMonth } from '../shared/date-helpers';
+import { getYearMonth, formatDate } from '../shared/date-helpers';
 import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
@@ -87,8 +87,8 @@ export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<voi
       .where('category', '==', 'wageCredit')
       .get();
 
-    // Group wages by month
-    const wagesByMonth: Record<string, number> = {};
+    // Group wages by month and by day (daily data only)
+    const wagesByMonthDay: Record<string, Record<string, number>> = {};
     wageCreditsSnapshot.forEach((doc) => {
       const transactionData = doc.data();
       const transactionDate = transactionData.transactionDate as admin.firestore.Timestamp | undefined
@@ -98,22 +98,26 @@ export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<voi
       if (transactionDate) {
         const dateObj = transactionDate.toDate();
         const monthKey = getYearMonth(dateObj);
-        wagesByMonth[monthKey] = (wagesByMonth[monthKey] || 0) + amount;
+        const dateString = formatDate(dateObj);
+        if (!wagesByMonthDay[monthKey]) {
+          wagesByMonthDay[monthKey] = {};
+        }
+        wagesByMonthDay[monthKey][dateString] = (wagesByMonthDay[monthKey][dateString] || 0) + amount;
       }
     });
 
-    // Write to each month's document
-    const monthPromises = Object.entries(wagesByMonth).map(async ([monthKey, wagesAmount]) => {
+    // Write to each month's document (daily data only)
+    const monthPromises = Object.entries(wagesByMonthDay).map(async ([monthKey, dailyMap]) => {
       const analyticsRef = db
         .collection(ANALYTICS_COLLECTION)
         .doc(`${EMPLOYEES_SOURCE_KEY}_${organizationId}_${monthKey}`);
-      
+
       await seedEmployeeAnalyticsDoc(analyticsRef, monthKey, organizationId);
       await analyticsRef.set(
         {
           generatedAt: admin.firestore.FieldValue.serverTimestamp(),
           'metrics.totalActiveEmployees': totalActiveEmployees,
-          'metrics.wagesCreditMonthly': wagesAmount,
+          'metrics.wagesCreditDaily': dailyMap,
         },
         { merge: true },
       );

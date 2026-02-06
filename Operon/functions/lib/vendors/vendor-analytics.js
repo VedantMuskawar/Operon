@@ -83,8 +83,8 @@ async function rebuildVendorAnalyticsCore(fyLabel) {
             .where('ledgerType', '==', 'vendorLedger')
             .where('type', '==', 'credit')
             .get();
-        // Group purchases by month and vendor type
-        const purchasesByMonth = {};
+        // Group purchases by month and by day (daily data only): month -> date -> vendorType -> amount
+        const purchasesByMonthDay = {};
         purchaseTransactionsSnapshot.forEach((doc) => {
             const transactionData = doc.data();
             const vendorId = transactionData.vendorId;
@@ -99,27 +99,28 @@ async function rebuildVendorAnalyticsCore(fyLabel) {
             if (transactionDate) {
                 const dateObj = transactionDate.toDate();
                 const monthKey = (0, date_helpers_1.getYearMonth)(dateObj);
-                if (!purchasesByMonth[monthKey]) {
-                    purchasesByMonth[monthKey] = { byVendorType: {} };
+                const dateString = (0, date_helpers_1.formatDate)(dateObj);
+                if (!purchasesByMonthDay[monthKey]) {
+                    purchasesByMonthDay[monthKey] = {};
                 }
-                purchasesByMonth[monthKey].byVendorType[vendorType] =
-                    (purchasesByMonth[monthKey].byVendorType[vendorType] || 0) + amount;
+                if (!purchasesByMonthDay[monthKey][dateString]) {
+                    purchasesByMonthDay[monthKey][dateString] = {};
+                }
+                purchasesByMonthDay[monthKey][dateString][vendorType] =
+                    (purchasesByMonthDay[monthKey][dateString][vendorType] || 0) + amount;
             }
         });
-        // Write to each month's document
-        const monthPromises = Object.entries(purchasesByMonth).map(async ([monthKey, monthData]) => {
+        // Write to each month's document (daily data only)
+        const monthPromises = Object.entries(purchasesByMonthDay).map(async ([monthKey, dailyMap]) => {
             const analyticsRef = db
                 .collection(constants_1.ANALYTICS_COLLECTION)
                 .doc(`${constants_1.VENDORS_SOURCE_KEY}_${organizationId}_${monthKey}`);
             await (0, firestore_helpers_1.seedVendorAnalyticsDoc)(analyticsRef, monthKey, organizationId);
-            const updateData = {
+            await analyticsRef.set({
                 generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                'metrics.totalPayable': totalPayableByOrg[organizationId], // Include total payable in each month doc
-            };
-            for (const [vendorType, amount] of Object.entries(monthData.byVendorType)) {
-                updateData[`metrics.purchasesByVendorType.${vendorType}`] = amount;
-            }
-            await analyticsRef.set(updateData, { merge: true });
+                'metrics.totalPayable': totalPayableByOrg[organizationId],
+                'metrics.purchasesDaily': dailyMap,
+            }, { merge: true });
         });
         await Promise.all(monthPromises);
     });

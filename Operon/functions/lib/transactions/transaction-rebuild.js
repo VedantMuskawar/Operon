@@ -217,9 +217,6 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
         const incomeDaily = {};
         const receivablesDaily = {};
         const expenseDaily = {};
-        const incomeWeekly = {};
-        const receivablesWeekly = {};
-        const expenseWeekly = {};
         const byType = {};
         const byPaymentAccount = {};
         const byPaymentMethodType = {};
@@ -255,29 +252,24 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
             const createdAt = tx.createdAt;
             const transactionDate = createdAt ? createdAt.toDate() : (_b = (_a = doc.createTime) === null || _a === void 0 ? void 0 : _a.toDate()) !== null && _b !== void 0 ? _b : new Date();
             const dateString = (0, date_helpers_1.formatDate)(transactionDate);
-            const weekString = (0, date_helpers_1.getISOWeek)(transactionDate);
             if (isClientLedgerDebit) {
                 incomeDaily[dateString] = (incomeDaily[dateString] || 0) + (amount * multiplier);
-                incomeWeekly[weekString] = (incomeWeekly[weekString] || 0) + (amount * multiplier);
                 incomeByCategory[category] = (incomeByCategory[category] || 0) + (amount * multiplier);
             }
             if (isClientLedgerCredit) {
                 receivablesDaily[dateString] = (receivablesDaily[dateString] || 0) + (amount * multiplier);
-                receivablesWeekly[weekString] = (receivablesWeekly[weekString] || 0) + (amount * multiplier);
                 receivablesByCategory[category] = (receivablesByCategory[category] || 0) + (amount * multiplier);
                 receivableAging.current += amount;
             }
             if (isExpenseByCategory) {
                 expenseDaily[dateString] = (expenseDaily[dateString] || 0) + (amount * multiplier);
-                expenseWeekly[weekString] = (expenseWeekly[weekString] || 0) + (amount * multiplier);
             }
             if (!byType[type]) {
-                byType[type] = { count: 0, total: 0, daily: {}, weekly: {} };
+                byType[type] = { count: 0, total: 0, daily: {} };
             }
             byType[type].count += multiplier;
             byType[type].total += (amount * multiplier);
             byType[type].daily[dateString] = (byType[type].daily[dateString] || 0) + (amount * multiplier);
-            byType[type].weekly[weekString] = (byType[type].weekly[weekString] || 0) + (amount * multiplier);
             const accountId = paymentAccountId || 'cash';
             if (!byPaymentAccount[accountId]) {
                 byPaymentAccount[accountId] = {
@@ -287,21 +279,18 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
                     count: 0,
                     total: 0,
                     daily: {},
-                    weekly: {},
                 };
             }
             byPaymentAccount[accountId].count += multiplier;
             byPaymentAccount[accountId].total += (amount * multiplier);
             byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
-            byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
             const methodType = paymentAccountType || 'cash';
             if (!byPaymentMethodType[methodType]) {
-                byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {} };
+                byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {} };
             }
             byPaymentMethodType[methodType].count += multiplier;
             byPaymentMethodType[methodType].total += (amount * multiplier);
             byPaymentMethodType[methodType].daily[dateString] = (byPaymentMethodType[methodType].daily[dateString] || 0) + (amount * multiplier);
-            byPaymentMethodType[methodType].weekly[weekString] = (byPaymentMethodType[methodType].weekly[weekString] || 0) + (amount * multiplier);
             if (ledgerType === 'vendorLedger' && type === 'credit') {
                 totalPayableToVendors += amount;
             }
@@ -333,9 +322,6 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
             incomeDaily: cleanedIncomeDaily,
             receivablesDaily: cleanedReceivablesDaily,
             expenseDaily: cleanedExpenseDaily,
-            incomeWeekly,
-            receivablesWeekly,
-            expenseWeekly,
             incomeByCategory,
             receivablesByCategory,
             byType,

@@ -480,73 +480,75 @@ class _UserDialogState extends State<_UserDialog> {
                 decoration: _inputDecoration('App Access Role *'),
                 validator: (value) => value == null ? 'Select an app access role' : null,
               ),
-              const SizedBox(height: 12),
-              
-              // Employee Selection (Required)
-              if (_isLoadingEmployees)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else if (_employees.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.orange.withValues(alpha: 0.1),
-                    border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.warning_amber_rounded, 
-                        color: Colors.orange, size: 20),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'No employees found. Create an employee first.',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
+              // Employee Selection – hidden when Admin
+              if (_currentAppAccessRole()?.isAdmin != true) ...[
+                const SizedBox(height: 12),
+                if (_isLoadingEmployees)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (_employees.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.orange.withValues(alpha: 0.1),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.3),
                       ),
-                    ],
-                  ),
-                )
-              else
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedEmployeeId,
-                  dropdownColor: const Color(0xFF1B1B2C),
-                  style: const TextStyle(color: Colors.white),
-                  items: _employees
-                      .map(
-                        (employee) => DropdownMenuItem(
-                          value: employee.id,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(employee.name),
-                              if (employee.jobRoleTitles.isNotEmpty)
-                                Text(
-                                  employee.jobRoleTitles,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.6),
-                                    fontSize: 11,
-                                  ),
-                                ),
-                            ],
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded,
+                            color: Colors.orange, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'No employees found. Create an employee first.',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedEmployeeId = value;
-                    });
-                  },
-                  decoration: _inputDecoration('Employee *'),
-                  validator: (value) => value == null ? 'Select an employee' : null,
-                ),
+                      ],
+                    ),
+                  )
+                else
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedEmployeeId,
+                    dropdownColor: const Color(0xFF1B1B2C),
+                    style: const TextStyle(color: Colors.white),
+                    items: _employees
+                        .map(
+                          (employee) => DropdownMenuItem(
+                            value: employee.id,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(employee.name),
+                                if (employee.jobRoleTitles.isNotEmpty)
+                                  Text(
+                                    employee.jobRoleTitles,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.6),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedEmployeeId = value;
+                      });
+                    },
+                    decoration: _inputDecoration('Employee *'),
+                    validator: (value) =>
+                        value == null ? 'Select an employee' : null,
+                  ),
+              ],
             ],
           ),
         ),
@@ -572,7 +574,8 @@ class _UserDialogState extends State<_UserDialog> {
                     );
                     return;
                   }
-                  if (_selectedEmployeeId == null) {
+                  final isAdmin = appAccessRole.isAdmin;
+                  if (!isAdmin && _selectedEmployeeId == null) {
                     DashSnackbar.show(
                       context,
                       message: 'Select an employee (required)',
@@ -593,7 +596,7 @@ class _UserDialogState extends State<_UserDialog> {
                       appAccessRoleId: appAccessRole.id,
                       appAccessRole: appAccessRole,
                       organizationId: usersCubit.organizationId,
-                      employeeId: _selectedEmployeeId!,
+                      employeeId: _selectedEmployeeId ?? '',
                     );
                     await usersCubit.upsertUser(user);
                     if (mounted) Navigator.of(context).pop();

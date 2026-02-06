@@ -96,8 +96,8 @@ async function rebuildEmployeeAnalyticsCore(fyLabel) {
             .where('type', '==', 'credit')
             .where('category', '==', 'wageCredit')
             .get();
-        // Group wages by month
-        const wagesByMonth = {};
+        // Group wages by month and by day (daily data only)
+        const wagesByMonthDay = {};
         wageCreditsSnapshot.forEach((doc) => {
             const transactionData = doc.data();
             const transactionDate = transactionData.transactionDate
@@ -107,11 +107,15 @@ async function rebuildEmployeeAnalyticsCore(fyLabel) {
             if (transactionDate) {
                 const dateObj = transactionDate.toDate();
                 const monthKey = (0, date_helpers_1.getYearMonth)(dateObj);
-                wagesByMonth[monthKey] = (wagesByMonth[monthKey] || 0) + amount;
+                const dateString = (0, date_helpers_1.formatDate)(dateObj);
+                if (!wagesByMonthDay[monthKey]) {
+                    wagesByMonthDay[monthKey] = {};
+                }
+                wagesByMonthDay[monthKey][dateString] = (wagesByMonthDay[monthKey][dateString] || 0) + amount;
             }
         });
-        // Write to each month's document
-        const monthPromises = Object.entries(wagesByMonth).map(async ([monthKey, wagesAmount]) => {
+        // Write to each month's document (daily data only)
+        const monthPromises = Object.entries(wagesByMonthDay).map(async ([monthKey, dailyMap]) => {
             const analyticsRef = db
                 .collection(constants_1.ANALYTICS_COLLECTION)
                 .doc(`${constants_1.EMPLOYEES_SOURCE_KEY}_${organizationId}_${monthKey}`);
@@ -119,7 +123,7 @@ async function rebuildEmployeeAnalyticsCore(fyLabel) {
             await analyticsRef.set({
                 generatedAt: admin.firestore.FieldValue.serverTimestamp(),
                 'metrics.totalActiveEmployees': totalActiveEmployees,
-                'metrics.wagesCreditMonthly': wagesAmount,
+                'metrics.wagesCreditDaily': dailyMap,
             }, { merge: true });
         });
         await Promise.all(monthPromises);

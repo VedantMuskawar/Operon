@@ -8,7 +8,7 @@ import {
   getFirestore,
   seedDeliveriesAnalyticsDoc,
 } from '../shared/firestore-helpers';
-import { getYearMonth } from '../shared/date-helpers';
+import { getYearMonth, formatDate } from '../shared/date-helpers';
 
 const db = getFirestore();
 
@@ -37,11 +37,11 @@ export async function rebuildDeliveriesAnalyticsForOrg(
     .where('status', '==', 'delivered')
     .get();
 
-  // Group deliveries by month
-  const deliveriesByMonth: Record<string, {
-    quantity: number;
-    quantityByRegion: Record<string, number>;
-    clientTotals: Record<string, { amount: number; count: number }>;
+  // Group deliveries by month and by day (daily data only)
+  const deliveriesByMonthDay: Record<string, {
+    quantityDaily: Record<string, number>;
+    quantityByRegionDaily: Record<string, Record<string, number>>;
+    clientTotalsDaily: Record<string, Record<string, { amount: number; count: number }>>;
   }> = {};
 
   const clientNameMap: Record<string, string> = {};
@@ -57,16 +57,16 @@ export async function rebuildDeliveriesAnalyticsForOrg(
     }
 
     const monthKey = getYearMonth(dmDate);
+    const dateString = formatDate(dmDate);
 
-    if (!deliveriesByMonth[monthKey]) {
-      deliveriesByMonth[monthKey] = {
-        quantity: 0,
-        quantityByRegion: {},
-        clientTotals: {},
+    if (!deliveriesByMonthDay[monthKey]) {
+      deliveriesByMonthDay[monthKey] = {
+        quantityDaily: {},
+        quantityByRegionDaily: {},
+        clientTotalsDaily: {},
       };
     }
 
-    // Sum quantity from items
     let qty = 0;
     const items = (dm.items as any[]) || [];
     for (const item of items) {
@@ -74,21 +74,22 @@ export async function rebuildDeliveriesAnalyticsForOrg(
       qty += fixedQty;
     }
 
-    deliveriesByMonth[monthKey].quantity += qty;
+    deliveriesByMonthDay[monthKey].quantityDaily[dateString] =
+      (deliveriesByMonthDay[monthKey].quantityDaily[dateString] || 0) + qty;
 
-    // Region distribution
     const dz = (dm.deliveryZone as Record<string, unknown>) || {};
     const city = (dz.city_name as string) || (dz.city as string) || 'Unknown';
     const region = (dz.region as string) || city;
 
-    deliveriesByMonth[monthKey].quantityByRegion[city] = 
-      (deliveriesByMonth[monthKey].quantityByRegion[city] || 0) + qty;
+    if (!deliveriesByMonthDay[monthKey].quantityByRegionDaily[dateString]) {
+      deliveriesByMonthDay[monthKey].quantityByRegionDaily[dateString] = {};
+    }
+    const regionMap = deliveriesByMonthDay[monthKey].quantityByRegionDaily[dateString];
+    regionMap[city] = (regionMap[city] || 0) + qty;
     if (region !== city) {
-      deliveriesByMonth[monthKey].quantityByRegion[region] = 
-        (deliveriesByMonth[monthKey].quantityByRegion[region] || 0) + qty;
+      regionMap[region] = (regionMap[region] || 0) + qty;
     }
 
-    // Top clients
     const tripPricing = (dm.tripPricing as Record<string, unknown>) || {};
     const totalAmount = (tripPricing.total as number) || 0;
     const clientId = (dm.clientId as string) || '';
@@ -97,37 +98,29 @@ export async function rebuildDeliveriesAnalyticsForOrg(
       if (!clientNameMap[clientId]) {
         clientNameMap[clientId] = (dm.clientName as string) || 'Unknown';
       }
-      if (!deliveriesByMonth[monthKey].clientTotals[clientId]) {
-        deliveriesByMonth[monthKey].clientTotals[clientId] = { amount: 0, count: 0 };
+      if (!deliveriesByMonthDay[monthKey].clientTotalsDaily[dateString]) {
+        deliveriesByMonthDay[monthKey].clientTotalsDaily[dateString] = {};
       }
-      deliveriesByMonth[monthKey].clientTotals[clientId].amount += totalAmount;
-      deliveriesByMonth[monthKey].clientTotals[clientId].count += 1;
+      const dayClients = deliveriesByMonthDay[monthKey].clientTotalsDaily[dateString];
+      if (!dayClients[clientId]) {
+        dayClients[clientId] = { amount: 0, count: 0 };
+      }
+      dayClients[clientId].amount += totalAmount;
+      dayClients[clientId].count += 1;
     }
   });
 
-  // Write to each month's document
-  const monthPromises = Object.entries(deliveriesByMonth).map(async ([monthKey, monthData]) => {
+  const monthPromises = Object.entries(deliveriesByMonthDay).map(async ([monthKey, monthData]) => {
     const analyticsRef = db.collection(ANALYTICS_COLLECTION)
       .doc(`${DELIVERIES_SOURCE_KEY}_${organizationId}_${monthKey}`);
-
-    // Calculate top 20 clients for this month
-    const top20Clients = Object.entries(monthData.clientTotals)
-      .map(([cid, data]) => ({
-        clientId: cid,
-        clientName: clientNameMap[cid] || 'Unknown',
-        totalAmount: data.amount,
-        orderCount: data.count,
-      }))
-      .sort((a, b) => b.totalAmount - a.totalAmount)
-      .slice(0, 20);
 
     await seedDeliveriesAnalyticsDoc(analyticsRef, monthKey, organizationId);
 
     await analyticsRef.set({
       generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      'metrics.totalQuantityDeliveredMonthly': monthData.quantity,
-      'metrics.quantityByRegion': monthData.quantityByRegion,
-      'metrics.top20ClientsByOrderValueMonthly': top20Clients,
+      'metrics.quantityDeliveredDaily': monthData.quantityDaily,
+      'metrics.quantityByRegionDaily': monthData.quantityByRegionDaily,
+      'metrics.clientTotalsDaily': monthData.clientTotalsDaily,
     }, { merge: true });
   });
 

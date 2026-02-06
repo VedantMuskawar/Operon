@@ -40,7 +40,8 @@ export const onScheduledTripCreated = onDocumentCreated(
     console.log('[Trip Scheduling] Processing scheduled trip', {tripId, orderId});
 
     try {
-      // Enforce uniqueness: same date + vehicle + slot should not exist
+      // Enforce uniqueness: same date + vehicle + slot should not exist for *active* trips only.
+      // Only count scheduled/in_progress trips (match client isSlotAvailable). Ignore cancelled/delivered/returned.
       const scheduledDate = tripData.scheduledDate;
       const vehicleId = tripData.vehicleId;
       const slot = tripData.slot;
@@ -50,9 +51,15 @@ export const onScheduledTripCreated = onDocumentCreated(
           .where('scheduledDate', '==', scheduledDate)
           .where('vehicleId', '==', vehicleId)
           .where('slot', '==', slot)
+          .where('isActive', '==', true)
           .limit(5)
           .get();
-        const otherDocs = clashSnap.docs.filter((d) => d.id !== tripId);
+        const activeStatuses = ['scheduled', 'in_progress'];
+        const otherDocs = clashSnap.docs.filter((d) => {
+          if (d.id === tripId) return false;
+          const status = (d.data().tripStatus as string) || '';
+          return activeStatuses.includes(status.toLowerCase());
+        });
         if (otherDocs.length > 0) {
           console.warn('[Trip Scheduling] Slot already booked', {
             tripId,

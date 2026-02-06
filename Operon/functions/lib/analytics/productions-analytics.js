@@ -48,8 +48,8 @@ async function rebuildProductionsAnalyticsForOrg(organizationId, financialYear, 
         .collection(constants_1.PRODUCTION_BATCHES_COLLECTION)
         .where('organizationId', '==', organizationId)
         .get();
-    // Group batches by month
-    const batchesByMonth = {};
+    // Group batches by month and by day (daily data only)
+    const batchesByMonthDay = {};
     batchesSnapshot.forEach((doc) => {
         var _a, _b, _c;
         const batch = doc.data();
@@ -58,31 +58,33 @@ async function rebuildProductionsAnalyticsForOrg(organizationId, financialYear, 
             return;
         }
         const monthKey = (0, date_helpers_1.getYearMonth)(batchDate);
-        if (!batchesByMonth[monthKey]) {
-            batchesByMonth[monthKey] = {
-                totalProduction: 0,
-                totalRawMaterials: 0,
+        const dateString = (0, date_helpers_1.formatDate)(batchDate);
+        if (!batchesByMonthDay[monthKey]) {
+            batchesByMonthDay[monthKey] = {
+                productionDaily: {},
+                rawMaterialsDaily: {},
             };
         }
         const produced = batch.totalBricksProduced || 0;
         const stacked = batch.totalBricksStacked || 0;
         const total = produced + stacked;
-        batchesByMonth[monthKey].totalProduction += total;
+        batchesByMonthDay[monthKey].productionDaily[dateString] =
+            (batchesByMonthDay[monthKey].productionDaily[dateString] || 0) + total;
         const metadata = batch.metadata || {};
         const rawConsumed = (_c = metadata.rawMaterialsConsumed) !== null && _c !== void 0 ? _c : 0;
         if (rawConsumed > 0) {
-            batchesByMonth[monthKey].totalRawMaterials += rawConsumed;
+            batchesByMonthDay[monthKey].rawMaterialsDaily[dateString] =
+                (batchesByMonthDay[monthKey].rawMaterialsDaily[dateString] || 0) + rawConsumed;
         }
     });
-    // Write to each month's document
-    const monthPromises = Object.entries(batchesByMonth).map(async ([monthKey, monthData]) => {
+    const monthPromises = Object.entries(batchesByMonthDay).map(async ([monthKey, monthData]) => {
         const analyticsRef = db.collection(constants_1.ANALYTICS_COLLECTION)
             .doc(`${constants_1.PRODUCTIONS_SOURCE_KEY}_${organizationId}_${monthKey}`);
         await (0, firestore_helpers_1.seedProductionsAnalyticsDoc)(analyticsRef, monthKey, organizationId);
         await analyticsRef.set({
             generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            'metrics.totalProductionMonthly': monthData.totalProduction,
-            'metrics.totalRawMaterialsMonthly': monthData.totalRawMaterials,
+            'metrics.productionDaily': monthData.productionDaily,
+            'metrics.rawMaterialsDaily': monthData.rawMaterialsDaily,
         }, { merge: true });
     });
     await Promise.all(monthPromises);

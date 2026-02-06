@@ -32,7 +32,7 @@ dependencies:
   http: ^1.2.0
   pdf: ^3.11.1
   printing: ^5.13.1
-  flutter_html_to_pdf_plus: ^1.0.0
+  flutter_html_to_pdf_plus: ^0.4.0
   flutter_staggered_animations: ^1.1.1
   shimmer: ^3.0.0
   core_bloc:

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:core_models/core_models.dart' hide LatLng;
-import 'package:core_ui/core_ui.dart' show darkMapStyle;
+import 'package:core_ui/core_ui.dart' show AuthColors, darkMapStyle;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';

@@ -1169,26 +1169,28 @@ async function updateExpenseSubCategoryAnalytics(organizationId, subCategoryId, 
     });
 }
 /**
- * Update employee analytics when wages credit transaction is created or cancelled
+ * Update employee analytics when wages credit transaction is created or cancelled.
+ * Writes to monthly analytics doc with daily data only.
  */
-async function updateEmployeeAnalytics(organizationId, financialYear, transactionDate, amount, isCancellation = false) {
+async function updateEmployeeAnalytics(organizationId, _financialYear, transactionDate, amount, isCancellation = false) {
     const multiplier = isCancellation ? -1 : 1;
     const { monthKey } = (0, financial_year_1.getFinancialContext)(transactionDate);
+    const dateString = (0, date_helpers_1.formatDate)(transactionDate);
     const analyticsRef = db
         .collection(constants_1.ANALYTICS_COLLECTION)
-        .doc(`${constants_1.EMPLOYEES_SOURCE_KEY}_${organizationId}_${financialYear}`);
+        .doc(`${constants_1.EMPLOYEES_SOURCE_KEY}_${organizationId}_${monthKey}`);
     try {
-        await (0, firestore_helpers_1.seedEmployeeAnalyticsDoc)(analyticsRef, financialYear, organizationId);
+        await (0, firestore_helpers_1.seedEmployeeAnalyticsDoc)(analyticsRef, monthKey, organizationId);
         await analyticsRef.set({
             generatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            [`metrics.wagesCreditMonthly.values.${monthKey}`]: admin.firestore.FieldValue.increment(amount * multiplier),
+            [`metrics.wagesCreditDaily.${dateString}`]: admin.firestore.FieldValue.increment(amount * multiplier),
         }, { merge: true });
     }
     catch (error) {
         console.warn('[Employee Analytics] Error updating wages credit analytics', {
             organizationId,
-            financialYear,
             monthKey,
+            dateString,
             error,
         });
     }
@@ -1210,7 +1212,6 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
     const paymentAccountType = transaction.paymentAccountType;
     const multiplier = isCancellation ? -1 : 1;
     const dateString = (0, date_helpers_1.formatDate)(transactionDate);
-    const weekString = (0, date_helpers_1.getISOWeek)(transactionDate);
     // Get current analytics data for this month
     const analyticsDoc = await analyticsRef.get();
     const analyticsData = analyticsDoc.exists ? analyticsDoc.data() : {};
@@ -1229,15 +1230,6 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
     else if (isCredit && ledgerType === 'clientLedger') {
         // Credit = receivable created = not income yet
         receivablesDaily[dateString] = (receivablesDaily[dateString] || 0) + (amount * multiplier);
-    }
-    // Update weekly breakdown
-    const incomeWeekly = analyticsData.incomeWeekly || {};
-    const receivablesWeekly = analyticsData.receivablesWeekly || {};
-    if (isDebit && ledgerType === 'clientLedger') {
-        incomeWeekly[weekString] = (incomeWeekly[weekString] || 0) + (amount * multiplier);
-    }
-    else if (isCredit && ledgerType === 'clientLedger') {
-        receivablesWeekly[weekString] = (receivablesWeekly[weekString] || 0) + (amount * multiplier);
     }
     // Update income by category (only for Debit transactions = actual income)
     const incomeByCategory = analyticsData.incomeByCategory || {};
@@ -1258,18 +1250,13 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
     // Update by type breakdown (for both credit and debit)
     const byType = analyticsData.byType || {};
     if (!byType[type]) {
-        byType[type] = { count: 0, total: 0, daily: {}, weekly: {} };
+        byType[type] = { count: 0, total: 0, daily: {} };
     }
     byType[type].count += multiplier;
     byType[type].total += (amount * multiplier);
-    // Update type daily/weekly (no monthly maps needed - document is month-specific)
     if (!byType[type].daily)
         byType[type].daily = {};
-    if (!byType[type].weekly)
-        byType[type].weekly = {};
     byType[type].daily[dateString] = (byType[type].daily[dateString] || 0) + (amount * multiplier);
-    byType[type].weekly[weekString] = (byType[type].weekly[weekString] || 0) + (amount * multiplier);
-    // Clean type daily data
     byType[type].daily = (0, date_helpers_1.cleanDailyData)(byType[type].daily, 90);
     // Update by payment account breakdown
     const byPaymentAccount = analyticsData.byPaymentAccount || {};
@@ -1283,17 +1270,13 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
                 count: 0,
                 total: 0,
                 daily: {},
-                weekly: {},
             };
         }
         byPaymentAccount[accountId].count += multiplier;
         byPaymentAccount[accountId].total += (amount * multiplier);
         if (!byPaymentAccount[accountId].daily)
             byPaymentAccount[accountId].daily = {};
-        if (!byPaymentAccount[accountId].weekly)
-            byPaymentAccount[accountId].weekly = {};
         byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
-        byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
         byPaymentAccount[accountId].daily = (0, date_helpers_1.cleanDailyData)(byPaymentAccount[accountId].daily, 90);
     }
     else if (accountId === 'cash') {
@@ -1305,33 +1288,26 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
                 count: 0,
                 total: 0,
                 daily: {},
-                weekly: {},
             };
         }
         byPaymentAccount[accountId].count += multiplier;
         byPaymentAccount[accountId].total += (amount * multiplier);
         if (!byPaymentAccount[accountId].daily)
             byPaymentAccount[accountId].daily = {};
-        if (!byPaymentAccount[accountId].weekly)
-            byPaymentAccount[accountId].weekly = {};
         byPaymentAccount[accountId].daily[dateString] = (byPaymentAccount[accountId].daily[dateString] || 0) + (amount * multiplier);
-        byPaymentAccount[accountId].weekly[weekString] = (byPaymentAccount[accountId].weekly[weekString] || 0) + (amount * multiplier);
         byPaymentAccount[accountId].daily = (0, date_helpers_1.cleanDailyData)(byPaymentAccount[accountId].daily, 90);
     }
     // Update by payment method type breakdown
     const byPaymentMethodType = analyticsData.byPaymentMethodType || {};
     const methodType = paymentAccountType || 'cash';
     if (!byPaymentMethodType[methodType]) {
-        byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {}, weekly: {} };
+        byPaymentMethodType[methodType] = { count: 0, total: 0, daily: {} };
     }
     byPaymentMethodType[methodType].count += multiplier;
     byPaymentMethodType[methodType].total += (amount * multiplier);
     if (!byPaymentMethodType[methodType].daily)
         byPaymentMethodType[methodType].daily = {};
-    if (!byPaymentMethodType[methodType].weekly)
-        byPaymentMethodType[methodType].weekly = {};
     byPaymentMethodType[methodType].daily[dateString] = (byPaymentMethodType[methodType].daily[dateString] || 0) + (amount * multiplier);
-    byPaymentMethodType[methodType].weekly[weekString] = (byPaymentMethodType[methodType].weekly[weekString] || 0) + (amount * multiplier);
     byPaymentMethodType[methodType].daily = (0, date_helpers_1.cleanDailyData)(byPaymentMethodType[methodType].daily, 90);
     // Calculate totals for this month (sum of daily values)
     const totalIncome = Object.values(incomeDaily).reduce((sum, val) => sum + (val || 0), 0);
@@ -1354,16 +1330,14 @@ async function updateTransactionAnalytics(organizationId, financialYear, transac
         // When cancelling, reduce receivables (simplified - should calculate actual aging)
         receivableAging.current = Math.max(0, (receivableAging.current || 0) - amount);
     }
-    // Update analytics document (month-specific, no monthly maps)
+    // Update analytics document (month-specific, daily data only)
     await analyticsRef.set({
         source: constants_1.TRANSACTIONS_SOURCE_KEY,
         organizationId,
-        month: monthKey, // Store month for reference
-        financialYear, // Keep for backward compatibility during migration
+        month: monthKey,
+        financialYear,
         incomeDaily,
         receivablesDaily,
-        incomeWeekly,
-        receivablesWeekly,
         incomeByCategory,
         receivablesByCategory,
         byType,

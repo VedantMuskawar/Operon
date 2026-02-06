@@ -10,7 +10,7 @@ import {
   getFirestore,
   seedAnalyticsDoc,
 } from '../shared/firestore-helpers';
-import { getYearMonth } from '../shared/date-helpers';
+import { getYearMonth, formatDate } from '../shared/date-helpers';
 import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
@@ -45,12 +45,14 @@ export const onClientCreated = onDocumentCreated(
 
     await seedAnalyticsDoc(analyticsRef, monthKey, organizationId);
 
+    const dateString = formatDate(createdAt);
     await analyticsRef.set(
       {
         generatedAt: admin.firestore.FieldValue.serverTimestamp(),
         'metrics.totalActiveClients':
           admin.firestore.FieldValue.increment(1),
-        'metrics.userOnboarding': admin.firestore.FieldValue.increment(1),
+        [`metrics.userOnboardingDaily.${dateString}`]:
+          admin.firestore.FieldValue.increment(1),
       },
       { merge: true },
     );
@@ -76,47 +78,46 @@ export async function rebuildClientAnalyticsCore(fyLabel: string, fyStart: Date,
     }
   });
 
-  // Group clients by organization and month
-  const clientsByOrgMonth: Record<string, Record<string, FirebaseFirestore.DocumentSnapshot[]>> = {};
-  
+  // Group clients by organization, month, and day (daily data only)
+  const clientsByOrgMonthDay: Record<string, Record<string, Record<string, number>>> = {};
+
   Object.entries(clientsByOrg).forEach(([organizationId, orgClients]) => {
-    clientsByOrgMonth[organizationId] = {};
+    clientsByOrgMonthDay[organizationId] = {};
     orgClients.forEach((doc) => {
       const createdAt = getCreationDate(doc);
       if (createdAt >= fyStart && createdAt < fyEnd) {
         const monthKey = getYearMonth(createdAt);
-        if (!clientsByOrgMonth[organizationId][monthKey]) {
-          clientsByOrgMonth[organizationId][monthKey] = [];
+        const dateString = formatDate(createdAt);
+        if (!clientsByOrgMonthDay[organizationId][monthKey]) {
+          clientsByOrgMonthDay[organizationId][monthKey] = {};
         }
-        clientsByOrgMonth[organizationId][monthKey].push(doc);
+        clientsByOrgMonthDay[organizationId][monthKey][dateString] =
+          (clientsByOrgMonthDay[organizationId][monthKey][dateString] || 0) + 1;
       }
     });
   });
 
   const analyticsUpdates: Promise<void>[] = [];
-  
-  Object.entries(clientsByOrgMonth).forEach(([organizationId, monthClients]) => {
-    // Calculate total active clients (all clients, not just in FY)
+
+  Object.entries(clientsByOrgMonthDay).forEach(([organizationId, monthData]) => {
     const totalActiveClients = clientsByOrg[organizationId].length;
-    
-    Object.entries(monthClients).forEach(([monthKey, monthDocs]) => {
+
+    Object.entries(monthData).forEach(([monthKey, userOnboardingDaily]) => {
       const analyticsRef = db
         .collection(ANALYTICS_COLLECTION)
         .doc(`${SOURCE_KEY}_${organizationId}_${monthKey}`);
-      
-      const onboardingCount = monthDocs.length;
-      
+
       analyticsUpdates.push(
         seedAnalyticsDoc(analyticsRef, monthKey, organizationId).then(async () => {
           await analyticsRef.set(
             {
               generatedAt: admin.firestore.FieldValue.serverTimestamp(),
               'metrics.totalActiveClients': totalActiveClients,
-              'metrics.userOnboarding': onboardingCount,
+              'metrics.userOnboardingDaily': userOnboardingDaily,
             },
             { merge: true },
           );
-        })
+        }),
       );
     });
   });

@@ -144,17 +144,13 @@ class UsersDataSource {
       }
     }
     
+    // allowUpdate: true so existing users (e.g. in another org) can be added to this org (multi-org membership)
     final lookup = await _findOrCreateUserDoc(
       phone: user.phone,
       userName: user.name,
       preferredUserId: user.id.isEmpty ? null : user.id,
-      allowUpdate: isUpdate, // Only allow reusing existing users when updating
+      allowUpdate: true,
     );
-    
-    // If creating a new user and phone already exists, throw error
-    if (!isUpdate && !lookup.isNew) {
-      throw DuplicatePhoneNumberException(user.phone, lookup.id);
-    }
 
     await _orgUsersCollection(orgId).doc(lookup.id).set({
       ...user.toMap(),

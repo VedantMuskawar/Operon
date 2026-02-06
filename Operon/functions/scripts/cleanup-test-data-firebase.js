@@ -17,7 +17,7 @@ const https = require('https');
 
 // Configuration
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'your-project-id';
-const REGION = process.env.FIREBASE_FUNCTIONS_REGION || 'us-central1';
+const REGION = process.env.FIREBASE_FUNCTIONS_REGION || 'asia-south1';
 const FUNCTION_URL = `https://${REGION}-${PROJECT_ID}.cloudfunctions.net/cleanupTestData`;
 
 // Get access token from Firebase CLI
