@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/widgets/error/error_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/loading/loading_skeleton.dart';
@@ -106,7 +107,7 @@ class OptimizedListView<T> extends StatelessWidget {
     if (onRefresh != null) {
       return RefreshIndicator(
         onRefresh: onRefresh!,
-        color: const Color(0xFF6F4BFF),
+        color: AuthColors.primary,
         child: listView,
       );
     }
@@ -129,9 +130,9 @@ class OptimizedListView<T> extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             margin: const EdgeInsets.symmetric(horizontal: 0),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2A),
+              color: AuthColors.backgroundAlt,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
             ),
             child: const Row(
               children: [
@@ -160,4 +161,3 @@ class OptimizedListView<T> extends StatelessWidget {
     );
   }
 }
-

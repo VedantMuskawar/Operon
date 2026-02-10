@@ -78,13 +78,18 @@ function removeUndefinedFields(obj) {
 }
 /**
  * Get transaction date from transaction document snapshot
- * Falls back to createTime or current date if createdAt is missing
+ * Prefers transactionDate (e.g. scheduled date for credit) over createdAt
+ * Falls back to createTime or current date if neither is present
  *
  * @param snapshot - Firestore document snapshot
  * @returns Transaction date
  */
 function getTransactionDate(snapshot) {
     var _a, _b;
+    const transactionDate = snapshot.get('transactionDate');
+    if (transactionDate) {
+        return transactionDate.toDate();
+    }
     const createdAt = snapshot.get('createdAt');
     if (createdAt) {
         return createdAt.toDate();

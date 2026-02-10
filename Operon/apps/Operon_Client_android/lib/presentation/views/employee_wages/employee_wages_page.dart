@@ -794,14 +794,14 @@ class _WagesTransactionTableRow extends StatelessWidget {
                   vertical: AppSpacing.paddingXS,
                 ),
                 decoration: BoxDecoration(
-                  color: (isSalary ? AuthColors.primary : AuthColors.accentPurple)
+                  color: (isSalary ? AuthColors.primary : AuthColors.secondary)
                       .withOpacity(0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                 ),
                 child: Text(
                   typeLabel,
                   style: TextStyle(
-                    color: isSalary ? AuthColors.primary : AuthColors.accentPurple,
+                    color: isSalary ? AuthColors.primary : AuthColors.secondary,
                     fontWeight: FontWeight.w600,
                     fontSize: 11,
                   ),

@@ -107,9 +107,8 @@ class WageCalculationService {
     final loadingEmployeeCount = tripWage.loadingEmployeeIds.length;
     final unloadingEmployeeCount = tripWage.unloadingEmployeeIds.length;
 
-    final loadingWagePerEmployee = loadingEmployeeCount > 0
-        ? loadingWages / loadingEmployeeCount
-        : 0.0;
+    final loadingWagePerEmployee =
+        loadingEmployeeCount > 0 ? loadingWages / loadingEmployeeCount : 0.0;
     final unloadingWagePerEmployee = unloadingEmployeeCount > 0
         ? unloadingWages / unloadingEmployeeCount
         : 0.0;
@@ -124,7 +123,8 @@ class WageCalculationService {
   }
 
   /// Get wage for a quantity using quantity ranges
-  double _getWageForQuantity(int quantity, Map<String, double> wagePerQuantity) {
+  double _getWageForQuantity(
+      int quantity, Map<String, double> wagePerQuantity) {
     double? bestMatch = null;
     int? bestRangeMax = null;
 
@@ -186,15 +186,10 @@ class WageCalculationService {
     final callable = _functions.httpsCallable('processProductionBatchWages');
 
     try {
-      // Convert paymentDate to Timestamp for Cloud Function
-      final paymentDateTimestamp = {
-        '_seconds': paymentDate.millisecondsSinceEpoch ~/ 1000,
-        '_nanoseconds': (paymentDate.millisecondsSinceEpoch % 1000) * 1000000,
-      };
-
+      // Send paymentDate as ISO string for reliable parsing in Cloud Function
       final result = await callable.call({
         'batchId': batch.batchId,
-        'paymentDate': paymentDateTimestamp,
+        'paymentDate': paymentDate.toIso8601String(),
         'createdBy': createdBy,
       });
 
@@ -208,9 +203,16 @@ class WageCalculationService {
       } else {
         throw Exception('Cloud Function returned unsuccessful result: $data');
       }
+    } on FirebaseFunctionsException catch (e) {
+      final details = e.details != null ? ' Details: ${e.details}' : '';
+      final message = e.message ?? 'No message';
+      throw Exception(
+        'Failed to process production batch wages via Cloud Function: ${e.code}: $message$details',
+      );
     } catch (e) {
       // Re-throw with more context
-      throw Exception('Failed to process production batch wages via Cloud Function: $e');
+      throw Exception(
+          'Failed to process production batch wages via Cloud Function: $e');
     }
   }
 
@@ -225,7 +227,8 @@ class WageCalculationService {
         tripWage.unloadingWages == null ||
         tripWage.loadingWagePerEmployee == null ||
         tripWage.unloadingWagePerEmployee == null) {
-      throw ArgumentError('Trip wage must have calculated wages before processing');
+      throw ArgumentError(
+          'Trip wage must have calculated wages before processing');
     }
 
     // Call Cloud Function to process wages atomically
@@ -256,6 +259,12 @@ class WageCalculationService {
       } else {
         throw Exception('Cloud Function returned unsuccessful result: $data');
       }
+    } on FirebaseFunctionsException catch (e) {
+      final details = e.details != null ? ' Details: ${e.details}' : '';
+      final message = e.message ?? 'No message';
+      throw Exception(
+        'Failed to process trip wages via Cloud Function: ${e.code}: $message$details',
+      );
     } catch (e) {
       // Re-throw with more context
       throw Exception('Failed to process trip wages via Cloud Function: $e');
@@ -318,7 +327,8 @@ class WageCalculationService {
       }
     } catch (e) {
       // Re-throw with more context
-      throw Exception('Failed to revert production batch wages via Cloud Function: $e');
+      throw Exception(
+          'Failed to revert production batch wages via Cloud Function: $e');
     }
   }
 
@@ -345,4 +355,3 @@ class WageCalculationService {
         'recalculateAndUpdateWages - implementation depends on transaction deletion logic');
   }
 }
-

@@ -49,7 +49,9 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.paddingXL,
+                  vertical: AppSpacing.paddingMD),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -61,7 +63,8 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                   Expanded(
                     child: Text(
                       'Employee Details',
-                      style: AppTypography.withColor(AppTypography.h2, AuthColors.textMain),
+                      style: AppTypography.withColor(
+                          AppTypography.h2, AuthColors.textMain),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -71,7 +74,8 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
             ),
             // Employee Header Info
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
               child: _EmployeeHeader(
                 employee: employee,
                 onEdit: _openEditDialog,
@@ -144,12 +148,12 @@ class _EmployeeHeader extends StatelessWidget {
   Color _getEmployeeColor() {
     final hash = employee.primaryJobRoleTitle.hashCode;
     final colors = [
-      AuthColors.accentPurple, // 0xFF9C27B0 (closest to 0xFF6F4BFF)
+      AuthColors.secondary, // 0xFF9C27B0 (closest to 0xFF6F4BFF)
       AuthColors.successVariant, // 0xFF5AD8A4
       AuthColors.warning, // 0xFFFF9800
       AuthColors.info, // 0xFF2196F3
       AuthColors.error, // 0xFFFF5252 (closest to 0xFFE91E63)
-      AuthColors.accentPurple, // 0xFF9C27B0
+      AuthColors.secondary, // 0xFF9C27B0
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -175,7 +179,7 @@ class _EmployeeHeader extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             employeeColor.withOpacity(0.3),
-            const Color(0xFF1B1B2C),
+            AuthColors.backgroundAlt,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -262,7 +266,9 @@ class _EmployeeHeader extends StatelessWidget {
                       ),
                       const SizedBox(width: AppSpacing.paddingXS),
                       Text(
-                        employee.primaryJobRoleTitle.isEmpty ? 'No Role' : employee.primaryJobRoleTitle,
+                        employee.primaryJobRoleTitle.isEmpty
+                            ? 'No Role'
+                            : employee.primaryJobRoleTitle,
                         style: TextStyle(
                           color: employeeColor,
                           fontSize: 11,
@@ -308,9 +314,9 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
     final organization = orgState.organization;
 
     if (organization == null) {
-      return Center(
+      return const Center(
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.paddingXL),
+          padding: EdgeInsets.all(AppSpacing.paddingXL),
           child: Text(
             'No organization selected',
             style: TextStyle(color: AuthColors.textSub),
@@ -331,7 +337,8 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
           ),
           builder: (context, transactionsSnapshot) {
             if (ledgerSnapshot.connectionState == ConnectionState.waiting ||
-                transactionsSnapshot.connectionState == ConnectionState.waiting) {
+                transactionsSnapshot.connectionState ==
+                    ConnectionState.waiting) {
               return const Center(
                 child: CircularProgressIndicator(
                   color: AuthColors.primary,
@@ -346,7 +353,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.error_outline,
                         size: 48,
                         color: AuthColors.error,
@@ -354,7 +361,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                       const SizedBox(height: AppSpacing.paddingLG),
                       Text(
                         'Failed to load ledger: ${ledgerSnapshot.error ?? transactionsSnapshot.error}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textSub,
                           fontSize: 14,
                         ),
@@ -416,7 +423,9 @@ String _formatCategoryName(String? category) {
   return category
       .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
       .split(' ')
-      .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1).toLowerCase())
+      .map((word) => word.isEmpty
+          ? ''
+          : word[0].toUpperCase() + word.substring(1).toLowerCase())
       .join(' ')
       .trim();
 }
@@ -436,20 +445,8 @@ class _LedgerTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var totalDebit = 0.0;
-    var totalCredit = 0.0;
-    for (final tx in transactions) {
-      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
-      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-      final isCredit = type == 'credit';
-      if (isCredit) {
-        totalCredit += amount;
-      } else {
-        totalDebit += amount;
-      }
-    }
-
-    if (transactions.isEmpty) {
+    final visible = List<Map<String, dynamic>>.from(transactions);
+    if (visible.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -462,7 +459,7 @@ class _LedgerTable extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.paddingMD),
-          Text(
+          const Text(
             'No transactions found.',
             style: TextStyle(color: AuthColors.textSub),
           ),
@@ -474,6 +471,62 @@ class _LedgerTable extends StatelessWidget {
             formatCurrency: formatCurrency,
           ),
         ],
+      );
+    }
+
+    visible.sort((a, b) {
+      final aDate = a['transactionDate'];
+      final bDate = b['transactionDate'];
+      try {
+        final ad = aDate is Timestamp ? aDate.toDate() : (aDate as DateTime);
+        final bd = bDate is Timestamp ? bDate.toDate() : (bDate as DateTime);
+        return ad.compareTo(bd);
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    var totalDebit = 0.0;
+    var totalCredit = 0.0;
+    var running = openingBalance;
+    final rows = <Widget>[];
+    for (final tx in visible) {
+      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
+      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      final date = tx['transactionDate'] ?? tx['createdAt'];
+      final desc = (tx['description'] as String?)?.trim();
+      final batchTrip = (desc != null && desc.isNotEmpty) ? desc : '-';
+      final category = tx['category'] as String?;
+      final isCredit = type == 'credit';
+      final credit = isCredit ? amount : 0.0;
+      final debit = isCredit ? 0.0 : amount;
+      final txId = tx['transactionId'] as String? ?? tx['id'] as String?;
+      final metadata = tx['metadata'] as Map<String, dynamic>?;
+      final voucherUrl = metadata?['cashVoucherPhotoUrl']?.toString();
+      final showVoucher = category == 'salaryDebit' &&
+          txId != null &&
+          txId.isNotEmpty &&
+          voucherUrl != null &&
+          voucherUrl.isNotEmpty;
+
+      running += isCredit ? amount : -amount;
+      totalCredit += credit;
+      totalDebit += debit;
+
+      rows.add(
+        _LedgerTableRow(
+          date: date,
+          batchTrip: batchTrip,
+          debit: debit,
+          credit: credit,
+          balance: running,
+          type: _formatCategoryName(category),
+          remarks: '-',
+          formatCurrency: formatCurrency,
+          formatDate: formatDate,
+          transactionId: txId,
+          showVoucher: showVoucher,
+        ),
       );
     }
 
@@ -493,46 +546,14 @@ class _LedgerTable extends StatelessWidget {
           decoration: BoxDecoration(
             color: AuthColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+            border: Border.all(
+                color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
               _LedgerTableHeader(),
               Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
-              ...transactions.map((tx) {
-                final type = tx['type'] as String? ?? 'credit';
-                final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-                final balanceAfter = (tx['balanceAfter'] as num?)?.toDouble() ?? 0.0;
-                final date = tx['transactionDate'] ?? tx['createdAt'];
-                final desc = (tx['description'] as String?)?.trim();
-                final batchTrip = (desc != null && desc.isNotEmpty) ? desc : '-';
-                final category = tx['category'] as String?;
-                final isCredit = type == 'credit';
-                final credit = isCredit ? amount : 0.0;
-                final debit = !isCredit ? amount : 0.0;
-                final txId = tx['transactionId'] as String? ?? tx['id'] as String?;
-                final metadata = tx['metadata'] as Map<String, dynamic>?;
-                final voucherUrl = metadata?['cashVoucherPhotoUrl']?.toString();
-                final showVoucher = category == 'salaryDebit' &&
-                    txId != null &&
-                    txId.isNotEmpty &&
-                    voucherUrl != null &&
-                    voucherUrl.isNotEmpty;
-
-                return _LedgerTableRow(
-                  date: date,
-                  batchTrip: batchTrip,
-                  debit: debit,
-                  credit: credit,
-                  balance: balanceAfter,
-                  type: _formatCategoryName(category),
-                  remarks: '-',
-                  formatCurrency: formatCurrency,
-                  formatDate: formatDate,
-                  transactionId: txId,
-                  showVoucher: showVoucher,
-                );
-              }),
+              ...rows,
             ],
           ),
         ),
@@ -551,17 +572,46 @@ class _LedgerTable extends StatelessWidget {
 class _LedgerTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
+    return const Padding(
+      padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       child: Row(
         children: [
-          Expanded(flex: 1, child: Text('Date', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Batch/Trip', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Type', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 2, child: Text('Remarks', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Date',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Reference',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Debit',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Credit',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Balance',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Type',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 2,
+              child: Text('Remarks',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
         ],
       ),
     );
@@ -598,29 +648,83 @@ class _LedgerTableRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingSM),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingSM),
       child: Row(
         children: [
-          Expanded(flex: 1, child: Text(formatDate(date), style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(batchTrip, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(debit > 0 ? formatCurrency(debit) : '-', style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(credit > 0 ? formatCurrency(credit) : '-', style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(formatCurrency(balance), style: TextStyle(color: balance >= 0 ? AuthColors.warning : AuthColors.success, fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(type.isEmpty ? '-' : type, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(formatDate(date),
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(batchTrip,
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(debit > 0 ? formatCurrency(debit) : '-',
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(credit > 0 ? formatCurrency(credit) : '-',
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(formatCurrency(balance),
+                  style: TextStyle(
+                      color: balance >= 0
+                          ? AuthColors.warning
+                          : AuthColors.success,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(type.isEmpty ? '-' : type,
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
           Expanded(
             flex: 2,
             child: showVoucher && transactionId != null
                 ? TextButton(
-                    onPressed: () => context.go('/salary-voucher?transactionId=$transactionId'),
+                    onPressed: () => context
+                        .go('/salary-voucher?transactionId=$transactionId'),
                     style: TextButton.styleFrom(
                       foregroundColor: AuthColors.primary,
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text('View voucher', style: TextStyle(fontSize: 11)),
+                    child: const Text('View voucher',
+                        style: TextStyle(fontSize: 11)),
                   )
-                : Text(remarks, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                : Text(remarks,
+                    style: const TextStyle(
+                        color: AuthColors.textMain, fontSize: 11),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -645,11 +749,13 @@ class _LedgerSummaryFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentBalance = openingBalance + totalCredit - totalDebit;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+        border:
+            Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -658,36 +764,64 @@ class _LedgerSummaryFooter extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Opening Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const Text('Opening Balance',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.paddingXS),
-              Text(formatCurrency(openingBalance), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text(formatCurrency(openingBalance),
+                  style: const TextStyle(
+                      color: AuthColors.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const Text('Total Debit',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.paddingXS),
-              Text(formatCurrency(totalDebit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text(formatCurrency(totalDebit),
+                  style: const TextStyle(
+                      color: AuthColors.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const Text('Total Credit',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.paddingXS),
-              Text(formatCurrency(totalCredit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text(formatCurrency(totalCredit),
+                  style: const TextStyle(
+                      color: AuthColors.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Current Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const Text('Current Balance',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.paddingXS),
-              Text(formatCurrency(currentBalance), style: const TextStyle(color: AuthColors.success, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text(formatCurrency(currentBalance),
+                  style: const TextStyle(
+                      color: AuthColors.success,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
             ],
           ),
         ],
@@ -705,9 +839,9 @@ class _DeleteEmployeeSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SafeArea(
         top: false,
@@ -726,12 +860,14 @@ class _DeleteEmployeeSheet extends StatelessWidget {
             ),
             Text(
               'Delete employee',
-              style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
+              style: AppTypography.withColor(
+                  AppTypography.h3, AuthColors.textMain),
             ),
             const SizedBox(height: AppSpacing.gapSM),
             Text(
               'This will permanently remove $employeeName and all related data. This action cannot be undone.',
-              style: AppTypography.withColor(AppTypography.bodySmall, AuthColors.textSub),
+              style: AppTypography.withColor(
+                  AppTypography.bodySmall, AuthColors.textSub),
             ),
             const SizedBox(height: AppSpacing.paddingXXL),
             SizedBox(
@@ -740,7 +876,8 @@ class _DeleteEmployeeSheet extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AuthColors.error,
                   foregroundColor: AuthColors.textMain,
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.paddingLG),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   ),
@@ -796,7 +933,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
 
   void _initializeRole(List<OrganizationRole> roles) {
     if (_hasInitializedRole || roles.isEmpty) return;
-    
+
     if (widget.employee != null) {
       final match = roles.where(
         (role) => role.id == widget.employee?.primaryJobRoleId,
@@ -825,7 +962,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     final cubit = context.read<EmployeesCubit>();
     final roles = context.watch<EmployeesCubit>().state.roles;
     final isEditing = widget.employee != null;
-    
+
     if (roles.isNotEmpty && !_hasInitializedRole) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -852,18 +989,19 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('Employee name'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter employee name'
-                        : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Enter employee name'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<String>(
                 initialValue: _selectedRoleId,
                 dropdownColor: AuthColors.surface,
-                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.body, AuthColors.textMain),
                 items: roles
                     .map(
                       (role) => DropdownMenuItem(
@@ -881,8 +1019,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       }
                     : null,
                 decoration: _inputDecoration('Role'),
-                validator: (value) =>
-                    value == null ? 'Select a role' : null,
+                validator: (value) => value == null ? 'Select a role' : null,
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
@@ -890,7 +1027,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                 enabled: !isEditing && cubit.canCreate,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('Opening balance'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -902,12 +1040,14 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                 },
               ),
               const SizedBox(height: AppSpacing.paddingMD),
-              if (selectedRole?.salaryType == SalaryType.salaryMonthly || selectedRole?.salaryType == null)
+              if (selectedRole?.salaryType == SalaryType.salaryMonthly ||
+                  selectedRole?.salaryType == null)
                 TextFormField(
                   controller: _salaryController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                  style: AppTypography.withColor(
+                      AppTypography.body, AuthColors.textMain),
                   decoration: _inputDecoration('Salary amount'),
                   validator: (value) {
                     final parsed = double.tryParse(value ?? '');
@@ -939,14 +1079,14 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                     return;
                   }
 
-                  final salaryAmount = selectedRole.salaryType ==
-                          SalaryType.salaryMonthly
-                      ? double.tryParse(_salaryController.text.trim()) ?? 0
-                      : null;
+                  final salaryAmount =
+                      selectedRole.salaryType == SalaryType.salaryMonthly
+                          ? double.tryParse(_salaryController.text.trim()) ?? 0
+                          : null;
 
                   final organizationId =
                       context.read<EmployeesCubit>().organizationId;
-                  
+
                   // Convert to new structure with jobRoles
                   final jobRole = EmployeeJobRole(
                     jobRoleId: selectedRole.id,
@@ -954,32 +1094,31 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                     assignedAt: DateTime.now(),
                     isPrimary: true,
                   );
-                  
+
                   // Convert SalaryType to WageType
                   WageType wageType = WageType.perMonth;
                   if (selectedRole.salaryType == SalaryType.wages) {
                     wageType = WageType.perMonth; // Default wages to perMonth
                   }
-                  
+
                   final wage = EmployeeWage(
                     type: wageType,
                     baseAmount: salaryAmount,
                   );
-                  
+
                   final employee = OrganizationEmployee(
                     id: widget.employee?.id ??
                         DateTime.now().millisecondsSinceEpoch.toString(),
-                    organizationId: widget.employee?.organizationId ??
-                        organizationId,
+                    organizationId:
+                        widget.employee?.organizationId ?? organizationId,
                     name: _nameController.text.trim(),
                     jobRoleIds: [selectedRole.id],
                     jobRoles: {selectedRole.id: jobRole},
                     wage: wage,
                     openingBalance: widget.employee?.openingBalance ??
                         double.parse(_openingBalanceController.text.trim()),
-                    currentBalance:
-                        widget.employee?.currentBalance ??
-                            double.parse(_openingBalanceController.text.trim()),
+                    currentBalance: widget.employee?.currentBalance ??
+                        double.parse(_openingBalanceController.text.trim()),
                   );
 
                   if (widget.employee == null) {
@@ -1001,7 +1140,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
+      labelStyle:
+          AppTypography.withColor(AppTypography.label, AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
@@ -1009,4 +1149,3 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     );
   }
 }
-

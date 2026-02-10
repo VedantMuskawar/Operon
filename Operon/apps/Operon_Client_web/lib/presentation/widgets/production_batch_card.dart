@@ -21,7 +21,7 @@ class ProductionBatchCard extends StatelessWidget {
       case ProductionBatchStatus.approved:
         return AuthColors.success;
       case ProductionBatchStatus.processed:
-        return AuthColors.accentPurple;
+        return AuthColors.secondary;
     }
   }
 

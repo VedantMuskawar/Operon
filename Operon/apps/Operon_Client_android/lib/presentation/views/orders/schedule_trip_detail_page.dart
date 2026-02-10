@@ -1501,7 +1501,7 @@ class _InfoRow extends StatelessWidget {
 
     if (isTappable && onTap != null) {
       return Material(
-        color: Colors.transparent,
+        color: AuthColors.transparent,
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
@@ -1545,7 +1545,7 @@ class _ActionButton extends StatelessWidget {
     final isDisabled = onTap == null;
     
     return Material(
-      color: Colors.transparent,
+      color: AuthColors.transparent,
       child: InkWell(
         onTap: isDisabled ? null : onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -2357,14 +2357,14 @@ class _TabButton extends StatelessWidget {
           horizontal: AppSpacing.paddingXS,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? AuthColors.primary : Colors.transparent,
+          color: isSelected ? AuthColors.primary : AuthColors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
           style: AppTypography.bodySmall.copyWith(
-            color: isSelected ? Colors.white : AuthColors.textSub,
+            color: isSelected ? AuthColors.textMain : AuthColors.textSub,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),

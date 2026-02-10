@@ -4,7 +4,9 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "deploy": "npm run build && firebase deploy --only functions",
-    "serve": "npm run build && firebase emulators:start --only functions"
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "main": "lib/index.js",
   "engines": {
@@ -15,7 +17,11 @@
     "firebase-functions": "^4.7.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.10.2",
+    "acorn": "^8.15.0",
+    "markdown-it": "^14.1.0",
+    "typescript": "^5.4.5",
+    "vitest": "^2.1.8"
   }
 }
-

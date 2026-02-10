@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Replace this with your real Google Maps key.
+
+      If you use different keys per build type, consider injecting via:
+      - local.properties + Gradle resValue, or
+      - CI secrets per flavor.
+    -->
+    <string name="google_maps_key">AIzaSyDO1DPSuseu1a4OskD_AwZAiUI89WjKs_A</string>
+</resources>

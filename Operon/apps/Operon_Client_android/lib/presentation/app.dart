@@ -21,7 +21,8 @@ import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/datasources/scheduled_trips_data_source.dart';
 import 'package:dash_mobile/data/repositories/dm_settings_repository.dart';
-import 'package:core_datasources/core_datasources.dart' hide ScheduledTripsRepository, ScheduledTripsDataSource;
+import 'package:core_datasources/core_datasources.dart'
+    hide ScheduledTripsRepository, ScheduledTripsDataSource;
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/data/services/analytics_service.dart';
@@ -32,6 +33,7 @@ import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_selector/org_selector_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/caller_overlay_bootstrap.dart';
+import 'package:dash_mobile/presentation/widgets/notification_token_bootstrap.dart';
 import 'package:dash_mobile/presentation/widgets/textured_background.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -108,6 +110,7 @@ class DashMobileApp extends StatelessWidget {
       dataSource: PendingOrdersDataSource(
         firestore: authRepository.firestore,
       ),
+      functions: FirebaseFunctions.instanceFor(region: 'asia-south1'),
     );
 
     final clientsRepository = ClientsRepository(
@@ -125,15 +128,15 @@ class DashMobileApp extends StatelessWidget {
     final transactionsDataSource = TransactionsDataSource(
       firestore: authRepository.firestore,
     );
-    
+
     final transactionsRepository = TransactionsRepository(
       dataSource: transactionsDataSource,
     );
-    
+
     final paymentAccountsDataSource = PaymentAccountsDataSource(
       firestore: authRepository.firestore,
     );
-    
+
     final expenseSubCategoriesRepository = ExpenseSubCategoriesRepository(
       dataSource: ExpenseSubCategoriesDataSource(
         firestore: authRepository.firestore,
@@ -181,92 +184,98 @@ class DashMobileApp extends StatelessWidget {
     return CallerOverlayBootstrap(
       child: MultiRepositoryProvider(
         providers: [
-        RepositoryProvider.value(value: authRepository),
-        RepositoryProvider.value(value: organizationRepository),
-        RepositoryProvider.value(value: rolesRepository),
-        RepositoryProvider.value(value: appAccessRolesRepository),
-        RepositoryProvider.value(value: productsRepository),
-        RepositoryProvider.value(value: employeesRepository),
-        RepositoryProvider.value(value: vendorsRepository),
-        RepositoryProvider.value(value: usersRepository),
-        RepositoryProvider.value(value: deliveryZonesRepository),
-        RepositoryProvider.value(value: paymentAccountsRepository),
-        RepositoryProvider.value(value: vehiclesRepository),
-        RepositoryProvider.value(value: pendingOrdersRepository),
-        RepositoryProvider.value(value: clientsRepository),
-        RepositoryProvider.value(value: analyticsRepository),
-        RepositoryProvider.value(value: transactionsRepository),
-        RepositoryProvider.value(value: employeeWagesRepository),
-        RepositoryProvider.value(value: clientLedgerRepository),
-        RepositoryProvider.value(value: scheduledTripsRepository),
-        RepositoryProvider.value(value: deliveryMemoRepository),
-        RepositoryProvider.value(value: qrCodeService),
-        RepositoryProvider.value(value: dmPrintService),
-        RepositoryProvider.value(value: transactionsDataSource),
-        RepositoryProvider.value(value: paymentAccountsDataSource),
-        RepositoryProvider.value(value: expenseSubCategoriesRepository),
-        RepositoryProvider.value(value: dmSettingsRepository),
-      ],
-      child: MultiBlocProvider(
-        providers: [
-          BlocProvider(
-            create: (_) => AuthBloc(
-              authRepository: authRepository,
-            )..add(const AuthStatusRequested()),
-          ),
-          BlocProvider(create: (_) => OrganizationContextCubit()),
-          BlocProvider(
-            create: (_) => OrgSelectorCubit(
-              repository: organizationRepository,
-            ),
-          ),
-          BlocProvider(
-            lazy: false,
-            create: (context) => AppInitializationCubit(
-              authRepository: authRepository,
-              orgContextCubit: context.read<OrganizationContextCubit>(),
-              orgSelectorCubit: context.read<OrgSelectorCubit>(),
-              appAccessRolesRepository: appAccessRolesRepository,
-            ),
-          ),
+          RepositoryProvider.value(value: authRepository),
+          RepositoryProvider.value(value: organizationRepository),
+          RepositoryProvider.value(value: rolesRepository),
+          RepositoryProvider.value(value: appAccessRolesRepository),
+          RepositoryProvider.value(value: productsRepository),
+          RepositoryProvider.value(value: employeesRepository),
+          RepositoryProvider.value(value: vendorsRepository),
+          RepositoryProvider.value(value: usersRepository),
+          RepositoryProvider.value(value: deliveryZonesRepository),
+          RepositoryProvider.value(value: paymentAccountsRepository),
+          RepositoryProvider.value(value: vehiclesRepository),
+          RepositoryProvider.value(value: pendingOrdersRepository),
+          RepositoryProvider.value(value: clientsRepository),
+          RepositoryProvider.value(value: analyticsRepository),
+          RepositoryProvider.value(value: transactionsRepository),
+          RepositoryProvider.value(value: employeeWagesRepository),
+          RepositoryProvider.value(value: clientLedgerRepository),
+          RepositoryProvider.value(value: scheduledTripsRepository),
+          RepositoryProvider.value(value: deliveryMemoRepository),
+          RepositoryProvider.value(value: qrCodeService),
+          RepositoryProvider.value(value: dmPrintService),
+          RepositoryProvider.value(value: transactionsDataSource),
+          RepositoryProvider.value(value: paymentAccountsDataSource),
+          RepositoryProvider.value(value: expenseSubCategoriesRepository),
+          RepositoryProvider.value(value: dmSettingsRepository),
         ],
-          child: MaterialApp.router(
-            title: 'Dash Mobile',
-            theme: buildDashTheme(),
-            routerConfig: router,
-            debugShowCheckedModeBanner: false,
-            builder: (context, child) {
-              if (kDebugMode) {
-                debugPrint('[MaterialApp.builder] Called with child: ${child != null ? child.runtimeType : "null"}');
-              }
-              
-              // Ensure MediaQuery has a valid textScaler to prevent configuration ID errors
-              // Always wrap with a safe textScaler to avoid the -2147483648 configuration ID error
-              final mediaQuery = MediaQuery.maybeOf(context);
-              final safeTextScaler = const TextScaler.linear(1.0);
-              
-              Widget wrappedChild = child ?? const SizedBox.shrink();
-              
-              // Always wrap with MediaQuery that has a safe textScaler
-              // This prevents the "incorrect configuration id: -2147483648" error
-              if (mediaQuery != null) {
-                wrappedChild = MediaQuery(
-                  data: mediaQuery.copyWith(textScaler: safeTextScaler),
+        child: MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) => AuthBloc(
+                authRepository: authRepository,
+              )..add(const AuthStatusRequested()),
+            ),
+            BlocProvider(create: (_) => OrganizationContextCubit()),
+            BlocProvider(
+              create: (_) => OrgSelectorCubit(
+                repository: organizationRepository,
+              ),
+            ),
+            BlocProvider(
+              lazy: false,
+              create: (context) => AppInitializationCubit(
+                authRepository: authRepository,
+                orgContextCubit: context.read<OrganizationContextCubit>(),
+                orgSelectorCubit: context.read<OrgSelectorCubit>(),
+                appAccessRolesRepository: appAccessRolesRepository,
+              ),
+            ),
+          ],
+          child: NotificationTokenBootstrap(
+            child: MaterialApp.router(
+              title: 'Dash Mobile',
+              theme: buildDashTheme(),
+              routerConfig: router,
+              debugShowCheckedModeBanner: false,
+              builder: (context, child) {
+                if (kDebugMode) {
+                  debugPrint(
+                    '[MaterialApp.builder] Called with child: ${child != null ? child.runtimeType : "null"}',
+                  );
+                }
+
+                // Ensure MediaQuery has a valid textScaler to prevent configuration ID errors
+                // Always wrap with a safe textScaler to avoid the -2147483648 configuration ID error
+                final mediaQuery = MediaQuery.maybeOf(context);
+                const safeTextScaler = TextScaler.linear(1.0);
+
+                Widget wrappedChild = child ?? const SizedBox.shrink();
+
+                // Always wrap with MediaQuery that has a safe textScaler
+                // This prevents the "incorrect configuration id: -2147483648" error
+                if (mediaQuery != null) {
+                  wrappedChild = MediaQuery(
+                    data: mediaQuery.copyWith(textScaler: safeTextScaler),
+                    child: wrappedChild,
+                  );
+                }
+
+                final wrapped = TexturedBackground(
+                  pattern: BackgroundPattern.dotted, // More visible pattern
+                  opacity: 1.0, // Maximum visibility for testing
+                  debugMode: kDebugMode, // Enable debug in debug mode
                   child: wrappedChild,
                 );
-              }
-              
-              final wrapped = TexturedBackground(
-                pattern: BackgroundPattern.dotted, // More visible pattern
-                opacity: 1.0, // Maximum visibility for testing
-                debugMode: kDebugMode, // Enable debug in debug mode
-                child: wrappedChild,
-              );
-              if (kDebugMode) {
-                debugPrint('[MaterialApp.builder] Returning TexturedBackground widget');
-              }
-              return wrapped;
-            },
+                if (kDebugMode) {
+                  debugPrint(
+                    '[MaterialApp.builder] Returning TexturedBackground widget',
+                  );
+                }
+                return wrapped;
+              },
+            ),
           ),
         ),
       ),

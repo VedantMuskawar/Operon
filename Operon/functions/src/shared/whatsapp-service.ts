@@ -2,6 +2,8 @@ import { WHATSAPP_SETTINGS_COLLECTION } from './constants';
 import { getFirestore } from './firestore-helpers';
 
 const db = getFirestore();
+const SETTINGS_CACHE_TTL_MS = 60_000;
+const settingsCache = new Map<string, { settings: WhatsappSettings | null; expiresAt: number }>();
 
 /**
  * WhatsApp settings interface
@@ -39,7 +41,7 @@ export async function sendWhatsappTemplateMessage(
   parameters: string[],
   messageType: string,
   context: { organizationId?: string; [key: string]: any },
-): Promise<void> {
+): Promise<string | undefined> {
   const payload = {
     messaging_product: 'whatsapp',
     to: to,
@@ -91,12 +93,16 @@ export async function sendWhatsappTemplateMessage(
     throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
   }
 
+  const messageId = result.messages?.[0]?.id;
+
   console.log(`[WhatsApp Service] ${messageType} template message sent`, {
     ...context,
     to: to.substring(0, 4) + '****',
     templateName,
-    messageId: result.messages?.[0]?.id,
+    messageId,
   });
+
+  return messageId;
 }
 
 /**
@@ -110,7 +116,15 @@ export async function sendWhatsappTemplateMessage(
 export async function loadWhatsappSettings(
   organizationId: string | undefined,
   verbose: boolean = false,
+  useCache: boolean = true,
 ): Promise<WhatsappSettings | null> {
+  const cacheKey = organizationId?.trim() || 'global';
+  if (useCache) {
+    const cached = settingsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.settings;
+    }
+  }
   // First, try to load organization-specific settings
   if (organizationId) {
     const trimmedOrgId = organizationId.trim();
@@ -165,7 +179,7 @@ export async function loadWhatsappSettings(
           }
           return null;
         }
-        return {
+        const settings = {
           enabled: true,
           token: data.token as string,
           phoneId: data.phoneId as string,
@@ -175,6 +189,13 @@ export async function loadWhatsappSettings(
           tripDispatchTemplateId: (data.tripDispatchTemplateId as string | undefined) ?? 'lakshmee_trip_dispatch',
           tripDeliveryTemplateId: (data.tripDeliveryTemplateId as string | undefined) ?? 'lakshmee_trip_delivered',
         };
+        if (useCache) {
+          settingsCache.set(cacheKey, {
+            settings,
+            expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS,
+          });
+        }
+        return settings;
       } else {
         if (verbose) {
           console.log('[WhatsApp Service] Org settings exist but enabled is false or missing', {
@@ -184,7 +205,13 @@ export async function loadWhatsappSettings(
             enabledType: typeof data?.enabled,
           });
         }
-        return null;
+          if (useCache) {
+            settingsCache.set(cacheKey, {
+              settings: null,
+              expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS,
+            });
+          }
+          return null;
       }
     } else if (verbose) {
       // Try to list documents in the collection to debug
@@ -223,7 +250,7 @@ export async function loadWhatsappSettings(
     if (verbose) {
       console.log('[WhatsApp Service] Using env fallback');
     }
-    return {
+    const settings = {
       enabled: true,
       token: envToken,
       phoneId: envPhoneId,
@@ -233,10 +260,23 @@ export async function loadWhatsappSettings(
       tripDispatchTemplateId: process.env.WHATSAPP_TRIP_DISPATCH_TEMPLATE_ID ?? 'lakshmee_trip_dispatch',
       tripDeliveryTemplateId: process.env.WHATSAPP_TRIP_DELIVERY_TEMPLATE_ID ?? 'lakshmee_trip_delivered',
     };
+    if (useCache) {
+      settingsCache.set(cacheKey, {
+        settings,
+        expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS,
+      });
+    }
+    return settings;
   }
 
   if (verbose) {
     console.log('[WhatsApp Service] No settings found (neither org-specific nor global)');
+  }
+  if (useCache) {
+    settingsCache.set(cacheKey, {
+      settings: null,
+      expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS,
+    });
   }
   return null;
 }
@@ -259,7 +299,7 @@ export async function sendWhatsappMessage(
   messageBody: string,
   messageType: string,
   context: { organizationId?: string; [key: string]: any },
-): Promise<void> {
+): Promise<string | undefined> {
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -291,11 +331,30 @@ export async function sendWhatsappMessage(
     throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
   }
 
+  const messageId = result.messages?.[0]?.id;
+
   console.log(`[WhatsApp Service] ${messageType} message sent`, {
     ...context,
     to: to.substring(0, 4) + '****',
-    messageId: result.messages?.[0]?.id,
+    messageId,
   });
+
+  return messageId;
+}
+
+export function normalizePhoneE164(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.startsWith('+') ? trimmed : `+${trimmed}`;
+  const digitsOnly = normalized.replace(/\D/g, '');
+  if (digitsOnly.length < 8) return null;
+  return normalized;
+}
+
+export function getWhatsappApiUrl(phoneId: string): string {
+  const apiVersion = process.env.WHATSAPP_GRAPH_VERSION ?? 'v19.0';
+  return `https://graph.facebook.com/${apiVersion}/${phoneId}/messages`;
 }
 
 /**

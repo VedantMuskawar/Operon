@@ -31,7 +31,8 @@ class _EmployeeAnalyticsPageState extends State<EmployeeAnalyticsPage> {
   @override
   void didUpdateWidget(EmployeeAnalyticsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_analytics != null && _lastAnalyticsData != _analytics!.wagesCreditMonthly) {
+    if (_analytics != null &&
+        _lastAnalyticsData != _analytics!.wagesCreditMonthly) {
       _updateCachedValues();
     }
   }
@@ -43,14 +44,16 @@ class _EmployeeAnalyticsPageState extends State<EmployeeAnalyticsPage> {
     // Prepare chart data
     final sortedKeys = _analytics!.wagesCreditMonthly.keys.toList()..sort();
     _cachedChartData = Map.fromEntries(
-      sortedKeys.map((key) => MapEntry(key, _analytics!.wagesCreditMonthly[key] ?? 0.0)),
+      sortedKeys.map(
+          (key) => MapEntry(key, _analytics!.wagesCreditMonthly[key] ?? 0.0)),
     );
     _lastAnalyticsData = _analytics!.wagesCreditMonthly;
   }
 
   String _canonicalFy(String? prettyFy) {
     if (prettyFy == null || prettyFy.isEmpty) return '';
-    final digits = RegExp(r'\d{4}').allMatches(prettyFy).map((m) => m.group(0)!);
+    final digits =
+        RegExp(r'\d{4}').allMatches(prettyFy).map((m) => m.group(0)!);
     if (digits.length >= 2) {
       final first = digits.first.substring(2);
       final second = digits.elementAt(1).substring(2);
@@ -66,11 +69,12 @@ class _EmployeeAnalyticsPageState extends State<EmployeeAnalyticsPage> {
       final repository = AnalyticsRepository();
       final canonicalFy = _canonicalFy(orgContext.financialYear);
       final organizationId = orgContext.organization?.id;
-      
+
       if (kDebugMode) {
-        print('[EmployeeAnalyticsPage] Loading analytics for org: $organizationId, FY: $canonicalFy');
+        print(
+            '[EmployeeAnalyticsPage] Loading analytics for org: $organizationId, FY: $canonicalFy');
       }
-      
+
       final analytics = await repository.fetchEmployeesAnalytics(
         financialYear: canonicalFy.isNotEmpty ? canonicalFy : null,
         organizationId: organizationId,
@@ -159,14 +163,16 @@ class _EmployeeAnalyticsPageState extends State<EmployeeAnalyticsPage> {
               Expanded(
                 child: _InfoTile(
                   title: 'Active Employees',
-                  value: _cachedActiveEmployeesValue ?? _analytics!.totalActiveEmployees.toString(),
+                  value: _cachedActiveEmployeesValue ??
+                      _analytics!.totalActiveEmployees.toString(),
                 ),
               ),
               const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: _InfoTile(
                   title: 'Wages This Month',
-                  value: _cachedWagesValue ?? _calculateCurrentValue(_analytics!.wagesCreditMonthly),
+                  value: _cachedWagesValue ??
+                      _calculateCurrentValue(_analytics!.wagesCreditMonthly),
                 ),
               ),
             ],
@@ -210,9 +216,8 @@ class _EmployeesStatsHeader extends StatelessWidget {
       0.0,
       (sum, emp) => sum + emp.currentBalance,
     );
-    final avgBalance = totalEmployees > 0
-        ? totalCurrentBalance / totalEmployees
-        : 0.0;
+    final avgBalance =
+        totalEmployees > 0 ? totalCurrentBalance / totalEmployees : 0.0;
     final balanceDifference = totalCurrentBalance - totalOpeningBalance;
     final balanceChangePercent = totalOpeningBalance != 0
         ? (balanceDifference / totalOpeningBalance * 100)
@@ -252,7 +257,9 @@ class _EmployeesStatsHeader extends StatelessWidget {
                 subtitle: balanceDifference != 0
                     ? '${balanceDifference >= 0 ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)} (${balanceChangePercent >= 0 ? '+' : ''}${balanceChangePercent.abs().toStringAsFixed(1)}%)'
                     : null,
-                subtitleColor: balanceDifference >= 0 ? AuthColors.success : AuthColors.error,
+                subtitleColor: balanceDifference >= 0
+                    ? AuthColors.success
+                    : AuthColors.error,
                 color: AuthColors.secondary,
               ),
             ),
@@ -355,7 +362,7 @@ class _StatCard extends StatelessWidget {
             Text(
               subtitle!,
               style: TextStyle(
-                    color: subtitleColor ?? AuthColors.textSub,
+                color: subtitleColor ?? AuthColors.textSub,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -385,12 +392,12 @@ class _InfoTile extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF6F4BFF).withOpacity(0.2),
-            const Color(0xFF4CE0B3).withOpacity(0.1),
+            AuthColors.secondary.withOpacity(0.2),
+            AuthColors.successVariant.withOpacity(0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,7 +405,7 @@ class _InfoTile extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: Colors.white70,
+              color: AuthColors.textSub,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -407,7 +414,7 @@ class _InfoTile extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 28,
               fontWeight: FontWeight.w700,
             ),
@@ -511,10 +518,10 @@ class _WagesLineChartPainter extends CustomPainter {
     final chartHeight = size.height - padding - 30;
     final dataPoints = data.values.toList();
     final dataKeys = data.keys.toList();
-    
+
     if (chartWidth <= 0 || chartHeight <= 0) return;
     if (dataPoints.isEmpty) return;
-    
+
     final valueRange = maxValue - minValue;
     final normalizedValueRange = valueRange > 0 ? valueRange : 1.0;
 
@@ -538,13 +545,11 @@ class _WagesLineChartPainter extends CustomPainter {
       fontSize: 11,
     );
     for (int i = 0; i <= 4; i++) {
-      final value = valueRange > 0 
-          ? maxValue - valueRange * (i / 4)
-          : maxValue;
+      final value = valueRange > 0 ? maxValue - valueRange * (i / 4) : maxValue;
       final yPos = padding + (chartHeight / 4) * i;
-      
+
       if (yPos.isNaN || !yPos.isFinite) continue;
-      
+
       final textPainter = TextPainter(
         text: TextSpan(
           text: '₹${value.toInt()}',
@@ -553,12 +558,12 @@ class _WagesLineChartPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
-      
+
       if (textPainter.height.isNaN || !textPainter.height.isFinite) continue;
-      
+
       final offsetY = yPos - textPainter.height / 2;
       if (offsetY.isNaN || !offsetY.isFinite) continue;
-      
+
       textPainter.paint(
         canvas,
         Offset(0, offsetY),
@@ -568,7 +573,7 @@ class _WagesLineChartPainter extends CustomPainter {
     // Draw line and points
     final divisor = (dataPoints.length - 1);
     final chartDivisor = divisor > 0 ? divisor : 1.0;
-    
+
     if (dataPoints.length > 1) {
       final path = Path();
       final pointPaint = Paint()
@@ -578,9 +583,10 @@ class _WagesLineChartPainter extends CustomPainter {
 
       for (int i = 0; i < dataPoints.length; i++) {
         final x = padding + (chartWidth / chartDivisor) * i;
-        final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
+        final normalizedValue =
+            (dataPoints[i] - minValue) / normalizedValueRange;
         final y = padding + chartHeight - (normalizedValue * chartHeight);
-        
+
         if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
         if (i == 0) {
@@ -599,9 +605,10 @@ class _WagesLineChartPainter extends CustomPainter {
 
       for (int i = 0; i < dataPoints.length; i++) {
         final x = padding + (chartWidth / chartDivisor) * i;
-        final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
+        final normalizedValue =
+            (dataPoints[i] - minValue) / normalizedValueRange;
         final y = padding + chartHeight - (normalizedValue * chartHeight);
-        
+
         if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
         canvas.drawCircle(Offset(x, y), 4, pointPaint2);
@@ -610,11 +617,13 @@ class _WagesLineChartPainter extends CustomPainter {
 
       // Draw value labels
       for (int i = 0; i < dataPoints.length; i++) {
-        if (i % ((dataPoints.length / 6).ceil()) == 0 || i == dataPoints.length - 1) {
+        if (i % ((dataPoints.length / 6).ceil()) == 0 ||
+            i == dataPoints.length - 1) {
           final x = padding + (chartWidth / chartDivisor) * i;
-          final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
+          final normalizedValue =
+              (dataPoints[i] - minValue) / normalizedValueRange;
           final y = padding + chartHeight - (normalizedValue * chartHeight);
-          
+
           if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
           final valueText = TextPainter(
@@ -631,9 +640,12 @@ class _WagesLineChartPainter extends CustomPainter {
           valueText.layout();
           final offsetX = x - valueText.width / 2;
           final offsetY = y - 20;
-          
-          if (offsetX.isNaN || offsetY.isNaN || !offsetX.isFinite || !offsetY.isFinite) continue;
-          
+
+          if (offsetX.isNaN ||
+              offsetY.isNaN ||
+              !offsetX.isFinite ||
+              !offsetY.isFinite) continue;
+
           valueText.paint(
             canvas,
             Offset(offsetX, offsetY),
@@ -644,14 +656,15 @@ class _WagesLineChartPainter extends CustomPainter {
       final pointPaint2 = Paint()
         ..color = AuthColors.primary
         ..style = PaintingStyle.fill;
-      
+
       final x = padding + chartWidth / 2;
       final normalizedValue = (dataPoints[0] - minValue) / normalizedValueRange;
       final y = padding + chartHeight - (normalizedValue * chartHeight);
-      
+
       if (!x.isNaN && !y.isNaN && x.isFinite && y.isFinite) {
         canvas.drawCircle(Offset(x, y), 4, pointPaint2);
-        canvas.drawCircle(Offset(x, y), 2, Paint()..color = AuthColors.textMain);
+        canvas.drawCircle(
+            Offset(x, y), 2, Paint()..color = AuthColors.textMain);
       }
     }
 
@@ -659,13 +672,13 @@ class _WagesLineChartPainter extends CustomPainter {
     if (dataKeys.length > 1) {
       final xAxisLabelCount = (dataKeys.length / 4).ceil();
       final xAxisDivisor = dataKeys.length - 1;
-      
+
       for (int i = 0; i < dataKeys.length; i++) {
         if (i % xAxisLabelCount == 0 || i == dataKeys.length - 1) {
           final x = padding + (chartWidth / xAxisDivisor) * i;
-          
+
           if (x.isNaN || !x.isFinite) continue;
-          
+
           final label = _formatXAxisLabel(dataKeys[i]);
           final labelText = TextPainter(
             text: TextSpan(
@@ -680,9 +693,12 @@ class _WagesLineChartPainter extends CustomPainter {
           labelText.layout();
           final offsetX = x - labelText.width / 2;
           final offsetY = size.height - 25;
-          
-          if (offsetX.isNaN || offsetY.isNaN || !offsetX.isFinite || !offsetY.isFinite) continue;
-          
+
+          if (offsetX.isNaN ||
+              offsetY.isNaN ||
+              !offsetX.isFinite ||
+              !offsetY.isFinite) continue;
+
           labelText.paint(
             canvas,
             Offset(offsetX, offsetY),
@@ -704,8 +720,11 @@ class _WagesLineChartPainter extends CustomPainter {
       labelText.layout();
       final offsetX = padding + chartWidth / 2 - labelText.width / 2;
       final offsetY = size.height - 25;
-      
-      if (!offsetX.isNaN && !offsetY.isNaN && offsetX.isFinite && offsetY.isFinite) {
+
+      if (!offsetX.isNaN &&
+          !offsetY.isNaN &&
+          offsetX.isFinite &&
+          offsetY.isFinite) {
         labelText.paint(
           canvas,
           Offset(offsetX, offsetY),
@@ -719,7 +738,20 @@ class _WagesLineChartPainter extends CustomPainter {
       final parts = key.split('-');
       if (parts.length == 2) {
         final month = int.parse(parts[1]);
-        final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final monthNames = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec'
+        ];
         if (month >= 1 && month <= 12) {
           return monthNames[month - 1];
         }
@@ -783,7 +815,20 @@ class _SummaryStats extends StatelessWidget {
       final parts = key.split('-');
       if (parts.length == 2) {
         final month = int.parse(parts[1]);
-        final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final monthNames = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec'
+        ];
         if (month >= 1 && month <= 12) {
           return monthNames[month - 1];
         }
@@ -861,4 +906,3 @@ class _StatChip extends StatelessWidget {
     );
   }
 }
-

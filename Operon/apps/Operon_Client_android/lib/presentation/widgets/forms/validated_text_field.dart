@@ -1,3 +1,4 @@
+import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
@@ -44,14 +45,14 @@ class ValidatedTextField extends StatelessWidget {
           onChanged: onChanged,
           inputFormatters: inputFormatters,
           validator: validator,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: InputDecoration(
             labelText: label,
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.white38),
-            labelStyle: const TextStyle(color: Colors.white70),
+            hintStyle: const TextStyle(color: AuthColors.textDisabled),
+            labelStyle: const TextStyle(color: AuthColors.textSub),
             filled: true,
-            fillColor: const Color(0xFF1B1B2C),
+            fillColor: AuthColors.backgroundAlt,
             prefixIcon: prefixIcon,
             suffixIcon: suffixIcon,
             enabledBorder: OutlineInputBorder(
@@ -61,21 +62,21 @@ class ValidatedTextField extends StatelessWidget {
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: const BorderSide(
-                color: Color(0xFF6F4BFF),
+                color: AuthColors.secondary,
                 width: 2,
               ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: const BorderSide(
-                color: Colors.redAccent,
+                color: AuthColors.error,
                 width: 1,
               ),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               borderSide: const BorderSide(
-                color: Colors.redAccent,
+                color: AuthColors.error,
                 width: 2,
               ),
             ),
@@ -93,4 +94,3 @@ class ValidatedTextField extends StatelessWidget {
     );
   }
 }
-

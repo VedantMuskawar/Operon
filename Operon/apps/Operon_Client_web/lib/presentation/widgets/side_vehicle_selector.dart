@@ -4,7 +4,7 @@ import 'package:dash_web/presentation/widgets/glass_info_panel.dart';
 import 'package:flutter/material.dart';
 
 /// Responsive vehicle selector.
-/// 
+///
 /// Desktop: Left-hand vertical sidebar (slim strip -> expands on hover).
 /// Mobile (< 600px): Bottom-floating horizontal scroll.
 class SideVehicleSelector extends StatefulWidget {
@@ -37,10 +37,9 @@ class _SideVehicleSelectorState extends State<SideVehicleSelector> {
       return vehicleNumber;
     }
     final uid = driver.uid;
-    if (uid.length > 8) {
-      return '${uid.substring(0, 4)}...${uid.substring(uid.length - 4)}';
-    }
-    return uid;
+    if (uid.isEmpty) return 'VH-UNKNOWN';
+    final suffix = uid.length > 6 ? uid.substring(uid.length - 6) : uid;
+    return 'VH-$suffix';
   }
 
   @override
@@ -64,7 +63,8 @@ class _SideVehicleSelectorState extends State<SideVehicleSelector> {
       alignment: Alignment.bottomCenter,
       child: Container(
         height: 64,
-        margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16), // Above detail pill
+        margin: const EdgeInsets.only(
+            bottom: 80, left: 16, right: 16), // Above detail pill
         child: ListView.builder(
           scrollDirection: Axis.horizontal,
           itemCount: 1 + widget.drivers.length,
@@ -125,7 +125,9 @@ class _SideVehicleSelectorState extends State<SideVehicleSelector> {
                   height: 64,
                   alignment: Alignment.center,
                   child: Icon(
-                    _isHovering || _isExpanded ? Icons.chevron_left : Icons.directions_car,
+                    _isHovering || _isExpanded
+                        ? Icons.chevron_left
+                        : Icons.directions_car,
                     color: AuthColors.textMain,
                   ),
                 ),
@@ -134,13 +136,15 @@ class _SideVehicleSelectorState extends State<SideVehicleSelector> {
               Expanded(
                 child: ListView.builder(
                   itemCount: 1 + widget.drivers.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: _VehicleButton(
-                          label: _isHovering || _isExpanded ? 'Show All' : 'All',
+                          label:
+                              _isHovering || _isExpanded ? 'Show All' : 'All',
                           isSelected: widget.selectedVehicleId == null,
                           onTap: widget.onShowAll,
                           backgroundColor: AuthColors.textSub,
@@ -152,11 +156,13 @@ class _SideVehicleSelectorState extends State<SideVehicleSelector> {
                     final driver = widget.drivers[index - 1];
                     final name = _getVehicleDisplayName(driver);
                     final isSelected = widget.selectedVehicleId == driver.uid;
-                    
+
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _VehicleButton(
-                        label: _isHovering || _isExpanded ? name : (name.isNotEmpty ? name[0] : '?'),
+                        label: _isHovering || _isExpanded
+                            ? name
+                            : (name.isNotEmpty ? name[0] : '?'),
                         isSelected: isSelected,
                         onTap: () => widget.onVehicleSelected(driver.uid),
                         backgroundColor: driver.isOffline
@@ -203,7 +209,9 @@ class _VehicleButton extends StatelessWidget {
       return GlassPanel(
         padding: EdgeInsets.zero,
         margin: EdgeInsets.zero,
-        backgroundColor: isSelected ? backgroundColor?.withOpacity(0.8) : Colors.black.withOpacity(0.3),
+        backgroundColor: isSelected
+            ? backgroundColor?.withOpacity(0.8)
+            : Colors.black.withOpacity(0.3),
         child: InkWell(
           onTap: onTap,
           child: Container(
@@ -226,11 +234,12 @@ class _VehicleButton extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: isSelected
-            ? backgroundColor?.withOpacity(0.8)
-            : Colors.transparent,
+        color:
+            isSelected ? backgroundColor?.withOpacity(0.8) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
-        border: isSelected ? null : Border.all(color: Colors.white.withOpacity(0.1)),
+        border: isSelected
+            ? null
+            : Border.all(color: Colors.white.withOpacity(0.1)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -240,7 +249,9 @@ class _VehicleButton extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
             child: Row(
-              mainAxisAlignment: showLabel ? MainAxisAlignment.start : MainAxisAlignment.center,
+              mainAxisAlignment: showLabel
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
               children: [
                 if (icon != null)
                   Icon(
@@ -256,7 +267,8 @@ class _VehicleButton extends StatelessWidget {
                       style: TextStyle(
                         color: AuthColors.textMain,
                         fontSize: 13,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),

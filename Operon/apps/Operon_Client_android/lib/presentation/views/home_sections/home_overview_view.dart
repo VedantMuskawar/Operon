@@ -17,7 +17,7 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
   static const Color _peopleColor = AuthColors.warning; // Orange
   static const Color _financialColor = AuthColors.success; // Green
   static const Color _operationsColor = AuthColors.info; // Blue
-  static const Color _documentsColor = AuthColors.accentPurple; // Purple
+  static const Color _documentsColor = AuthColors.secondary; // Purple
 
   // Memoized tile list - only rebuilds when role changes
   List<_TileData>? _cachedTiles;
@@ -96,6 +96,15 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
         color: _financialColor,
       ),
     ];
+    if (role?.canAccessPage('accountsLedger') == true ||
+        role?.isAdmin == true) {
+      financialTiles.add(const _TileData(
+        icon: Icons.account_balance_outlined,
+        title: 'Accounts',
+        route: '/accounts',
+        color: _financialColor,
+      ));
+    }
 
     // Combine all tiles into a single list
     return <_TileData>[
@@ -168,4 +177,3 @@ class _TileData {
   final String route;
   final Color color;
 }
-

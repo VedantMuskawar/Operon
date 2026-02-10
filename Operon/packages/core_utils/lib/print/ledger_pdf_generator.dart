@@ -6,7 +6,7 @@ import 'base_operon_document.dart';
 import 'pdf_builder.dart';
 
 /// Calculate opening balance for a date range
-/// 
+///
 /// Takes all transactions for an entity and calculates the running balance
 /// up to (but not including) the start date. If there are no transactions
 /// before the start date, returns the stored opening balance.
@@ -90,7 +90,8 @@ Future<Uint8List> generateLedgerPdf({
   final pageFormat = PdfPageFormat.a4;
 
   final List<String> headers = _getHeadersForLedgerType(ledgerType);
-  final totalDebit = transactions.fold<double>(0, (sum, row) => sum + row.debit);
+  final totalDebit =
+      transactions.fold<double>(0, (sum, row) => sum + row.debit);
   final totalCredit =
       transactions.fold<double>(0, (sum, row) => sum + row.credit);
   final closingBalance = openingBalance + totalCredit - totalDebit;
@@ -133,24 +134,16 @@ Future<Uint8List> generateLedgerPdf({
 }
 
 /// Get column headers based on ledger type
-List<String> _getHeadersForLedgerType(LedgerType ledgerType) {
-  switch (ledgerType) {
-    case LedgerType.clientLedger:
-      return ['Date', 'DM No.', 'Debit', 'Credit', 'Balance', 'Type', 'Remarks'];
-    case LedgerType.employeeLedger:
-      return ['Date', 'Batch/Trip', 'Debit', 'Credit', 'Balance', 'Type', 'Remarks'];
-    case LedgerType.vendorLedger:
-      return ['Date', 'Invoice No.', 'Debit', 'Credit', 'Balance', 'Type', 'Remarks'];
-    default:
-      return ['Date', 'Reference', 'Debit', 'Credit', 'Balance', 'Type', 'Remarks'];
-  }
+List<String> _getHeadersForLedgerType(LedgerType _) {
+  return ['Date', 'Reference', 'Debit', 'Credit', 'Balance', 'Type', 'Remarks'];
 }
 
 /// Build ledger title section
-pw.Widget _buildLedgerTitle(String entityName, DateTime startDate, DateTime endDate) {
+pw.Widget _buildLedgerTitle(
+    String entityName, DateTime startDate, DateTime endDate) {
   return pw.Container(
     padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-    decoration: pw.BoxDecoration(
+    decoration: const pw.BoxDecoration(
       color: PdfColors.grey50,
       border: pw.Border(
         left: pw.BorderSide(color: PdfColors.grey700, width: 3),
@@ -170,7 +163,7 @@ pw.Widget _buildLedgerTitle(String entityName, DateTime startDate, DateTime endD
         pw.SizedBox(height: 3),
         pw.Text(
           '${PdfBuilder.formatDateDDMMYYYY(startDate)} to ${PdfBuilder.formatDateDDMMYYYY(endDate)}',
-          style: pw.TextStyle(
+          style: const pw.TextStyle(
             fontSize: 9,
             color: PdfColors.grey700,
           ),
@@ -234,8 +227,7 @@ pw.Widget _buildTableHeaderRow(List<String> headers) {
     ),
     child: pw.Table(
       columnWidths: {
-        for (int i = 0; i < headers.length; i++)
-          i: const pw.FlexColumnWidth(1),
+        for (int i = 0; i < headers.length; i++) i: const pw.FlexColumnWidth(1),
       },
       children: [
         pw.TableRow(
@@ -243,7 +235,8 @@ pw.Widget _buildTableHeaderRow(List<String> headers) {
             final index = entry.key;
             final header = entry.value;
             return pw.Container(
-              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              padding:
+                  const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               child: pw.Text(
                 header.toUpperCase(),
                 style: pw.TextStyle(
@@ -264,8 +257,10 @@ pw.Widget _buildTableHeaderRow(List<String> headers) {
 
 /// Get header alignment based on column index
 pw.TextAlign _getHeaderAlignment(int index) {
-  if (index == 2 || index == 3 || index == 4) return pw.TextAlign.right; // Debit, Credit, Balance
-  if (index == 0 || index == 1 || index == 5) return pw.TextAlign.center; // Date, Reference, Type
+  if (index == 2 || index == 3 || index == 4)
+    return pw.TextAlign.right; // Debit, Credit, Balance
+  if (index == 0 || index == 1 || index == 5)
+    return pw.TextAlign.center; // Date, Reference, Type
   return pw.TextAlign.left; // Remarks
 }
 
@@ -293,8 +288,7 @@ pw.Widget _buildTableRow(
         color: backgroundColor,
         child: pw.Table(
           columnWidths: {
-            for (int i = 0; i < 7; i++)
-              i: const pw.FlexColumnWidth(1),
+            for (int i = 0; i < 7; i++) i: const pw.FlexColumnWidth(1),
           },
           children: [
             pw.TableRow(
@@ -334,7 +328,8 @@ pw.Widget _buildTableRow(
                   PdfBuilder.formatCurrency(row.balance),
                   pw.TextAlign.right,
                   fontWeight: pw.FontWeight.bold,
-                  color: row.balance >= 0 ? PdfColors.green700 : PdfColors.red700,
+                  color:
+                      row.balance >= 0 ? PdfColors.green700 : PdfColors.red700,
                   backgroundColor: backgroundColor,
                   isOpeningBalance: isOpeningBalance,
                   isNumeric: true,
@@ -520,7 +515,9 @@ pw.Widget _buildSummaryDashboard({
                       style: pw.TextStyle(
                         fontSize: 11,
                         fontWeight: pw.FontWeight.bold,
-                        color: closingBalance >= 0 ? PdfColors.green700 : PdfColors.red700,
+                        color: closingBalance >= 0
+                            ? PdfColors.green700
+                            : PdfColors.red700,
                         letterSpacing: 0.1,
                       ),
                     ),

@@ -6,6 +6,7 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/users_repository.dart';
 import 'package:dash_web/domain/entities/organization_user.dart';
 import 'package:dash_web/presentation/widgets/notification_center.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -127,6 +128,11 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
     final orgState = context.watch<OrganizationContextCubit>().state;
     final organization = orgState.organization;
     final fallbackAdmin = (organization?.role.toUpperCase() ?? '') == 'ADMIN';
+    final routePath = GoRouterState.of(context).uri.path;
+    final isAccountsRoute = routePath.startsWith('/accounts');
+    if (kDebugMode) {
+      debugPrint('[PageWorkspaceLayout] build route=$routePath');
+    }
 
     final media = MediaQuery.of(context);
     final bottomSafe = media.padding.bottom;
@@ -135,11 +141,12 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
     final bottomOffset = bottomSafe + 24;
 
     final appAccessRole = orgState.appAccessRole;
-    final visibleSections = widget.allowedSections?.toList() ??
-        computeHomeSections(appAccessRole);
+    final visibleSections =
+        widget.allowedSections?.toList() ?? computeHomeSections(appAccessRole);
     final isAdminRole = appAccessRole?.isAdmin ?? fallbackAdmin;
     final canManageUsers = appAccessRole?.canCreate('users') ?? isAdminRole;
-    final canManageGeofences = appAccessRole?.canCreate('geofences') ?? isAdminRole;
+    final canManageGeofences =
+        appAccessRole?.canCreate('geofences') ?? isAdminRole;
 
     return Scaffold(
       backgroundColor: AuthColors.background,
@@ -290,6 +297,33 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                     isAdminRole ? () => context.go('/payment-accounts') : null,
               ),
             ),
+            if (kDebugMode)
+              Positioned(
+                left: 16,
+                bottom: 16,
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (isAccountsRoute ? Colors.red : Colors.green)
+                          .withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white70),
+                    ),
+                    child: Text(
+                      'PageWorkspaceLayout active ($routePath)',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -358,7 +392,8 @@ class _TopNavBar extends StatelessWidget {
                   duration: const Duration(milliseconds: 400),
                   curve: Curves.easeOutCubic,
                   padding: EdgeInsets.symmetric(
-                    horizontal: 18 + (value * 2), // Slight padding increase when active
+                    horizontal:
+                        18 + (value * 2), // Slight padding increase when active
                     vertical: 12,
                   ),
                   decoration: BoxDecoration(
@@ -371,7 +406,8 @@ class _TopNavBar extends StatelessWidget {
                     boxShadow: value > 0.5
                         ? [
                             BoxShadow(
-                              color: const Color(0xFF6F4BFF).withValues(alpha: value * 0.3),
+                              color: const Color(0xFF6F4BFF)
+                                  .withValues(alpha: value * 0.3),
                               blurRadius: 12 * value,
                               offset: Offset(0, 4 * value),
                             ),
@@ -391,7 +427,8 @@ class _TopNavBar extends StatelessWidget {
                             Colors.white,
                             value,
                           ),
-                          size: 22 + (value * 1), // Slight size increase when active
+                          size: 22 +
+                              (value * 1), // Slight size increase when active
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -405,9 +442,8 @@ class _TopNavBar extends StatelessWidget {
                             value,
                           )!,
                           fontSize: 15,
-                          fontWeight: value > 0.5
-                              ? FontWeight.w600
-                              : FontWeight.normal,
+                          fontWeight:
+                              value > 0.5 ? FontWeight.w600 : FontWeight.normal,
                         ),
                         child: Text(_labels[index]),
                       ),
@@ -643,7 +679,8 @@ class _ProfileSideSheet extends StatelessWidget {
                       shape: BoxShape.circle,
                       color: Color(0xFF1F1F2C),
                     ),
-                    child: const Icon(Icons.person, color: Colors.white, size: 32),
+                    child:
+                        const Icon(Icons.person, color: Colors.white, size: 32),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -659,7 +696,8 @@ class _ProfileSideSheet extends StatelessWidget {
                                 )
                               : Future.value(null),
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
                               return const SizedBox(
                                 width: 16,
                                 height: 16,
@@ -669,9 +707,9 @@ class _ProfileSideSheet extends StatelessWidget {
                                 ),
                               );
                             }
-                            final userName = snapshot.data?.name ?? 
-                                            user?.displayName ?? 
-                                            'User';
+                            final userName = snapshot.data?.name ??
+                                user?.displayName ??
+                                'User';
                             return Text(
                               userName,
                               style: const TextStyle(
@@ -737,10 +775,12 @@ class _ProfileSideSheet extends StatelessWidget {
               _ProfileAction(
                 icon: Icons.notifications_outlined,
                 label: 'Notifications',
-                onTap: onOpenNotifications != null ? () {
-                  onClose();
-                  onOpenNotifications?.call();
-                } : null,
+                onTap: onOpenNotifications != null
+                    ? () {
+                        onClose();
+                        onOpenNotifications?.call();
+                      }
+                    : null,
               ),
               const _ProfileAction(
                 icon: Icons.security,

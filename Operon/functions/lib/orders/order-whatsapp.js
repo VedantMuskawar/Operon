@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onOrderUpdatedSendWhatsapp = exports.onOrderCreatedSendWhatsapp = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -39,37 +6,108 @@ const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
 const logger_1 = require("../shared/logger");
 const function_config_1 = require("../shared/function-config");
+const whatsapp_message_queue_1 = require("../whatsapp/whatsapp-message-queue");
 const db = (0, firestore_helpers_1.getFirestore)();
-/**
- * Sends WhatsApp notification to client when an order is created
- */
-async function sendOrderConfirmationMessage(whatsapp, to, clientName, organizationId, orderId, orderData) {
-    var _a, _b;
-    const settings = await whatsapp.loadWhatsappSettings(organizationId, true);
-    if (!(settings === null || settings === void 0 ? void 0 : settings.orderConfirmationTemplateId)) {
-        (0, logger_1.logInfo)('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Skipping – no WhatsApp settings or orderConfirmationTemplateId for org', {
-            orderId,
-            organizationId: organizationId !== null && organizationId !== void 0 ? organizationId : 'missing',
-        });
-        return;
-    }
-    const url = `https://graph.facebook.com/v19.0/${settings.phoneId}/messages`;
-    const displayName = clientName && clientName.trim().length > 0
-        ? clientName.trim()
-        : 'there';
-    // Format order items for template parameter 2
-    const itemsText = orderData.items
-        .map((item, index) => {
-        var _a, _b, _c, _d;
+const MAX_ORDER_ITEMS = 10;
+const MAX_ITEM_NAME_CHARS = 60;
+const MAX_ITEMS_TEXT_CHARS = 900;
+function buildJobId(eventId, fallbackParts) {
+    if (eventId)
+        return eventId;
+    return fallbackParts.filter(Boolean).join('-');
+}
+function truncateText(value, maxChars) {
+    if (value.length <= maxChars)
+        return value;
+    const suffix = '...';
+    const trimmedLength = Math.max(0, maxChars - suffix.length);
+    return `${value.slice(0, trimmedLength)}${suffix}`;
+}
+function formatOrderItems(items, multiline) {
+    var _a, _b, _c, _d;
+    if (!items || items.length === 0)
+        return 'No items';
+    const lines = [];
+    const itemCount = Math.min(items.length, MAX_ORDER_ITEMS);
+    for (let index = 0; index < itemCount; index += 1) {
+        const item = items[index];
         const itemNum = index + 1;
-        // Calculate totalQuantity if not present: estimatedTrips × fixedQuantityPerTrip
         const estimatedTrips = (_a = item.estimatedTrips) !== null && _a !== void 0 ? _a : 0;
         const fixedQtyPerTrip = (_b = item.fixedQuantityPerTrip) !== null && _b !== void 0 ? _b : 1;
         const totalQuantity = (_c = item.totalQuantity) !== null && _c !== void 0 ? _c : (estimatedTrips * fixedQtyPerTrip);
         const total = (_d = item.total) !== null && _d !== void 0 ? _d : 0;
-        return `${itemNum}. ${item.productName} - Qty: ${totalQuantity} units (${estimatedTrips} trips) - ₹${total.toFixed(2)}`;
-    })
-        .join('\n');
+        const productName = truncateText(item.productName, MAX_ITEM_NAME_CHARS);
+        if (multiline) {
+            lines.push(`${itemNum}. ${productName}\n   Qty: ${totalQuantity} units (${estimatedTrips} trips)\n   Amount: ₹${total.toFixed(2)}`);
+        }
+        else {
+            lines.push(`${itemNum}. ${productName} - Qty: ${totalQuantity} units (${estimatedTrips} trips) - ₹${total.toFixed(2)}`);
+        }
+    }
+    if (items.length > MAX_ORDER_ITEMS) {
+        lines.push(`...and ${items.length - MAX_ORDER_ITEMS} more items`);
+    }
+    const joined = lines.join(multiline ? '\n\n' : '\n');
+    return truncateText(joined, MAX_ITEMS_TEXT_CHARS);
+}
+function didItemsChange(beforeItems, afterItems) {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    if (!beforeItems && !afterItems)
+        return false;
+    if (!beforeItems || !afterItems)
+        return true;
+    if (beforeItems.length !== afterItems.length)
+        return true;
+    for (let i = 0; i < beforeItems.length; i += 1) {
+        const before = beforeItems[i];
+        const after = afterItems[i];
+        const beforeTrips = (_a = before.estimatedTrips) !== null && _a !== void 0 ? _a : 0;
+        const afterTrips = (_b = after.estimatedTrips) !== null && _b !== void 0 ? _b : 0;
+        const beforeFixed = (_c = before.fixedQuantityPerTrip) !== null && _c !== void 0 ? _c : 1;
+        const afterFixed = (_d = after.fixedQuantityPerTrip) !== null && _d !== void 0 ? _d : 1;
+        const beforeTotalQty = (_e = before.totalQuantity) !== null && _e !== void 0 ? _e : (beforeTrips * beforeFixed);
+        const afterTotalQty = (_f = after.totalQuantity) !== null && _f !== void 0 ? _f : (afterTrips * afterFixed);
+        if ((before.productName || '') !== (after.productName || ''))
+            return true;
+        if (beforeTrips !== afterTrips)
+            return true;
+        if (beforeFixed !== afterFixed)
+            return true;
+        if (beforeTotalQty !== afterTotalQty)
+            return true;
+        if (((_g = before.total) !== null && _g !== void 0 ? _g : 0) !== ((_h = after.total) !== null && _h !== void 0 ? _h : 0))
+            return true;
+    }
+    return false;
+}
+function didPricingChange(before, after) {
+    var _a, _b;
+    if (!before && !after)
+        return false;
+    if (!before || !after)
+        return true;
+    return (before.subtotal !== after.subtotal ||
+        ((_a = before.totalGst) !== null && _a !== void 0 ? _a : 0) !== ((_b = after.totalGst) !== null && _b !== void 0 ? _b : 0) ||
+        before.totalAmount !== after.totalAmount ||
+        before.currency !== after.currency);
+}
+function didDeliveryZoneChange(before, after) {
+    if (!before && !after)
+        return false;
+    if (!before || !after)
+        return true;
+    return before.city_name !== after.city_name || before.region !== after.region;
+}
+/**
+ * Sends WhatsApp notification to client when an order is created
+ */
+async function enqueueOrderConfirmationMessage(to, clientName, organizationId, orderId, orderData, jobId) {
+    var _a;
+    const displayName = clientName && clientName.trim().length > 0
+        ? clientName.trim()
+        : 'there';
+    // Format order items for template parameter 2
+    const itemsText = formatOrderItems(orderData.items, false);
     // Format delivery zone for parameter 3
     const deliveryInfo = orderData.deliveryZone
         ? `${orderData.deliveryZone.city_name}, ${orderData.deliveryZone.region}`
@@ -92,46 +130,33 @@ async function sendOrderConfirmationMessage(whatsapp, to, clientName, organizati
         totalAmountText, // Parameter 4: Total amount with breakdown
         advanceText, // Parameter 5: Advance payment info (never empty)
     ];
-    (0, logger_1.logInfo)('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Sending order confirmation', {
+    (0, logger_1.logInfo)('Order/WhatsApp', 'enqueueOrderConfirmationMessage', 'Enqueuing order confirmation', {
         organizationId,
         orderId,
         to: to.substring(0, 4) + '****',
-        phoneId: settings.phoneId,
-        templateId: settings.orderConfirmationTemplateId,
         hasItems: orderData.items.length > 0,
     });
-    await whatsapp.sendWhatsappTemplateMessage(url, settings.token, to, settings.orderConfirmationTemplateId, (_b = settings.languageCode) !== null && _b !== void 0 ? _b : 'en', parameters, 'order-confirmation', {
+    await (0, whatsapp_message_queue_1.enqueueWhatsappMessage)(jobId, {
+        type: 'order-confirmation',
+        to,
         organizationId,
-        orderId,
+        parameters,
+        context: {
+            organizationId,
+            orderId,
+        },
     });
 }
 /**
  * Sends WhatsApp notification to client when an order is updated
  */
-async function sendOrderUpdateMessage(whatsapp, to, clientName, organizationId, orderId, orderData) {
+async function enqueueOrderUpdateMessage(to, clientName, organizationId, orderId, orderData, jobId) {
     var _a;
-    const settings = await whatsapp.loadWhatsappSettings(organizationId);
-    if (!settings) {
-        console.log('[WhatsApp Order] Skipping send – no settings or disabled.', { orderId, organizationId });
-        return;
-    }
-    const url = `https://graph.facebook.com/v19.0/${settings.phoneId}/messages`;
     const displayName = clientName && clientName.trim().length > 0
         ? clientName.trim()
         : 'there';
     // Format order items for message
-    const itemsText = orderData.items
-        .map((item, index) => {
-        var _a, _b, _c, _d;
-        const itemNum = index + 1;
-        // Calculate totalQuantity if not present: estimatedTrips × fixedQuantityPerTrip
-        const estimatedTrips = (_a = item.estimatedTrips) !== null && _a !== void 0 ? _a : 0;
-        const fixedQtyPerTrip = (_b = item.fixedQuantityPerTrip) !== null && _b !== void 0 ? _b : 1;
-        const totalQuantity = (_c = item.totalQuantity) !== null && _c !== void 0 ? _c : (estimatedTrips * fixedQtyPerTrip);
-        const total = (_d = item.total) !== null && _d !== void 0 ? _d : 0;
-        return `${itemNum}. ${item.productName}\n   Qty: ${totalQuantity} units (${estimatedTrips} trips)\n   Amount: ₹${total.toFixed(2)}`;
-    })
-        .join('\n\n');
+    const itemsText = formatOrderItems(orderData.items, true);
     // Format delivery zone
     const deliveryInfo = orderData.deliveryZone
         ? `${orderData.deliveryZone.city_name}, ${orderData.deliveryZone.region}`
@@ -156,17 +181,22 @@ async function sendOrderUpdateMessage(whatsapp, to, clientName, organizationId, 
         `Delivery: ${deliveryInfo}\n\n` +
         `Pricing:\n${pricingText}${advanceText}${statusText}\n\n` +
         `Thank you!`;
-    (0, logger_1.logInfo)('Order/WhatsApp', 'sendOrderUpdateMessage', 'Sending order update', {
+    (0, logger_1.logInfo)('Order/WhatsApp', 'enqueueOrderUpdateMessage', 'Enqueuing order update', {
         organizationId,
         orderId,
         to: to.substring(0, 4) + '****',
-        phoneId: settings.phoneId,
         hasItems: orderData.items.length > 0,
         status: orderData.status,
     });
-    await whatsapp.sendWhatsappMessage(url, settings.token, to, messageBody, 'update', {
+    await (0, whatsapp_message_queue_1.enqueueWhatsappMessage)(jobId, {
+        type: 'order-update',
+        to,
         organizationId,
-        orderId,
+        messageBody,
+        context: {
+            organizationId,
+            orderId,
+        },
     });
 }
 /**
@@ -225,15 +255,15 @@ exports.onOrderCreatedSendWhatsapp = (0, firestore_1.onDocumentCreated)(Object.a
         });
         return;
     }
-    const whatsapp = await Promise.resolve().then(() => __importStar(require('../shared/whatsapp-service')));
     try {
-        await sendOrderConfirmationMessage(whatsapp, clientPhone, clientName, orderData.organizationId, orderId, {
+        const jobId = buildJobId(event.id, [orderId, 'order-created']);
+        await enqueueOrderConfirmationMessage(clientPhone, clientName, orderData.organizationId, orderId, {
             orderNumber: orderData.orderNumber,
             items: orderData.items,
             pricing: orderData.pricing,
             deliveryZone: orderData.deliveryZone,
             advanceAmount: orderData.advanceAmount,
-        });
+        }, jobId);
     }
     catch (err) {
         (0, logger_1.logError)('Order/WhatsApp', 'onOrderCreatedSendWhatsapp', 'Failed to send order confirmation WhatsApp', err instanceof Error ? err : undefined, {
@@ -257,10 +287,10 @@ exports.onOrderUpdatedSendWhatsapp = (0, firestore_1.onDocumentUpdated)(Object.a
     if (!before || !after)
         return;
     // Check if significant fields changed
-    const itemsChanged = JSON.stringify(before.items) !== JSON.stringify(after.items);
-    const pricingChanged = JSON.stringify(before.pricing) !== JSON.stringify(after.pricing);
+    const itemsChanged = didItemsChange(before.items, after.items);
+    const pricingChanged = didPricingChange(before.pricing, after.pricing);
     const statusChanged = before.status !== after.status;
-    const deliveryZoneChanged = JSON.stringify(before.deliveryZone) !== JSON.stringify(after.deliveryZone);
+    const deliveryZoneChanged = didDeliveryZoneChange(before.deliveryZone, after.deliveryZone);
     const advanceAmountChanged = before.advanceAmount !== after.advanceAmount;
     // Only send notification if significant changes occurred
     if (!itemsChanged && !pricingChanged && !statusChanged && !deliveryZoneChanged && !advanceAmountChanged) {
@@ -315,14 +345,14 @@ exports.onOrderUpdatedSendWhatsapp = (0, firestore_1.onDocumentUpdated)(Object.a
         });
         return;
     }
-    const whatsapp = await Promise.resolve().then(() => __importStar(require('../shared/whatsapp-service')));
-    await sendOrderUpdateMessage(whatsapp, clientPhone, clientName, orderData.organizationId, orderId, {
+    const jobId = buildJobId(event.id, [orderId, 'order-updated']);
+    await enqueueOrderUpdateMessage(clientPhone, clientName, orderData.organizationId, orderId, {
         orderNumber: orderData.orderNumber,
         items: orderData.items,
         pricing: orderData.pricing,
         deliveryZone: orderData.deliveryZone,
         advanceAmount: orderData.advanceAmount,
         status: orderData.status,
-    });
+    }, jobId);
 });
 //# sourceMappingURL=order-whatsapp.js.map

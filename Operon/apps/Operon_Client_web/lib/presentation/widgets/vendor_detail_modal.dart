@@ -4,9 +4,11 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar;
+import 'package:core_ui/core_ui.dart'
+    show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar;
 import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal;
-import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, LedgerRowData;
+import 'package:core_utils/core_utils.dart'
+    show calculateOpeningBalance, LedgerRowData;
 import 'package:dash_web/presentation/widgets/ledger_preview_dialog.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/raw_materials_repository.dart';
@@ -47,7 +49,8 @@ class _VendorDetailModalState extends State<VendorDetailModal> {
     _currentVendor = widget.vendor;
     _subscribeToVendorUpdates();
     if (widget.vendor.vendorType == VendorType.rawMaterial &&
-        widget.vendor.rawMaterialDetails?.assignedMaterialIds.isNotEmpty == true) {
+        widget.vendor.rawMaterialDetails?.assignedMaterialIds.isNotEmpty ==
+            true) {
       _loadAssignedMaterials();
     }
   }
@@ -75,7 +78,8 @@ class _VendorDetailModalState extends State<VendorDetailModal> {
             _currentVendor = updatedVendor;
           });
           // Notify parent if callback provided
-          if (widget.onVendorChanged != null && updatedVendor != widget.vendor) {
+          if (widget.onVendorChanged != null &&
+              updatedVendor != widget.vendor) {
             widget.onVendorChanged!(updatedVendor);
           }
         }
@@ -138,7 +142,8 @@ class _VendorDetailModalState extends State<VendorDetailModal> {
         Navigator.of(context).pop();
       } catch (error) {
         if (!mounted) return;
-        DashSnackbar.show(context, message: 'Unable to delete vendor: $error', isError: true);
+        DashSnackbar.show(context,
+            message: 'Unable to delete vendor: $error', isError: true);
       }
     }
   }
@@ -170,7 +175,9 @@ class _VendorDetailModalState extends State<VendorDetailModal> {
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
+    return name.length >= 2
+        ? name.substring(0, 2).toUpperCase()
+        : name.toUpperCase();
   }
 
   String _formatVendorType(VendorType type) {
@@ -197,7 +204,7 @@ class _VendorDetailModalState extends State<VendorDetailModal> {
   Widget build(BuildContext context) {
     final vendor = _currentVendor ?? widget.vendor;
     final vendorColor = _getVendorColor(vendor.vendorType);
-    
+
     return DetailModalBase(
       onClose: () => Navigator.of(context).pop(),
       child: Column(
@@ -409,9 +416,7 @@ class _TabButton extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isSelected
-                  ? const Color(0xFF6F4BFF)
-                  : Colors.transparent,
+              color: isSelected ? const Color(0xFF6F4BFF) : Colors.transparent,
               width: 2,
             ),
           ),
@@ -436,8 +441,6 @@ class _OverviewSection extends StatelessWidget {
     required this.vendorColor,
     required this.balanceDifference,
     required this.isPositive,
-    this.assignedMaterials,
-    this.isLoadingMaterials = false,
     required this.formatVendorType,
   });
 
@@ -486,7 +489,9 @@ class _OverviewSection extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: (isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350))
+                color: (isPositive
+                        ? const Color(0xFF4CAF50)
+                        : const Color(0xFFEF5350))
                     .withOpacity(0.3),
                 width: 1,
               ),
@@ -517,13 +522,17 @@ class _OverviewSection extends StatelessWidget {
                     Icon(
                       isPositive ? Icons.trending_up : Icons.trending_down,
                       size: 16,
-                      color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                      color: isPositive
+                          ? const Color(0xFF4CAF50)
+                          : const Color(0xFFEF5350),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())} from opening',
                       style: TextStyle(
-                        color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                        color: isPositive
+                            ? const Color(0xFF4CAF50)
+                            : const Color(0xFFEF5350),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -533,7 +542,9 @@ class _OverviewSection extends StatelessWidget {
                       Text(
                         '(${isPositive ? '+' : ''}${percentChange.abs().toStringAsFixed(1)}%)',
                         style: TextStyle(
-                          color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                          color: isPositive
+                              ? const Color(0xFF4CAF50)
+                              : const Color(0xFFEF5350),
                           fontSize: 11,
                         ),
                       ),
@@ -559,7 +570,8 @@ class _OverviewSection extends StatelessWidget {
               Expanded(
                 child: _SummaryCard(
                   label: 'Net Change',
-                  value: '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())}',
+                  value:
+                      '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())}',
                   color: isPositive ? AuthColors.success : AuthColors.error,
                 ),
               ),
@@ -686,10 +698,11 @@ class _OverviewSection extends StatelessWidget {
                   if (isLoadingMaterials)
                     const Center(
                       child: CircularProgressIndicator(
-                        color: AuthColors.accentPurple,
+                        color: AuthColors.secondary,
                       ),
                     )
-                  else if (assignedMaterials == null || assignedMaterials?.isEmpty == true)
+                  else if (assignedMaterials == null ||
+                      assignedMaterials?.isEmpty == true)
                     Text(
                       'No raw materials assigned',
                       style: TextStyle(
@@ -871,7 +884,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
           if (dateA == null && dateB == null) return 0;
           if (dateA == null) return 1;
           if (dateB == null) return -1;
-          
+
           Timestamp? tsA;
           Timestamp? tsB;
           if (dateA is Timestamp) {
@@ -884,11 +897,11 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
           } else if (dateB is DateTime) {
             tsB = Timestamp.fromDate(dateB);
           }
-          
+
           if (tsA == null && tsB == null) return 0;
           if (tsA == null) return 1;
           if (tsB == null) return -1;
-          
+
           return tsB.compareTo(tsA); // Descending
         });
 
@@ -903,7 +916,8 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
       onError: (e) {
         // Check if it's an index error
         final errorStr = e.toString().toLowerCase();
-        if (errorStr.contains('index') || errorStr.contains('requires an index')) {
+        if (errorStr.contains('index') ||
+            errorStr.contains('requires an index')) {
           // Try without orderBy as fallback
           final fallbackQuery = FirebaseFirestore.instance
               .collection('TRANSACTIONS')
@@ -911,7 +925,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
               .where('ledgerType', isEqualTo: 'vendorLedger')
               .where('vendorId', isEqualTo: widget.vendor.id)
               .limit(100);
-          
+
           _transactionsSubscription?.cancel();
           _transactionsSubscription?.cancel();
           _transactionsSubscription = fallbackQuery.snapshots().listen(
@@ -931,7 +945,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                 if (dateA == null && dateB == null) return 0;
                 if (dateA == null) return 1;
                 if (dateB == null) return -1;
-                
+
                 Timestamp? tsA;
                 Timestamp? tsB;
                 if (dateA is Timestamp) {
@@ -944,11 +958,11 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                 } else if (dateB is DateTime) {
                   tsB = Timestamp.fromDate(dateB);
                 }
-                
+
                 if (tsA == null && tsB == null) return 0;
                 if (tsA == null) return 1;
                 if (tsB == null) return -1;
-                
+
                 return tsB.compareTo(tsA);
               });
 
@@ -1031,7 +1045,8 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
   Widget build(BuildContext context) {
     return BlocListener<OrganizationContextCubit, OrganizationContextState>(
       listener: (context, state) {
-        if (state.organization != null && state.organization!.id != _currentOrgId) {
+        if (state.organization != null &&
+            state.organization!.id != _currentOrgId) {
           _currentOrgId = null;
           _loadTransactions();
         }
@@ -1049,7 +1064,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.error_outline,
                           size: 48,
                           color: AuthColors.error,
@@ -1057,7 +1072,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                         const SizedBox(height: 16),
                         Text(
                           _error!,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.textSub,
                             fontSize: 14,
                           ),
@@ -1093,7 +1108,9 @@ String _formatCategoryName(String? category) {
   return category
       .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
       .split(' ')
-      .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1).toLowerCase())
+      .map((word) => word.isEmpty
+          ? ''
+          : word[0].toUpperCase() + word.substring(1).toLowerCase())
       .join(' ')
       .trim();
 }
@@ -1138,14 +1155,15 @@ class _LedgerTable extends StatelessWidget {
       final organization = orgContext.organization;
       if (organization == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        DashSnackbar.show(context, message: 'No organization selected', isError: true);
+        DashSnackbar.show(context,
+            message: 'No organization selected', isError: true);
         return;
       }
 
       // Fetch all transactions for opening balance calculation
       final transactionsDataSource = TransactionsDataSource();
       final financialYear = FinancialYearUtils.getCurrentFinancialYear();
-      
+
       // Get all vendor transactions (both purchases and payments)
       final allPurchases = await transactionsDataSource.getVendorPurchases(
         organizationId: organization.id,
@@ -1156,7 +1174,7 @@ class _LedgerTable extends StatelessWidget {
         financialYear: financialYear,
         vendorId: vendorId,
       );
-      
+
       // Combine and filter by vendor
       final allTransactions = [
         ...allPurchases.where((tx) => tx.vendorId == vendorId),
@@ -1175,8 +1193,9 @@ class _LedgerTable extends StatelessWidget {
       final transactionsInRange = allTransactions.where((tx) {
         final txDate = tx.createdAt ?? tx.updatedAt;
         if (txDate == null) return false;
-        return txDate.isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
-               txDate.isBefore(dateRange.end.add(const Duration(days: 1)));
+        return txDate
+                .isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
+            txDate.isBefore(dateRange.end.add(const Duration(days: 1)));
       }).toList();
 
       // Sort chronologically
@@ -1189,7 +1208,7 @@ class _LedgerTable extends StatelessWidget {
       // Convert to LedgerRowData
       double runningBalance = openingBal;
       final ledgerRows = <LedgerRowData>[];
-      
+
       for (final tx in transactionsInRange) {
         final txDate = tx.createdAt ?? tx.updatedAt ?? DateTime.now();
         final type = tx.type;
@@ -1231,13 +1250,17 @@ class _LedgerTable extends StatelessWidget {
       final dmSettings = await dmSettingsRepo.fetchDmSettings(organization.id);
       if (dmSettings == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        DashSnackbar.show(context, message: 'DM settings not found. Please configure DM settings first.', isError: true);
+        DashSnackbar.show(context,
+            message:
+                'DM settings not found. Please configure DM settings first.',
+            isError: true);
         return;
       }
 
       // Load logo if available
       Uint8List? logoBytes;
-      if (dmSettings.header.logoImageUrl != null && dmSettings.header.logoImageUrl!.isNotEmpty) {
+      if (dmSettings.header.logoImageUrl != null &&
+          dmSettings.header.logoImageUrl!.isNotEmpty) {
         try {
           final logoUrl = dmSettings.header.logoImageUrl!;
           final response = await http.get(Uri.parse(logoUrl));
@@ -1270,27 +1293,16 @@ class _LedgerTable extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // Close loading if still open
-        DashSnackbar.show(context, message: 'Failed to generate ledger PDF: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to generate ledger PDF: $e', isError: true);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    var totalDebit = 0.0;
-    var totalCredit = 0.0;
-    for (final tx in transactions) {
-      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
-      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-      final isCredit = type == 'credit';
-      if (isCredit) {
-        totalCredit += amount;
-      } else {
-        totalDebit += amount;
-      }
-    }
-
-    if (transactions.isEmpty) {
+    final visible = List<Map<String, dynamic>>.from(transactions);
+    if (visible.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1304,9 +1316,12 @@ class _LedgerTable extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text(
+          const Text(
             'No transactions found.',
-            style: TextStyle(color: AuthColors.textSub, fontSize: 13, fontFamily: 'SF Pro Display'),
+            style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 13,
+                fontFamily: 'SF Pro Display'),
           ),
           const SizedBox(height: 20),
           _LedgerSummaryFooter(
@@ -1316,6 +1331,53 @@ class _LedgerTable extends StatelessWidget {
             formatCurrency: formatCurrency,
           ),
         ],
+      );
+    }
+
+    visible.sort((a, b) {
+      final aDate = a['transactionDate'];
+      final bDate = b['transactionDate'];
+      try {
+        final ad = aDate is Timestamp ? aDate.toDate() : (aDate as DateTime);
+        final bd = bDate is Timestamp ? bDate.toDate() : (bDate as DateTime);
+        return ad.compareTo(bd);
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    var totalDebit = 0.0;
+    var totalCredit = 0.0;
+    var running = openingBalance;
+    final rows = <Widget>[];
+    for (final tx in visible) {
+      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
+      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      final date = tx['transactionDate'] ?? tx['createdAt'];
+      final invoiceNo = tx['referenceNumber'] as String? ??
+          tx['metadata']?['invoiceNumber'] as String? ??
+          '-';
+      final category = tx['category'] as String?;
+      final desc = (tx['description'] as String?)?.trim();
+      final isCredit = type == 'credit';
+      final credit = isCredit ? amount : 0.0;
+      final debit = isCredit ? 0.0 : amount;
+      running += isCredit ? amount : -amount;
+      totalCredit += credit;
+      totalDebit += debit;
+
+      rows.add(
+        _LedgerTableRow(
+          date: date,
+          invoiceNo: invoiceNo,
+          debit: debit,
+          credit: credit,
+          balance: running,
+          type: _formatCategoryName(category),
+          remarks: (desc != null && desc.isNotEmpty) ? desc : '-',
+          formatCurrency: formatCurrency,
+          formatDate: formatDate,
+        ),
       );
     }
 
@@ -1347,36 +1409,14 @@ class _LedgerTable extends StatelessWidget {
           decoration: BoxDecoration(
             color: AuthColors.surface,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+            border: Border.all(
+                color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
               _LedgerTableHeader(),
               Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
-              ...transactions.map((tx) {
-                final type = tx['type'] as String? ?? 'credit';
-                final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-                final balanceAfter = (tx['balanceAfter'] as num?)?.toDouble() ?? 0.0;
-                final date = tx['transactionDate'] ?? tx['createdAt'];
-                final invoiceNo = tx['referenceNumber'] as String? ?? tx['metadata']?['invoiceNumber'] as String? ?? '-';
-                final category = tx['category'] as String?;
-                final desc = (tx['description'] as String?)?.trim();
-                final isCredit = type == 'credit';
-                final credit = isCredit ? amount : 0.0;
-                final debit = !isCredit ? amount : 0.0;
-
-                return _LedgerTableRow(
-                  date: date,
-                  invoiceNo: invoiceNo,
-                  debit: debit,
-                  credit: credit,
-                  balance: balanceAfter,
-                  type: _formatCategoryName(category),
-                  remarks: (desc != null && desc.isNotEmpty) ? desc : '-',
-                  formatCurrency: formatCurrency,
-                  formatDate: formatDate,
-                );
-              }),
+              ...rows,
             ],
           ),
         ),
@@ -1407,7 +1447,7 @@ class _LedgerTableHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(flex: 1, child: _borderedCell('Date')),
-        Expanded(flex: 1, child: _borderedCell('Invoice No.')),
+        Expanded(flex: 1, child: _borderedCell('Reference')),
         Expanded(flex: 1, child: _borderedCell('Debit')),
         Expanded(flex: 1, child: _borderedCell('Credit')),
         Expanded(flex: 1, child: _borderedCell('Balance')),
@@ -1417,7 +1457,8 @@ class _LedgerTableHeader extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             alignment: Alignment.center,
-            child: Text('Remarks', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Remarks',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
       ],
@@ -1470,18 +1511,61 @@ class _LedgerTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(flex: 1, child: _cell(Text(formatDate(date), style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(invoiceNo, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(debit > 0 ? formatCurrency(debit) : '-', style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(credit > 0 ? formatCurrency(credit) : '-', style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(formatCurrency(balance), style: _cellStyle.copyWith(color: balance >= 0 ? AuthColors.warning : AuthColors.success, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(type.isEmpty ? '-' : type, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(formatDate(date),
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(invoiceNo,
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(debit > 0 ? formatCurrency(debit) : '-',
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(credit > 0 ? formatCurrency(credit) : '-',
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(formatCurrency(balance),
+                style: _cellStyle.copyWith(
+                    color:
+                        balance >= 0 ? AuthColors.warning : AuthColors.success,
+                    fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(type.isEmpty ? '-' : type,
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
         Expanded(
           flex: 2,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             alignment: Alignment.center,
-            child: Text(remarks, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+            child: Text(remarks,
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
           ),
         ),
       ],
@@ -1530,7 +1614,8 @@ class _LedgerSummaryFooter extends StatelessWidget {
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+        border:
+            Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1539,36 +1624,48 @@ class _LedgerSummaryFooter extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Opening Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Opening Balance',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(openingBalance), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(openingBalance),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Debit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Total Debit',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(totalDebit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(totalDebit),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Credit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Total Credit',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(totalCredit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(totalCredit),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Current Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Current Balance',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(currentBalance), style: _footerValueStyle.copyWith(color: AuthColors.success), textAlign: TextAlign.center),
+              Text(formatCurrency(currentBalance),
+                  style: _footerValueStyle.copyWith(color: AuthColors.success),
+                  textAlign: TextAlign.center),
             ],
           ),
         ],
@@ -1634,4 +1731,3 @@ class _DeleteVendorDialog extends StatelessWidget {
     );
   }
 }
-

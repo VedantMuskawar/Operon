@@ -10,9 +10,8 @@ import 'package:operon_driver_android/core/models/location_point.dart';
 import 'package:operon_driver_android/core/services/presence_service.dart';
 
 class LocationService {
-  LocationService({
-    FirebaseDatabase? database,
-  })  : _database = database ?? FirebaseDatabase.instance;
+  LocationService({FirebaseDatabase? database})
+    : _database = database ?? FirebaseDatabase.instance;
 
   final FirebaseDatabase _database;
 
@@ -41,6 +40,10 @@ class LocationService {
   double? _lastKnownSpeed;
   Timer? _samplingStateDebounceTimer;
 
+  static const double _stillSpeedThreshold = 1.0;
+  static const int _movingDistanceFilterMeters = 15;
+  static const int _stillDistanceFilterMeters = 75;
+
   // Presence service for heartbeat
   PresenceService? _presenceService;
 
@@ -55,16 +58,16 @@ class LocationService {
   /// Adaptive sampling: Reduces GPS frequency when vehicle is still to save battery
   LocationSettings _getLocationSettings() {
     if (_isStill) {
-      // Vehicle is still: Use lower frequency (50m filter) to save battery
+      // Vehicle is still: Use lower frequency to save battery
       return const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 50, // Reduced frequency when still
+        accuracy: LocationAccuracy.medium,
+        distanceFilter: _stillDistanceFilterMeters,
       );
     }
     // Vehicle is moving: Use normal frequency (10m filter) for accurate tracking
     return const LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 10, // Normal frequency when moving
+      distanceFilter: _movingDistanceFilterMeters,
     );
   }
 
@@ -72,27 +75,30 @@ class LocationService {
   void _restartLocationStream() {
     if (_subscription == null || _uid == null || _tripId == null) return;
 
-    debugPrint('[LocationService] Restarting location stream: isStill=$_isStill');
+    debugPrint(
+      '[LocationService] Restarting location stream: isStill=$_isStill',
+    );
 
     // Cancel existing subscription
     _subscription?.cancel();
 
     // Start new stream with updated settings
     final settings = _getLocationSettings();
-    _subscription = Geolocator.getPositionStream(locationSettings: settings).listen(
-      (position) async {
-        try {
-          await _onPosition(position);
-        } catch (e, st) {
-          debugPrint('[LocationService] position handling failed: $e');
-          debugPrintStack(stackTrace: st);
-        }
-      },
-      onError: (e, st) {
-        debugPrint('[LocationService] Geolocator stream error: $e');
-        debugPrintStack(stackTrace: st is StackTrace ? st : null);
-      },
-    );
+    _subscription = Geolocator.getPositionStream(locationSettings: settings)
+        .listen(
+          (position) async {
+            try {
+              await _onPosition(position);
+            } catch (e, st) {
+              debugPrint('[LocationService] position handling failed: $e');
+              debugPrintStack(stackTrace: st);
+            }
+          },
+          onError: (e, st) {
+            debugPrint('[LocationService] Geolocator stream error: $e');
+            debugPrintStack(stackTrace: st is StackTrace ? st : null);
+          },
+        );
   }
 
   Future<void> startTracking({
@@ -132,20 +138,21 @@ class LocationService {
     // Start with high-frequency sampling (moving assumption)
     final settings = _getLocationSettings();
 
-    _subscription = Geolocator.getPositionStream(locationSettings: settings).listen(
-      (position) async {
-        try {
-          await _onPosition(position);
-        } catch (e, st) {
-          debugPrint('[LocationService] position handling failed: $e');
-          debugPrintStack(stackTrace: st);
-        }
-      },
-      onError: (e, st) {
-        debugPrint('[LocationService] Geolocator stream error: $e');
-        debugPrintStack(stackTrace: st is StackTrace ? st : null);
-      },
-    );
+    _subscription = Geolocator.getPositionStream(locationSettings: settings)
+        .listen(
+          (position) async {
+            try {
+              await _onPosition(position);
+            } catch (e, st) {
+              debugPrint('[LocationService] position handling failed: $e');
+              debugPrintStack(stackTrace: st);
+            }
+          },
+          onError: (e, st) {
+            debugPrint('[LocationService] Geolocator stream error: $e');
+            debugPrintStack(stackTrace: st is StackTrace ? st : null);
+          },
+        );
 
     // Start presence service for heartbeat
     _presenceService?.stop();
@@ -156,7 +163,7 @@ class LocationService {
   Future<void> stopTracking({bool flush = true}) async {
     final sub = _subscription;
     final uidToRemove = _uid; // Capture uid before clearing
-    
+
     _subscription = null;
     await sub?.cancel();
 
@@ -178,9 +185,13 @@ class LocationService {
     if (uidToRemove != null) {
       try {
         await _database.ref(FirestorePaths.activeDriver(uidToRemove)).remove();
-        debugPrint('[LocationService] Removed location data from RTDB for uid: $uidToRemove');
+        debugPrint(
+          '[LocationService] Removed location data from RTDB for uid: $uidToRemove',
+        );
       } catch (e) {
-        debugPrint('[LocationService] Failed to remove location data from RTDB: $e');
+        debugPrint(
+          '[LocationService] Failed to remove location data from RTDB: $e',
+        );
         // Continue - tracking is stopped even if RTDB cleanup fails
       }
     }
@@ -195,7 +206,7 @@ class LocationService {
     _vehicleNumber = null;
     // Note: We don't reset _totalDistanceMeters here because it should be
     // read by the caller before stopping, or reset when startTracking is called again.
-    
+
     // Don't close the Hive box - BackgroundSyncService may still need it
     // The box will be managed by the sync service
   }
@@ -218,7 +229,7 @@ class LocationService {
     // Threshold: 1.0 m/s = 3.6 km/h (walking speed)
     final currentSpeed = position.speed; // m/s
     final wasStill = _isStill;
-    final newIsStill = currentSpeed < 1.0;
+    final newIsStill = currentSpeed < _stillSpeedThreshold;
 
     // Update state (debounced to avoid rapid toggles)
     if (newIsStill != wasStill) {
@@ -228,7 +239,7 @@ class LocationService {
       _samplingStateDebounceTimer = Timer(const Duration(seconds: 5), () {
         // Only change state if speed has been consistent for 5 seconds
         if (_lastKnownSpeed != null) {
-          final consistentStill = _lastKnownSpeed! < 1.0;
+          final consistentStill = _lastKnownSpeed! < _stillSpeedThreshold;
           if (consistentStill != _isStill && _subscription != null) {
             _isStill = consistentStill;
             _restartLocationStream();
@@ -286,9 +297,9 @@ class LocationService {
         tripId: tripId,
         uid: uid,
       );
-      
+
       await _locationBox?.add(locationPoint);
-      
+
       // Update buffer length stream
       if (!_bufferLengthController.isClosed) {
         _bufferLengthController.add(_locationBox?.length ?? 0);
@@ -350,4 +361,3 @@ class LocationService {
     // Don't close Hive box here - BackgroundSyncService manages it
   }
 }
-

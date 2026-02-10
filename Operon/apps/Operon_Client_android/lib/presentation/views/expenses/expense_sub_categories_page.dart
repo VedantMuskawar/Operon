@@ -51,7 +51,10 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
     final cubit = context.read<ExpenseSubCategoriesCubit>();
     final maxOrder = cubit.state.subCategories.isEmpty
         ? 0
-        : cubit.state.subCategories.map((sc) => sc.order).reduce((a, b) => a > b ? a : b) + 1;
+        : cubit.state.subCategories
+                .map((sc) => sc.order)
+                .reduce((a, b) => a > b ? a : b) +
+            1;
 
     final result = await showDialog<ExpenseSubCategory>(
       context: context,
@@ -109,7 +112,9 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
     );
 
     if (confirmed == true && mounted) {
-      await context.read<ExpenseSubCategoriesCubit>().deleteSubCategory(subCategory.id);
+      await context
+          .read<ExpenseSubCategoriesCubit>()
+          .deleteSubCategory(subCategory.id);
     }
   }
 
@@ -135,94 +140,97 @@ class _ExpenseSubCategoriesPageState extends State<ExpenseSubCategoriesPage> {
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Search Bar
-            _buildSearchBar(),
-            const SizedBox(height: AppSpacing.paddingLG),
-            // Sub-Categories List
-            BlocBuilder<ExpenseSubCategoriesCubit,
-                ExpenseSubCategoriesState>(
-              builder: (context, state) {
-                if (state.status == ViewStatus.loading &&
-                    state.subCategories.isEmpty) {
-                  return const SizedBox(
-                    height: 200,
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Search Bar
+                      _buildSearchBar(),
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      // Sub-Categories List
+                      BlocBuilder<ExpenseSubCategoriesCubit,
+                          ExpenseSubCategoriesState>(
+                        builder: (context, state) {
+                          if (state.status == ViewStatus.loading &&
+                              state.subCategories.isEmpty) {
+                            return const SizedBox(
+                              height: 200,
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
 
-                final subCategories = state.filteredSubCategories;
+                          final subCategories = state.filteredSubCategories;
 
-                if (subCategories.isEmpty) {
-                  return _EmptyState(
-                    onAdd: () => _openSubCategoryDialog(null),
-                  );
-                }
+                          if (subCategories.isEmpty) {
+                            return _EmptyState(
+                              onAdd: () => _openSubCategoryDialog(null),
+                            );
+                          }
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ...subCategories.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final subCategory = entry.value;
-                      return Column(
-                        children: [
-                          _SubCategoryDataListItem(
-                            subCategory: subCategory,
-                            onEdit: () => _openSubCategoryDialog(subCategory),
-                            onDelete: () => _deleteSubCategory(subCategory),
-                          ),
-                          if (index < subCategories.length - 1)
-                            const SizedBox(height: AppSpacing.paddingMD),
-                        ],
-                      );
-                    }),
-                  ],
-                );
-              },
-            ),
-          ],
-                ),
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ...subCategories.asMap().entries.map((entry) {
+                                final index = entry.key;
+                                final subCategory = entry.value;
+                                return Column(
+                                  children: [
+                                    _SubCategoryDataListItem(
+                                      subCategory: subCategory,
+                                      onEdit: () =>
+                                          _openSubCategoryDialog(subCategory),
+                                      onDelete: () =>
+                                          _deleteSubCategory(subCategory),
+                                    ),
+                                    if (index < subCategories.length - 1)
+                                      const SizedBox(
+                                          height: AppSpacing.paddingMD),
+                                  ],
+                                );
+                              }),
+                            ],
+                          );
+                        },
                       ),
-                    ),
-            FloatingNavBar(
-              items: const [
-                NavBarItem(
-                  icon: Icons.home_rounded,
-                  label: 'Home',
-                  heroTag: 'nav_home',
+                    ],
+                  ),
                 ),
-                NavBarItem(
-                  icon: Icons.pending_actions_rounded,
-                  label: 'Pending',
-                  heroTag: 'nav_pending',
-                ),
-                NavBarItem(
-                  icon: Icons.schedule_rounded,
-                  label: 'Schedule',
-                  heroTag: 'nav_schedule',
-                ),
-                NavBarItem(
-                  icon: Icons.map_rounded,
-                  label: 'Map',
-                  heroTag: 'nav_map',
-                ),
-                NavBarItem(
-                  icon: Icons.event_available_rounded,
-                  label: 'Cash Ledger',
-                  heroTag: 'nav_cash_ledger',
-                ),
-              ],
-              currentIndex: -1,
-              onItemTapped: (index) {
-                context.go('/home', extra: index);
-              },
-            ),
-          ],
+              ),
+              FloatingNavBar(
+                items: const [
+                  NavBarItem(
+                    icon: Icons.home_rounded,
+                    label: 'Home',
+                    heroTag: 'nav_home',
+                  ),
+                  NavBarItem(
+                    icon: Icons.pending_actions_rounded,
+                    label: 'Pending',
+                    heroTag: 'nav_pending',
+                  ),
+                  NavBarItem(
+                    icon: Icons.schedule_rounded,
+                    label: 'Schedule',
+                    heroTag: 'nav_schedule',
+                  ),
+                  NavBarItem(
+                    icon: Icons.map_rounded,
+                    label: 'Map',
+                    heroTag: 'nav_map',
+                  ),
+                  NavBarItem(
+                    icon: Icons.event_available_rounded,
+                    label: 'Cash Ledger',
+                    heroTag: 'nav_cash_ledger',
+                  ),
+                ],
+                currentIndex: -1,
+                onItemTapped: (index) {
+                  context.go('/home', extra: index);
+                },
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -269,7 +277,8 @@ class _SubCategoryDataListItem extends StatelessWidget {
 
   Color _getColor() {
     try {
-      return Color(int.parse(subCategory.colorHex.substring(1), radix: 16) + 0xFF000000);
+      return Color(
+          int.parse(subCategory.colorHex.substring(1), radix: 16) + 0xFF000000);
     } catch (e) {
       return AuthColors.primary;
     }
@@ -295,9 +304,9 @@ class _SubCategoryDataListItem extends StatelessWidget {
 
   String _formatCurrency(double amount) {
     return '₹${amount.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    )}';
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        )}';
   }
 
   String _formatSubtitle() {
@@ -330,13 +339,16 @@ class _SubCategoryDataListItem extends StatelessWidget {
         leading: DataListAvatar(
           initial: icon,
           radius: 28,
-          statusRingColor: subCategory.isActive ? color : AuthColors.textDisabled,
+          statusRingColor:
+              subCategory.isActive ? color : AuthColors.textDisabled,
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             DataListStatusDot(
-              color: subCategory.isActive ? AuthColors.success : AuthColors.textDisabled,
+              color: subCategory.isActive
+                  ? AuthColors.success
+                  : AuthColors.textDisabled,
               size: 8,
             ),
             const SizedBox(width: AppSpacing.paddingMD),
@@ -384,8 +396,8 @@ class _EmptyState extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF1B1B2C).withOpacity(0.6),
-              const Color(0xFF161622).withOpacity(0.8),
+              AuthColors.backgroundAlt.withOpacity(0.6),
+              AuthColors.surface.withOpacity(0.8),
             ],
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
@@ -400,20 +412,20 @@ class _EmptyState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: AuthColors.accentPurple.withOpacity(0.15),
+                color: AuthColors.secondary.withOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.category_outlined,
                 size: 32,
-                color: AuthColors.accentPurple,
+                color: AuthColors.secondary,
               ),
             ),
             const SizedBox(height: AppSpacing.paddingXL),
             const Text(
               'No sub-categories yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
               ),
@@ -421,7 +433,8 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: AppSpacing.paddingSM),
             Text(
               'Start by adding your first expense sub-category',
-              style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
+              style: AppTypography.withColor(
+                  AppTypography.body, AuthColors.textSub),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.paddingXXL),
@@ -436,4 +449,3 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-

@@ -2,7 +2,8 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/app_access_roles_repository.dart';
 import 'package:dash_web/domain/entities/app_access_role.dart';
-import 'package:core_models/core_models.dart' show PageCrudPermissions, RolePermissions;
+import 'package:core_models/core_models.dart'
+    show PageCrudPermissions, RolePermissions;
 import 'package:dash_web/presentation/blocs/access_control/access_control_cubit.dart';
 import 'package:dash_web/presentation/blocs/app_access_roles/app_access_roles_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
@@ -13,29 +14,45 @@ import 'package:go_router/go_router.dart';
 
 // Navigation Sections (AuthColors for consistency)
 const _sections = [
-  _ItemInfo('pendingOrders', 'Pending Orders', Icons.pending_actions, AuthColors.primary),
+  _ItemInfo('pendingOrders', 'Pending Orders', Icons.pending_actions,
+      AuthColors.primary),
   _ItemInfo('scheduleOrders', 'Schedule', Icons.schedule, AuthColors.info),
-  _ItemInfo('ordersMap', 'Orders Map', Icons.map_outlined, AuthColors.successVariant),
-  _ItemInfo('analyticsDashboard', 'Analytics', Icons.analytics_outlined, AuthColors.warning),
+  _ItemInfo(
+      'ordersMap', 'Orders Map', Icons.map_outlined, AuthColors.successVariant),
+  _ItemInfo('analyticsDashboard', 'Analytics', Icons.analytics_outlined,
+      AuthColors.warning),
 ];
 
 // Pages (includes financialTransactions, vendors, rawMaterials, geofences)
 const _pages = [
-  _ItemInfo('products', 'Products', Icons.inventory_2_outlined, AuthColors.primary),
-  _ItemInfo('employees', 'Employees', Icons.people_outline, AuthColors.successVariant),
+  _ItemInfo(
+      'products', 'Products', Icons.inventory_2_outlined, AuthColors.primary),
+  _ItemInfo('employees', 'Employees', Icons.people_outline,
+      AuthColors.successVariant),
   _ItemInfo('users', 'Users', Icons.person_outline, AuthColors.secondary),
   _ItemInfo('clients', 'Clients', Icons.business_outlined, AuthColors.info),
-  _ItemInfo('zonesCity', 'Zones • City', Icons.location_city_outlined, AuthColors.info),
-  _ItemInfo('zonesRegion', 'Zones • Region', Icons.map_outlined, AuthColors.primary),
-  _ItemInfo('zonesPrice', 'Zones • Price', Icons.attach_money_outlined, AuthColors.successVariant),
-  _ItemInfo('vehicles', 'Vehicles', Icons.directions_car_outlined, AuthColors.warning),
-  _ItemInfo('paymentAccounts', 'Payment Accounts', Icons.account_balance_wallet_outlined, AuthColors.primary),
-  _ItemInfo('roles', 'Roles', Icons.badge_outlined, AuthColors.accentPurple),
-  _ItemInfo('deliveryMemos', 'Delivery Memos', Icons.description_outlined, AuthColors.info),
-  _ItemInfo('financialTransactions', 'Financial Transactions', Icons.receipt_long_outlined, AuthColors.success),
-  _ItemInfo('vendors', 'Vendors', Icons.storefront_outlined, AuthColors.warning),
-  _ItemInfo('rawMaterials', 'Raw Materials', Icons.inventory_outlined, AuthColors.secondary),
-  _ItemInfo('geofences', 'Geofences', Icons.fence, AuthColors.accentPurple),
+  _ItemInfo('accountsLedger', 'Accounts', Icons.account_balance_outlined,
+      AuthColors.success),
+  _ItemInfo('zonesCity', 'Zones • City', Icons.location_city_outlined,
+      AuthColors.info),
+  _ItemInfo(
+      'zonesRegion', 'Zones • Region', Icons.map_outlined, AuthColors.primary),
+  _ItemInfo('zonesPrice', 'Zones • Price', Icons.attach_money_outlined,
+      AuthColors.successVariant),
+  _ItemInfo('vehicles', 'Vehicles', Icons.directions_car_outlined,
+      AuthColors.warning),
+  _ItemInfo('paymentAccounts', 'Payment Accounts',
+      Icons.account_balance_wallet_outlined, AuthColors.primary),
+  _ItemInfo('roles', 'Roles', Icons.badge_outlined, AuthColors.secondary),
+  _ItemInfo('deliveryMemos', 'Delivery Memos', Icons.description_outlined,
+      AuthColors.info),
+  _ItemInfo('financialTransactions', 'Financial Transactions',
+      Icons.receipt_long_outlined, AuthColors.success),
+  _ItemInfo(
+      'vendors', 'Vendors', Icons.storefront_outlined, AuthColors.warning),
+  _ItemInfo('rawMaterials', 'Raw Materials', Icons.inventory_outlined,
+      AuthColors.secondary),
+  _ItemInfo('geofences', 'Geofences', Icons.fence, AuthColors.secondary),
 ];
 
 class _ItemInfo {
@@ -52,7 +69,8 @@ class AccessControlPageContent extends StatefulWidget {
   const AccessControlPageContent({super.key});
 
   @override
-  State<AccessControlPageContent> createState() => _AccessControlPageContentState();
+  State<AccessControlPageContent> createState() =>
+      _AccessControlPageContentState();
 }
 
 class _AccessControlPageContentState extends State<AccessControlPageContent> {
@@ -65,7 +83,8 @@ class _AccessControlPageContentState extends State<AccessControlPageContent> {
         BlocListener<AccessControlCubit, AccessControlState>(
           listener: (context, state) {
             if (state.status == ViewStatus.failure && state.message != null) {
-              DashSnackbar.show(context, message: state.message!, isError: true);
+              DashSnackbar.show(context,
+                  message: state.message!, isError: true);
             }
             if (state.status == ViewStatus.success && state.showSaveSuccess) {
               DashSnackbar.show(
@@ -79,12 +98,14 @@ class _AccessControlPageContentState extends State<AccessControlPageContent> {
         BlocListener<AppAccessRolesCubit, AppAccessRolesState>(
           listener: (context, state) {
             if (state.status == ViewStatus.failure && state.message != null) {
-              DashSnackbar.show(context, message: state.message!, isError: true);
+              DashSnackbar.show(context,
+                  message: state.message!, isError: true);
             }
             if (state.status == ViewStatus.success) {
               context.read<AccessControlCubit>().load();
               if (_selectedRoleId != null) {
-                final stillExists = state.roles.any((r) => r.id == _selectedRoleId);
+                final stillExists =
+                    state.roles.any((r) => r.id == _selectedRoleId);
                 if (!stillExists) {
                   setState(() => _selectedRoleId = null);
                 }
@@ -106,9 +127,9 @@ class _AccessControlPageContentState extends State<AccessControlPageContent> {
           }
 
           if (state.status == ViewStatus.loading) {
-            return Center(
+            return const Center(
               child: Padding(
-                padding: const EdgeInsets.all(40),
+                padding: EdgeInsets.all(40),
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
                 ),
@@ -130,7 +151,8 @@ class _AccessControlPageContentState extends State<AccessControlPageContent> {
                       flex: 0,
                       fit: FlexFit.tight,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 160, maxWidth: 220),
+                        constraints:
+                            const BoxConstraints(minWidth: 160, maxWidth: 220),
                         child: _RoleRail(
                           selectedRoleId: _selectedRoleId,
                           onRoleSelected: (roleId) =>
@@ -143,28 +165,33 @@ class _AccessControlPageContentState extends State<AccessControlPageContent> {
                       child: _selectedRoleId == null
                           ? const _EmptyPermissionPanel()
                           : _PermissionAssignmentPanel(
-                        roleId: _selectedRoleId!,
-                        roles: state.roles,
-                        permissions: state.permissions,
-                        sections: state.sections,
-                        hasChanges: state.hasChanges,
-                        isSaving: state.isSaving,
-                        onPermissionChanged: (pageKey, roleId, action, value) =>
-                            context.read<AccessControlCubit>().updatePermission(
-                                  pageKey,
-                                  roleId,
-                                  action,
-                                  value,
-                                ),
-                        onSectionChanged: (sectionKey, roleId, value) =>
-                            context.read<AccessControlCubit>().updateSectionAccess(
-                                  sectionKey,
-                                  roleId,
-                                  value,
-                                ),
-                        onSave: () =>
-                            context.read<AccessControlCubit>().saveChanges(),
-                      ),
+                              roleId: _selectedRoleId!,
+                              roles: state.roles,
+                              permissions: state.permissions,
+                              sections: state.sections,
+                              hasChanges: state.hasChanges,
+                              isSaving: state.isSaving,
+                              onPermissionChanged:
+                                  (pageKey, roleId, action, value) => context
+                                      .read<AccessControlCubit>()
+                                      .updatePermission(
+                                        pageKey,
+                                        roleId,
+                                        action,
+                                        value,
+                                      ),
+                              onSectionChanged: (sectionKey, roleId, value) =>
+                                  context
+                                      .read<AccessControlCubit>()
+                                      .updateSectionAccess(
+                                        sectionKey,
+                                        roleId,
+                                        value,
+                                      ),
+                              onSave: () => context
+                                  .read<AccessControlCubit>()
+                                  .saveChanges(),
+                            ),
                     ),
                   ],
                 ),
@@ -195,7 +222,7 @@ class _AccessControlPageState extends State<AccessControlPage> {
         panelTitle: 'Access Control',
         currentIndex: -1,
         onNavTap: (index) => context.go('/home?section=$index'),
-        child: Center(
+        child: const Center(
           child: Text(
             'No organization selected',
             style: TextStyle(color: AuthColors.textMain),
@@ -259,14 +286,14 @@ class _RoleRail extends StatelessWidget {
                 child: InkWell(
                   onTap: () => _openRoleDialog(context),
                   borderRadius: BorderRadius.circular(10),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.add, color: AuthColors.textMain, size: 16),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             'Add role',
@@ -285,22 +312,23 @@ class _RoleRail extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               if (rolesState.status == ViewStatus.loading)
-                Center(
+                const Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
                     child: SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(AuthColors.primary),
                       ),
                     ),
                   ),
                 )
               else if (rolesState.roles.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
                   child: Text(
                     'No roles yet.\nTap "Add role" to create one.',
                     textAlign: TextAlign.center,
@@ -350,7 +378,8 @@ class _RoleRail extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmDeleteRole(BuildContext context, AppAccessRole role) async {
+  Future<void> _confirmDeleteRole(
+      BuildContext context, AppAccessRole role) async {
     if (role.isAdmin) {
       DashSnackbar.show(
         context,
@@ -365,13 +394,13 @@ class _RoleRail extends StatelessWidget {
       barrierColor: AuthColors.background.withValues(alpha: 0.7),
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.background,
-        title: Text(
+        title: const Text(
           'Delete Role',
           style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete "${role.name}"? This action cannot be undone.',
-          style: TextStyle(color: AuthColors.textSub),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           DashButton(
@@ -481,9 +510,10 @@ class _RoleRailTile extends StatelessWidget {
                 ),
               ),
               if (role.isAdmin)
-                Icon(Icons.shield, color: AuthColors.warning, size: 14),
+                const Icon(Icons.shield, color: AuthColors.warning, size: 14),
               IconButton(
-                icon: Icon(Icons.edit_outlined, size: 14, color: AuthColors.textSub),
+                icon: const Icon(Icons.edit_outlined,
+                    size: 14, color: AuthColors.textSub),
                 onPressed: onEdit,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -495,7 +525,8 @@ class _RoleRailTile extends StatelessWidget {
                 icon: Icon(
                   Icons.delete_outline,
                   size: 14,
-                  color: role.isAdmin ? AuthColors.textDisabled : AuthColors.error,
+                  color:
+                      role.isAdmin ? AuthColors.textDisabled : AuthColors.error,
                 ),
                 onPressed: role.isAdmin ? null : onDelete,
                 padding: EdgeInsets.zero,
@@ -569,10 +600,11 @@ class _PermissionAssignmentPanel extends StatelessWidget {
                 color: AuthColors.warning.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.shield, color: AuthColors.warning, size: 48),
+              child:
+                  const Icon(Icons.shield, color: AuthColors.warning, size: 48),
             ),
             const SizedBox(height: 24),
-            Text(
+            const Text(
               'Admin Role',
               style: TextStyle(
                 color: AuthColors.textMain,
@@ -581,7 +613,7 @@ class _PermissionAssignmentPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               'This role has full access to all pages and sections.\nNo permissions need to be configured.',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -630,14 +662,14 @@ class _PermissionAssignmentPanel extends StatelessWidget {
                   children: [
                     Text(
                       'Permissions for ${role.name}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    const Text(
                       'Configure what this role can access and do',
                       style: TextStyle(
                         color: AuthColors.textSub,
@@ -661,7 +693,8 @@ class _PermissionAssignmentPanel extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AuthColors.backgroundAlt,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                      border: Border.all(
+                          color: AuthColors.textMainWithOpacity(0.1)),
                     ),
                     child: _PermissionSection(
                       title: 'Navigation sections',
@@ -669,7 +702,8 @@ class _PermissionAssignmentPanel extends StatelessWidget {
                       items: _sections,
                       roleId: roleId,
                       sections: sections,
-                      onChanged: (key, value) => onSectionChanged(key, roleId, value),
+                      onChanged: (key, value) =>
+                          onSectionChanged(key, roleId, value),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -679,7 +713,8 @@ class _PermissionAssignmentPanel extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AuthColors.backgroundAlt,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                      border: Border.all(
+                          color: AuthColors.textMainWithOpacity(0.1)),
                     ),
                     child: _PermissionSection(
                       title: 'Pages & CRUD',
@@ -711,18 +746,20 @@ class _PermissionAssignmentPanel extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       if (isSaving)
-                        SizedBox(
+                        const SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                AuthColors.textMain),
                           ),
                         )
                       else ...[
-                        Icon(Icons.save, color: AuthColors.textMain, size: 20),
+                        const Icon(Icons.save,
+                            color: AuthColors.textMain, size: 20),
                         const SizedBox(width: 8),
-                        Text(
+                        const Text(
                           'Save Changes',
                           style: TextStyle(
                             color: AuthColors.textMain,
@@ -789,7 +826,7 @@ class _PermissionSection extends StatelessWidget {
             const SizedBox(width: 12),
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -809,11 +846,13 @@ class _PermissionSection extends StatelessWidget {
             );
           } else if (permissions != null && onPermissionChanged != null) {
             // Page CRUD permissions
-            final rolePerms = permissions![item.key]?[roleId] ?? const PageCrudPermissions();
+            final rolePerms =
+                permissions![item.key]?[roleId] ?? const PageCrudPermissions();
             return _PagePermissionItem(
               item: item,
               permissions: rolePerms,
-              onChanged: (action, value) => onPermissionChanged!(item.key, action, value),
+              onChanged: (action, value) =>
+                  onPermissionChanged!(item.key, action, value),
             );
           }
           return const SizedBox.shrink();
@@ -863,7 +902,7 @@ class _SectionPermissionItem extends StatelessWidget {
           Expanded(
             child: Text(
               item.label,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textMain,
                 fontWeight: FontWeight.w500,
                 fontSize: 14,
@@ -923,7 +962,7 @@ class _PagePermissionItem extends StatelessWidget {
               Expanded(
                 child: Text(
                   item.label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -1003,9 +1042,7 @@ class _CrudToggle extends StatelessWidget {
                 : AuthColors.textMainWithOpacity(0.05),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: enabled
-                  ? color
-                  : AuthColors.textMainWithOpacity(0.1),
+              color: enabled ? color : AuthColors.textMainWithOpacity(0.1),
               width: enabled ? 1.5 : 1,
             ),
           ),
@@ -1068,7 +1105,7 @@ class _EmptyPermissionPanel extends StatelessWidget {
               color: AuthColors.textMainWithOpacity(0.3),
             ),
             const SizedBox(height: 24),
-            Text(
+            const Text(
               'Select a role to configure permissions',
               style: TextStyle(
                 color: AuthColors.textSub,
@@ -1115,7 +1152,8 @@ class _RoleDialogState extends State<_RoleDialog> {
     super.initState();
     final role = widget.role;
     _nameController = TextEditingController(text: role?.name ?? '');
-    _descriptionController = TextEditingController(text: role?.description ?? '');
+    _descriptionController =
+        TextEditingController(text: role?.description ?? '');
     _colorHex = role?.colorHex ?? _colorOptions.first;
     _isAdmin = role?.isAdmin ?? false;
   }
@@ -1137,7 +1175,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       backgroundColor: AuthColors.background,
       title: Text(
         isEditing ? 'Edit App Access Role' : 'Add App Access Role',
-        style: TextStyle(color: AuthColors.textMain),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: dialogWidth,
@@ -1149,17 +1187,16 @@ class _RoleDialogState extends State<_RoleDialog> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Role Name *'),
-                  validator: (value) =>
-                      (value == null || value.trim().isEmpty)
-                          ? 'Enter a role name'
-                          : null,
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Enter a role name'
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _descriptionController,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('Description (optional)'),
                   maxLines: 2,
                 ),
@@ -1171,19 +1208,20 @@ class _RoleDialogState extends State<_RoleDialog> {
                 ),
                 const SizedBox(height: 12),
                 SwitchListTile(
-                  title: Text(
+                  title: const Text(
                     'Admin Role (Full Access)',
                     style: TextStyle(color: AuthColors.textSub),
                   ),
-                  subtitle: Text(
+                  subtitle: const Text(
                     'Admin roles have full access to all pages and sections',
-                    style: TextStyle(color: AuthColors.textDisabled, fontSize: 12),
+                    style:
+                        TextStyle(color: AuthColors.textDisabled, fontSize: 12),
                   ),
                   value: _isAdmin,
                   onChanged: isEditing && widget.role?.isAdmin == true
                       ? null
                       : (value) => setState(() => _isAdmin = value),
-                  activeColor: AuthColors.primary,
+                  activeThumbColor: AuthColors.primary,
                 ),
               ],
             ),
@@ -1215,7 +1253,8 @@ class _RoleDialogState extends State<_RoleDialog> {
                           : _descriptionController.text.trim(),
                       colorHex: _colorHex,
                       isAdmin: _isAdmin,
-                      permissions: widget.role?.permissions ?? const RolePermissions(),
+                      permissions:
+                          widget.role?.permissions ?? const RolePermissions(),
                     );
 
                     final cubit = context.read<AppAccessRolesCubit>();
@@ -1255,7 +1294,7 @@ class _RoleDialogState extends State<_RoleDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -1287,7 +1326,7 @@ class _ColorSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Accent Color',
           style: TextStyle(color: AuthColors.textSub, fontSize: 14),
         ),
@@ -1319,7 +1358,8 @@ class _ColorSelector extends StatelessWidget {
                       : null,
                 ),
                 child: isActive
-                    ? Icon(Icons.check, color: AuthColors.textMain, size: 20)
+                    ? const Icon(Icons.check,
+                        color: AuthColors.textMain, size: 20)
                     : null,
               ),
             );

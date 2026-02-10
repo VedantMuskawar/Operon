@@ -176,7 +176,7 @@ class _WagesStatsHeader extends StatelessWidget {
                 icon: Icons.trending_up,
                 label: 'Average Amount',
                 value: _formatCurrency(avgAmount),
-                color: AuthColors.accentPurple,
+                color: AuthColors.secondary,
               ),
             ),
           ],

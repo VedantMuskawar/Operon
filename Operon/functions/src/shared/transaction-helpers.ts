@@ -46,12 +46,17 @@ export function removeUndefinedFields(obj: any): any {
 
 /**
  * Get transaction date from transaction document snapshot
- * Falls back to createTime or current date if createdAt is missing
- * 
+ * Prefers transactionDate (e.g. scheduled date for credit) over createdAt
+ * Falls back to createTime or current date if neither is present
+ *
  * @param snapshot - Firestore document snapshot
  * @returns Transaction date
  */
 export function getTransactionDate(snapshot: FirebaseFirestore.DocumentSnapshot): Date {
+  const transactionDate = snapshot.get('transactionDate') as admin.firestore.Timestamp | undefined;
+  if (transactionDate) {
+    return transactionDate.toDate();
+  }
   const createdAt = snapshot.get('createdAt') as admin.firestore.Timestamp | undefined;
   if (createdAt) {
     return createdAt.toDate();

@@ -10,6 +10,8 @@
     "export-sch-orders": "TS_NODE_PROJECT=tsconfig.json ts-node src/export-sch-orders.ts",
     "export-transactions": "TS_NODE_PROJECT=tsconfig.json ts-node src/export-transactions.ts",
     "export-delivery-memos": "TS_NODE_PROJECT=tsconfig.json ts-node src/export-delivery-memos.ts",
+    "import-delivery-zones": "TS_NODE_PROJECT=tsconfig.json ts-node src/import-delivery-zones.ts",
+    "generate-delivery-zones-template": "TS_NODE_PROJECT=tsconfig.json ts-node src/generate-delivery-zones-template.ts",
     "update-completed-pending-orders": "TS_NODE_PROJECT=tsconfig.json ts-node src/update-completed-pending-orders.ts",
     "lint": "tsc --noEmit"
   },

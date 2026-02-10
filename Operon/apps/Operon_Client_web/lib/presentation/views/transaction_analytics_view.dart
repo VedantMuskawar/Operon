@@ -110,19 +110,16 @@ class _TransactionAnalyticsViewState extends State<TransactionAnalyticsView> {
 }
 
 /// Content only: stat cards + line chart + donut. Used by [AnalyticsDashboardView].
-/// When [isDailyView] is true, shows only daily chart (last 30 days); otherwise monthly chart only.
-/// [startDate] and [endDate] are used to filter the data displayed.
+/// [startDate] and [endDate] filter the chart data to the selected custom date range.
 class TransactionAnalyticsContent extends StatefulWidget {
   const TransactionAnalyticsContent({
     super.key,
     required this.analytics,
-    this.isDailyView = false,
     this.startDate,
     this.endDate,
   });
 
   final TransactionAnalytics analytics;
-  final bool isDailyView;
   final DateTime? startDate;
   final DateTime? endDate;
 
@@ -133,6 +130,14 @@ class TransactionAnalyticsContent extends StatefulWidget {
 class _TransactionAnalyticsContentState extends State<TransactionAnalyticsContent> {
   final ValueNotifier<String?> _touchedDateOrMonth = ValueNotifier<String?>(null);
 
+  /// Show daily breakdown when range ≤31 days and we have daily data
+  bool _shouldShowDailyChart(TransactionAnalytics analytics) {
+    if (widget.startDate == null || widget.endDate == null) return false;
+    final days = widget.endDate!.difference(widget.startDate!).inDays + 1;
+    if (days > 31) return false;
+    return analytics.incomeDaily.isNotEmpty || analytics.receivablesDaily.isNotEmpty;
+  }
+
   @override
   void dispose() {
     _touchedDateOrMonth.dispose();
@@ -142,13 +147,10 @@ class _TransactionAnalyticsContentState extends State<TransactionAnalyticsConten
   @override
   Widget build(BuildContext context) {
     final analytics = widget.analytics;
-    final isDaily = widget.isDailyView;
 
     if (kDebugMode) {
-      debugPrint('[TransactionAnalyticsContent UI] isDailyView=$isDaily '
-          'totalIncome=${analytics.totalIncome} totalReceivables=${analytics.totalReceivables} '
-          'incomeMonthlyKeys=${analytics.incomeMonthly.keys.length} incomeDailyKeys=${analytics.incomeDaily.keys.length} '
-          'receivablesMonthlyKeys=${analytics.receivablesMonthly.keys.length} receivablesDailyKeys=${analytics.receivablesDaily.keys.length}');
+      debugPrint('[TransactionAnalyticsContent UI] totalIncome=${analytics.totalIncome} totalReceivables=${analytics.totalReceivables} '
+          'incomeMonthlyKeys=${analytics.incomeMonthly.keys.length} receivablesMonthlyKeys=${analytics.receivablesMonthly.keys.length}');
     }
 
     return Column(
@@ -158,35 +160,104 @@ class _TransactionAnalyticsContentState extends State<TransactionAnalyticsConten
           _DataTimestamp(timestamp: analytics.generatedAt!),
           const SizedBox(height: 16),
         ],
-        _StatCards(analytics: analytics),
+        if (widget.startDate != null && widget.endDate != null) ...[
+          _DateRangeBanner(startDate: widget.startDate!, endDate: widget.endDate!),
+          const SizedBox(height: 16),
+        ],
+        _StatCards(
+          analytics: analytics,
+          startDate: widget.startDate,
+          endDate: widget.endDate,
+        ),
         const SizedBox(height: 24),
-        if (isDaily)
-          (analytics.incomeDaily.isNotEmpty || analytics.receivablesDaily.isNotEmpty)
-              ? _DailyTrendsChart(
-                  analytics: analytics,
-                  touchedDateOrMonth: _touchedDateOrMonth,
-                  startDate: widget.startDate,
-                  endDate: widget.endDate,
-                )
-              : const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'No daily data for the selected date range.',
-                      style: TextStyle(color: AuthColors.textSub, fontSize: 14),
-                    ),
-                  ),
-                )
-        else
-          _MonthlyLineChart(
+        _MonthlyLineChart(
+          analytics: analytics,
+          touchedDateOrMonth: _touchedDateOrMonth,
+          startDate: widget.startDate,
+          endDate: widget.endDate,
+        ),
+        if (_shouldShowDailyChart(analytics)) ...[
+          const SizedBox(height: 24),
+          _DailyTrendsChart(
             analytics: analytics,
             touchedDateOrMonth: _touchedDateOrMonth,
-            startDate: widget.startDate,
-            endDate: widget.endDate,
+            startDate: widget.startDate!,
+            endDate: widget.endDate!,
           ),
+        ],
         const SizedBox(height: 24),
-        _ReceivableAgingDonut(analytics: analytics),
+        _ReceivableAgingDonut(
+          analytics: analytics,
+          endDate: widget.endDate,
+        ),
       ],
+    );
+  }
+}
+
+class _DateRangeBanner extends StatelessWidget {
+  const _DateRangeBanner({required this.startDate, required this.endDate});
+
+  final DateTime startDate;
+  final DateTime endDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final rangeStr = '${DateFormat('MMM d, yyyy').format(startDate)} – ${DateFormat('MMM d, yyyy').format(endDate)}';
+    final daysCount = endDate.difference(startDate).inDays + 1;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AuthColors.primary.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AuthColors.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.date_range, size: 18, color: AuthColors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Selected period',
+                  style: TextStyle(
+                    color: AuthColors.textSub,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  rangeStr,
+                  style: const TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AuthColors.primary.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              '$daysCount days',
+              style: TextStyle(
+                color: AuthColors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -221,312 +292,16 @@ class _DataTimestamp extends StatelessWidget {
   }
 }
 
-class _DailyTrendsChart extends StatelessWidget {
-  const _DailyTrendsChart({
+class _StatCards extends StatelessWidget {
+  const _StatCards({
     required this.analytics,
-    this.touchedDateOrMonth,
     this.startDate,
     this.endDate,
   });
 
   final TransactionAnalytics analytics;
-  final ValueNotifier<String?>? touchedDateOrMonth;
   final DateTime? startDate;
   final DateTime? endDate;
-
-  bool _isDateInRange(String dateStr) {
-    if (startDate == null || endDate == null) return true;
-    try {
-      final parts = dateStr.split('-');
-      if (parts.length >= 3) {
-        final year = int.tryParse(parts[0]);
-        final month = int.tryParse(parts[1]);
-        final day = int.tryParse(parts[2]);
-        if (year != null && month != null && day != null) {
-          final date = DateTime(year, month, day);
-          return date.isAfter(startDate!.subtract(const Duration(days: 1))) &&
-                 date.isBefore(endDate!.add(const Duration(days: 1)));
-        }
-      }
-    } catch (_) {}
-    return true;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final incomeDaily = analytics.incomeDaily;
-    final receivablesDaily = analytics.receivablesDaily;
-    final allDays = <String>{...incomeDaily.keys, ...receivablesDaily.keys}.toList()..sort();
-    
-    // Filter by date range if provided
-    final filteredDays = startDate != null && endDate != null
-        ? allDays.where(_isDateInRange).toList()
-        : (allDays.length > 30 ? allDays.sublist(allDays.length - 30) : allDays);
-    
-    if (filteredDays.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    // Calculate maxY from filtered data only
-    final filteredIncomeValues = filteredDays.map((d) => incomeDaily[d] ?? 0.0).toList();
-    final filteredReceivablesValues = filteredDays.map((d) => receivablesDaily[d] ?? 0.0).toList();
-    final maxY = [
-      ...filteredIncomeValues,
-      ...filteredReceivablesValues,
-    ].fold<double>(0.0, (a, b) => a > b ? a : b);
-    const minY = 0.0;
-    final range = (maxY - minY).clamp(1.0, double.infinity);
-
-    final incomeSpots = <FlSpot>[];
-    final receivablesSpots = <FlSpot>[];
-    for (var i = 0; i < filteredDays.length; i++) {
-      final day = filteredDays[i];
-      incomeSpots.add(FlSpot(i.toDouble(), (incomeDaily[day] ?? 0.0)));
-      receivablesSpots.add(FlSpot(i.toDouble(), (receivablesDaily[day] ?? 0.0)));
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: AuthColors.info,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                startDate != null && endDate != null
-                    ? 'Daily Income vs Receivables'
-                    : 'Daily Income vs Receivables (Last 30 Days)',
-                style: const TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 260,
-            child: ValueListenableBuilder<String?>(
-              valueListenable: touchedDateOrMonth ?? ValueNotifier<String?>(null),
-              builder: (context, touched, _) {
-                double? syncLineX;
-                if (touched != null) {
-                  if (touched.length > 7) {
-                    final monthKey = touched.substring(0, 7);
-                    for (var i = 0; i < filteredDays.length; i++) {
-                      if (filteredDays[i].startsWith(monthKey)) {
-                        syncLineX = i.toDouble();
-                        break;
-                      }
-                    }
-                  } else {
-                    final idx = filteredDays.indexOf(touched);
-                    if (idx >= 0) syncLineX = idx.toDouble();
-                  }
-                }
-                final chartData = LineChartData(
-                    minX: 0,
-                    maxX: (filteredDays.length - 1).clamp(0, double.infinity).toDouble(),
-                    minY: minY - range * 0.05,
-                    maxY: maxY + range * 0.05,
-                    extraLinesData: syncLineX != null
-                        ? ExtraLinesData(
-                            verticalLines: [
-                              VerticalLine(
-                                x: syncLineX,
-                                color: AuthColors.primary.withOpacity(0.5),
-                                strokeWidth: 2,
-                                dashArray: [4, 4],
-                              ),
-                            ],
-                          )
-                        : null,
-                    gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: AuthColors.textMainWithOpacity(0.08),
-                    strokeWidth: 1,
-                    dashArray: [4, 4],
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 44,
-                      getTitlesWidget: (value, meta) => Text(
-                        value >= 0 ? '₹${(value / 1000).toStringAsFixed(0)}k' : '',
-                        style: const TextStyle(
-                          color: AuthColors.textSub,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      interval: filteredDays.length > 10 ? (filteredDays.length / 10).ceil().toDouble() : 1,
-                      getTitlesWidget: (value, meta) {
-                        final i = value.round();
-                        if (i >= 0 && i < filteredDays.length && i % ((filteredDays.length / 10).ceil().clamp(1, filteredDays.length)) == 0) {
-                          final d = filteredDays[i];
-                          try {
-                            final parts = d.split('-');
-                            if (parts.length >= 3) {
-                              final day = int.tryParse(parts[2]);
-                              if (day != null) {
-                                return Text(
-                                  day.toString(),
-                                  style: const TextStyle(color: AuthColors.textSub, fontSize: 9),
-                                );
-                              }
-                            }
-                            return Text(d.substring(5), style: const TextStyle(color: AuthColors.textSub, fontSize: 9));
-                          } catch (_) {
-                            return Text(d, style: const TextStyle(color: AuthColors.textSub, fontSize: 8));
-                          }
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(
-                  show: true,
-                  border: Border(
-                    bottom: BorderSide(color: AuthColors.textMainWithOpacity(0.1), width: 1),
-                    left: BorderSide(color: AuthColors.textMainWithOpacity(0.1), width: 1),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: incomeSpots,
-                    isCurved: true,
-                    curveSmoothness: 0.35,
-                    color: AuthColors.success,
-                    barWidth: 2.5,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          AuthColors.success.withOpacity(0.1),
-                          AuthColors.success.withOpacity(0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                  LineChartBarData(
-                    spots: receivablesSpots,
-                    isCurved: true,
-                    curveSmoothness: 0.35,
-                    color: AuthColors.info,
-                    barWidth: 2.5,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          AuthColors.info.withOpacity(0.1),
-                          AuthColors.info.withOpacity(0.0),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                lineTouchData: LineTouchData(
-                  touchCallback: (event, response) {
-                    if (touchedDateOrMonth != null) {
-                      if (response != null && response.lineBarSpots != null && response.lineBarSpots!.isNotEmpty) {
-                        final spot = response.lineBarSpots!.first;
-                        final i = spot.x.round();
-                        if (i >= 0 && i < filteredDays.length) {
-                          touchedDateOrMonth!.value = filteredDays[i];
-                        }
-                      } else {
-                        touchedDateOrMonth!.value = null;
-                      }
-                    }
-                  },
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => AuthColors.surface,
-                    tooltipBorder: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
-                    getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
-                      final label = s.barIndex == 0 ? 'Income' : 'Receivables';
-                      return LineTooltipItem(
-                        '$label: ₹${s.y.toStringAsFixed(0)}',
-                        const TextStyle(color: AuthColors.textMain, fontSize: 12),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              );
-                return LineChart(
-                  chartData,
-                  duration: const Duration(milliseconds: 250),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Row(
-            children: [
-              _LegendDot(color: AuthColors.success),
-              SizedBox(width: 8),
-              Text('Income', style: TextStyle(color: AuthColors.textSub, fontSize: 12)),
-              SizedBox(width: 20),
-              _LegendDot(color: AuthColors.info),
-              SizedBox(width: 8),
-              Text(
-                'Receivables',
-                style: TextStyle(color: AuthColors.textSub, fontSize: 12),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCards extends StatelessWidget {
-  const _StatCards({required this.analytics});
-
-  final TransactionAnalytics analytics;
 
   static String _formatCurrency(double amount) {
     final formatted = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0).format(amount.abs());
@@ -538,46 +313,63 @@ class _StatCards extends StatelessWidget {
     final netReceivables = analytics.netReceivables ??
         (analytics.totalIncome - analytics.totalReceivables).clamp(0.0, double.infinity);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 1200;
-        final cards = [
-          _StatCard(
-            icon: Icons.trending_up,
-            label: 'Total Income',
-            value: _formatCurrency(analytics.totalIncome),
-            color: AuthColors.success,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (startDate != null && endDate != null) ...[
+          Text(
+            'Summary for selected period',
+            style: TextStyle(
+              color: AuthColors.textSub,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          _StatCard(
-            icon: Icons.receipt_long,
-            label: 'Total Receivables',
-            value: _formatCurrency(analytics.totalReceivables),
-            color: AuthColors.info,
-          ),
-          _StatCard(
-            icon: Icons.account_balance_wallet,
-            label: 'Net Receivables',
-            value: _formatCurrency(netReceivables),
-            color: AuthColors.secondary,
-          ),
-        ];
-        if (isWide) {
-          return Row(
-            children: [
-              Expanded(child: cards[0]),
-              const SizedBox(width: 16),
-              Expanded(child: cards[1]),
-              const SizedBox(width: 16),
-              Expanded(child: cards[2]),
-            ],
-          );
-        }
-        return Wrap(
-          spacing: 16,
-          runSpacing: 16,
-          children: cards,
-        );
-      },
+          const SizedBox(height: 12),
+        ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 1200;
+            final cards = [
+              _StatCard(
+                icon: Icons.trending_up,
+                label: 'Total Income',
+                value: _formatCurrency(analytics.totalIncome),
+                color: AuthColors.success,
+              ),
+              _StatCard(
+                icon: Icons.receipt_long,
+                label: 'Total Receivables',
+                value: _formatCurrency(analytics.totalReceivables),
+                color: AuthColors.info,
+              ),
+              _StatCard(
+                icon: Icons.account_balance_wallet,
+                label: 'Net Receivables',
+                value: _formatCurrency(netReceivables),
+                color: AuthColors.secondary,
+              ),
+            ];
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: 16),
+                  Expanded(child: cards[1]),
+                  const SizedBox(width: 16),
+                  Expanded(child: cards[2]),
+                ],
+              );
+            }
+            return Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: cards,
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -681,7 +473,7 @@ class _MonthlyLineChart extends StatelessWidget {
     final receivablesMonthly = analytics.receivablesMonthly;
     final allMonths = <String>{...incomeMonthly.keys, ...receivablesMonthly.keys}.toList()..sort();
     
-    // Filter by date range if provided
+    // Filter by date range (always used from analytics dashboard)
     final filteredMonths = startDate != null && endDate != null
         ? allMonths.where(_isMonthInRange).toList()
         : allMonths;
@@ -712,6 +504,10 @@ class _MonthlyLineChart extends StatelessWidget {
     const minY = 0.0;
     final range = (maxY - minY).clamp(1.0, double.infinity);
 
+    // Use year in labels when spanning multiple years
+    final years = filteredMonths.map((m) => m.length >= 4 ? int.tryParse(m.substring(0, 4)) : null).whereType<int>().toSet();
+    final showYearInLabels = years.length > 1;
+
     final incomeSpots = <FlSpot>[];
     final receivablesSpots = <FlSpot>[];
     for (var i = 0; i < filteredMonths.length; i++) {
@@ -738,23 +534,44 @@ class _MonthlyLineChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: 4,
                 height: 20,
+                margin: const EdgeInsets.only(top: 2),
                 decoration: BoxDecoration(
                   color: AuthColors.primary,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Monthly Income vs Receivables',
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Monthly Income vs Receivables',
+                      style: TextStyle(
+                        color: AuthColors.textMain,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    if (startDate != null && endDate != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${filteredMonths.length} months in selected range',
+                        style: TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
@@ -768,10 +585,10 @@ class _MonthlyLineChart extends StatelessWidget {
                 double? syncLineX;
                 if (touched != null && touched.length > 7) {
                   final monthKey = touched.substring(0, 7);
-                  final idx = allMonths.indexOf(monthKey);
+                  final idx = filteredMonths.indexOf(monthKey);
                   if (idx >= 0) syncLineX = idx.toDouble();
                 } else if (touched != null && touched.length <= 7) {
-                  final idx = allMonths.indexOf(touched);
+                  final idx = filteredMonths.indexOf(touched);
                   if (idx >= 0) syncLineX = idx.toDouble();
                 }
                 final chartData = LineChartData(
@@ -825,12 +642,18 @@ class _MonthlyLineChart extends StatelessWidget {
                           final m = filteredMonths[i];
                           final parts = m.split('-');
                           if (parts.length >= 2) {
+                            final year = parts[0].length >= 4 ? int.tryParse(parts[0].substring(2)) : null;
                             final monthNum = int.tryParse(parts[1]);
                             if (monthNum != null) {
                               const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                              final label = showYearInLabels && year != null
+                                  ? '${months[monthNum - 1]} \'${year.toString().padLeft(2, '0')}'
+                                  : months[monthNum - 1];
                               return Text(
-                                months[monthNum - 1],
+                                label,
                                 style: const TextStyle(color: AuthColors.textSub, fontSize: 10),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               );
                             }
                           }
@@ -925,13 +748,42 @@ class _MonthlyLineChart extends StatelessWidget {
                   touchTooltipData: LineTouchTooltipData(
                     getTooltipColor: (_) => AuthColors.surface,
                     tooltipBorder: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
-                    getTooltipItems: (touchedSpots) => touchedSpots.map((s) {
-                      final label = s.barIndex == 0 ? 'Income' : 'Receivables';
-                      return LineTooltipItem(
-                        '$label: ₹${s.y.toStringAsFixed(0)}',
-                        const TextStyle(color: AuthColors.textMain, fontSize: 12),
-                      );
-                    }).toList(),
+                    getTooltipItems: (touchedSpots) {
+                      if (touchedSpots.isEmpty) return [];
+                      final i = touchedSpots.first.x.round();
+                      if (i < 0 || i >= filteredMonths.length) return [];
+                      final m = filteredMonths[i];
+                      final parts = m.split('-');
+                      String monthLabel = m;
+                      if (parts.length >= 2) {
+                        final year = int.tryParse(parts[0]);
+                        final monthNum = int.tryParse(parts[1]);
+                        if (year != null && monthNum != null) {
+                          monthLabel = DateFormat('MMM yyyy').format(DateTime(year, monthNum));
+                        }
+                      }
+                      final income = incomeMonthly[m] ?? 0.0;
+                      final receivables = receivablesMonthly[m] ?? 0.0;
+                      final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+                      return [
+                        LineTooltipItem(
+                          monthLabel,
+                          TextStyle(
+                            color: AuthColors.textMain,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        LineTooltipItem(
+                          'Income: ${fmt.format(income)}',
+                          const TextStyle(color: AuthColors.success, fontSize: 12),
+                        ),
+                        LineTooltipItem(
+                          'Receivables: ${fmt.format(receivables)}',
+                          const TextStyle(color: AuthColors.info, fontSize: 12),
+                        ),
+                      ];
+                    },
                   ),
                 ),
               );
@@ -963,6 +815,331 @@ class _MonthlyLineChart extends StatelessWidget {
   }
 }
 
+class _DailyTrendsChart extends StatelessWidget {
+  const _DailyTrendsChart({
+    required this.analytics,
+    required this.startDate,
+    required this.endDate,
+    this.touchedDateOrMonth,
+  });
+
+  final TransactionAnalytics analytics;
+  final DateTime startDate;
+  final DateTime endDate;
+  final ValueNotifier<String?>? touchedDateOrMonth;
+
+  bool _isDateInRange(String dateStr) {
+    try {
+      final parts = dateStr.split('-');
+      if (parts.length >= 3) {
+        final year = int.tryParse(parts[0]);
+        final month = int.tryParse(parts[1]);
+        final day = int.tryParse(parts[2]);
+        if (year != null && month != null && day != null) {
+          final date = DateTime(year, month, day);
+          return !date.isBefore(startDate) && !date.isAfter(endDate);
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final incomeDaily = analytics.incomeDaily;
+    final receivablesDaily = analytics.receivablesDaily;
+    final allDays = <String>{...incomeDaily.keys, ...receivablesDaily.keys}.toList()..sort();
+    final filteredDays = allDays.where(_isDateInRange).toList();
+
+    if (filteredDays.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final maxY = [
+      ...filteredDays.map((d) => incomeDaily[d] ?? 0.0),
+      ...filteredDays.map((d) => receivablesDaily[d] ?? 0.0),
+    ].fold<double>(0.0, (a, b) => a > b ? a : b);
+    const minY = 0.0;
+    final range = (maxY - minY).clamp(1.0, double.infinity);
+
+    final incomeSpots = <FlSpot>[];
+    final receivablesSpots = <FlSpot>[];
+    for (var i = 0; i < filteredDays.length; i++) {
+      final day = filteredDays[i];
+      incomeSpots.add(FlSpot(i.toDouble(), (incomeDaily[day] ?? 0.0)));
+      receivablesSpots.add(FlSpot(i.toDouble(), (receivablesDaily[day] ?? 0.0)));
+    }
+
+    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                margin: const EdgeInsets.only(top: 2),
+                decoration: BoxDecoration(
+                  color: AuthColors.info,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Daily Income vs Receivables',
+                      style: TextStyle(
+                        color: AuthColors.textMain,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${filteredDays.length} days in selected range',
+                      style: TextStyle(
+                        color: AuthColors.textSub,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 260,
+            child: ValueListenableBuilder<String?>(
+              valueListenable: touchedDateOrMonth ?? ValueNotifier<String?>(null),
+              builder: (context, touched, _) {
+                double? syncLineX;
+                if (touched != null) {
+                  final idx = filteredDays.indexOf(touched);
+                  if (idx >= 0) syncLineX = idx.toDouble();
+                }
+                return LineChart(
+                  LineChartData(
+                    minX: 0,
+                    maxX: (filteredDays.length - 1).clamp(0, double.infinity).toDouble(),
+                    minY: minY - range * 0.05,
+                    maxY: maxY + range * 0.05,
+                    extraLinesData: syncLineX != null
+                        ? ExtraLinesData(
+                            verticalLines: [
+                              VerticalLine(
+                                x: syncLineX,
+                                color: AuthColors.primary.withOpacity(0.5),
+                                strokeWidth: 2,
+                                dashArray: [4, 4],
+                              ),
+                            ],
+                          )
+                        : null,
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: AuthColors.textMainWithOpacity(0.08),
+                        strokeWidth: 1,
+                        dashArray: [4, 4],
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 44,
+                          getTitlesWidget: (value, meta) => Text(
+                            value >= 0 ? '₹${(value / 1000).toStringAsFixed(0)}k' : '',
+                            style: const TextStyle(color: AuthColors.textSub, fontSize: 10),
+                          ),
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 28,
+                          interval: (filteredDays.length / 8).clamp(1.0, double.infinity),
+                          getTitlesWidget: (value, meta) {
+                            final i = value.round();
+                            if (i >= 0 && i < filteredDays.length) {
+                              final d = filteredDays[i];
+                              try {
+                                final parts = d.split('-');
+                                if (parts.length >= 3) {
+                                  final day = int.tryParse(parts[2]);
+                                  if (day != null) {
+                                    return Text(
+                                      '$day',
+                                      style: const TextStyle(color: AuthColors.textSub, fontSize: 9),
+                                    );
+                                  }
+                                }
+                                return Text(d.substring(5), style: const TextStyle(color: AuthColors.textSub, fontSize: 9));
+                              } catch (_) {
+                                return Text(d, style: const TextStyle(color: AuthColors.textSub, fontSize: 8));
+                              }
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    ),
+                    borderData: FlBorderData(
+                      show: true,
+                      border: Border(
+                        bottom: BorderSide(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+                        left: BorderSide(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+                      ),
+                    ),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: incomeSpots,
+                        isCurved: true,
+                        curveSmoothness: 0.35,
+                        color: AuthColors.success,
+                        barWidth: 2.5,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              AuthColors.success.withOpacity(0.1),
+                              AuthColors.success.withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                      LineChartBarData(
+                        spots: receivablesSpots,
+                        isCurved: true,
+                        curveSmoothness: 0.35,
+                        color: AuthColors.info,
+                        barWidth: 2.5,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: false),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              AuthColors.info.withOpacity(0.1),
+                              AuthColors.info.withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    lineTouchData: LineTouchData(
+                      touchCallback: (event, response) {
+                        if (touchedDateOrMonth != null) {
+                          if (response != null && response.lineBarSpots != null && response.lineBarSpots!.isNotEmpty) {
+                            final i = response.lineBarSpots!.first.x.round();
+                            if (i >= 0 && i < filteredDays.length) {
+                              touchedDateOrMonth!.value = filteredDays[i];
+                            }
+                          } else {
+                            touchedDateOrMonth!.value = null;
+                          }
+                        }
+                      },
+                      touchTooltipData: LineTouchTooltipData(
+                        getTooltipColor: (_) => AuthColors.surface,
+                        tooltipBorder: BorderSide(color: AuthColors.textMainWithOpacity(0.2)),
+                        getTooltipItems: (touchedSpots) {
+                          if (touchedSpots.isEmpty) return [];
+                          final i = touchedSpots.first.x.round();
+                          if (i < 0 || i >= filteredDays.length) return [];
+                          final d = filteredDays[i];
+                          String dateLabel = d;
+                          try {
+                            final parts = d.split('-');
+                            if (parts.length >= 3) {
+                              final year = int.tryParse(parts[0]);
+                              final month = int.tryParse(parts[1]);
+                              final day = int.tryParse(parts[2]);
+                              if (year != null && month != null && day != null) {
+                                dateLabel = DateFormat('EEE, MMM d, yyyy').format(DateTime(year, month, day));
+                              }
+                            }
+                          } catch (_) {}
+                          final income = incomeDaily[d] ?? 0.0;
+                          final receivables = receivablesDaily[d] ?? 0.0;
+                          return [
+                            LineTooltipItem(
+                              dateLabel,
+                              const TextStyle(
+                                color: AuthColors.textMain,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            LineTooltipItem(
+                              'Income: ${fmt.format(income)}',
+                              const TextStyle(color: AuthColors.success, fontSize: 12),
+                            ),
+                            LineTooltipItem(
+                              'Receivables: ${fmt.format(receivables)}',
+                              const TextStyle(color: AuthColors.info, fontSize: 12),
+                            ),
+                          ];
+                        },
+                      ),
+                    ),
+                  ),
+                  duration: const Duration(milliseconds: 250),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Row(
+            children: [
+              _LegendDot(color: AuthColors.success),
+              SizedBox(width: 8),
+              Text('Income', style: TextStyle(color: AuthColors.textSub, fontSize: 12)),
+              SizedBox(width: 20),
+              _LegendDot(color: AuthColors.info),
+              SizedBox(width: 8),
+              Text('Receivables', style: TextStyle(color: AuthColors.textSub, fontSize: 12)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LegendDot extends StatelessWidget {
   const _LegendDot({required this.color});
 
@@ -979,9 +1156,10 @@ class _LegendDot extends StatelessWidget {
 }
 
 class _ReceivableAgingDonut extends StatelessWidget {
-  const _ReceivableAgingDonut({required this.analytics});
+  const _ReceivableAgingDonut({required this.analytics, this.endDate});
 
   final TransactionAnalytics analytics;
+  final DateTime? endDate;
 
   static const _agingLabels = {
     'current': 'Current',
@@ -1068,13 +1246,32 @@ class _ReceivableAgingDonut extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    'Receivable Aging',
-                    style: TextStyle(
-                      color: AuthColors.textMain,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Receivable Aging',
+                          style: TextStyle(
+                            color: AuthColors.textMain,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        if (endDate != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'As of ${DateFormat('MMM d, yyyy').format(endDate!)}',
+                            style: TextStyle(
+                              color: AuthColors.textSub,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

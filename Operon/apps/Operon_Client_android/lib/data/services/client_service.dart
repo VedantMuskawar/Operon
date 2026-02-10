@@ -23,10 +23,10 @@ class ClientService {
         'label': 'main',
       },
       ...phones.map(
-          (phone) => {
+        (phone) => {
           'e164': _normalizePhone(phone),
           'label': 'alt',
-          },
+        },
       ),
     ];
 
@@ -69,10 +69,10 @@ class ClientService {
   Future<ClientRecord?> findClientByPhone(String phone) async {
     final normalized = _normalizePhone(phone);
     final snapshot = await _firestore
-          .collection(_collection)
-          .where('phoneIndex', arrayContains: normalized)
-          .limit(1)
-          .get();
+        .collection(_collection)
+        .where('phoneIndex', arrayContains: normalized)
+        .limit(1)
+        .get();
     if (snapshot.docs.isEmpty) return null;
     return ClientRecord.fromDoc(snapshot.docs.first);
   }
@@ -84,6 +84,27 @@ class ClientService {
         .limit(limit)
         .get();
     return snapshot.docs.map(ClientRecord.fromDoc).toList();
+  }
+
+  Future<
+      ({
+        List<ClientRecord> clients,
+        DocumentSnapshot<Map<String, dynamic>>? lastDoc,
+      })> fetchClientsPage({
+    int limit = 30,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+  }) async {
+    Query<Map<String, dynamic>> query =
+        _firestore.collection(_collection).orderBy('name_lc').limit(limit);
+
+    if (startAfterDocument != null) {
+      query = query.startAfterDocument(startAfterDocument);
+    }
+
+    final snapshot = await query.get();
+    final clients = snapshot.docs.map(ClientRecord.fromDoc).toList();
+    final lastDoc = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
+    return (clients: clients, lastDoc: lastDoc);
   }
 
   Future<List<ClientRecord>> fetchRecentClients({int limit = 10}) async {
@@ -102,8 +123,7 @@ class ClientService {
         .limit(limit)
         .snapshots()
         .map(
-          (snapshot) =>
-              snapshot.docs.map(ClientRecord.fromDoc).toList(),
+          (snapshot) => snapshot.docs.map(ClientRecord.fromDoc).toList(),
         );
   }
 
@@ -130,10 +150,10 @@ class ClientService {
     final normalized = _normalizePhone(digits);
     if (normalized.isEmpty) return [];
     final snapshot = await _firestore
-          .collection(_collection)
-          .where('phoneIndex', arrayContains: normalized)
-          .limit(limit)
-          .get();
+        .collection(_collection)
+        .where('phoneIndex', arrayContains: normalized)
+        .limit(limit)
+        .get();
     return snapshot.docs.map(ClientRecord.fromDoc).toList();
   }
 
@@ -272,9 +292,8 @@ class ClientRecord {
       createdAt: (data['createdAt'] is Timestamp)
           ? (data['createdAt'] as Timestamp).toDate()
           : null,
-      contacts: contactEntries
-          .map((json) => ClientContact.fromJson(json))
-          .toList(),
+      contacts:
+          contactEntries.map((json) => ClientContact.fromJson(json)).toList(),
     );
   }
 
@@ -290,8 +309,7 @@ class ClientRecord {
   final DateTime? createdAt;
   final List<ClientContact> contacts;
 
-  bool get isCorporate =>
-      tags.any((tag) => tag.toLowerCase() == 'corporate');
+  bool get isCorporate => tags.any((tag) => tag.toLowerCase() == 'corporate');
 }
 
 class ClientContact {
@@ -315,4 +333,3 @@ class ClientContact {
 }
 
 class ClientPhoneExistsException implements Exception {}
-

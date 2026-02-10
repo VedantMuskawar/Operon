@@ -23,7 +23,7 @@ class LoadingOverlay extends StatelessWidget {
         if (isLoading)
           Positioned.fill(
             child: Container(
-              color: Colors.black.withOpacity(0.5),
+              color: AuthColors.background.withOpacity(0.5),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -67,7 +67,7 @@ class ModalLoadingOverlay extends StatelessWidget {
         if (isLoading)
           ModalBarrier(
             dismissible: false,
-            color: Colors.black.withOpacity(0.5),
+            color: AuthColors.background.withOpacity(0.5),
           ),
         if (isLoading)
           Center(
@@ -99,4 +99,3 @@ class ModalLoadingOverlay extends StatelessWidget {
     );
   }
 }
-

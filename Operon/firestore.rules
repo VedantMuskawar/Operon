@@ -113,6 +113,14 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update, delete: if false;
     }
+    match /ACCOUNTS_LEDGERS/{ledgerId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+    match /ACCOUNTS_LEDGERS/{ledgerId}/TRANSACTIONS/{monthDocId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
 
     // ---------- Driver runtime: trips ----------
     match /trips/{tripId} {

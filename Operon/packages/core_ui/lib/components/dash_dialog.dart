@@ -47,7 +47,7 @@ class DashDialog extends StatelessWidget {
   final VoidCallback? onClose;
 
   /// Primary/accent color override. Defaults to [AuthColors.primary].
-  /// Use e.g. [AuthColors.accentPurple] for section-specific accents only when needed.
+  /// Use e.g. [AuthColors.secondary] for section-specific accents only when needed.
   final Color? primaryColor;
 
   /// Inner padding around [child]. Defaults to 24px on all sides.

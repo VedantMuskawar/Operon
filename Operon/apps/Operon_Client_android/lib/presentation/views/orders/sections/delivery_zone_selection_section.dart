@@ -226,7 +226,7 @@ class _CityColumn extends StatelessWidget {
                               : AuthColors.backgroundAlt,
                           border: Border.all(
                             color: isSelected
-                                ? AuthColors.accentPurple
+                                ? AuthColors.secondary
                                 : AuthColors.textMainWithOpacity(0.12),
                             width: isSelected ? 2 : 1,
                           ),
@@ -290,7 +290,7 @@ class _RegionColumn extends StatelessWidget {
             child: ElevatedButton(
               onPressed: onAddRegion,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AuthColors.accentPurple,
+                backgroundColor: AuthColors.secondary,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -299,7 +299,7 @@ class _RegionColumn extends StatelessWidget {
               child: const Text(
                 'Add Region',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -363,10 +363,10 @@ class _RegionColumn extends StatelessWidget {
               borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
               border: Border.all(
                 color: isPending
-                    ? const Color(0xFFD4AF37) // Gold for pending
+                    ? AuthColors.secondary // Gold for pending
                     : isSelected
-                        ? const Color(0xFF6F4BFF)
-                        : Colors.white12,
+                        ? AuthColors.secondary
+                        : AuthColors.textMainWithOpacity(0.12),
                 width: isPending || isSelected ? 2 : 1,
               ),
               color: isPending
@@ -406,7 +406,7 @@ class _RegionColumn extends StatelessWidget {
                 if (isSelected && !isPending)
                   const Icon(
                     Icons.check_circle,
-                    color: AuthColors.accentPurple,
+                    color: AuthColors.secondary,
                     size: 20,
                   ),
               ],
@@ -457,7 +457,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.background,
       title: Text('Add Region', style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain)),
       content: widget.cities.isEmpty
           ? Text(
@@ -515,8 +515,8 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                       hintText: 'e.g., 25.5',
                       prefixIcon: Icon(Icons.straighten, color: AuthColors.textSub),
                       filled: true,
-                      fillColor: Color(0xFF1B1B2C),
-                      labelStyle: TextStyle(color: Colors.white70),
+                      fillColor: AuthColors.backgroundAlt,
+                      labelStyle: TextStyle(color: AuthColors.textSub),
                       border: OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     validator: (value) {
@@ -647,7 +647,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const AlertDialog(
-        backgroundColor: Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.background,
         content: Center(
           child: CircularProgressIndicator(),
         ),
@@ -655,7 +655,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF0A0A0A),
+      backgroundColor: AuthColors.background,
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -669,7 +669,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white70),
+            icon: const Icon(Icons.close, color: AuthColors.textSub),
             onPressed: () => Navigator.of(context).pop(),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -679,14 +679,14 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
       content: _products.isEmpty
           ? const Text(
               'No products available to configure prices.',
-              style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: AuthColors.textSub),
             )
           : Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: _selectedProductId,
-                  dropdownColor: const Color(0xFF1B1B2C),
+                  dropdownColor: AuthColors.backgroundAlt,
                   decoration: InputDecoration(
                     labelText: 'Product',
                     filled: true,
@@ -771,7 +771,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                   : const Icon(Icons.edit, size: 18),
               label: const Text('Edit'),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.blue,
+                foregroundColor: AuthColors.info,
               ),
             ),
             TextButton.icon(
@@ -807,7 +807,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
               icon: const Icon(Icons.delete, size: 18),
               label: const Text('Delete'),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.red,
+                foregroundColor: AuthColors.error,
               ),
             ),
             TextButton.icon(
@@ -849,7 +849,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                   : const Icon(Icons.save, size: 18),
               label: const Text('Save'),
               style: TextButton.styleFrom(
-                foregroundColor: Colors.green,
+                foregroundColor: AuthColors.success,
               ),
             ),
           ],
@@ -993,12 +993,12 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
+          colors: [AuthColors.backgroundAlt, AuthColors.background],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1006,7 +1006,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
           const Text(
             'Unit Prices',
             style: TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -1027,7 +1027,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                         Text(
                           product.name,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AuthColors.textMain,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1048,17 +1048,17 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                           },
                           decoration: InputDecoration(
                             hintText: '0.00',
-                            hintStyle: const TextStyle(color: Colors.white38),
+                            hintStyle: const TextStyle(color: AuthColors.textDisabled),
                             filled: true,
                             fillColor: state.pendingPriceUpdates?[product.id] != null
-                                ? const Color(0xFFD4AF37).withOpacity(0.1)
-                                : const Color(0xFF1B1B2C),
+                                ? AuthColors.secondary.withOpacity(0.1)
+                                : AuthColors.backgroundAlt,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                               borderSide: BorderSide(
                                 color: state.pendingPriceUpdates?[product.id] != null
-                                    ? const Color(0xFFD4AF37)
-                                    : Colors.transparent,
+                                    ? AuthColors.secondary
+                                    : AuthColors.transparent,
                                 width: state.pendingPriceUpdates?[product.id] != null
                                     ? 2
                                     : 0,
@@ -1068,8 +1068,8 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                               borderSide: BorderSide(
                                 color: state.pendingPriceUpdates?[product.id] != null
-                                    ? const Color(0xFFD4AF37)
-                                    : Colors.transparent,
+                                    ? AuthColors.secondary
+                                    : AuthColors.transparent,
                                 width: state.pendingPriceUpdates?[product.id] != null
                                     ? 2
                                     : 0,
@@ -1079,8 +1079,8 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                               borderSide: BorderSide(
                                 color: state.pendingPriceUpdates?[product.id] != null
-                                    ? const Color(0xFFD4AF37)
-                                    : const Color(0xFF6F4BFF),
+                                    ? AuthColors.secondary
+                                    : AuthColors.secondary,
                                 width: 2,
                               ),
                             ),
@@ -1090,7 +1090,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                             ),
                             suffixText: '₹',
                             suffixStyle: const TextStyle(
-                              color: Colors.white70,
+                              color: AuthColors.textSub,
                               fontSize: 14,
                             ),
                           ),

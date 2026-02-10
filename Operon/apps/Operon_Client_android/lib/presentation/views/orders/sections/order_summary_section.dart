@@ -83,8 +83,8 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
         child: Padding(
           padding: EdgeInsets.all(AppSpacing.paddingXXXL),
           child: Text(
-            'Add products in Section 1 to see order summary',
-            style: TextStyle(color: Colors.white70),
+                'Add products in Section 1 to see order summary',
+            style: TextStyle(color: AuthColors.textSub),
             textAlign: TextAlign.center,
           ),
         ),
@@ -139,7 +139,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
+              colors: [AuthColors.backgroundAlt, AuthColors.background],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -184,7 +184,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: isLast ? Colors.transparent : Colors.white10,
+                      color: isLast ? AuthColors.transparent : AuthColors.textMainWithOpacity(0.1),
                       width: 0.5,
                     ),
                   ),
@@ -246,8 +246,8 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                     }
                   });
                 },
-                activeColor: const Color(0xFF6F4BFF),
-                checkColor: Colors.white,
+                activeColor: AuthColors.secondary,
+                checkColor: AuthColors.textMain,
               ),
               Expanded(
                 child: Text(
@@ -271,14 +271,14 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 labelText: 'Amount (₹)',
                 labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                 filled: true,
-                fillColor: const Color(0xFF13131E),
+                fillColor: AuthColors.backgroundAlt,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                  borderSide: BorderSide(color: AuthColors.accentPurple, width: 2),
+                  borderSide: BorderSide(color: AuthColors.secondary, width: 2),
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -294,19 +294,19 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
             DropdownButtonFormField<String>(
               initialValue: _selectedPaymentAccountId,
               isExpanded: true,
-              dropdownColor: const Color(0xFF1B1B2C),
+              dropdownColor: AuthColors.backgroundAlt,
               decoration: InputDecoration(
                 labelText: 'Payment Account',
                 labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                 filled: true,
-                fillColor: const Color(0xFF13131E),
+                fillColor: AuthColors.backgroundAlt,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   borderSide: BorderSide.none,
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                  borderSide: BorderSide(color: AuthColors.accentPurple, width: 2),
+                  borderSide: BorderSide(color: AuthColors.secondary, width: 2),
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -389,7 +389,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                   padding: const EdgeInsets.only(left: AppSpacing.paddingXS),
                   child: Text(
                     '(Primary)',
-                    style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.accentPurple),
+                    style: AppTypography.withColor(AppTypography.captionSmall, AuthColors.secondary),
                   ),
                 ),
             ],
@@ -432,7 +432,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 child: _buildPriorityOption(
                   'Priority',
                   'high',
-                  const Color(0xFFD4AF37), // Gold
+                  AuthColors.secondary, // Gold
                 ),
               ),
             ],
@@ -514,8 +514,8 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 _includeGst = value ?? true;
               });
             },
-            activeColor: const Color(0xFF6F4BFF),
-            checkColor: Colors.white,
+            activeColor: AuthColors.secondary,
+                checkColor: AuthColors.textMain,
           ),
             const SizedBox(width: AppSpacing.paddingSM),
           Expanded(
@@ -534,12 +534,12 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1E1E2F), Color(0xFF13131E)],
+              colors: [AuthColors.backgroundAlt, AuthColors.background],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
-        border: Border.all(color: const Color(0xFF6F4BFF), width: 2),
+            border: Border.all(color: AuthColors.secondary, width: 2),
       ),
       child: Column(
         children: [
@@ -550,13 +550,13 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.gapSM),
                 decoration: BoxDecoration(
                   color: _includeGst
-                      ? Colors.green.withOpacity(0.15)
-                      : Colors.red.withOpacity(0.15),
+                      ? AuthColors.success.withOpacity(0.15)
+                      : AuthColors.error.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
                     color: _includeGst
-                        ? Colors.green.withOpacity(0.35)
-                        : Colors.red.withOpacity(0.35),
+                        ? AuthColors.success.withOpacity(0.35)
+                        : AuthColors.error.withOpacity(0.35),
                   ),
                 ),
                 child: Text(
@@ -598,7 +598,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 Text(
                   '₹${gst.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    color: Color(0xFF5AD8A4),
+                    color: AuthColors.successVariant,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -607,7 +607,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
             ),
           ],
           const SizedBox(height: AppSpacing.paddingMD),
-          const Divider(color: Colors.white24),
+          Divider(color: AuthColors.textMainWithOpacity(0.24)),
           const SizedBox(height: AppSpacing.paddingMD),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -623,7 +623,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 '₹${total.toStringAsFixed(2)}',
                 style: AppTypography.withColor(
                   AppTypography.withWeight(AppTypography.h2, FontWeight.w700),
-                  AuthColors.accentPurple,
+                  AuthColors.secondary,
                 ),
               ),
             ],
@@ -643,7 +643,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 await _createOrder();
               },
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6F4BFF),
+          backgroundColor: AuthColors.secondary,
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -655,7 +655,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                 ),
               )
             : Text(
@@ -676,7 +676,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Client information is required'),
-          backgroundColor: Colors.red,
+          backgroundColor: AuthColors.error,
         ),
       );
       return;
@@ -690,7 +690,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please enter advance payment amount'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
         return;
@@ -700,7 +700,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please enter a valid advance payment amount'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
         return;
@@ -735,7 +735,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Order created successfully'),
-            backgroundColor: Colors.green,
+            backgroundColor: AuthColors.success,
           ),
         );
         Navigator.of(context).pop(true); // Return true to indicate success
@@ -745,7 +745,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to create order: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: AuthColors.error,
           ),
         );
       }

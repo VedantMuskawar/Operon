@@ -45,26 +45,22 @@ const logger_1 = require("../shared/logger");
 const db = (0, firestore_1.getFirestore)();
 const BATCH_WRITE_LIMIT = 500; // Firestore batch write limit
 /**
- * Record attendance for an employee in a batch
- * This is a helper function that updates attendance within a transaction
+ * Compute attendance write payload from a read snapshot (no tx writes).
+ * Firestore transactions require all reads before any writes.
  */
-async function recordAttendanceInTransaction(tx, organizationId, employeeId, batchDate, batchId) {
+function computeAttendanceWrite(attendanceDoc, organizationId, employeeId, batchDate, batchId) {
     const financialYear = (0, financial_year_1.getFinancialContext)(batchDate).fyLabel;
     const yearMonth = (0, date_helpers_1.getYearMonth)(batchDate);
     const ledgerId = `${employeeId}_${financialYear}`;
     const normalizedDate = (0, date_helpers_1.normalizeDate)(batchDate);
     const ledgerRef = db.collection(constants_1.EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
     const attendanceRef = ledgerRef.collection('Attendance').doc(yearMonth);
-    // Read attendance document
-    const attendanceDoc = await tx.get(attendanceRef);
     const attendanceData = attendanceDoc.data();
     let dailyRecords = [];
     let totalDaysPresent = 0;
     let totalBatchesWorked = 0;
     if (attendanceDoc.exists && attendanceData != null) {
-        // Existing attendance document
         dailyRecords = Array.from(attendanceData.dailyRecords || []);
-        // Check if record exists for this date
         const dateIndex = dailyRecords.findIndex((record) => {
             var _a, _b;
             let recordDate;
@@ -84,7 +80,6 @@ async function recordAttendanceInTransaction(tx, organizationId, employeeId, bat
             return normalizedRecordDate.getTime() === normalizedDate.getTime();
         });
         if (dateIndex >= 0) {
-            // Update existing record - increment batch count
             const existingRecord = dailyRecords[dateIndex];
             const batchIds = Array.from(existingRecord.batchIds || []);
             if (!batchIds.includes(batchId)) {
@@ -93,7 +88,6 @@ async function recordAttendanceInTransaction(tx, organizationId, employeeId, bat
             }
         }
         else {
-            // Create new daily record
             dailyRecords.push({
                 date: admin.firestore.Timestamp.fromDate(normalizedDate),
                 isPresent: true,
@@ -101,12 +95,10 @@ async function recordAttendanceInTransaction(tx, organizationId, employeeId, bat
                 batchIds: [batchId],
             });
         }
-        // Recalculate totals
         totalDaysPresent = dailyRecords.filter((record) => record.isPresent === true).length;
         totalBatchesWorked = dailyRecords.reduce((sum, record) => sum + (record.numberOfBatches || 0), 0);
     }
     else {
-        // Create new attendance document
         dailyRecords = [
             {
                 date: admin.firestore.Timestamp.fromDate(normalizedDate),
@@ -118,7 +110,6 @@ async function recordAttendanceInTransaction(tx, organizationId, employeeId, bat
         totalDaysPresent = 1;
         totalBatchesWorked = 1;
     }
-    // Prepare attendance data
     const attendanceJson = {
         yearMonth,
         employeeId,
@@ -131,10 +122,38 @@ async function recordAttendanceInTransaction(tx, organizationId, employeeId, bat
     };
     if (!attendanceDoc.exists) {
         attendanceJson.createdAt = admin.firestore.FieldValue.serverTimestamp();
-        tx.set(attendanceRef, attendanceJson);
     }
-    else {
-        tx.update(attendanceRef, attendanceJson);
+    return {
+        ref: attendanceRef,
+        isCreate: !attendanceDoc.exists,
+        data: attendanceJson,
+    };
+}
+/**
+ * Perform all attendance reads in the transaction, then all writes.
+ * Firestore requires all reads before any writes in a transaction.
+ */
+async function recordAttendanceInTransaction(tx, organizationId, employeeIds, batchDate, batchId) {
+    const yearMonth = (0, date_helpers_1.getYearMonth)(batchDate);
+    // Phase 1: All reads
+    const writes = [];
+    for (const employeeId of employeeIds) {
+        const financialYear = (0, financial_year_1.getFinancialContext)(batchDate).fyLabel;
+        const ledgerId = `${employeeId}_${financialYear}`;
+        const ledgerRef = db.collection(constants_1.EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
+        const attendanceRef = ledgerRef.collection('Attendance').doc(yearMonth);
+        const attendanceDoc = await tx.get(attendanceRef);
+        const write = computeAttendanceWrite(attendanceDoc, organizationId, employeeId, batchDate, batchId);
+        writes.push(write);
+    }
+    // Phase 2: All writes
+    for (const w of writes) {
+        if (w.isCreate) {
+            tx.set(w.ref, w.data);
+        }
+        else {
+            tx.update(w.ref, w.data);
+        }
     }
 }
 /**
@@ -142,7 +161,7 @@ async function recordAttendanceInTransaction(tx, organizationId, employeeId, bat
  * Creates all transactions, records attendance, and updates batch status
  */
 exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTION_CONFIG, async (request) => {
-    var _a;
+    var _a, _b;
     const { batchId, paymentDate, createdBy } = request.data;
     (0, logger_1.logInfo)('ProductionBatches', 'processProductionBatchWages', 'Request received', {
         batchId,
@@ -150,48 +169,71 @@ exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALL
         createdBy,
     });
     // Validate input
-    if (!batchId || !paymentDate || !createdBy) {
-        throw new Error('Missing required parameters: batchId, paymentDate, createdBy');
+    if (!batchId || typeof batchId !== 'string' || batchId.trim() === '') {
+        throw new https_1.HttpsError('invalid-argument', 'Missing or invalid batchId');
+    }
+    if (!paymentDate) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing paymentDate');
+    }
+    if (!createdBy || typeof createdBy !== 'string' || createdBy.trim() === '') {
+        throw new https_1.HttpsError('invalid-argument', 'Missing or invalid createdBy');
     }
     try {
-        // Parse payment date
+        // Parse payment date (accept ISO string or Firestore timestamp shape)
         let parsedPaymentDate;
         if (typeof paymentDate === 'string') {
             parsedPaymentDate = new Date(paymentDate);
         }
-        else if (paymentDate === null || paymentDate === void 0 ? void 0 : paymentDate.toDate) {
-            parsedPaymentDate = paymentDate.toDate();
-        }
-        else if (paymentDate === null || paymentDate === void 0 ? void 0 : paymentDate._seconds) {
-            parsedPaymentDate = new Date(paymentDate._seconds * 1000);
+        else if (typeof paymentDate === 'object' && paymentDate !== null) {
+            const anyDate = paymentDate;
+            if (typeof anyDate.toDate === 'function') {
+                parsedPaymentDate = anyDate.toDate();
+            }
+            else if (typeof anyDate._seconds === 'number') {
+                parsedPaymentDate = new Date(anyDate._seconds * 1000);
+            }
+            else {
+                throw new https_1.HttpsError('invalid-argument', 'Invalid paymentDate format: expected string or timestamp');
+            }
         }
         else {
-            throw new Error('Invalid paymentDate format');
+            throw new https_1.HttpsError('invalid-argument', 'Invalid paymentDate format');
+        }
+        if (Number.isNaN(parsedPaymentDate.getTime())) {
+            throw new https_1.HttpsError('invalid-argument', 'Invalid paymentDate: date is not valid');
         }
         // Read batch document
         const batchRef = db.collection(constants_1.PRODUCTION_BATCHES_COLLECTION).doc(batchId);
         const batchDoc = await batchRef.get();
         if (!batchDoc.exists) {
-            throw new Error(`Batch not found: ${batchId}`);
+            throw new https_1.HttpsError('not-found', `Batch not found: ${batchId}`);
         }
         const batchData = batchDoc.data();
         // Validate batch has calculated wages
         const totalWages = batchData.totalWages;
         const wagePerEmployee = batchData.wagePerEmployee;
         const employeeIds = batchData.employeeIds || [];
-        const organizationId = batchData.organizationId;
-        const batchDate = ((_a = batchData.batchDate) === null || _a === void 0 ? void 0 : _a.toDate()) || parsedPaymentDate;
-        const status = batchData.status;
+        const organizationId = (_a = batchData.organizationId) !== null && _a !== void 0 ? _a : '';
+        const batchDateRaw = batchData.batchDate;
+        const batchDate = batchDateRaw && typeof batchDateRaw.toDate === 'function'
+            ? batchDateRaw.toDate()
+            : batchDateRaw && typeof batchDateRaw._seconds === 'number'
+                ? new Date(batchDateRaw._seconds * 1000)
+                : parsedPaymentDate;
+        const status = (_b = batchData.status) !== null && _b !== void 0 ? _b : '';
         // Get batch details for ledger metadata
         const productName = batchData.productName;
         const productId = batchData.productId;
         const totalBricksProduced = batchData.totalBricksProduced;
         const totalBricksStacked = batchData.totalBricksStacked;
+        if (!organizationId || organizationId.trim() === '') {
+            throw new https_1.HttpsError('failed-precondition', 'Batch is missing organizationId');
+        }
         if (!totalWages || !wagePerEmployee || employeeIds.length === 0) {
-            throw new Error('Batch does not have calculated wages or is invalid');
+            throw new https_1.HttpsError('failed-precondition', 'Batch does not have calculated wages or is invalid');
         }
         if (status === 'processed') {
-            throw new Error('Batch has already been processed');
+            throw new https_1.HttpsError('failed-precondition', 'Batch has already been processed');
         }
         const financialYear = (0, financial_year_1.getFinancialContext)(parsedPaymentDate).fyLabel;
         const transactionIds = [];
@@ -260,13 +302,9 @@ exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALL
             });
         }
         // Now record attendance and update batch status atomically
-        // Use a transaction to ensure both attendance and batch update succeed or fail together
+        // Transaction: all reads first, then all writes (Firestore requirement)
         await db.runTransaction(async (tx) => {
-            // Record attendance for all employees
-            for (const employeeId of employeeIds) {
-                await recordAttendanceInTransaction(tx, organizationId, employeeId, batchDate, batchId);
-            }
-            // Update batch status
+            await recordAttendanceInTransaction(tx, organizationId, employeeIds, batchDate, batchId);
             tx.update(batchRef, {
                 wageTransactionIds: transactionIds,
                 status: 'processed',
@@ -287,7 +325,9 @@ exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALL
     }
     catch (error) {
         (0, logger_1.logError)('ProductionBatches', 'processProductionBatchWages', 'Error processing batch', error instanceof Error ? error : String(error), { batchId });
-        throw error;
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        throw (0, logger_1.toHttpsError)(error, 'internal');
     }
 });
 //# sourceMappingURL=process-batch-wages.js.map

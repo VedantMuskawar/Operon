@@ -46,16 +46,7 @@ class CallDetectionReceiver : BroadcastReceiver() {
             Log.w(TAG, "Failed to start OverlayService", e)
         }
 
-        val mainIntent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_USER_ACTION)
-            putExtra(EXTRA_INCOMING_PHONE, phone)
-        }
-        try {
-            context.startActivity(mainIntent)
-            Log.d(TAG, "Receiver: started MainActivity for shareData")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to start MainActivity", e)
-        }
+        // Avoid launching MainActivity on incoming calls to reduce startup overhead.
     }
 
     private fun storePhoneForOverlay(context: Context, phone: String) {

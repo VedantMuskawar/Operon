@@ -3,9 +3,108 @@ import * as admin from 'firebase-admin';
 import { PENDING_ORDERS_COLLECTION, TRANSACTIONS_COLLECTION } from '../shared/constants';
 import { getFirestore } from '../shared/firestore-helpers';
 import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
+import { countScheduledTripsForItem } from './trip-scheduling-logic';
+import { checkOrderTripConsistencyCore } from '../maintenance/check-order-trip-consistency';
 
 const db = getFirestore();
 const TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
+
+async function applyOrderTripConsistencyFixes(
+  orderId: string,
+  fixes: Array<Record<string, any>>,
+) {
+  if (fixes.length == 0) return;
+  const orderRef = db.collection(PENDING_ORDERS_COLLECTION).doc(orderId);
+
+  await db.runTransaction(async (transaction) => {
+    const orderDoc = await transaction.get(orderRef);
+    if (!orderDoc.exists) {
+      return;
+    }
+
+    const orderData = orderDoc.data() || {};
+    const updateData: Record<string, any> = {};
+
+    for (const fix of fixes) {
+      switch (fix.type) {
+        case 'remove_orphaned_trip_ref': {
+          const scheduledTrips = ((orderData.scheduledTrips as any[]) || []).filter(
+            (t: any) => t.tripId !== fix.tripId,
+          );
+          updateData.scheduledTrips = scheduledTrips;
+          updateData.totalScheduledTrips = scheduledTrips.length;
+          break;
+        }
+        case 'sync_trip_status': {
+          const updatedTrips = ((orderData.scheduledTrips as any[]) || []).map((t: any) => {
+            if (t.tripId === fix.tripId) {
+              return { ...t, tripStatus: fix.correctStatus };
+            }
+            return t;
+          });
+          updateData.scheduledTrips = updatedTrips;
+          break;
+        }
+        case 'add_missing_trip_ref': {
+          const tripData = fix.tripData || {};
+          const newTripRef = {
+            tripId: fix.tripId,
+            scheduleTripId: tripData.scheduleTripId || null,
+            itemIndex: tripData.itemIndex ?? 0,
+            productId: tripData.productId || null,
+            scheduledDate: tripData.scheduledDate,
+            scheduledDay: tripData.scheduledDay,
+            vehicleId: tripData.vehicleId,
+            vehicleNumber: tripData.vehicleNumber,
+            slot: tripData.slot,
+            tripStatus: tripData.tripStatus || 'scheduled',
+          };
+          const existingTrips = (orderData.scheduledTrips as any[]) || [];
+          updateData.scheduledTrips = [...existingTrips, newTripRef];
+          updateData.totalScheduledTrips =
+            ((orderData.totalScheduledTrips as number) || 0) + 1;
+          break;
+        }
+        case 'sync_trip_count': {
+          updateData.totalScheduledTrips = fix.correctCount;
+          break;
+        }
+        case 'sync_item_trip_count': {
+          const items = [...((orderData.items as any[]) || [])];
+          if (items[fix.itemIndex]) {
+            items[fix.itemIndex].scheduledTrips = fix.correctCount;
+            updateData.items = items;
+          }
+          break;
+        }
+        case 'sync_item_index': {
+          const tripsWithIndex = ((orderData.scheduledTrips as any[]) || []).map((t: any) => {
+            if (t.tripId === fix.tripId) {
+              return { ...t, itemIndex: fix.correctIndex };
+            }
+            return t;
+          });
+          updateData.scheduledTrips = tripsWithIndex;
+          break;
+        }
+        default:
+          break;
+      }
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      updateData.updatedAt = new Date();
+      transaction.update(orderRef, updateData);
+    }
+  });
+}
+
+// #region agent log
+const DEBUG_INGEST = 'http://127.0.0.1:7242/ingest/891e077a-a8b1-43e8-b6e4-f8063ea749ad';
+function debugLog(p: { location: string; message: string; data?: Record<string, unknown>; hypothesisId?: string }) {
+  fetch(DEBUG_INGEST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...p, timestamp: Date.now() }) }).catch(() => {});
+}
+// #endregion
 
 /**
  * When a trip is scheduled:
@@ -37,6 +136,9 @@ export const onScheduledTripCreated = onDocumentCreated(
     const tripId = event.params.tripId;
     const tripRef = db.collection(TRIPS_COLLECTION).doc(tripId);
 
+    // #region agent log
+    debugLog({ location: 'trip-scheduling.ts:onCreate:entry', message: 'Trip created', data: { tripId, orderId, itemIndex: (tripData.itemIndex as number) ?? 0, productId: (tripData.productId as string) || null, itemsInTripData: !!tripData.items }, hypothesisId: 'H2,H5' });
+    // #endregion
     console.log('[Trip Scheduling] Processing scheduled trip', {tripId, orderId});
 
     try {
@@ -45,15 +147,46 @@ export const onScheduledTripCreated = onDocumentCreated(
       const scheduledDate = tripData.scheduledDate;
       const vehicleId = tripData.vehicleId;
       const slot = tripData.slot;
+      const organizationId = tripData.organizationId as string | undefined;
       if (scheduledDate && vehicleId && slot !== undefined) {
-        const clashSnap = await db
+        let scheduledDateValue: Date | null = null;
+        if (typeof (scheduledDate as any).toDate === 'function') {
+          scheduledDateValue = (scheduledDate as admin.firestore.Timestamp).toDate();
+        } else if (scheduledDate instanceof Date) {
+          scheduledDateValue = scheduledDate;
+        } else if (typeof scheduledDate === 'string' || typeof scheduledDate === 'number') {
+          const parsed = new Date(scheduledDate);
+          scheduledDateValue = Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+
+        let clashQuery = db
           .collection(TRIPS_COLLECTION)
-          .where('scheduledDate', '==', scheduledDate)
           .where('vehicleId', '==', vehicleId)
           .where('slot', '==', slot)
-          .where('isActive', '==', true)
-          .limit(5)
-          .get();
+          .where('isActive', '==', true);
+
+        if (scheduledDateValue) {
+          const startOfDay = new Date(Date.UTC(
+            scheduledDateValue.getUTCFullYear(),
+            scheduledDateValue.getUTCMonth(),
+            scheduledDateValue.getUTCDate(),
+          ));
+          const endOfDay = new Date(Date.UTC(
+            scheduledDateValue.getUTCFullYear(),
+            scheduledDateValue.getUTCMonth(),
+            scheduledDateValue.getUTCDate() + 1,
+          ));
+
+          clashQuery = clashQuery
+            .where('scheduledDate', '>=', admin.firestore.Timestamp.fromDate(startOfDay))
+            .where('scheduledDate', '<', admin.firestore.Timestamp.fromDate(endOfDay));
+        } else {
+          clashQuery = clashQuery.where('scheduledDate', '==', scheduledDate);
+        }
+        if (organizationId) {
+          clashQuery = clashQuery.where('organizationId', '==', organizationId);
+        }
+        const clashSnap = await clashQuery.limit(5).get();
         const activeStatuses = ['scheduled', 'in_progress'];
         const otherDocs = clashSnap.docs.filter((d) => {
           if (d.id === tripId) return false;
@@ -61,6 +194,10 @@ export const onScheduledTripCreated = onDocumentCreated(
           return activeStatuses.includes(status.toLowerCase());
         });
         if (otherDocs.length > 0) {
+          // #region agent log
+          debugLog({ location: 'trip-scheduling.ts:slotClash', message: 'Trip deleted: slot already booked', data: { tripId, orderId, vehicleId, slot }, hypothesisId: 'H5' });
+          // #endregion
+          console.warn('[Trip Scheduling] DELETE_REASON: slotClash', { tripId, orderId, vehicleId, slot });
           console.warn('[Trip Scheduling] Slot already booked', {
             tripId,
             orderId,
@@ -76,6 +213,10 @@ export const onScheduledTripCreated = onDocumentCreated(
       // Pre-check order existence and remaining trips; delete trip if invalid
       const preOrder = await db.collection(PENDING_ORDERS_COLLECTION).doc(orderId).get();
       if (!preOrder.exists) {
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:preCheck:orderNotFound', message: 'Trip deleted: order not found', data: { tripId, orderId }, hypothesisId: 'H5' });
+        // #endregion
+        console.warn('[Trip Scheduling] DELETE_REASON: orderNotFound', { tripId, orderId });
         console.warn('[Trip Scheduling] Order not found, deleting trip', {orderId, tripId});
         await tripRef.delete();
         return;
@@ -83,6 +224,10 @@ export const onScheduledTripCreated = onDocumentCreated(
       const preData = preOrder.data() || {};
       const preItems = (preData.items as any[]) || [];
       if (preItems.length === 0) {
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:preCheck:noItems', message: 'Trip deleted: order has no items', data: { tripId, orderId }, hypothesisId: 'H5' });
+        // #endregion
+        console.warn('[Trip Scheduling] DELETE_REASON: noItems', { tripId, orderId });
         console.warn('[Trip Scheduling] Order has no items, deleting trip', {orderId, tripId});
         await tripRef.delete();
         return;
@@ -94,6 +239,10 @@ export const onScheduledTripCreated = onDocumentCreated(
       
       // Validate itemIndex
       if (itemIndex < 0 || itemIndex >= preItems.length) {
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:preCheck:invalidItemIndex', message: 'Trip deleted: invalid itemIndex', data: { tripId, orderId, itemIndex, itemsLength: preItems.length }, hypothesisId: 'H2' });
+        // #endregion
+        console.warn('[Trip Scheduling] DELETE_REASON: invalidItemIndex', { tripId, orderId, itemIndex, itemsLength: preItems.length });
         console.warn('[Trip Scheduling] Invalid itemIndex, deleting trip', {
           orderId,
           tripId,
@@ -106,11 +255,30 @@ export const onScheduledTripCreated = onDocumentCreated(
       
       // Get the specific item this trip belongs to
       const preItem = preItems[itemIndex];
-      const preEstimatedTrips = (preItem.estimatedTrips as number) || 0;
-      const preScheduledTrips = (preItem.scheduledTrips as number) || 0;
-      
+      // Number() handles Firestore Long/other numeric types; default 0 if missing/NaN
+      let preEstimatedTrips = Math.max(0, Math.floor(Number(preItem.estimatedTrips)) || 0);
+      const preScheduledTripsArray = (preData.scheduledTrips as any[]) || [];
+      const preScheduledTripsFromOrder = countScheduledTripsForItem({
+        scheduledTrips: preScheduledTripsArray,
+        itemIndex,
+        productId,
+        fallbackProductId: preItem.productId,
+      });
+
+      // Single-trip / legacy: when item reports 0 estimated trips, allow one trip (keeps single-trip orders schedulable)
+      if (preEstimatedTrips <= 0) {
+        preEstimatedTrips = 1;
+      }
+      // #region agent log
+      debugLog({ location: 'trip-scheduling.ts:preCheck:afterCompat', message: 'Pre-check item state', data: { tripId, orderId, itemIndex, rawEstimated: preItem.estimatedTrips, preScheduledTrips: preScheduledTripsFromOrder, preEstimatedTripsAfterCompat: preEstimatedTrips, preItemProductId: preItem.productId, tripProductId: productId }, hypothesisId: 'H1,H2' });
+      // #endregion
+
       // Validate productId matches if provided
       if (productId && preItem.productId !== productId) {
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:preCheck:productIdMismatch', message: 'Trip deleted: productId mismatch', data: { tripId, orderId, productId, itemProductId: preItem.productId }, hypothesisId: 'H2' });
+        // #endregion
+        console.warn('[Trip Scheduling] DELETE_REASON: productIdMismatch', { tripId, orderId, tripProductId: productId, itemProductId: preItem.productId });
         console.warn('[Trip Scheduling] ProductId mismatch, deleting trip', {
           orderId,
           tripId,
@@ -122,6 +290,10 @@ export const onScheduledTripCreated = onDocumentCreated(
       }
       
       if (preEstimatedTrips <= 0) {
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:preCheck:noTripsRemaining', message: 'Trip deleted: no trips remaining', data: { tripId, orderId, itemIndex, preEstimatedTrips }, hypothesisId: 'H1' });
+        // #endregion
+        console.warn('[Trip Scheduling] DELETE_REASON: noTripsRemaining', { tripId, orderId, itemIndex, preEstimatedTrips, rawEstimated: preItem.estimatedTrips });
         console.warn('[Trip Scheduling] No trips remaining to schedule for this item', {
           orderId,
           tripId,
@@ -132,12 +304,91 @@ export const onScheduledTripCreated = onDocumentCreated(
         return;
       }
       
-      if (preScheduledTrips >= preEstimatedTrips) {
+      let allowAllScheduledOverride = false;
+      let actualScheduledTripsCount: number | null = null;
+      try {
+        let actualTripsQuery = db
+          .collection(TRIPS_COLLECTION)
+          .where('orderId', '==', orderId)
+          .where('isActive', '==', true)
+          .where('tripStatus', 'in', ['scheduled', 'in_progress']);
+
+        if (productId) {
+          actualTripsQuery = actualTripsQuery.where('productId', '==', productId);
+        }
+        if (itemIndex !== undefined && itemIndex !== null) {
+          actualTripsQuery = actualTripsQuery.where('itemIndex', '==', itemIndex);
+        }
+
+        const actualTripsSnap = await actualTripsQuery.get();
+        actualScheduledTripsCount = actualTripsSnap.docs.filter((doc) => doc.id !== tripId).length;
+
+        if (actualScheduledTripsCount < preEstimatedTrips) {
+          allowAllScheduledOverride = true;
+          console.warn('[Trip Scheduling] Override allScheduled based on actual trips', {
+            orderId,
+            tripId,
+            itemIndex,
+            productId,
+            preScheduledTripsFromOrder,
+            preEstimatedTrips,
+            actualScheduledTripsCount,
+          });
+        }
+      } catch (overrideError) {
+        console.error('[Trip Scheduling] Failed to verify actual scheduled trips', {
+          orderId,
+          tripId,
+          itemIndex,
+          productId,
+          error: overrideError,
+        });
+      }
+
+      if (
+        actualScheduledTripsCount !== null &&
+        actualScheduledTripsCount !== preScheduledTripsFromOrder
+      ) {
+        console.warn('[Trip Scheduling] Mismatch detected; attempting auto-repair', {
+          orderId,
+          tripId,
+          itemIndex,
+          productId,
+          preScheduledTripsFromOrder,
+          actualScheduledTripsCount,
+        });
+        try {
+          const consistency = await checkOrderTripConsistencyCore(orderId, organizationId);
+          if (!consistency.consistent && consistency.fixes.length > 0) {
+            await applyOrderTripConsistencyFixes(orderId, consistency.fixes);
+            console.warn('[Trip Scheduling] Auto-repair applied', {
+              orderId,
+              tripId,
+              fixesApplied: consistency.fixes.length,
+            });
+          }
+        } catch (repairError) {
+          console.error('[Trip Scheduling] Auto-repair failed', {
+            orderId,
+            tripId,
+            error: repairError,
+          });
+        }
+      }
+
+      const effectivePreScheduledTrips =
+        actualScheduledTripsCount ?? preScheduledTripsFromOrder;
+
+      if (effectivePreScheduledTrips >= preEstimatedTrips && !allowAllScheduledOverride) {
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:preCheck:allScheduled', message: 'Trip deleted: all trips already scheduled', data: { tripId, orderId, itemIndex, preScheduledTripsFromOrder, actualScheduledTripsCount, preEstimatedTrips }, hypothesisId: 'H1' });
+        // #endregion
+        console.warn('[Trip Scheduling] DELETE_REASON: allScheduled', { tripId, orderId, itemIndex, preScheduledTripsFromOrder, actualScheduledTripsCount, preEstimatedTrips });
         console.warn('[Trip Scheduling] All trips already scheduled for this item', {
           orderId,
           tripId,
           itemIndex,
-          scheduledTrips: preScheduledTrips,
+          scheduledTrips: effectivePreScheduledTrips,
           estimatedTrips: preEstimatedTrips,
         });
         await tripRef.delete();
@@ -150,6 +401,10 @@ export const onScheduledTripCreated = onDocumentCreated(
         const orderDoc = await transaction.get(orderRef);
         
         if (!orderDoc.exists) {
+          // #region agent log
+          debugLog({ location: 'trip-scheduling.ts:txn:orderNotFound', message: 'Transaction: order not found, skipping update', data: { orderId, tripId }, hypothesisId: 'H3' });
+          // #endregion
+          console.warn('[Trip Scheduling] DELETE_REASON: txnOrderNotFound', { orderId, tripId });
           console.warn('[Trip Scheduling] Order not found', {orderId});
           return;
         }
@@ -158,6 +413,10 @@ export const onScheduledTripCreated = onDocumentCreated(
         const items = (orderData.items as any[]) || [];
         
         if (items.length === 0) {
+          // #region agent log
+          debugLog({ location: 'trip-scheduling.ts:txn:noItems', message: 'Transaction: no items, deleting trip', data: { orderId, tripId }, hypothesisId: 'H3' });
+          // #endregion
+          console.warn('[Trip Scheduling] DELETE_REASON: txnNoItems', { orderId, tripId });
           console.error('[Trip Scheduling] Order has no items', {orderId});
           transaction.delete(tripRef);
           return;
@@ -169,6 +428,10 @@ export const onScheduledTripCreated = onDocumentCreated(
         
         // Validate itemIndex
         if (itemIndex < 0 || itemIndex >= items.length) {
+          // #region agent log
+          debugLog({ location: 'trip-scheduling.ts:txn:invalidItemIndex', message: 'Transaction: invalid itemIndex, deleting trip', data: { orderId, tripId, itemIndex, itemsLength: items.length }, hypothesisId: 'H2' });
+          // #endregion
+          console.warn('[Trip Scheduling] DELETE_REASON: txnInvalidItemIndex', { orderId, tripId, itemIndex, itemsLength: items.length });
           console.error('[Trip Scheduling] Invalid itemIndex', {
             orderId,
             tripId,
@@ -182,6 +445,10 @@ export const onScheduledTripCreated = onDocumentCreated(
         // Get the specific item this trip belongs to
         const targetItem = items[itemIndex];
         if (!targetItem) {
+          // #region agent log
+          debugLog({ location: 'trip-scheduling.ts:txn:itemNotFound', message: 'Transaction: item not found at index, deleting trip', data: { orderId, tripId, itemIndex }, hypothesisId: 'H2' });
+          // #endregion
+          console.warn('[Trip Scheduling] DELETE_REASON: txnItemNotFound', { orderId, tripId, itemIndex });
           console.error('[Trip Scheduling] Item not found at index', {orderId, tripId, itemIndex});
           transaction.delete(tripRef);
           return;
@@ -189,6 +456,10 @@ export const onScheduledTripCreated = onDocumentCreated(
         
         // Validate productId matches if provided
         if (productId && targetItem.productId !== productId) {
+          // #region agent log
+          debugLog({ location: 'trip-scheduling.ts:txn:productIdMismatch', message: 'Transaction: productId mismatch, deleting trip', data: { orderId, tripId, productId, itemProductId: targetItem.productId }, hypothesisId: 'H2' });
+          // #endregion
+          console.warn('[Trip Scheduling] DELETE_REASON: txnProductIdMismatch', { orderId, tripId, productId, itemProductId: targetItem.productId });
           console.error('[Trip Scheduling] ProductId mismatch', {
             orderId,
             tripId,
@@ -200,10 +471,42 @@ export const onScheduledTripCreated = onDocumentCreated(
           return;
         }
 
-        let estimatedTrips = (targetItem.estimatedTrips as number) || 0;
-        let scheduledTrips = (targetItem.scheduledTrips as number) || 0;
+        let estimatedTrips = Math.max(0, Math.floor(Number(targetItem.estimatedTrips)) || 0);
+        const scheduledTripsArrayForUpdate = (orderData.scheduledTrips as any[]) || [];
+        const alreadyLinked = scheduledTripsArrayForUpdate.some((trip) => trip?.tripId === tripId);
+        if (alreadyLinked) {
+          console.log('[Trip Scheduling] Trip already linked to order, skipping update', {
+            orderId,
+            tripId,
+          });
+          return;
+        }
+
+        let scheduledTrips = countScheduledTripsForItem({
+          scheduledTrips: scheduledTripsArrayForUpdate,
+          itemIndex,
+          productId,
+          fallbackProductId: targetItem.productId,
+        });
+
+        if (allowAllScheduledOverride && scheduledTrips >= estimatedTrips) {
+          // Auto-correct when order counters are stale but actual trips allow scheduling.
+          estimatedTrips = scheduledTrips + 1;
+        }
+
+        // Single-trip / legacy: when item reports 0 estimated trips, allow one trip
+        if (estimatedTrips <= 0) {
+          estimatedTrips = 1;
+        }
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:txn:afterCompat', message: 'Transaction: item state after compat', data: { tripId, orderId, itemIndex, rawEstimated: targetItem.estimatedTrips, estimatedTrips, scheduledTrips }, hypothesisId: 'H1' });
+        // #endregion
 
         if (estimatedTrips <= 0) {
+          // #region agent log
+          debugLog({ location: 'trip-scheduling.ts:txn:noTripsRemaining', message: 'Transaction: no trips remaining, deleting trip', data: { tripId, orderId, itemIndex, estimatedTrips }, hypothesisId: 'H1' });
+          // #endregion
+          console.warn('[Trip Scheduling] DELETE_REASON: txnNoTripsRemaining', { tripId, orderId, itemIndex, estimatedTrips, rawEstimated: targetItem.estimatedTrips });
           console.warn('[Trip Scheduling] No trips remaining to schedule for this item', {
             orderId,
             tripId,
@@ -214,7 +517,11 @@ export const onScheduledTripCreated = onDocumentCreated(
           return;
         }
         
-        if (scheduledTrips >= estimatedTrips) {
+        if (scheduledTrips >= estimatedTrips && !allowAllScheduledOverride) {
+          // #region agent log
+          debugLog({ location: 'trip-scheduling.ts:txn:allScheduled', message: 'Transaction: all scheduled, deleting trip', data: { tripId, orderId, itemIndex, scheduledTrips, estimatedTrips }, hypothesisId: 'H1' });
+          // #endregion
+          console.warn('[Trip Scheduling] DELETE_REASON: txnAllScheduled', { tripId, orderId, itemIndex, scheduledTrips, estimatedTrips });
           console.warn('[Trip Scheduling] All trips already scheduled for this item', {
             orderId,
             tripId,
@@ -260,8 +567,6 @@ export const onScheduledTripCreated = onDocumentCreated(
           tripEntry.driverPhone = tripData.driverPhone;
         }
 
-        // Get existing scheduledTrips array
-        const scheduledTripsArray = (orderData.scheduledTrips as any[]) || [];
         const totalScheduledTrips = (orderData.totalScheduledTrips as number) || 0;
 
         // Clean items array to remove any null values before updating
@@ -278,7 +583,7 @@ export const onScheduledTripCreated = onDocumentCreated(
 
         // Update order
         const updateData: any = {
-          scheduledTrips: [...scheduledTripsArray, tripEntry],
+          scheduledTrips: [...scheduledTripsArrayForUpdate, tripEntry],
           totalScheduledTrips: totalScheduledTrips + 1,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
@@ -318,6 +623,9 @@ export const onScheduledTripCreated = onDocumentCreated(
           updateData.status = 'pending';
         }
 
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:txn:beforeUpdate', message: 'Transaction: about to update order', data: { tripId, orderId, updateDataKeys: Object.keys(updateData), allItemsFullyScheduled, scheduledTripsArrayLen: (updateData.scheduledTrips as any[])?.length, totalScheduledTrips: updateData.totalScheduledTrips }, hypothesisId: 'H3' });
+        // #endregion
         transaction.update(orderRef, updateData);
 
         console.log('[Trip Scheduling] Order updated', {
@@ -332,6 +640,9 @@ export const onScheduledTripCreated = onDocumentCreated(
         });
       });
     } catch (error) {
+      // #region agent log
+      debugLog({ location: 'trip-scheduling.ts:onCreate:catch', message: 'Trip scheduling threw', data: { tripId, orderId, error: String(error) }, hypothesisId: 'H3' });
+      // #endregion
       console.error('[Trip Scheduling] Error processing scheduled trip', {
         tripId,
         orderId,
@@ -392,8 +703,21 @@ export const onScheduledTripDeleted = onDocumentDeleted(
 
         // Find the trip being deleted to get its itemIndex
         const deletedTrip = scheduledTrips.find((trip: any) => trip.tripId === tripId);
-        const itemIndex = deletedTrip?.itemIndex ?? 0;
-        const productId = deletedTrip?.productId || null;
+        // #region agent log
+        debugLog({ location: 'trip-scheduling.ts:onDelete:deletedTrip', message: 'Trip deleted handler', data: { tripId, orderId, deletedTripFound: !!deletedTrip, scheduledTripsLen: scheduledTrips.length }, hypothesisId: 'H4' });
+        // #endregion
+        // If trip was never in scheduledTrips, it was deleted by validation in onScheduledTripCreated
+        // (e.g. slot clash, order not found). Do NOT update order - would incorrectly increment estimatedTrips.
+        if (!deletedTrip) {
+          console.log('[Trip Cancellation] Trip was never in scheduledTrips (deleted by validation), skipping order update', {
+            tripId,
+            orderId,
+          });
+          return;
+        }
+
+        const itemIndex = deletedTrip.itemIndex ?? 0;
+        const productId = deletedTrip.productId || null;
 
         // Remove cancelled trip from scheduledTrips array
         const updatedScheduledTrips = scheduledTrips.filter(

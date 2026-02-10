@@ -7,7 +7,6 @@ import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/presentation/blocs/production_batches/production_batches_cubit.dart';
 import 'package:dash_web/presentation/widgets/production_batch_selector.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -335,11 +334,11 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
         width: 750,
         constraints: const BoxConstraints(maxHeight: 850),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C),
+          color: AuthColors.surface,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: AuthColors.background.withValues(alpha: 0.5),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -364,7 +363,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                       decoration: BoxDecoration(
                         border: Border(
                           bottom: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.1),
+                            color: AuthColors.textMainWithOpacity(0.1),
                             width: 1,
                           ),
                         ),
@@ -374,12 +373,12 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                              color: AuthColors.primary.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
                               Icons.inventory_2_outlined,
-                              color: Color(0xFF6F4BFF),
+                              color: AuthColors.primary,
                               size: 24,
                             ),
                           ),
@@ -393,7 +392,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       ? 'Edit Production Batch'
                                       : 'Create Production Batch',
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: AuthColors.textMain,
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -401,8 +400,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                 const SizedBox(height: 4),
                                 Text(
                                   'Record production data and calculate wages',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                  style: const TextStyle(
+                                    color: AuthColors.textSub,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -414,10 +413,10 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                             icon: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
+                                color: AuthColors.textMainWithOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Icon(Icons.close, color: Colors.white70, size: 20),
+                              child: const Icon(Icons.close, color: AuthColors.textSub, size: 20),
                             ),
                           ),
                         ],
@@ -453,31 +452,31 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                               initialValue: _selectedMethodId,
                               decoration: InputDecoration(
                                 labelText: 'Wage Method *',
-                                labelStyle: const TextStyle(color: Colors.white70),
+                                labelStyle: const TextStyle(color: AuthColors.textSub),
                                 filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.05),
+                                fillColor: AuthColors.textMainWithOpacity(0.05),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
+                                    color: AuthColors.textMainWithOpacity(0.2),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
+                                    color: AuthColors.textMainWithOpacity(0.2),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: const BorderSide(
-                                    color: Color(0xFF6F4BFF),
+                                    color: AuthColors.primary,
                                     width: 2,
                                   ),
                                 ),
                               ),
-                              dropdownColor: const Color(0xFF1B1B2C),
-                              style: const TextStyle(color: Colors.white),
+                              dropdownColor: AuthColors.surface,
+                              style: const TextStyle(color: AuthColors.textMain),
                               items: () {
                                 if (_wageSettings == null) {
                                   return [
@@ -485,8 +484,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       value: null,
                                       child: Text(
                                         'Loading wage settings...',
-                                        style: TextStyle(
-                                          color: Colors.white54,
+                                        style: const TextStyle(
+                                          color: AuthColors.textSub,
                                           fontStyle: FontStyle.italic,
                                         ),
                                       ),
@@ -501,7 +500,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       child: Text(
                                         'Wage settings disabled',
                                         style: TextStyle(
-                                          color: Colors.white54,
+                                          color: AuthColors.textSub,
                                           fontStyle: FontStyle.italic,
                                         ),
                                       ),
@@ -521,8 +520,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       value: null,
                                       child: Text(
                                         'No production methods available',
-                                        style: TextStyle(
-                                          color: Colors.white54,
+                                        style: const TextStyle(
+                                          color: AuthColors.textSub,
                                           fontStyle: FontStyle.italic,
                                         ),
                                       ),
@@ -575,10 +574,10 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  color: AuthColors.warning.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: Colors.orange.withValues(alpha: 0.3),
+                                    color: AuthColors.warning.withValues(alpha: 0.3),
                                   ),
                                 ),
                                 child: Row(
@@ -586,7 +585,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                     Icon(
                                       Icons.info_outline,
                                       size: 18,
-                                      color: Colors.orange.withValues(alpha: 0.8),
+                                      color: AuthColors.warning.withValues(alpha: 0.8),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -597,7 +596,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                 ? 'Wage settings are disabled. Please enable wage settings first.'
                                                 : 'No production wage methods are enabled. Please enable at least one production method in wage settings.',
                                         style: TextStyle(
-                                          color: Colors.orange.withValues(alpha: 0.9),
+                                          color: AuthColors.warning.withValues(alpha: 0.9),
                                           fontSize: 12,
                                         ),
                                       ),
@@ -612,31 +611,31 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                               initialValue: _selectedProductId,
                               decoration: InputDecoration(
                                 labelText: 'Product (Optional)',
-                                labelStyle: const TextStyle(color: Colors.white70),
+                                labelStyle: const TextStyle(color: AuthColors.textSub),
                                 filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.05),
+                                fillColor: AuthColors.textMainWithOpacity(0.05),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
+                                    color: AuthColors.textMainWithOpacity(0.2),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.2),
+                                    color: AuthColors.textMainWithOpacity(0.2),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: const BorderSide(
-                                    color: Color(0xFF6F4BFF),
+                                    color: AuthColors.primary,
                                     width: 2,
                                   ),
                                 ),
                               ),
-                              dropdownColor: const Color(0xFF1B1B2C),
-                              style: const TextStyle(color: Colors.white),
+                              dropdownColor: AuthColors.surface,
+                              style: const TextStyle(color: AuthColors.textMain),
                               items: [
                                 const DropdownMenuItem<String>(
                                   value: null,
@@ -673,7 +672,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                     ? 'Employees in Batch (${_selectedEmployeeIds.length})'
                                     : 'Select Employees',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AuthColors.textMain,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -682,10 +681,10 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                               Container(
                                 constraints: const BoxConstraints(maxHeight: 200),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.05),
+                                  color: AuthColors.textMainWithOpacity(0.05),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.2),
+                                    color: AuthColors.textMainWithOpacity(0.2),
                                   ),
                                 ),
                                 child: Builder(
@@ -701,9 +700,9 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       return const Center(
                                         child: Padding(
                                           padding: EdgeInsets.all(16.0),
-                                          child: Text(
+                                          child: const Text(
                                             'No employees found',
-                                            style: TextStyle(color: Colors.white70),
+                                            style: TextStyle(color: AuthColors.textSub),
                                           ),
                                         ),
                                       );
@@ -719,13 +718,13 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                         return CheckboxListTile(
                                           title: Text(
                                             employee.name,
-                                            style: const TextStyle(color: Colors.white),
+                                            style: const TextStyle(color: AuthColors.textMain),
                                           ),
                                           subtitle: employee.primaryJobRoleTitle.isNotEmpty
                                               ? Text(
                                                   employee.primaryJobRoleTitle,
                                                   style: TextStyle(
-                                                    color: Colors.white.withValues(alpha: 0.7),
+                                                    color: AuthColors.textMainWithOpacity(0.7),
                                                   ),
                                                 )
                                               : null,
@@ -740,8 +739,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                             });
                                             _updateWagePreview();
                                           },
-                                          activeColor: const Color(0xFF6F4BFF),
-                                          checkColor: Colors.white,
+                                          activeColor: AuthColors.primary,
+                                          checkColor: AuthColors.textMain,
                                         );
                                       },
                                     );
@@ -752,7 +751,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                               Text(
                                 '${_selectedEmployeeIds.length} employee${_selectedEmployeeIds.length != 1 ? 's' : ''} selected',
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.7),
+                                  color: AuthColors.textMainWithOpacity(0.7),
                                   fontSize: 12,
                                 ),
                               ),
@@ -810,13 +809,13 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      const Color(0xFF6F4BFF).withValues(alpha: 0.15),
-                                      const Color(0xFF9C27B0).withValues(alpha: 0.1),
+                                      AuthColors.primary.withValues(alpha: 0.15),
+                                      AuthColors.secondary.withValues(alpha: 0.1),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: const Color(0xFF6F4BFF).withValues(alpha: 0.4),
+                                    color: AuthColors.primary.withValues(alpha: 0.4),
                                     width: 1.5,
                                   ),
                                 ),
@@ -828,12 +827,12 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                         Container(
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                                            color: AuthColors.primary.withValues(alpha: 0.2),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: const Icon(
                                             Icons.calculate_outlined,
-                                            color: Color(0xFF6F4BFF),
+                                            color: AuthColors.primary,
                                             size: 24,
                                           ),
                                         ),
@@ -845,7 +844,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                               Text(
                                                 'Calculated Wages',
                                                 style: TextStyle(
-                                                  color: Colors.white,
+                                                  color: AuthColors.textMain,
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
                                                 ),
@@ -854,7 +853,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                               Text(
                                                 'Wages are calculated automatically',
                                                 style: TextStyle(
-                                                  color: Colors.white70,
+                                                  color: AuthColors.textSub,
                                                   fontSize: 12,
                                                 ),
                                               ),
@@ -868,7 +867,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       Container(
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.05),
+                                          color: AuthColors.textMainWithOpacity(0.05),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Row(
@@ -880,7 +879,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                   Text(
                                                     'Total Wages',
                                                     style: TextStyle(
-                                                      color: Colors.white.withValues(alpha: 0.7),
+                                                      color: AuthColors.textMainWithOpacity(0.7),
                                                       fontSize: 13,
                                                     ),
                                                   ),
@@ -888,7 +887,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                   Text(
                                                     '₹${_totalWages!.toStringAsFixed(2)}',
                                                     style: const TextStyle(
-                                                      color: Colors.white,
+                                                      color: AuthColors.textMain,
                                                       fontSize: 24,
                                                       fontWeight: FontWeight.bold,
                                                     ),
@@ -899,7 +898,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                             Container(
                                               width: 1,
                                               height: 50,
-                                              color: Colors.white.withValues(alpha: 0.2),
+                                              color: AuthColors.textMainWithOpacity(0.2),
                                             ),
                                             const SizedBox(width: 16),
                                             Expanded(
@@ -909,7 +908,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                   Text(
                                                     'Per Employee',
                                                     style: TextStyle(
-                                                      color: Colors.white.withValues(alpha: 0.7),
+                                                      color: AuthColors.textMainWithOpacity(0.7),
                                                       fontSize: 13,
                                                     ),
                                                   ),
@@ -917,15 +916,15 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                                   Text(
                                                     '₹${_wagePerEmployee!.toStringAsFixed(2)}',
                                                     style: const TextStyle(
-                                                      color: Colors.white,
+                                                      color: AuthColors.textMain,
                                                       fontSize: 22,
                                                       fontWeight: FontWeight.w600,
                                                     ),
                                                   ),
                                                   Text(
                                                     '(${_selectedEmployeeIds.length} employees)',
-                                                    style: TextStyle(
-                                                      color: Colors.white.withValues(alpha: 0.6),
+                                                    style: const TextStyle(
+                                                      color: AuthColors.textSub,
                                                       fontSize: 11,
                                                     ),
                                                   ),
@@ -940,10 +939,10 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       Container(
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: Colors.orange.withValues(alpha: 0.1),
+                                          color: AuthColors.warning.withValues(alpha: 0.1),
                                           borderRadius: BorderRadius.circular(8),
                                           border: Border.all(
-                                            color: Colors.orange.withValues(alpha: 0.3),
+                                            color: AuthColors.warning.withValues(alpha: 0.3),
                                           ),
                                         ),
                                         child: Row(
@@ -951,14 +950,14 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                             Icon(
                                               Icons.info_outline,
                                               size: 18,
-                                              color: Colors.orange.withValues(alpha: 0.9),
+                                              color: AuthColors.warning.withValues(alpha: 0.9),
                                             ),
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: Text(
                                                 'Enter production quantities and select employees to see calculated wages',
                                                 style: TextStyle(
-                                                  color: Colors.orange.withValues(alpha: 0.9),
+                                                  color: AuthColors.warning.withValues(alpha: 0.9),
                                                   fontSize: 12,
                                                 ),
                                               ),
@@ -987,10 +986,10 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.03),
+                        color: AuthColors.textMainWithOpacity(0.03),
                         border: Border(
                           top: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.1),
+                            color: AuthColors.textMainWithOpacity(0.1),
                             width: 1,
                           ),
                         ),
@@ -1004,13 +1003,13 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                 Icon(
                                   Icons.info_outline,
                                   size: 16,
-                                  color: Colors.white.withValues(alpha: 0.6),
+                                  color: AuthColors.textSub,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'Wages calculated: ₹${_totalWages!.toStringAsFixed(2)} total',
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.7),
+                                    color: AuthColors.textMainWithOpacity(0.7),
                                     fontSize: 13,
                                   ),
                                 ),

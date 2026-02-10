@@ -339,7 +339,7 @@ class _StatisticsCards extends StatelessWidget {
                 icon: Icons.account_balance_wallet_outlined,
                 label: 'Total Wages Processed',
                 value: '₹${state.totalWagesProcessed.toStringAsFixed(0)}',
-                color: AuthColors.accentPurple,
+                color: AuthColors.secondary,
               ),
             ),
           ],
@@ -612,7 +612,7 @@ class _FiltersBar extends StatelessWidget {
                   },
                   icon: const Icon(Icons.clear, size: 18),
                   tooltip: 'Clear date range',
-                  color: Colors.white70,
+                  color: AuthColors.textSub,
                 ),
               ],
               const SizedBox(width: 16),
@@ -633,7 +633,7 @@ class _FiltersBar extends StatelessWidget {
                   },
                   icon: const Icon(Icons.clear, size: 18),
                   tooltip: 'Clear date range 2',
-                  color: Colors.white70,
+                  color: AuthColors.textSub,
                 ),
               ],
               const SizedBox(width: 16),
@@ -651,7 +651,7 @@ class _FiltersBar extends StatelessWidget {
                     hintText: 'Batch ID, employee, product...',
                     labelStyle: const TextStyle(color: AuthColors.textSub),
                     hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: AuthColors.textMainWithOpacity(0.5),
                     ),
                     prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
                     filled: true,
@@ -659,13 +659,13 @@ class _FiltersBar extends StatelessWidget {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: AuthColors.textMainWithOpacity(0.2),
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: AuthColors.textMainWithOpacity(0.2),
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
@@ -680,7 +680,7 @@ class _FiltersBar extends StatelessWidget {
                       vertical: 8,
                     ),
                   ),
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                 ),
               ),
               const SizedBox(width: 16),

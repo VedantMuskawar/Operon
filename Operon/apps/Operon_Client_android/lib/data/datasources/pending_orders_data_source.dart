@@ -10,7 +10,8 @@ class PendingOrdersDataSource {
     return _firestore.collection('PENDING_ORDERS');
   }
 
-  Future<String> createOrder(String orgId, Map<String, dynamic> orderData) async {
+  Future<String> createOrder(
+      String orgId, Map<String, dynamic> orderData) async {
     final docRef = _ordersRef().doc();
     final normalizedClientPhone =
         _normalizePhone(orderData['clientPhone'] as String? ?? '');
@@ -76,19 +77,28 @@ class PendingOrdersDataSource {
         .orderBy('createdAt', descending: true)
         .limit(100)
         .get();
-    
+
     final orders = <Map<String, dynamic>>[];
     for (final doc in snapshot.docs) {
       final data = doc.data();
       final status = data['status'] as String?;
-      
+
       // Filter: Only include orders with status 'pending' or no status
-      // Also check if estimatedTrips > 0 (for backward compatibility)
+      // Check any item with available trips (align with web behavior)
       final items = data['items'] as List<dynamic>? ?? [];
-      final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic>? : null;
-      final estimatedTrips = firstItem?['estimatedTrips'] as int? ?? 0;
-      final hasAvailableTrips = estimatedTrips > 0;
-      
+      bool hasAvailableTrips = false;
+      for (final item in items) {
+        final itemMap = item as Map<String, dynamic>?;
+        if (itemMap != null) {
+          final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
+          final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
+          if (estimatedTrips > scheduledTrips) {
+            hasAvailableTrips = true;
+            break;
+          }
+        }
+      }
+
       if ((status == null || status == 'pending') && hasAvailableTrips) {
         orders.add({
           'id': doc.id,
@@ -106,27 +116,36 @@ class PendingOrdersDataSource {
         .limit(100)
         .snapshots()
         .map((snapshot) {
-          final orders = <Map<String, dynamic>>[];
-          for (final doc in snapshot.docs) {
-            final data = doc.data();
-            final status = data['status'] as String?;
-            
-            // Filter: Only include orders with status 'pending' or no status
-            // Also check if estimatedTrips > 0 (for backward compatibility)
-            final items = data['items'] as List<dynamic>? ?? [];
-            final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic>? : null;
-            final estimatedTrips = firstItem?['estimatedTrips'] as int? ?? 0;
-            final hasAvailableTrips = estimatedTrips > 0;
-            
-            if ((status == null || status == 'pending') && hasAvailableTrips) {
-              orders.add({
-                'id': doc.id,
-                ...data,
-              });
+      final orders = <Map<String, dynamic>>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final status = data['status'] as String?;
+
+        // Filter: Only include orders with status 'pending' or no status
+        // Check any item with available trips (align with web behavior)
+        final items = data['items'] as List<dynamic>? ?? [];
+        bool hasAvailableTrips = false;
+        for (final item in items) {
+          final itemMap = item as Map<String, dynamic>?;
+          if (itemMap != null) {
+            final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
+            final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
+            if (estimatedTrips > scheduledTrips) {
+              hasAvailableTrips = true;
+              break;
             }
           }
-          return orders;
-        });
+        }
+
+        if ((status == null || status == 'pending') && hasAvailableTrips) {
+          orders.add({
+            'id': doc.id,
+            ...data,
+          });
+        }
+      }
+      return orders;
+    });
   }
 
   Future<void> updateOrderTrips({
@@ -136,14 +155,16 @@ class PendingOrdersDataSource {
   }) async {
     final orderRef = _ordersRef().doc(orderId);
     final orderDoc = await orderRef.get();
-    
+
     if (!orderDoc.exists) {
       throw Exception('Order not found');
     }
-    
+
     final data = orderDoc.data()!;
-    final items = (data['items'] as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
-    
+    final items = (data['items'] as List<dynamic>)
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
+
     // Find and update the item
     bool itemFound = false;
     for (int i = 0; i < items.length; i++) {
@@ -151,11 +172,11 @@ class PendingOrdersDataSource {
         final fixedQty = items[i]['fixedQuantityPerTrip'] as int;
         final unitPrice = (items[i]['unitPrice'] as num).toDouble();
         final gstPercent = (items[i]['gstPercent'] as num?)?.toDouble();
-        
+
         // Recalculate prices (without totalQuantity)
         final subtotal = newTrips * fixedQty * unitPrice;
         final total = subtotal;
-        
+
         final updatedItem = <String, dynamic>{
           ...items[i],
           'estimatedTrips': newTrips,
@@ -163,7 +184,7 @@ class PendingOrdersDataSource {
           'subtotal': subtotal,
           'total': total,
         };
-        
+
         // ✅ Only include GST fields if GST applies
         if (gstPercent != null && gstPercent > 0) {
           final gstAmount = subtotal * (gstPercent / 100);
@@ -171,17 +192,17 @@ class PendingOrdersDataSource {
           updatedItem['gstAmount'] = gstAmount;
           updatedItem['total'] = subtotal + gstAmount;
         }
-        
+
         items[i] = updatedItem;
         itemFound = true;
         break;
       }
     }
-    
+
     if (!itemFound) {
       throw Exception('Product not found in order');
     }
-    
+
     // Recalculate order totals
     double orderSubtotal = 0;
     double orderGst = 0;
@@ -191,7 +212,7 @@ class PendingOrdersDataSource {
       orderGst += itemGstAmount;
     }
     final orderTotal = orderSubtotal + orderGst;
-    
+
     // Build pricing object - only include totalGst if there's actual GST
     final pricingUpdate = <String, dynamic>{
       'pricing.subtotal': orderSubtotal,
@@ -200,7 +221,7 @@ class PendingOrdersDataSource {
     if (orderGst > 0) {
       pricingUpdate['pricing.totalGst'] = orderGst;
     }
-    
+
     // Update order document
     await orderRef.update({
       'items': items,
@@ -211,10 +232,7 @@ class PendingOrdersDataSource {
 
   /// Watch a single order document for real-time updates
   Stream<Map<String, dynamic>?> watchOrder(String orderId) {
-    return _ordersRef()
-        .doc(orderId)
-        .snapshots()
-        .map((snapshot) {
+    return _ordersRef().doc(orderId).snapshots().map((snapshot) {
       if (!snapshot.exists) return null;
       final data = snapshot.data()!;
       return {
@@ -235,7 +253,7 @@ class PendingOrdersDataSource {
   }) async {
     final orderRef = _ordersRef().doc(orderId);
     final orderDoc = await orderRef.get();
-    
+
     if (!orderDoc.exists) {
       throw Exception('Order not found');
     }
@@ -256,12 +274,12 @@ class PendingOrdersDataSource {
       final data = orderDoc.data()!;
       final pricing = data['pricing'] as Map<String, dynamic>?;
       final totalAmount = (pricing?['totalAmount'] as num?)?.toDouble() ?? 0.0;
-      
+
       updates['advanceAmount'] = advanceAmount;
       if (advancePaymentAccountId != null) {
         updates['advancePaymentAccountId'] = advancePaymentAccountId;
       }
-      
+
       final remainingAmount = totalAmount - advanceAmount;
       if (remainingAmount > 0) {
         updates['remainingAmount'] = remainingAmount;
@@ -285,4 +303,3 @@ class PendingOrdersDataSource {
     return input.replaceAll(RegExp(r'[^0-9+]'), '');
   }
 }
-

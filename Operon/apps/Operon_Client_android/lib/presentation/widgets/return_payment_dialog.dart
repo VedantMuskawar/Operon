@@ -22,7 +22,8 @@ class ReturnPaymentDialog extends StatefulWidget {
 class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
   final List<_PaymentEntry> _entries = [];
 
-  double get _remainingBeforeEntries => (widget.tripTotal - widget.alreadyPaid).clamp(0, double.infinity);
+  double get _remainingBeforeEntries =>
+      (widget.tripTotal - widget.alreadyPaid).clamp(0, double.infinity);
 
   double get _enteredTotal =>
       _entries.fold<double>(0, (sum, e) => sum + (e.amount ?? 0));
@@ -132,7 +133,7 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
               children: [
                 Text(
                   'Entered: ₹${_enteredTotal.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AuthColors.textMain),
                 ),
                 Text(
                   'After: ₹${_remainingAfterEntries.toStringAsFixed(2)}',
@@ -194,9 +195,10 @@ class _ReturnPaymentDialogState extends State<ReturnPaymentDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AuthColors.textSub, fontSize: 12)),
+          Text(label,
+              style: const TextStyle(color: AuthColors.textSub, fontSize: 12)),
           Text('₹${value.toStringAsFixed(2)}',
-              style: const TextStyle(color: Colors.white)),
+              style: const TextStyle(color: AuthColors.textMain)),
         ],
       ),
     );
@@ -244,13 +246,14 @@ class _PaymentEntryRow extends StatelessWidget {
             dropdownColor: AuthColors.surface,
             decoration: InputDecoration(
               labelText: 'Payment Account',
-              labelStyle: const TextStyle(color: Colors.white70),
+              labelStyle: const TextStyle(color: AuthColors.textSub),
               enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.white30),
+                borderSide:
+                    BorderSide(color: AuthColors.textSub.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.blue),
+                borderSide: const BorderSide(color: AuthColors.info),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
             ),
@@ -262,7 +265,7 @@ class _PaymentEntryRow extends StatelessWidget {
                     value: account,
                     child: Text(account.name,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white)),
+                        style: const TextStyle(color: AuthColors.textMain)),
                   ),
                 )
                 .toList(),
@@ -276,18 +279,19 @@ class _PaymentEntryRow extends StatelessWidget {
           flex: 2,
           child: TextFormField(
             initialValue: entry.amount?.toString() ?? '',
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true, signed: false),
-            style: const TextStyle(color: Colors.white),
+            keyboardType: const TextInputType.numberWithOptions(
+                decimal: true, signed: false),
+            style: const TextStyle(color: AuthColors.textMain),
             decoration: InputDecoration(
               labelText: 'Amount',
-              labelStyle: const TextStyle(color: Colors.white70),
+              labelStyle: const TextStyle(color: AuthColors.textSub),
               enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.white30),
+                borderSide:
+                    BorderSide(color: AuthColors.textSub.withOpacity(0.3)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
               focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Colors.blue),
+                borderSide: const BorderSide(color: AuthColors.info),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
             ),
@@ -298,12 +302,10 @@ class _PaymentEntryRow extends StatelessWidget {
           const SizedBox(width: AppSpacing.paddingSM),
           IconButton(
             onPressed: onRemove,
-            icon: const Icon(Icons.close, color: Colors.white70),
+            icon: const Icon(Icons.close, color: AuthColors.textSub),
           ),
         ],
       ],
     );
   }
 }
-
-

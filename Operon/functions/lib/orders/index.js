@@ -23,4 +23,5 @@ __exportStar(require("./delivery-memo"), exports);
 __exportStar(require("./trip-return-dm"), exports);
 __exportStar(require("./trip-dispatch-whatsapp"), exports);
 __exportStar(require("./trip-delivery-whatsapp"), exports);
+__exportStar(require("./cleanup-fully-scheduled-orders"), exports);
 //# sourceMappingURL=index.js.map

@@ -13,6 +13,7 @@ import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/call_overlay/call_overlay_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/call_overlay/call_overlay_event.dart';
 import 'package:dash_mobile/presentation/widgets/call_overlay_widget.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,9 +25,18 @@ Future<void> runOverlayApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   developer.log('overlayMain runOverlayApp', name: 'CallerOverlay');
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
   } catch (e) {
     developer.log('overlay Firebase init error: $e', name: 'CallerOverlay');
+  }
+  try {
+    final auth = FirebaseAuth.instance;
+    if (auth.currentUser == null) {
+      await auth.signInAnonymously();
+    }
+  } catch (e) {
+    developer.log('overlay anonymous auth error: $e', name: 'CallerOverlay');
   }
   runApp(const _OverlayApp());
 }
@@ -56,7 +66,8 @@ class _OverlayAppState extends State<_OverlayApp> {
 
   Future<Widget> _buildOverlay() async {
     if (!Platform.isAndroid) {
-      return const Material(child: Center(child: Text('Caller ID overlay is Android only.')));
+      return const Material(
+          child: Center(child: Text('Caller ID overlay is Android only.')));
     }
     developer.log('overlay _buildOverlay start', name: 'CallerOverlay');
     final firestore = FirebaseFirestore.instance;
@@ -81,7 +92,7 @@ class _OverlayAppState extends State<_OverlayApp> {
         bloc.add(PhoneNumberReceived(s));
       }
     });
-    Timer(const Duration(milliseconds: 1500), () {
+    Timer(const Duration(milliseconds: 600), () {
       if (!firstCompleter.isCompleted) firstCompleter.complete(null);
     });
 
@@ -95,10 +106,14 @@ class _OverlayAppState extends State<_OverlayApp> {
     if (!fromListener) {
       phone = await CallerOverlayService.takeStoredPhoneFromFile();
     }
-    if (phone == null || phone.isEmpty) {
-      phone = await CallerOverlayService.takeStoredPhone();
+    developer.log(
+        'overlay phone: ${phone != null && phone.isNotEmpty ? phone : "null/empty"} (fromListener=$fromListener)',
+        name: 'CallerOverlay');
+    if (phone != null && phone.isNotEmpty) {
+      try {
+        await CallerOverlayService.instance.clearPendingIncomingCall();
+      } catch (_) {}
     }
-    developer.log('overlay phone: ${phone != null && phone.isNotEmpty ? phone : "null/empty"} (fromListener=$fromListener)', name: 'CallerOverlay');
     bloc.add(PhoneNumberReceived(phone ?? ''));
     return BlocProvider<CallOverlayBloc>.value(
       value: bloc,

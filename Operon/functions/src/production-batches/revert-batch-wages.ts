@@ -1,4 +1,4 @@
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import {
@@ -9,21 +9,28 @@ import {
 import { getFinancialContext } from '../shared/financial-year';
 import { getYearMonth, normalizeDate } from '../shared/date-helpers';
 import { CALLABLE_FUNCTION_CONFIG } from '../shared/function-config';
-import { logInfo, logError } from '../shared/logger';
+import { logInfo, logError, toHttpsError } from '../shared/logger';
 
 const db = getFirestore();
 
+/** Revert write: either delete the doc or update with new data */
+interface RevertWrite {
+  ref: admin.firestore.DocumentReference;
+  delete: boolean;
+  data?: Record<string, any>;
+}
+
 /**
- * Revert attendance for an employee in a batch
- * This is a helper function that updates attendance within a transaction
+ * Compute revert write from a read snapshot (no tx writes).
+ * Firestore transactions require all reads before any writes.
  */
-async function revertAttendanceInTransaction(
-  tx: admin.firestore.Transaction,
+function computeRevertWrite(
+  attendanceDoc: admin.firestore.DocumentSnapshot,
   organizationId: string,
   employeeId: string,
   batchDate: Date,
   batchId: string,
-): Promise<void> {
+): RevertWrite | null {
   const financialYear = getFinancialContext(batchDate).fyLabel;
   const yearMonth = getYearMonth(batchDate);
   const ledgerId = `${employeeId}_${financialYear}`;
@@ -32,18 +39,13 @@ async function revertAttendanceInTransaction(
   const ledgerRef = db.collection(EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
   const attendanceRef = ledgerRef.collection('Attendance').doc(yearMonth);
 
-  // Read attendance document
-  const attendanceDoc = await tx.get(attendanceRef);
-
   if (!attendanceDoc.exists) {
-    // No attendance record exists, nothing to revert
-    return;
+    return null;
   }
 
   const attendanceData = attendanceDoc.data()!;
   let dailyRecords = Array.from(attendanceData.dailyRecords || []);
 
-  // Find and remove the batch from daily records
   const dateIndex = dailyRecords.findIndex((record: any) => {
     let recordDate: Date;
     if (record.date?.toDate) {
@@ -60,21 +62,16 @@ async function revertAttendanceInTransaction(
   });
 
   if (dateIndex < 0) {
-    // No record for this date, nothing to revert
-    return;
+    return null;
   }
 
   const existingRecord: any = dailyRecords[dateIndex];
-
-  // Remove batchId from the record
   const batchIds = Array.from(existingRecord.batchIds || []);
   const updatedBatchIds = batchIds.filter((id: any) => id !== batchId);
 
   if (updatedBatchIds.length === 0) {
-    // No more batches for this day, remove the daily record
     dailyRecords = dailyRecords.filter((_, index) => index !== dateIndex);
   } else {
-    // Update the record with remaining batches
     dailyRecords[dateIndex] = {
       ...existingRecord,
       numberOfBatches: updatedBatchIds.length,
@@ -82,16 +79,17 @@ async function revertAttendanceInTransaction(
     };
   }
 
-  // Recalculate totals
   const totalDaysPresent = dailyRecords.filter((record: any) => record.isPresent === true).length;
   const totalBatchesWorked = dailyRecords.reduce((sum: number, record: any) => sum + (record.numberOfBatches || 0), 0);
 
-  // If no daily records remain, delete the attendance document
   if (dailyRecords.length === 0) {
-    tx.delete(attendanceRef);
-  } else {
-    // Update attendance document
-    const attendanceJson = {
+    return { ref: attendanceRef, delete: true };
+  }
+
+  return {
+    ref: attendanceRef,
+    delete: false,
+    data: {
       yearMonth,
       employeeId,
       organizationId,
@@ -100,8 +98,49 @@ async function revertAttendanceInTransaction(
       totalDaysPresent,
       totalBatchesWorked,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-    tx.update(attendanceRef, attendanceJson);
+    },
+  };
+}
+
+/**
+ * Revert attendance for all employees: all reads first, then all writes.
+ */
+async function revertAttendanceInTransaction(
+  tx: admin.firestore.Transaction,
+  organizationId: string,
+  employeeIds: string[],
+  batchDate: Date,
+  batchId: string,
+): Promise<void> {
+  const yearMonth = getYearMonth(batchDate);
+
+  // Phase 1: All reads
+  const writes: RevertWrite[] = [];
+  for (const employeeId of employeeIds) {
+    const financialYear = getFinancialContext(batchDate).fyLabel;
+    const ledgerId = `${employeeId}_${financialYear}`;
+    const ledgerRef = db.collection(EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
+    const attendanceRef = ledgerRef.collection('Attendance').doc(yearMonth);
+    const attendanceDoc = await tx.get(attendanceRef);
+    const write = computeRevertWrite(
+      attendanceDoc,
+      organizationId,
+      employeeId,
+      batchDate,
+      batchId,
+    );
+    if (write) {
+      writes.push(write);
+    }
+  }
+
+  // Phase 2: All writes
+  for (const w of writes) {
+    if (w.delete) {
+      tx.delete(w.ref);
+    } else if (w.data) {
+      tx.update(w.ref, w.data);
+    }
   }
 }
 
@@ -119,8 +158,8 @@ export const revertProductionBatchWages = onCall(
     });
 
     // Validate input
-    if (!batchId) {
-      throw new Error('Missing required parameter: batchId');
+    if (!batchId || typeof batchId !== 'string' || batchId.trim() === '') {
+      throw new HttpsError('invalid-argument', 'Missing or invalid batchId');
     }
 
     try {
@@ -129,7 +168,7 @@ export const revertProductionBatchWages = onCall(
       const batchDoc = await batchRef.get();
 
       if (!batchDoc.exists) {
-        throw new Error(`Batch not found: ${batchId}`);
+        throw new HttpsError('not-found', `Batch not found: ${batchId}`);
       }
 
       const batchData = batchDoc.data()!;
@@ -187,21 +226,15 @@ export const revertProductionBatchWages = onCall(
         });
       }
 
-      // Now revert attendance and delete batch atomically
-      // Use a transaction to ensure both attendance revert and batch deletion succeed or fail together
+      // Revert attendance and delete batch atomically (all reads before all writes)
       await db.runTransaction(async (tx) => {
-        // Revert attendance for all employees
-        for (const employeeId of employeeIds) {
-          await revertAttendanceInTransaction(
-            tx,
-            organizationId,
-            employeeId,
-            batchDate,
-            batchId,
-          );
-        }
-
-        // Delete batch document
+        await revertAttendanceInTransaction(
+          tx,
+          organizationId,
+          employeeIds,
+          batchDate,
+          batchId,
+        );
         tx.delete(batchRef);
       });
 
@@ -226,7 +259,8 @@ export const revertProductionBatchWages = onCall(
         { batchId },
       );
 
-      throw error;
+      if (error instanceof HttpsError) throw error;
+      throw toHttpsError(error, 'internal');
     }
   },
 );

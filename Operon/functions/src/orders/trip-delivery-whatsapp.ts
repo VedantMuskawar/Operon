@@ -3,21 +3,20 @@ import { CLIENTS_COLLECTION } from '../shared/constants';
 import { getFirestore } from '../shared/firestore-helpers';
 import { logInfo, logWarning, logError } from '../shared/logger';
 import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
-import type { WhatsappSettings } from '../shared/whatsapp-service';
+import { enqueueWhatsappMessage } from '../whatsapp/whatsapp-message-queue';
 
 const db = getFirestore();
 const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
 
-type WhatsappModule = {
-  loadWhatsappSettings: (orgId: string | undefined, verbose?: boolean) => Promise<WhatsappSettings | null>;
-  sendWhatsappTemplateMessage: (url: string, token: string, to: string, templateName: string, languageCode: string, parameters: string[], messageType: string, context: any) => Promise<void>;
-};
+function buildJobId(eventId: string | undefined, fallbackParts: Array<string | undefined>): string {
+  if (eventId) return eventId;
+  return fallbackParts.filter(Boolean).join('-');
+}
 
 /**
  * Sends WhatsApp notification to client when a trip is delivered
  */
-async function sendTripDeliveryMessage(
-  whatsapp: WhatsappModule,
+async function enqueueTripDeliveryMessage(
   to: string,
   clientName: string | undefined,
   organizationId: string | undefined,
@@ -38,17 +37,8 @@ async function sendTripDeliveryMessage(
     scheduledDate?: any;
     deliveredAt?: any;
   },
+  jobId: string,
 ): Promise<void> {
-  const settings = await whatsapp.loadWhatsappSettings(organizationId);
-  if (!settings?.tripDeliveryTemplateId) {
-    logWarning('Trip/WhatsApp', 'sendTripDeliveryMessage', 'Skipping send – no settings or disabled', {
-      tripId,
-      organizationId,
-    });
-    return;
-  }
-
-  const url = `https://graph.facebook.com/v19.0/${settings.phoneId}/messages`;
   const displayName = clientName && clientName.trim().length > 0
     ? clientName.trim()
     : 'there';
@@ -87,28 +77,23 @@ async function sendTripDeliveryMessage(
     itemsText,          // Parameter 3: Items delivered list
   ];
 
-  logInfo('Trip/WhatsApp', 'sendTripDeliveryMessage', 'Sending delivery notification', {
+  logInfo('Trip/WhatsApp', 'enqueueTripDeliveryMessage', 'Enqueuing delivery notification', {
     organizationId,
     tripId,
     to: to.substring(0, 4) + '****',
-    phoneId: settings.phoneId,
-    templateId: settings.tripDeliveryTemplateId,
     hasItems: tripData.items && tripData.items.length > 0,
   });
 
-  await whatsapp.sendWhatsappTemplateMessage(
-    url,
-    settings.token,
+  await enqueueWhatsappMessage(jobId, {
+    type: 'trip-delivery',
     to,
-    settings.tripDeliveryTemplateId!,
-    settings.languageCode ?? 'en',
+    organizationId,
     parameters,
-    'trip-delivery',
-    {
+    context: {
       organizationId,
       tripId,
     },
-  );
+  });
 }
 
 /**
@@ -210,14 +195,14 @@ export const onTripDeliveredSendWhatsapp = onDocumentUpdated(
       return;
     }
 
-    const whatsapp = await import('../shared/whatsapp-service');
-    await sendTripDeliveryMessage(
-      whatsapp,
+    const jobId = buildJobId(event.id, [tripId, 'trip-delivery']);
+    await enqueueTripDeliveryMessage(
       clientPhone,
       clientName,
       tripData.organizationId,
       tripId,
       tripData,
+      jobId,
     );
   },
 );

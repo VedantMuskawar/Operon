@@ -194,9 +194,10 @@ export const onOrderDeleted = onDocumentDeleted(
           const txId = txDoc.id;
           const txData = txDoc.data();
           const txType = txData.type as string;
+          const txCategory = txData.category as string;
           
           // Preserve advance payment transactions if trips exist
-          if (shouldPreserveAdvance && txType === 'advance') {
+          if (shouldPreserveAdvance && (txCategory === 'advance' || txType === 'advance')) {
             console.log('[Order Deletion] Preserving advance payment transaction', {
               orderId,
               transactionId: txId,

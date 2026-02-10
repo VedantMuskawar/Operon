@@ -42,7 +42,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
 
   ExpenseFormType _selectedType = ExpenseFormType.vendorPayment;
   Vendor? _selectedVendor;
-  OrganizationEmployee? _selectedEmployee;
+  List<OrganizationEmployee> _selectedEmployees = [];
   ExpenseSubCategory? _selectedSubCategory;
   PaymentAccount? _selectedPaymentAccount;
   DateTime _selectedDate = DateTime.now();
@@ -56,11 +56,14 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
   bool _isSubmitting = false;
 
   // Invoice selection state
-  String _invoiceSelectionMode = 'manualSelection'; // 'dateRange' or 'manualSelection'
+  String _invoiceSelectionMode =
+      'manualSelection'; // 'dateRange' or 'manualSelection'
   DateTime? _invoiceDateRangeStart;
   DateTime? _invoiceDateRangeEnd;
-  final TextEditingController _fromInvoiceNumberController = TextEditingController();
-  final TextEditingController _toInvoiceNumberController = TextEditingController();
+  final TextEditingController _fromInvoiceNumberController =
+      TextEditingController();
+  final TextEditingController _toInvoiceNumberController =
+      TextEditingController();
   List<Transaction> _availableInvoices = [];
   Set<String> _selectedInvoiceIds = {};
   bool _isLoadingInvoices = false;
@@ -106,22 +109,31 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
 
       _vendors = await vendorsRepo.fetchVendors(organizationId);
       _employees = await employeesRepo.fetchEmployees(organizationId);
-      _subCategories = await subCategoriesRepo.fetchSubCategories(organizationId);
-      _paymentAccounts = await paymentAccountsDataSource.fetchAccounts(organizationId);
+      _subCategories =
+          await subCategoriesRepo.fetchSubCategories(organizationId);
+      _paymentAccounts =
+          await paymentAccountsDataSource.fetchAccounts(organizationId);
 
       // Initialize selections from widget parameters
       if (widget.vendorId != null) {
-        _selectedVendor = _vendors.firstWhereOrNull((v) => v.id == widget.vendorId);
+        _selectedVendor =
+            _vendors.firstWhereOrNull((v) => v.id == widget.vendorId);
       }
       if (widget.employeeId != null) {
-        _selectedEmployee = _employees.firstWhereOrNull((e) => e.id == widget.employeeId);
+        final employee =
+            _employees.firstWhereOrNull((e) => e.id == widget.employeeId);
+        if (employee != null) {
+          _selectedEmployees = [employee];
+        }
       }
       // Set default payment account
-      _selectedPaymentAccount = _paymentAccounts.firstWhereOrNull((pa) => pa.isPrimary) ??
-          (_paymentAccounts.isNotEmpty ? _paymentAccounts.first : null);
+      _selectedPaymentAccount =
+          _paymentAccounts.firstWhereOrNull((pa) => pa.isPrimary) ??
+              (_paymentAccounts.isNotEmpty ? _paymentAccounts.first : null);
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Error loading data: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Error loading data: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -131,7 +143,20 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
   }
 
   String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final day = date.day.toString().padLeft(2, '0');
     final month = months[date.month - 1];
     final year = date.year;
@@ -169,7 +194,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
 
       final transactionsDataSource = TransactionsDataSource();
       List<Transaction> invoices;
-      
+
       if (_invoiceSelectionMode == 'dateRange') {
         // For date range mode, filter by date; only verified purchases can be paid
         invoices = await transactionsDataSource.fetchUnpaidVendorInvoices(
@@ -192,7 +217,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       if (_invoiceSelectionMode == 'manualSelection') {
         final fromNumber = _fromInvoiceNumberController.text.trim();
         final toNumber = _toInvoiceNumberController.text.trim();
-        
+
         if (fromNumber.isNotEmpty || toNumber.isNotEmpty) {
           invoices = invoices.where((invoice) {
             final invoiceNumber = invoice.referenceNumber ??
@@ -200,11 +225,11 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                 invoice.metadata?['voucherNumber']?.toString() ??
                 '';
             if (invoiceNumber.isEmpty) return false;
-            
+
             final invoiceNumUpper = invoiceNumber.toUpperCase();
             final fromUpper = fromNumber.toUpperCase();
             final toUpper = toNumber.toUpperCase();
-            
+
             bool matches = true;
             if (fromNumber.isNotEmpty) {
               matches = matches && invoiceNumUpper.compareTo(fromUpper) >= 0;
@@ -230,7 +255,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       });
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Error loading invoices: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Error loading invoices: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -242,7 +268,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
   void _updatePaymentAmount() {
     double total = 0;
     for (final invoiceId in _selectedInvoiceIds) {
-      final invoice = _availableInvoices.firstWhere((inv) => inv.id == invoiceId);
+      final invoice =
+          _availableInvoices.firstWhere((inv) => inv.id == invoiceId);
       final metadata = invoice.metadata;
       final paidAmount = (metadata?['paidAmount'] as num?)?.toDouble() ?? 0;
       final remainingAmount = invoice.amount - paidAmount;
@@ -263,19 +290,22 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
 
     final amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
-      DashSnackbar.show(context, message: 'Enter a valid amount', isError: true);
+      DashSnackbar.show(context,
+          message: 'Enter a valid amount', isError: true);
       return;
     }
 
     if (_selectedPaymentAccount == null) {
-      DashSnackbar.show(context, message: 'Select a payment account', isError: true);
+      DashSnackbar.show(context,
+          message: 'Select a payment account', isError: true);
       return;
     }
 
     final orgState = context.read<OrganizationContextCubit>().state;
     final organizationId = orgState.organization?.id;
     if (organizationId == null) {
-      DashSnackbar.show(context, message: 'No organization selected', isError: true);
+      DashSnackbar.show(context,
+          message: 'No organization selected', isError: true);
       return;
     }
 
@@ -287,7 +317,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       switch (_selectedType) {
         case ExpenseFormType.vendorPayment:
           if (_selectedVendor == null) {
-            DashSnackbar.show(context, message: 'Select a vendor', isError: true);
+            DashSnackbar.show(context,
+                message: 'Select a vendor', isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
@@ -302,20 +333,29 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             referenceNumber: _referenceNumberController.text.trim().isEmpty
                 ? null
                 : _referenceNumberController.text.trim(),
-            linkedInvoiceIds: _selectedInvoiceIds.isNotEmpty ? _selectedInvoiceIds.toList() : null,
-            paymentMode: _selectedInvoiceIds.isNotEmpty ? _invoiceSelectionMode : null,
+            linkedInvoiceIds: _selectedInvoiceIds.isNotEmpty
+                ? _selectedInvoiceIds.toList()
+                : null,
+            paymentMode:
+                _selectedInvoiceIds.isNotEmpty ? _invoiceSelectionMode : null,
             dateRangeStart: _invoiceDateRangeStart,
             dateRangeEnd: _invoiceDateRangeEnd,
           );
           break;
         case ExpenseFormType.salaryDebit:
-          if (_selectedEmployee == null) {
-            DashSnackbar.show(context, message: 'Select an employee', isError: true);
+          if (_selectedEmployees.isEmpty) {
+            DashSnackbar.show(context,
+                message: 'Select at least one employee', isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
-          final transactionId = await cubit.createSalaryDebit(
-            employeeId: _selectedEmployee!.id,
+          final employeeNames = {
+            for (final employee in _selectedEmployees)
+              employee.id: employee.name,
+          };
+          final transactionIds = await cubit.createSalaryDebitSplit(
+            employeeIds: _selectedEmployees.map((e) => e.id).toList(),
+            employeeNames: employeeNames,
             amount: amount,
             paymentAccountId: _selectedPaymentAccount!.id,
             date: _selectedDate,
@@ -325,20 +365,23 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             referenceNumber: _referenceNumberController.text.trim().isEmpty
                 ? null
                 : _referenceNumberController.text.trim(),
-            employeeName: _selectedEmployee!.name,
           );
-          if (transactionId == null) {
+          if (transactionIds.isEmpty) {
             setState(() => _isSubmitting = false);
             return;
           }
           if (_cashVoucherPhotoBytes != null && mounted) {
             try {
-              final url = await _uploadCashVoucherPhoto(transactionId);
-              if (url != null && mounted) {
-                await context.read<TransactionsRepository>().updateTransactionMetadata(
-                      transactionId,
-                      {'cashVoucherPhotoUrl': url},
-                    );
+              for (final transactionId in transactionIds) {
+                final url = await _uploadCashVoucherPhoto(transactionId);
+                if (url != null && mounted) {
+                  await context
+                      .read<TransactionsRepository>()
+                      .updateTransactionMetadata(
+                    transactionId,
+                    {'cashVoucherPhotoUrl': url},
+                  );
+                }
               }
             } catch (e) {
               if (mounted) {
@@ -353,12 +396,14 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           break;
         case ExpenseFormType.generalExpense:
           if (_selectedSubCategory == null) {
-            DashSnackbar.show(context, message: 'Select a sub-category', isError: true);
+            DashSnackbar.show(context,
+                message: 'Select a sub-category', isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
           if (_descriptionController.text.trim().isEmpty) {
-            DashSnackbar.show(context, message: 'Enter a description', isError: true);
+            DashSnackbar.show(context,
+                message: 'Enter a description', isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
@@ -376,12 +421,14 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       }
 
       if (mounted) {
-        DashSnackbar.show(context, message: 'Expense created successfully', isError: false);
+        DashSnackbar.show(context,
+            message: 'Expense created successfully', isError: false);
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Error creating expense: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Error creating expense: $e', isError: true);
         setState(() => _isSubmitting = false);
       }
     }
@@ -392,7 +439,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
     final orgState = context.read<OrganizationContextCubit>().state;
     final organizationId = orgState.organization?.id;
     if (organizationId == null) {
-      DashSnackbar.show(context, message: 'No organization selected', isError: true);
+      DashSnackbar.show(context,
+          message: 'No organization selected', isError: true);
       return;
     }
     showDialog<void>(
@@ -416,7 +464,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       }
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Failed to take photo: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to take photo: $e', isError: true);
       }
     }
   }
@@ -481,7 +530,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       // Dynamic fields based on type
                       if (_selectedType == ExpenseFormType.vendorPayment) ...[
                         _buildVendorSelector(),
-                        if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
+                        if (_selectedVendor != null &&
+                            _selectedVendor!.vendorType == VendorType.fuel) ...[
                           const SizedBox(height: 16),
                           DashButton(
                             label: 'Fuel Ledger PDF',
@@ -492,11 +542,13 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                         ],
                         const SizedBox(height: 24),
                         _buildInvoiceSelectionSection(),
-                      ] else if (_selectedType == ExpenseFormType.salaryDebit) ...[
+                      ] else if (_selectedType ==
+                          ExpenseFormType.salaryDebit) ...[
                         _buildEmployeeSelector(),
                         const SizedBox(height: 16),
                         _buildCashVoucherSection(),
-                      ] else if (_selectedType == ExpenseFormType.generalExpense) ...[
+                      ] else if (_selectedType ==
+                          ExpenseFormType.generalExpense) ...[
                         _buildSubCategorySelector(),
                       ],
                       const SizedBox(height: 24),
@@ -504,10 +556,12 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                       DashFormField(
                         controller: _amountController,
                         label: 'Amount *',
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         style: const TextStyle(color: AuthColors.textMain),
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d+\.?\d{0,2}')),
                         ],
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
@@ -540,7 +594,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                               const SizedBox(width: 12),
                               Text(
                                 _formatDate(_selectedDate),
-                                style: const TextStyle(color: AuthColors.textMain),
+                                style:
+                                    const TextStyle(color: AuthColors.textMain),
                               ),
                             ],
                           ),
@@ -635,9 +690,10 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         setState(() {
           _selectedType = type;
           _selectedVendor = null;
-          _selectedEmployee = null;
+          _selectedEmployees = [];
           _selectedSubCategory = null;
-          if (type != ExpenseFormType.salaryDebit) _cashVoucherPhotoBytes = null;
+          if (type != ExpenseFormType.salaryDebit)
+            _cashVoucherPhotoBytes = null;
         });
       },
       child: Container(
@@ -648,15 +704,15 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? AuthColors.primary
-                : Colors.transparent,
+            color: isSelected ? AuthColors.primary : Colors.transparent,
             width: 1.5,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub, size: 20),
+            Icon(icon,
+                color: isSelected ? AuthColors.primary : AuthColors.textSub,
+                size: 20),
             const SizedBox(height: 4),
             Text(
               label,
@@ -686,7 +742,9 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         ),
         const SizedBox(height: 8),
         DashButton(
-          label: _cashVoucherPhotoBytes == null ? 'Open camera' : 'Take photo again',
+          label: _cashVoucherPhotoBytes == null
+              ? 'Open camera'
+              : 'Take photo again',
           icon: Icons.camera_alt,
           onPressed: _pickCashVoucherPhoto,
           variant: DashButtonVariant.outlined,
@@ -740,7 +798,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           children: [
             Expanded(
               child: RadioListTile<String>(
-                title: Text('Pay Selected Invoices', style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
+                title: const Text('Pay Selected Invoices',
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
                 value: 'manualSelection',
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
@@ -761,7 +820,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             ),
             Expanded(
               child: RadioListTile<String>(
-                title: Text('Pay by Date Range', style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
+                title: const Text('Pay by Date Range',
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
                 value: 'dateRange',
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
@@ -788,7 +848,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: _invoiceDateRangeStart ?? DateTime.now().subtract(const Duration(days: 30)),
+                      initialDate: _invoiceDateRangeStart ??
+                          DateTime.now().subtract(const Duration(days: 30)),
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                       builder: (context, child) {
@@ -810,11 +871,13 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                     decoration: BoxDecoration(
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                      border: Border.all(
+                          color: AuthColors.textMainWithOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
+                        const Icon(Icons.calendar_today,
+                            color: AuthColors.textSub, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           _invoiceDateRangeStart == null
@@ -860,11 +923,13 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                     decoration: BoxDecoration(
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                      border: Border.all(
+                          color: AuthColors.textMainWithOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
+                        const Icon(Icons.calendar_today,
+                            color: AuthColors.textSub, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           _invoiceDateRangeEnd == null
@@ -894,7 +959,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                 child: DashFormField(
                   controller: _fromInvoiceNumberController,
                   label: 'From Invoice Number',
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                 ),
               ),
               const SizedBox(width: 12),
@@ -902,7 +967,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                 child: DashFormField(
                   controller: _toInvoiceNumberController,
                   label: 'To Invoice Number',
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                 ),
               ),
             ],
@@ -922,7 +987,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             padding: EdgeInsets.all(16.0),
             child: Center(child: CircularProgressIndicator()),
           )
-        else if (_invoiceSelectionMode == 'dateRange' && (_invoiceDateRangeStart == null || _invoiceDateRangeEnd == null))
+        else if (_invoiceSelectionMode == 'dateRange' &&
+            (_invoiceDateRangeStart == null || _invoiceDateRangeEnd == null))
           const Padding(
             padding: EdgeInsets.all(16.0),
             child: Text(
@@ -934,10 +1000,12 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Text(
-              _invoiceSelectionMode == 'manualSelection' && _fromInvoiceNumberController.text.trim().isEmpty && _toInvoiceNumberController.text.trim().isEmpty
+              _invoiceSelectionMode == 'manualSelection' &&
+                      _fromInvoiceNumberController.text.trim().isEmpty &&
+                      _toInvoiceNumberController.text.trim().isEmpty
                   ? 'Enter invoice number range and click Search'
                   : 'No unpaid invoices found',
-              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
+              style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
             ),
           )
         else
@@ -953,7 +1021,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
               children: [
                 Text(
                   'Found ${_availableInvoices.length} invoice${_availableInvoices.length == 1 ? '' : 's'}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -962,7 +1030,9 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                 const SizedBox(height: 12),
                 ..._availableInvoices.take(5).map((invoice) {
                   final remainingAmount = _getInvoiceRemainingAmount(invoice);
-                  final invoiceNumber = invoice.referenceNumber ?? invoice.metadata?['invoiceNumber'] ?? 'N/A';
+                  final invoiceNumber = invoice.referenceNumber ??
+                      invoice.metadata?['invoiceNumber'] ??
+                      'N/A';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
@@ -973,11 +1043,15 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                             children: [
                               Text(
                                 invoiceNumber,
-                                style: TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                    color: AuthColors.textMain,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500),
                               ),
                               Text(
                                 '${_formatDate(invoice.createdAt ?? DateTime.now())} | ₹${remainingAmount.toStringAsFixed(2)}',
-                                style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                                style: const TextStyle(
+                                    color: AuthColors.textSub, fontSize: 11),
                               ),
                             ],
                           ),
@@ -991,7 +1065,10 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       '... and ${_availableInvoices.length - 5} more',
-                      style: TextStyle(color: AuthColors.textSub, fontSize: 12, fontStyle: FontStyle.italic),
+                      style: const TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic),
                     ),
                   ),
               ],
@@ -1010,13 +1087,16 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Total Amount:',
-                  style: TextStyle(color: AuthColors.textSub, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: AuthColors.textSub,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600),
                 ),
                 Text(
                   '₹${_amountController.text.isEmpty ? "0.00" : _amountController.text}',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.primary,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
@@ -1031,43 +1111,204 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
   }
 
   Widget _buildVendorSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Vendor *',
-          style: TextStyle(
-            color: AuthColors.textSub,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<Vendor>(
-          initialValue: _selectedVendor,
-          dropdownColor: AuthColors.surface,
-          style: TextStyle(color: AuthColors.textMain),
-          decoration: _inputDecoration('Select vendor'),
-          items: _vendors.map((vendor) {
-            return DropdownMenuItem(
-              value: vendor,
-              child: Text(vendor.name),
-            );
-          }).toList(),
-          onChanged: (vendor) {
-            setState(() {
-              _selectedVendor = vendor;
-              _selectedInvoiceIds.clear();
-              _availableInvoices.clear();
-            });
-            if (vendor != null) {
-              _loadUnpaidInvoices();
-            }
-          },
-          validator: (value) => value == null ? 'Select a vendor' : null,
-        ),
-      ],
+    return FormField<Vendor>(
+      initialValue: _selectedVendor,
+      validator: (value) => value == null ? 'Select a vendor' : null,
+      builder: (fieldState) {
+        final selected = fieldState.value;
+        final showError = fieldState.errorText != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Vendor *',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _vendors.isEmpty
+                  ? null
+                  : () async {
+                      final selection = await _showSearchableSelectionDialog(
+                        title: 'Select Vendor',
+                        items: _vendors,
+                        itemLabel: (vendor) => vendor.name,
+                      );
+                      if (selection == null) return;
+                      setState(() {
+                        _selectedVendor = selection;
+                        _selectedInvoiceIds.clear();
+                        _availableInvoices.clear();
+                      });
+                      fieldState.didChange(selection);
+                      _loadUnpaidInvoices();
+                    },
+              child: InputDecorator(
+                decoration: _inputDecoration('Select vendor').copyWith(
+                  errorText: showError ? fieldState.errorText : null,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        selected?.name ?? 'Select vendor',
+                        style: TextStyle(
+                          color: selected == null
+                              ? AuthColors.textSub
+                              : AuthColors.textMain,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down,
+                        color: AuthColors.textSub),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  String _employeeSelectionText() {
+    if (_selectedEmployees.isEmpty) return 'Select employees';
+    if (_selectedEmployees.length <= 2) {
+      return _selectedEmployees.map((e) => e.name).join(', ');
+    }
+    return '${_selectedEmployees.length} employees selected';
+  }
+
+  Future<void> _openEmployeeSelectorDialog() async {
+    if (_employees.isEmpty) return;
+    final searchController = TextEditingController();
+    final selectedIds = _selectedEmployees.map((e) => e.id).toSet();
+    List<OrganizationEmployee> filtered = List.of(_employees);
+
+    final result = await showDialog<Set<String>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void updateFilter(String value) {
+              final query = value.trim().toLowerCase();
+              setDialogState(() {
+                if (query.isEmpty) {
+                  filtered = List.of(_employees);
+                } else {
+                  filtered = _employees
+                      .where(
+                        (employee) =>
+                            employee.name.toLowerCase().contains(query),
+                      )
+                      .toList();
+                }
+              });
+            }
+
+            return AlertDialog(
+              backgroundColor: AuthColors.surface,
+              title: const Text(
+                'Select Employees',
+                style: TextStyle(color: AuthColors.textMain),
+              ),
+              content: SizedBox(
+                width: 520,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: searchController,
+                      onChanged: updateFilter,
+                      style: const TextStyle(color: AuthColors.textMain),
+                      decoration: InputDecoration(
+                        labelText: 'Search employees',
+                        labelStyle: const TextStyle(color: AuthColors.textSub),
+                        filled: true,
+                        fillColor: AuthColors.background,
+                        prefixIcon:
+                            const Icon(Icons.search, color: AuthColors.textSub),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AuthColors.textMainWithOpacity(0.12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 320,
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No employees found.',
+                                style: TextStyle(color: AuthColors.textSub),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final employee = filtered[index];
+                                final isSelected =
+                                    selectedIds.contains(employee.id);
+                                return CheckboxListTile(
+                                  value: isSelected,
+                                  onChanged: (selected) {
+                                    setDialogState(() {
+                                      if (selected == true) {
+                                        selectedIds.add(employee.id);
+                                      } else {
+                                        selectedIds.remove(employee.id);
+                                      }
+                                    });
+                                  },
+                                  title: Text(
+                                    employee.name,
+                                    style: const TextStyle(
+                                        color: AuthColors.textMain),
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                DashButton(
+                  label: 'Cancel',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  variant: DashButtonVariant.text,
+                ),
+                DashButton(
+                  label: 'Apply',
+                  onPressed: () => Navigator.of(dialogContext).pop(selectedIds),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    searchController.dispose();
+
+    if (result != null && mounted) {
+      setState(() {
+        _selectedEmployees = _employees
+            .where((employee) => result.contains(employee.id))
+            .toList();
+      });
+    }
   }
 
   Widget _buildEmployeeSelector() {
@@ -1075,7 +1316,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Employee *',
+          'Employees *',
           style: TextStyle(
             color: AuthColors.textSub,
             fontSize: 14,
@@ -1083,180 +1324,370 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           ),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<OrganizationEmployee>(
-          initialValue: _selectedEmployee,
-          dropdownColor: AuthColors.surface,
-          style: TextStyle(color: AuthColors.textMain),
-          decoration: _inputDecoration('Select employee'),
-          items: _employees.map((employee) {
-            return DropdownMenuItem(
-              value: employee,
-              child: Text(employee.name),
-            );
-          }).toList(),
-          onChanged: (employee) {
-            setState(() {
-              _selectedEmployee = employee;
-            });
-          },
-          validator: (value) => value == null ? 'Select an employee' : null,
-        ),
+        if (_employees.isEmpty)
+          const Text(
+            'No employees available.',
+            style: TextStyle(color: AuthColors.textSub),
+          )
+        else
+          InkWell(
+            onTap: _openEmployeeSelectorDialog,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AuthColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _employeeSelectionText(),
+                      style: TextStyle(
+                        color: _selectedEmployees.isEmpty
+                            ? AuthColors.textSub
+                            : AuthColors.textMain,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: AuthColors.textSub),
+                ],
+              ),
+            ),
+          ),
+        if (_selectedEmployees.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _selectedEmployees
+                .map(
+                  (employee) => Chip(
+                    label: Text(employee.name),
+                    backgroundColor: AuthColors.background,
+                    labelStyle: const TextStyle(color: AuthColors.textMain),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildSubCategorySelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Sub-Category *',
-          style: TextStyle(
-            color: AuthColors.textSub,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<ExpenseSubCategory>(
-          initialValue: _selectedSubCategory,
-          dropdownColor: AuthColors.surface,
-          style: TextStyle(color: AuthColors.textMain),
-          decoration: _inputDecoration('Select sub-category'),
-          items: _subCategories.where((sc) => sc.isActive).map((subCategory) {
-            return DropdownMenuItem(
-              value: subCategory,
-              child: Row(
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Color(int.parse(subCategory.colorHex.substring(1), radix: 16) + 0xFF000000),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(subCategory.name),
-                ],
+    final activeSubCategories =
+        _subCategories.where((subCategory) => subCategory.isActive).toList();
+
+    return FormField<ExpenseSubCategory>(
+      initialValue: _selectedSubCategory,
+      validator: (value) => value == null ? 'Select a sub-category' : null,
+      builder: (fieldState) {
+        final selected = fieldState.value;
+        final showError = fieldState.errorText != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Sub-Category *',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
-            );
-          }).toList(),
-          onChanged: (subCategory) {
-            setState(() {
-              _selectedSubCategory = subCategory;
-            });
-          },
-          validator: (value) => value == null ? 'Select a sub-category' : null,
-        ),
-      ],
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: activeSubCategories.isEmpty
+                  ? null
+                  : () async {
+                      final selection = await _showSearchableSelectionDialog(
+                        title: 'Select Sub-Category',
+                        items: activeSubCategories,
+                        itemLabel: (subCategory) => subCategory.name,
+                        leadingBuilder: (subCategory) =>
+                            _buildColorDot(subCategory.colorHex, size: 12),
+                      );
+                      if (selection == null) return;
+                      setState(() {
+                        _selectedSubCategory = selection;
+                      });
+                      fieldState.didChange(selection);
+                    },
+              child: InputDecorator(
+                decoration: _inputDecoration('Select sub-category').copyWith(
+                  errorText: showError ? fieldState.errorText : null,
+                ),
+                child: Row(
+                  children: [
+                    if (selected != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _buildColorDot(selected.colorHex, size: 12),
+                      ),
+                    Expanded(
+                      child: Text(
+                        selected?.name ?? 'Select sub-category',
+                        style: TextStyle(
+                          color: selected == null
+                              ? AuthColors.textSub
+                              : AuthColors.textMain,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down,
+                        color: AuthColors.textSub),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildPaymentAccountSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Payment Account *',
-          style: TextStyle(
-            color: AuthColors.textSub,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _paymentAccounts.map((account) {
-            return _buildPaymentAccountOption(account);
-          }).toList(),
-        ),
-        if (_selectedPaymentAccount == null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Select a payment account',
-              style: TextStyle(color: Colors.red.withOpacity(0.8), fontSize: 12),
+    return FormField<PaymentAccount>(
+      initialValue: _selectedPaymentAccount,
+      validator: (value) => value == null ? 'Select a payment account' : null,
+      builder: (fieldState) {
+        final selected = fieldState.value;
+        final showError = fieldState.errorText != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Payment Account *',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-      ],
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _paymentAccounts.isEmpty
+                  ? null
+                  : () async {
+                      final selection = await _showSearchableSelectionDialog(
+                        title: 'Select Payment Account',
+                        items: _paymentAccounts,
+                        itemLabel: (account) => account.name,
+                        leadingBuilder: (account) => Icon(
+                          _paymentAccountIcon(account.type),
+                          color: AuthColors.textSub,
+                          size: 18,
+                        ),
+                      );
+                      if (selection == null) return;
+                      setState(() {
+                        _selectedPaymentAccount = selection;
+                      });
+                      fieldState.didChange(selection);
+                    },
+              child: InputDecorator(
+                decoration: _inputDecoration('Select payment account').copyWith(
+                  errorText: showError ? fieldState.errorText : null,
+                ),
+                child: Row(
+                  children: [
+                    if (selected != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Icon(
+                          _paymentAccountIcon(selected.type),
+                          color: AuthColors.textSub,
+                          size: 18,
+                        ),
+                      ),
+                    Expanded(
+                      child: Text(
+                        selected?.name ?? 'Select payment account',
+                        style: TextStyle(
+                          color: selected == null
+                              ? AuthColors.textSub
+                              : AuthColors.textMain,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down,
+                        color: AuthColors.textSub),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildPaymentAccountOption(PaymentAccount account) {
-    final isSelected = _selectedPaymentAccount?.id == account.id;
-    IconData icon;
-    switch (account.type) {
+  IconData _paymentAccountIcon(PaymentAccountType type) {
+    switch (type) {
       case PaymentAccountType.bank:
-        icon = Icons.account_balance;
-        break;
+        return Icons.account_balance;
       case PaymentAccountType.cash:
-        icon = Icons.money;
-        break;
+        return Icons.money;
       case PaymentAccountType.upi:
-        icon = Icons.qr_code;
-        break;
+        return Icons.qr_code;
       case PaymentAccountType.other:
-        icon = Icons.payment;
-        break;
+        return Icons.payment;
     }
-    
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedPaymentAccount = account;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AuthColors.primaryWithOpacity(0.2)
-              : AuthColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected
-                ? AuthColors.primary
-                : AuthColors.textMainWithOpacity(0.1),
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              account.name,
-              style: TextStyle(
-                color: isSelected ? AuthColors.textMain : AuthColors.textSub,
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-            if (account.isPrimary) ...[
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AuthColors.primaryWithOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'Primary',
-                  style: TextStyle(
-                    color: AuthColors.primary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+  }
+
+  Widget _buildColorDot(String colorHex, {double size = 10}) {
+    final parsedColor = Color(
+      int.parse(colorHex.substring(1), radix: 16) + 0xFF000000,
+    );
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: parsedColor,
+        shape: BoxShape.circle,
       ),
+    );
+  }
+
+  Future<T?> _showSearchableSelectionDialog<T>({
+    required String title,
+    required List<T> items,
+    required String Function(T item) itemLabel,
+    Widget Function(T item)? leadingBuilder,
+  }) {
+    return showDialog<T>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (dialogContext) {
+        final searchController = TextEditingController();
+        List<T> filteredItems = List<T>.from(items);
+
+        void applyFilter(
+            String query, void Function(void Function()) setState) {
+          final normalized = query.trim().toLowerCase();
+          setState(() {
+            if (normalized.isEmpty) {
+              filteredItems = List<T>.from(items);
+            } else {
+              filteredItems = items
+                  .where((item) =>
+                      itemLabel(item).toLowerCase().contains(normalized))
+                  .toList();
+            }
+          });
+        }
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(24),
+              child: Container(
+                constraints: const BoxConstraints(
+                  maxWidth: 520,
+                  maxHeight: 560,
+                ),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AuthColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border:
+                      Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              color: AuthColors.textMain,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          icon: const Icon(Icons.close,
+                              color: AuthColors.textSub),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: searchController,
+                      onChanged: (value) => applyFilter(value, setState),
+                      decoration: InputDecoration(
+                        hintText: 'Search...',
+                        prefixIcon: const Icon(Icons.search,
+                            color: AuthColors.textSub, size: 18),
+                        filled: true,
+                        fillColor: AuthColors.background,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      style: const TextStyle(color: AuthColors.textMain),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filteredItems.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No results found',
+                                style: TextStyle(
+                                  color: AuthColors.textSub,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: filteredItems.length,
+                              separatorBuilder: (_, __) => Divider(
+                                color: AuthColors.textMainWithOpacity(0.08),
+                                height: 1,
+                              ),
+                              itemBuilder: (context, index) {
+                                final item = filteredItems[index];
+                                return ListTile(
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(horizontal: 8),
+                                  leading: leadingBuilder?.call(item),
+                                  title: Text(
+                                    itemLabel(item),
+                                    style: const TextStyle(
+                                      color: AuthColors.textMain,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  onTap: () =>
+                                      Navigator.of(dialogContext).pop(item),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1265,7 +1696,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -1290,4 +1721,3 @@ extension FirstWhereOrNull<T> on List<T> {
     }
   }
 }
-

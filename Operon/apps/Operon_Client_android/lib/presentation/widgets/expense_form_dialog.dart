@@ -4,7 +4,6 @@ import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
-import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:dash_mobile/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
@@ -45,7 +44,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
 
   ExpenseFormType _selectedType = ExpenseFormType.vendorPayment;
   Vendor? _selectedVendor;
-  OrganizationEmployee? _selectedEmployee;
+  List<OrganizationEmployee> _selectedEmployees = [];
   ExpenseSubCategory? _selectedSubCategory;
   PaymentAccount? _selectedPaymentAccount;
   DateTime _selectedDate = DateTime.now();
@@ -93,27 +92,36 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         // Cubit not available, fetch from repositories
         final vendorsRepo = context.read<VendorsRepository>();
         final employeesRepo = context.read<EmployeesRepository>();
-        final subCategoriesRepo = context.read<ExpenseSubCategoriesRepository>();
-        final paymentAccountsDataSource = context.read<PaymentAccountsDataSource>();
+        final subCategoriesRepo =
+            context.read<ExpenseSubCategoriesRepository>();
+        final paymentAccountsDataSource =
+            context.read<PaymentAccountsDataSource>();
 
         _vendors = await vendorsRepo.fetchVendors(organizationId);
         _employees = await employeesRepo.fetchEmployees(organizationId);
-        _subCategories = await subCategoriesRepo.fetchSubCategories(organizationId);
-        _paymentAccounts = await paymentAccountsDataSource.fetchAccounts(organizationId);
+        _subCategories =
+            await subCategoriesRepo.fetchSubCategories(organizationId);
+        _paymentAccounts =
+            await paymentAccountsDataSource.fetchAccounts(organizationId);
       }
 
       // Initialize selections from widget parameters
       if (widget.vendorId != null) {
         _selectedVendor = _vendors.firstWhere(
           (v) => v.id == widget.vendorId,
-          orElse: () => _vendors.isNotEmpty ? _vendors.first : throw StateError('No vendors'),
+          orElse: () => _vendors.isNotEmpty
+              ? _vendors.first
+              : throw StateError('No vendors'),
         );
       }
       if (widget.employeeId != null) {
-        _selectedEmployee = _employees.firstWhere(
+        final employee = _employees.firstWhere(
           (e) => e.id == widget.employeeId,
-          orElse: () => _employees.isNotEmpty ? _employees.first : throw StateError('No employees'),
+          orElse: () => _employees.isNotEmpty
+              ? _employees.first
+              : throw StateError('No employees'),
         );
+        _selectedEmployees = [employee];
       }
     } catch (e) {
       if (mounted) {
@@ -137,7 +145,20 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
   }
 
   String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final day = date.day.toString().padLeft(2, '0');
     final month = months[date.month - 1];
     final year = date.year;
@@ -204,7 +225,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
 
     try {
       Transaction transaction;
-      
+
       switch (_selectedType) {
         case ExpenseFormType.vendorPayment:
           if (_selectedVendor == null) {
@@ -236,33 +257,47 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
           );
           break;
         case ExpenseFormType.salaryDebit:
-          if (_selectedEmployee == null) {
+          if (_selectedEmployees.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Select an employee')),
+              const SnackBar(content: Text('Select at least one employee')),
             );
             return;
           }
-          transaction = Transaction(
-            id: '',
-            organizationId: organizationId,
-            employeeId: _selectedEmployee!.id,
-            ledgerType: LedgerType.employeeLedger,
-            type: TransactionType.debit,
-            category: TransactionCategory.salaryDebit,
-            amount: amount,
-            createdBy: userId,
-            createdAt: _selectedDate,
-            updatedAt: DateTime.now(),
-            financialYear: financialYear,
-            paymentAccountId: _selectedPaymentAccount!.id,
-            paymentAccountType: _selectedPaymentAccount!.type.name,
-            description: _descriptionController.text.trim().isEmpty
-                ? null
-                : _descriptionController.text.trim(),
-            referenceNumber: _referenceNumberController.text.trim().isEmpty
-                ? null
-                : _referenceNumberController.text.trim(),
-          );
+          final splitGroupId = 'split_${DateTime.now().microsecondsSinceEpoch}';
+          final splitAmounts =
+              _computeSplitAmounts(amount, _selectedEmployees.length);
+          for (var i = 0; i < _selectedEmployees.length; i++) {
+            final employee = _selectedEmployees[i];
+            final metadata = <String, dynamic>{
+              'employeeName': employee.name,
+              'splitIndex': i + 1,
+              'splitCount': _selectedEmployees.length,
+            };
+            transaction = Transaction(
+              id: '',
+              organizationId: organizationId,
+              employeeId: employee.id,
+              splitGroupId: splitGroupId,
+              ledgerType: LedgerType.employeeLedger,
+              type: TransactionType.debit,
+              category: TransactionCategory.salaryDebit,
+              amount: splitAmounts[i],
+              createdBy: userId,
+              createdAt: _selectedDate,
+              updatedAt: DateTime.now(),
+              financialYear: financialYear,
+              paymentAccountId: _selectedPaymentAccount!.id,
+              paymentAccountType: _selectedPaymentAccount!.type.name,
+              description: _descriptionController.text.trim().isEmpty
+                  ? null
+                  : _descriptionController.text.trim(),
+              referenceNumber: _referenceNumberController.text.trim().isEmpty
+                  ? null
+                  : _referenceNumberController.text.trim(),
+              metadata: metadata,
+            );
+            await transactionsDataSource.createTransaction(transaction);
+          }
           break;
         case ExpenseFormType.generalExpense:
           if (_selectedSubCategory == null) {
@@ -304,7 +339,9 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
           break;
       }
 
-      await transactionsDataSource.createTransaction(transaction);
+      if (_selectedType != ExpenseFormType.salaryDebit) {
+        await transactionsDataSource.createTransaction(transaction);
+      }
 
       // Try to refresh ExpensesCubit if available
       try {
@@ -326,6 +363,16 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         );
       }
     }
+  }
+
+  List<double> _computeSplitAmounts(double amount, int count) {
+    final totalCents = (amount * 100).round();
+    final baseCents = totalCents ~/ count;
+    final remainder = totalCents % count;
+    return List<double>.generate(
+      count,
+      (index) => (baseCents + (index < remainder ? 1 : 0)) / 100,
+    );
   }
 
   @override
@@ -351,189 +398,198 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     }
 
     return Dialog(
-          backgroundColor: AuthColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
-          ),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 700),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.paddingXL),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: AuthColors.textMainWithOpacity(0.12), width: 1),
+      backgroundColor: AuthColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+      ),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 500, maxHeight: 700),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.paddingXL),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                      color: AuthColors.textMainWithOpacity(0.12), width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Text(
+                    'Add Expense',
+                    style: TextStyle(
+                      color: AuthColors.textMain,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Add Expense',
-                        style: TextStyle(
-                          color: AuthColors.textMain,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white54),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
+                  const Spacer(),
+                  IconButton(
+                    icon:
+                        const Icon(Icons.close, color: AuthColors.textDisabled),
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                ),
-                // Form
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.paddingXL),
-                    child: Form(
-                      key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Expense Type Selector
-                          const Text(
-                            'Expense Type',
-                            style: TextStyle(
-                              color: AuthColors.textSub,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.paddingSM),
-                          _buildTypeSelector(),
-                          const SizedBox(height: AppSpacing.paddingXL),
-                          // Dynamic fields based on type
-                          if (_selectedType == ExpenseFormType.vendorPayment) ...[
-                            _buildVendorSelector(),
-                          ] else if (_selectedType == ExpenseFormType.salaryDebit) ...[
-                            _buildEmployeeSelector(),
-                          ] else if (_selectedType == ExpenseFormType.generalExpense) ...[
-                            _buildSubCategorySelector(),
-                          ],
-                          const SizedBox(height: AppSpacing.paddingLG),
-                          // Amount
-                          TextFormField(
-                            controller: _amountController,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: _inputDecoration('Amount *'),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                            ],
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Enter amount';
-                              }
-                              final amount = double.tryParse(value);
-                              if (amount == null || amount <= 0) {
-                                return 'Enter valid amount';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: AppSpacing.paddingLG),
-                          // Payment Account
-                          _buildPaymentAccountSelector(),
-                          const SizedBox(height: AppSpacing.paddingLG),
-                          // Date
-                          InkWell(
-                            onTap: _selectDate,
-                            child: Container(
-                              padding: const EdgeInsets.all(AppSpacing.paddingLG),
-                              decoration: BoxDecoration(
-                                color: AuthColors.surface,
-                                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.calendar_today,
-                                      color: AuthColors.textSub, size: 20),
-                                  const SizedBox(width: AppSpacing.paddingMD),
-                                  Text(
-                                    _formatDate(_selectedDate),
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.paddingLG),
-                          // Description
-                          TextFormField(
-                            controller: _descriptionController,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: _inputDecoration(
-                              _selectedType == ExpenseFormType.generalExpense
-                                  ? 'Description *'
-                                  : 'Description',
-                            ),
-                            maxLines: 3,
-                            validator: (value) {
-                              if (_selectedType == ExpenseFormType.generalExpense &&
-                                  (value == null || value.trim().isEmpty)) {
-                                return 'Enter description';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: AppSpacing.paddingLG),
-                          // Reference Number
-                          TextFormField(
-                            controller: _referenceNumberController,
-                            style: const TextStyle(color: Colors.white),
-                            decoration: _inputDecoration('Reference Number'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // Actions
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.paddingXL),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: AuthColors.textMainWithOpacity(0.12), width: 1),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: AppSpacing.paddingMD),
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AuthColors.legacyAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                        ),
-                        child: const Text('Save Expense'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
+            // Form
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.paddingXL),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Expense Type Selector
+                      const Text(
+                        'Expense Type',
+                        style: TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.paddingSM),
+                      _buildTypeSelector(),
+                      const SizedBox(height: AppSpacing.paddingXL),
+                      // Dynamic fields based on type
+                      if (_selectedType == ExpenseFormType.vendorPayment) ...[
+                        _buildVendorSelector(),
+                      ] else if (_selectedType ==
+                          ExpenseFormType.salaryDebit) ...[
+                        _buildEmployeeSelector(),
+                      ] else if (_selectedType ==
+                          ExpenseFormType.generalExpense) ...[
+                        _buildSubCategorySelector(),
+                      ],
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      // Amount
+                      TextFormField(
+                        controller: _amountController,
+                        style: const TextStyle(color: AuthColors.textMain),
+                        decoration: _inputDecoration('Amount *'),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d+\.?\d{0,2}')),
+                        ],
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Enter amount';
+                          }
+                          final amount = double.tryParse(value);
+                          if (amount == null || amount <= 0) {
+                            return 'Enter valid amount';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      // Payment Account
+                      _buildPaymentAccountSelector(),
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      // Date
+                      InkWell(
+                        onTap: _selectDate,
+                        child: Container(
+                          padding: const EdgeInsets.all(AppSpacing.paddingLG),
+                          decoration: BoxDecoration(
+                            color: AuthColors.surface,
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusMD),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.calendar_today,
+                                  color: AuthColors.textSub, size: 20),
+                              const SizedBox(width: AppSpacing.paddingMD),
+                              Text(
+                                _formatDate(_selectedDate),
+                                style:
+                                    const TextStyle(color: AuthColors.textMain),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      // Description
+                      TextFormField(
+                        controller: _descriptionController,
+                        style: const TextStyle(color: AuthColors.textMain),
+                        decoration: _inputDecoration(
+                          _selectedType == ExpenseFormType.generalExpense
+                              ? 'Description *'
+                              : 'Description',
+                        ),
+                        maxLines: 3,
+                        validator: (value) {
+                          if (_selectedType == ExpenseFormType.generalExpense &&
+                              (value == null || value.trim().isEmpty)) {
+                            return 'Enter description';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.paddingLG),
+                      // Reference Number
+                      TextFormField(
+                        controller: _referenceNumberController,
+                        style: const TextStyle(color: AuthColors.textMain),
+                        decoration: _inputDecoration('Reference Number'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Actions
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.paddingXL),
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                      color: AuthColors.textMainWithOpacity(0.12), width: 1),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: AppSpacing.paddingMD),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AuthColors.legacyAccent,
+                      foregroundColor: AuthColors.textMain,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                    child: const Text('Save Expense'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildTypeSelector() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.backgroundAlt,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       ),
       child: Row(
@@ -575,7 +631,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         setState(() {
           _selectedType = type;
           _selectedVendor = null;
-          _selectedEmployee = null;
+          _selectedEmployees = [];
           _selectedSubCategory = null;
         });
       },
@@ -583,24 +639,26 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF6F4BFF).withOpacity(0.2)
-              : Colors.transparent,
+              ? AuthColors.secondary.withOpacity(0.2)
+              : AuthColors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF6F4BFF)
-                : Colors.transparent,
+            color: isSelected ? AuthColors.secondary : AuthColors.transparent,
             width: 1.5,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFF6F4BFF) : Colors.white54, size: 20),
+            Icon(icon,
+                color:
+                    isSelected ? AuthColors.secondary : AuthColors.textDisabled,
+                size: 20),
             const SizedBox(height: AppSpacing.paddingXS),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? Colors.white : Colors.white54,
+                color:
+                    isSelected ? AuthColors.textMain : AuthColors.textDisabled,
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -618,7 +676,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         const Text(
           'Vendor *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -626,8 +684,8 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         const SizedBox(height: AppSpacing.paddingSM),
         DropdownButtonFormField<Vendor>(
           initialValue: _selectedVendor,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.backgroundAlt,
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select vendor'),
           items: _vendors.map((vendor) {
             return DropdownMenuItem(
@@ -646,37 +704,210 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     );
   }
 
+  String _employeeSelectionText() {
+    if (_selectedEmployees.isEmpty) return 'Select employees';
+    if (_selectedEmployees.length <= 2) {
+      return _selectedEmployees.map((e) => e.name).join(', ');
+    }
+    return '${_selectedEmployees.length} employees selected';
+  }
+
+  Future<void> _openEmployeeSelectorDialog() async {
+    if (_employees.isEmpty) return;
+    final searchController = TextEditingController();
+    final selectedIds = _selectedEmployees.map((e) => e.id).toSet();
+    List<OrganizationEmployee> filtered = List.of(_employees);
+
+    final result = await showDialog<Set<String>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void updateFilter(String value) {
+              final query = value.trim().toLowerCase();
+              setDialogState(() {
+                if (query.isEmpty) {
+                  filtered = List.of(_employees);
+                } else {
+                  filtered = _employees
+                      .where(
+                        (employee) =>
+                            employee.name.toLowerCase().contains(query),
+                      )
+                      .toList();
+                }
+              });
+            }
+
+            final availableHeight = MediaQuery.of(context).size.height -
+                MediaQuery.of(context).viewInsets.bottom;
+            var dialogHeight = availableHeight * 0.7;
+            if (dialogHeight < 280) dialogHeight = 280;
+            if (dialogHeight > 520) dialogHeight = 520;
+
+            return AlertDialog(
+              backgroundColor: AuthColors.surface,
+              title: const Text(
+                'Select Employees',
+                style: TextStyle(color: AuthColors.textMain),
+              ),
+              content: SizedBox(
+                width: 520,
+                height: dialogHeight,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: searchController,
+                      onChanged: updateFilter,
+                      style: const TextStyle(color: AuthColors.textMain),
+                      decoration: InputDecoration(
+                        labelText: 'Search employees',
+                        labelStyle: const TextStyle(color: AuthColors.textSub),
+                        filled: true,
+                        fillColor: AuthColors.backgroundAlt,
+                        prefixIcon:
+                            const Icon(Icons.search, color: AuthColors.textSub),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AuthColors.textMainWithOpacity(0.12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No employees found.',
+                                style: TextStyle(color: AuthColors.textSub),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final employee = filtered[index];
+                                final isSelected =
+                                    selectedIds.contains(employee.id);
+                                return CheckboxListTile(
+                                  value: isSelected,
+                                  onChanged: (selected) {
+                                    setDialogState(() {
+                                      if (selected == true) {
+                                        selectedIds.add(employee.id);
+                                      } else {
+                                        selectedIds.remove(employee.id);
+                                      }
+                                    });
+                                  },
+                                  title: Text(
+                                    employee.name,
+                                    style: const TextStyle(
+                                        color: AuthColors.textMain),
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                DashButton(
+                  label: 'Cancel',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  variant: DashButtonVariant.text,
+                ),
+                DashButton(
+                  label: 'Apply',
+                  onPressed: () => Navigator.of(dialogContext).pop(selectedIds),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    searchController.dispose();
+
+    if (result != null && mounted) {
+      setState(() {
+        _selectedEmployees = _employees
+            .where((employee) => result.contains(employee.id))
+            .toList();
+      });
+    }
+  }
+
   Widget _buildEmployeeSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Employee *',
+          'Employees *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: AppSpacing.paddingSM),
-        DropdownButtonFormField<OrganizationEmployee>(
-          initialValue: _selectedEmployee,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration('Select employee'),
-          items: _employees.map((employee) {
-            return DropdownMenuItem(
-              value: employee,
-              child: Text(employee.name),
-            );
-          }).toList(),
-          onChanged: (employee) {
-            setState(() {
-              _selectedEmployee = employee;
-            });
-          },
-          validator: (value) => value == null ? 'Select an employee' : null,
-        ),
+        if (_employees.isEmpty)
+          const Text(
+            'No employees available.',
+            style: TextStyle(color: AuthColors.textSub),
+          )
+        else
+          InkWell(
+            onTap: _openEmployeeSelectorDialog,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AuthColors.backgroundAlt,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _employeeSelectionText(),
+                      style: TextStyle(
+                        color: _selectedEmployees.isEmpty
+                            ? AuthColors.textSub
+                            : AuthColors.textMain,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: AuthColors.textSub),
+                ],
+              ),
+            ),
+          ),
+        if (_selectedEmployees.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.paddingSM),
+          Wrap(
+            spacing: AppSpacing.paddingSM,
+            runSpacing: AppSpacing.paddingSM,
+            children: _selectedEmployees
+                .map(
+                  (employee) => Chip(
+                    label: Text(employee.name),
+                    backgroundColor: AuthColors.surface,
+                    labelStyle: const TextStyle(color: AuthColors.textMain),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
       ],
     );
   }
@@ -691,7 +922,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
               child: Text(
                 'Sub-Category *',
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: AuthColors.textSub,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -712,8 +943,8 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         const SizedBox(height: AppSpacing.paddingSM),
         DropdownButtonFormField<ExpenseSubCategory>(
           initialValue: _selectedSubCategory,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.backgroundAlt,
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select sub-category'),
           items: _subCategories.where((sc) => sc.isActive).map((subCategory) {
             return DropdownMenuItem(
@@ -724,7 +955,9 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                     width: 12,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Color(int.parse(subCategory.colorHex.substring(1), radix: 16) + 0xFF000000),
+                      color: Color(int.parse(subCategory.colorHex.substring(1),
+                              radix: 16) +
+                          0xFF000000),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -752,7 +985,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         const Text(
           'Payment Account *',
           style: TextStyle(
-            color: Colors.white70,
+            color: AuthColors.textSub,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -760,8 +993,8 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         const SizedBox(height: AppSpacing.paddingSM),
         DropdownButtonFormField<PaymentAccount>(
           initialValue: _selectedPaymentAccount,
-          dropdownColor: const Color(0xFF1B1B2C),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: AuthColors.backgroundAlt,
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: _inputDecoration('Select payment account'),
           items: _paymentAccounts.map((account) {
             return DropdownMenuItem(
@@ -774,7 +1007,8 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
               _selectedPaymentAccount = account;
             });
           },
-          validator: (value) => value == null ? 'Select a payment account' : null,
+          validator: (value) =>
+              value == null ? 'Select a payment account' : null,
         ),
       ],
     );
@@ -784,8 +1018,8 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.backgroundAlt,
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
@@ -793,4 +1027,3 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     );
   }
 }
-

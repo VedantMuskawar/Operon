@@ -1,10 +1,16 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dash_web/data/datasources/pending_orders_data_source.dart';
 
 class PendingOrdersRepository {
-  PendingOrdersRepository({required PendingOrdersDataSource dataSource})
-      : _dataSource = dataSource;
+  PendingOrdersRepository({
+    required PendingOrdersDataSource dataSource,
+    FirebaseFunctions? functions,
+  })  : _dataSource = dataSource,
+        _functions =
+            functions ?? FirebaseFunctions.instanceFor(region: 'asia-south1');
 
   final PendingOrdersDataSource _dataSource;
+  final FirebaseFunctions _functions;
 
   Future<String> createOrder(String orgId, Map<String, dynamic> orderData) {
     return _dataSource.createOrder(orgId, orderData);
@@ -40,5 +46,15 @@ class PendingOrdersRepository {
 
   Future<void> deleteOrder(String orderId) {
     return _dataSource.deleteOrder(orderId);
+  }
+
+  Future<Map<String, dynamic>> calculateEddForAllPendingOrders(
+      String organizationId) async {
+    final callable =
+        _functions.httpsCallable('calculateEddForAllPendingOrders');
+    final result = await callable.call({
+      'organizationId': organizationId,
+    });
+    return Map<String, dynamic>.from(result.data as Map);
   }
 }

@@ -5,8 +5,7 @@ publish_to: none
 environment:
   sdk: '>=3.2.0 <4.0.0'
 dependencies:
-  # Allow apps to choose their FlutterFire major (4.x or 5.x).
-  cloud_firestore: ">=4.15.5 <6.0.0"
-  firebase_auth: ">=4.19.5 <6.0.0"
+  cloud_firestore: ">=4.15.5 <7.0.0"
+  firebase_auth: ">=4.0.0 <7.0.0"
 dev_dependencies:
   flutter_lints: ^3.0.0

@@ -8,12 +8,11 @@ getFirestore();
 
 // Re-export all Cloud Functions for Firebase deploy (root-level names required)
 export * from './analytics';
-export * from './clients/client-analytics';
-export * from './clients/client-whatsapp';
+export * from './clients';
 export * from './transactions';
 export * from './orders';
 export * from './vendors';
-export * from './raw-materials/stock-handlers';
+export * from './raw-materials';
 export * from './cleanup';
 export * from './maintenance';
 export * from './production-batches';
@@ -22,6 +21,8 @@ export * from './ledger-maintenance';
 export * from './employees/employee-analytics';
 export * from './geofences';
 export * from './edd';
+export * from './whatsapp/whatsapp-message-queue';
+export * from './whatsapp/whatsapp-webhook';
 
 // Grouped exports (domain objects) for clarity
 import * as ordersNs from './orders';
@@ -41,6 +42,7 @@ export const orders = {
   onTripDispatchedSendWhatsapp: ordersNs.onTripDispatchedSendWhatsapp,
   onTripDeliveredSendWhatsapp: ordersNs.onTripDeliveredSendWhatsapp,
   onTripReturnedCreateDM: ordersNs.onTripReturnedCreateDM,
+  deleteFullyScheduledOrdersWeekly: ordersNs.deleteFullyScheduledOrdersWeekly,
 };
 
 export const transactions = {

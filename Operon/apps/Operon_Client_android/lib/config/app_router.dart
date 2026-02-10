@@ -46,7 +46,9 @@ import 'package:dash_mobile/presentation/views/employee_wages/employee_wages_pag
 import 'package:dash_mobile/presentation/blocs/employee_wages/employee_wages_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/payments/payments_cubit.dart';
 import 'package:dash_mobile/presentation/views/expenses/expense_sub_categories_page.dart';
-import 'package:dash_mobile/presentation/views/expenses/record_expense_page.dart' show ExpenseFormType, RecordExpensePage;
+import 'package:dash_mobile/presentation/views/expenses/record_expense_page.dart'
+    show ExpenseFormType, RecordExpensePage;
+import 'package:dash_mobile/presentation/views/accounts_ledger_page.dart';
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
 import 'package:dash_mobile/presentation/views/financial_transactions/unified_financial_transactions_page.dart';
 import 'package:dash_mobile/presentation/views/financial_transactions/salary_voucher_page.dart';
@@ -118,7 +120,7 @@ GoRouter buildRouter() {
               : HomeNavigationArgs(
                   initialIndex: state.extra is int ? state.extra as int : 0,
                 );
-          
+
           return _buildTransitionPage(
             key: state.pageKey,
             child: HomePage(
@@ -149,8 +151,7 @@ GoRouter buildRouter() {
         path: '/roles',
         name: 'roles',
         pageBuilder: (context, state) {
-          final orgState =
-              context.read<OrganizationContextCubit>().state;
+          final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
           if (organization == null) {
             return _buildTransitionPage(
@@ -246,7 +247,7 @@ GoRouter buildRouter() {
           }
           final employeesRepository = context.read<EmployeesRepository>();
           final rolesRepository = context.read<RolesRepository>();
-          
+
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
@@ -269,7 +270,9 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final employee = state.extra is OrganizationEmployee ? state.extra as OrganizationEmployee : null;
+          final employee = state.extra is OrganizationEmployee
+              ? state.extra as OrganizationEmployee
+              : null;
           if (organization == null || employee == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -279,7 +282,7 @@ GoRouter buildRouter() {
           final employeesRepository = context.read<EmployeesRepository>();
           final rolesRepository = context.read<RolesRepository>();
           final role = orgState.appAccessRole;
-          
+
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
@@ -310,7 +313,7 @@ GoRouter buildRouter() {
             );
           }
           final vendorsRepository = context.read<VendorsRepository>();
-          
+
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
@@ -341,7 +344,7 @@ GoRouter buildRouter() {
           }
           final vendorsRepository = context.read<VendorsRepository>();
           final role = orgState.appAccessRole;
-          
+
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
@@ -533,7 +536,8 @@ GoRouter buildRouter() {
         pageBuilder: (context, state) {
           final orgState = context.read<OrganizationContextCubit>().state;
           final organization = orgState.organization;
-          final client = state.extra is ClientRecord ? state.extra as ClientRecord : null;
+          final client =
+              state.extra is ClientRecord ? state.extra as ClientRecord : null;
           if (organization == null || client == null) {
             return _buildTransitionPage(
               key: state.pageKey,
@@ -709,7 +713,8 @@ GoRouter buildRouter() {
               child: const OrganizationSelectionPage(),
             );
           }
-          final employeeWagesRepository = context.read<EmployeeWagesRepository>();
+          final employeeWagesRepository =
+              context.read<EmployeeWagesRepository>();
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
@@ -774,6 +779,24 @@ GoRouter buildRouter() {
         },
       ),
       GoRoute(
+        path: '/accounts',
+        name: 'accounts-ledger',
+        pageBuilder: (context, state) {
+          final orgState = context.read<OrganizationContextCubit>().state;
+          final organization = orgState.organization;
+          if (organization == null) {
+            return _buildTransitionPage(
+              key: state.pageKey,
+              child: const OrganizationSelectionPage(),
+            );
+          }
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: const AccountsLedgerPage(),
+          );
+        },
+      ),
+      GoRoute(
         path: '/expenses',
         redirect: (context, state) => '/financial-transactions',
       ),
@@ -806,9 +829,10 @@ GoRouter buildRouter() {
               child: const OrganizationSelectionPage(),
             );
           }
-          final subCategoriesRepository = context.read<ExpenseSubCategoriesRepository>();
+          final subCategoriesRepository =
+              context.read<ExpenseSubCategoriesRepository>();
           final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
-          
+
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
@@ -836,7 +860,7 @@ GoRouter buildRouter() {
           }
           final dmSettingsRepository = context.read<DmSettingsRepository>();
           final userId = FirebaseAuth.instance.currentUser?.uid ?? '';
-          
+
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
@@ -865,9 +889,11 @@ GoRouter buildRouter() {
           final transactionsDataSource = context.read<TransactionsDataSource>();
           final vendorsRepository = context.read<VendorsRepository>();
           final employeesRepository = context.read<EmployeesRepository>();
-          final subCategoriesRepository = context.read<ExpenseSubCategoriesRepository>();
-          final paymentAccountsDataSource = context.read<PaymentAccountsDataSource>();
-          
+          final subCategoriesRepository =
+              context.read<ExpenseSubCategoriesRepository>();
+          final paymentAccountsDataSource =
+              context.read<PaymentAccountsDataSource>();
+
           return _buildTransitionPage(
             key: state.pageKey,
             child: MultiRepositoryProvider(
@@ -879,7 +905,9 @@ GoRouter buildRouter() {
                 RepositoryProvider.value(value: paymentAccountsDataSource),
               ],
               child: RecordExpensePage(
-                type: state.extra is ExpenseFormType ? state.extra as ExpenseFormType : null,
+                type: state.extra is ExpenseFormType
+                    ? state.extra as ExpenseFormType
+                    : null,
                 vendorId: state.uri.queryParameters['vendorId'],
                 employeeId: state.uri.queryParameters['employeeId'],
               ),
@@ -908,7 +936,7 @@ CustomTransitionPage<dynamic> _buildTransitionPage({
         curve: Curves.easeOutCubic,
         reverseCurve: Curves.easeInCubic,
       );
-      
+
       // Combine scale and fade for iOS-like transition
       return FadeTransition(
         opacity: curved,

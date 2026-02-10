@@ -894,7 +894,7 @@ class _WagesDataTable extends StatelessWidget {
         cellBuilder: (context, tx, _) {
           final isSalary = tx.category == TransactionCategory.salaryCredit;
           final label = isSalary ? 'Salary' : (tx.category == TransactionCategory.bonus ? 'Bonus' : tx.category.name);
-          final color = isSalary ? AuthColors.primary : AuthColors.accentPurple;
+          final color = isSalary ? AuthColors.primary : AuthColors.secondary;
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(

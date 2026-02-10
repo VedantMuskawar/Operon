@@ -411,11 +411,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
     final order = _getOrderData();
     final items = order['items'] as List<dynamic>? ?? [];
     final autoSchedule = order['autoSchedule'] as Map<String, dynamic>?;
-    
-    if (autoSchedule?['totalTripsRequired'] != null) {
-      return (autoSchedule!['totalTripsRequired'] as num).toInt();
-    }
-    
+    // Prefer item-level sum (source of truth); fallback to totalTripsRequired only when sum is 0
     int totalTrips = 0;
     for (final item in items) {
       final itemMap = item as Map<String, dynamic>;
@@ -423,7 +419,6 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
       final itemScheduledTrips = (itemMap['scheduledTrips'] as int? ?? 0);
       totalTrips += (itemEstimatedTrips + itemScheduledTrips);
     }
-    
     if (totalTrips == 0 && items.isNotEmpty) {
       final firstItem = items.first as Map<String, dynamic>;
       final firstItemEstimated = firstItem['estimatedTrips'] as int? ?? 0;
@@ -433,8 +428,23 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
         totalTrips = (order['tripIds'] as List<dynamic>?)?.length ?? 0;
       }
     }
-    
+    if (totalTrips == 0 && autoSchedule?['totalTripsRequired'] != null) {
+      totalTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
+    }
     return totalTrips;
+  }
+
+  int _calculateTotalScheduledTrips() {
+    final order = _getOrderData();
+    final items = order['items'] as List<dynamic>? ?? [];
+    int itemLevelScheduled = 0;
+    for (final item in items) {
+      final itemMap = item as Map<String, dynamic>;
+      itemLevelScheduled += (itemMap['scheduledTrips'] as int? ?? 0);
+    }
+    return itemLevelScheduled > 0
+        ? itemLevelScheduled
+        : (order['totalScheduledTrips'] as int? ?? 0);
   }
 
   @override
@@ -442,8 +452,8 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
     final order = _getOrderData();
     final items = order['items'] as List<dynamic>? ?? [];
     final totalTrips = _calculateTotalTrips();
-    final totalScheduledTrips = order['totalScheduledTrips'] as int? ?? 0;
-    final estimatedTrips = totalTrips - totalScheduledTrips;
+    final totalScheduledTrips = _calculateTotalScheduledTrips();
+    final estimatedTrips = (totalTrips - totalScheduledTrips).clamp(0, totalTrips);
     final priorityColor = _getPriorityColor();
     final priority = order['priority'] as String? ?? 'normal';
     final pricing = order['pricing'] as Map<String, dynamic>?;
@@ -852,14 +862,14 @@ class _TabButton extends StatelessWidget {
           horizontal: AppSpacing.paddingXS,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? AuthColors.primary : Colors.transparent,
+          color: isSelected ? AuthColors.primary : AuthColors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
           style: AppTypography.bodySmall.copyWith(
-            color: isSelected ? Colors.white : AuthColors.textSub,
+            color: isSelected ? AuthColors.textMain : AuthColors.textSub,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
@@ -1683,7 +1693,7 @@ class _InfoRow extends StatelessWidget {
 
     if (isTappable && onTap != null) {
       return Material(
-        color: Colors.transparent,
+        color: AuthColors.transparent,
         child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();

@@ -78,10 +78,12 @@ class _CallerIdSwitchSectionState extends State<CallerIdSwitchSection>
           }
           return;
         }
-        _log('_onChanged: requesting overlay permission (timeout ${_overlayPermissionTimeout.inSeconds}s)');
+        _log(
+            '_onChanged: requesting overlay permission (timeout ${_overlayPermissionTimeout.inSeconds}s)');
         bool? overlay;
         try {
-          overlay = await _service.requestOverlayPermission()
+          overlay = await _service
+              .requestOverlayPermission()
               .timeout(_overlayPermissionTimeout);
         } on TimeoutException {
           _log('_onChanged: requestOverlayPermission timed out');
@@ -209,7 +211,7 @@ class _CallerIdSwitchSectionState extends State<CallerIdSwitchSection>
             value: _enabled,
             onChanged: _onChanged,
             activeTrackColor: AuthColors.primary,
-            activeThumbColor: Colors.white,
+            activeThumbColor: AuthColors.textMain,
           ),
         ],
       ),

@@ -17,5 +17,5 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./models"), exports);
 __exportStar(require("./simulation-engine"), exports);
 __exportStar(require("./trigger"), exports);
-__exportStar(require("./quote-calculator"), exports);
+__exportStar(require("./batch-calc-edd"), exports);
 //# sourceMappingURL=index.js.map

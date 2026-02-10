@@ -19,21 +19,21 @@ enum TransactionType {
 
 /// Transaction categories for context
 enum TransactionCategory {
-  advance,          // Advance payment on order
-  clientCredit,     // Client owes (PayLater order)
-  tripPayment,      // Payment collected on delivery
-  clientPayment,    // General payment recorded manually
-  refund,           // Refund given to client
-  adjustment,       // Manual adjustment
-  vendorPurchase,   // Purchase from vendor (credit transaction)
-  vendorPayment,    // Payment to vendor (debit on vendorLedger)
-  salaryCredit,     // Monthly salary credit to employee
-  salaryDebit,      // Salary payment to employee (debit on employeeLedger)
-  bonus,            // Bonus payment to employee
-  wageCredit,       // Wage credit for production batches or trip wages
-  employeeAdvance,  // Advance payment to employee (future use)
+  advance, // Advance payment on order
+  clientCredit, // Client owes (PayLater order)
+  tripPayment, // Payment collected on delivery
+  clientPayment, // General payment recorded manually
+  refund, // Refund given to client
+  adjustment, // Manual adjustment
+  vendorPurchase, // Purchase from vendor (credit transaction)
+  vendorPayment, // Payment to vendor (debit on vendorLedger)
+  salaryCredit, // Monthly salary credit to employee
+  salaryDebit, // Salary payment to employee (debit on employeeLedger)
+  bonus, // Bonus payment to employee
+  wageCredit, // Wage credit for production batches or trip wages
+  employeeAdvance, // Advance payment to employee (future use)
   employeeAdjustment, // Manual adjustment for employee
-  generalExpense,   // General business expense (debit on organizationLedger)
+  generalExpense, // General business expense (debit on organizationLedger)
 }
 
 class Transaction {
@@ -44,6 +44,7 @@ class Transaction {
     this.clientName,
     this.vendorId,
     this.employeeId,
+    this.splitGroupId,
     required this.ledgerType,
     required this.type,
     required this.category,
@@ -72,12 +73,14 @@ class Transaction {
   final String? clientName; // Display name for client (denormalized)
   final String? vendorId; // For vendor ledger transactions
   final String? employeeId; // For employee ledger transactions
+  final String? splitGroupId; // Shared identifier for split transactions
   final LedgerType ledgerType;
   final TransactionType type;
   final TransactionCategory category;
   final double amount;
   final String? paymentAccountId;
-  final String? paymentAccountName; // Display name for payment account (denormalized)
+  final String?
+      paymentAccountName; // Display name for payment account (denormalized)
   final String? paymentAccountType; // "bank" | "cash" | "upi" | "other"
   final String? referenceNumber;
   final String? tripId;
@@ -101,6 +104,7 @@ class Transaction {
       if (clientName != null) 'clientName': clientName,
       if (vendorId != null) 'vendorId': vendorId,
       if (employeeId != null) 'employeeId': employeeId,
+      if (splitGroupId != null) 'splitGroupId': splitGroupId,
       'ledgerType': ledgerType.name,
       'type': type.name,
       'category': category.name,
@@ -114,8 +118,12 @@ class Transaction {
       if (description != null) 'description': description,
       if (metadata != null) 'metadata': metadata,
       'createdBy': createdBy,
-      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : FieldValue.serverTimestamp(),
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
+      'updatedAt': updatedAt != null
+          ? Timestamp.fromDate(updatedAt!)
+          : FieldValue.serverTimestamp(),
       'financialYear': financialYear,
       if (balanceBefore != null) 'balanceBefore': balanceBefore,
       if (balanceAfter != null) 'balanceAfter': balanceAfter,
@@ -131,7 +139,7 @@ class Transaction {
     final finalId = (transactionId != null && transactionId.isNotEmpty)
         ? transactionId
         : (docId.isNotEmpty ? docId : '');
-    
+
     return Transaction(
       id: finalId,
       organizationId: json['organizationId'] as String? ?? '',
@@ -139,9 +147,11 @@ class Transaction {
       clientName: json['clientName'] as String?,
       vendorId: json['vendorId'] as String?,
       employeeId: json['employeeId'] as String?,
+      splitGroupId: json['splitGroupId'] as String?,
       ledgerType: LedgerType.values.firstWhere(
         (l) => l.name == json['ledgerType'],
-        orElse: () => LedgerType.clientLedger, // Default to ClientLedger for backward compatibility
+        orElse: () => LedgerType
+            .clientLedger, // Default to ClientLedger for backward compatibility
       ),
       type: TransactionType.values.firstWhere(
         (t) => t.name == json['type'],
@@ -178,6 +188,7 @@ class Transaction {
     String? clientName,
     String? vendorId,
     String? employeeId,
+    String? splitGroupId,
     LedgerType? ledgerType,
     TransactionType? type,
     TransactionCategory? category,
@@ -206,6 +217,7 @@ class Transaction {
       clientName: clientName ?? this.clientName,
       vendorId: vendorId ?? this.vendorId,
       employeeId: employeeId ?? this.employeeId,
+      splitGroupId: splitGroupId ?? this.splitGroupId,
       ledgerType: ledgerType ?? this.ledgerType,
       type: type ?? this.type,
       category: category ?? this.category,
@@ -229,6 +241,3 @@ class Transaction {
     );
   }
 }
-
-
-

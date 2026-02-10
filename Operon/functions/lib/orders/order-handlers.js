@@ -203,8 +203,9 @@ exports.onOrderDeleted = (0, firestore_1.onDocumentDeleted)(Object.assign({ docu
                 const txId = txDoc.id;
                 const txData = txDoc.data();
                 const txType = txData.type;
+                const txCategory = txData.category;
                 // Preserve advance payment transactions if trips exist
-                if (shouldPreserveAdvance && txType === 'advance') {
+                if (shouldPreserveAdvance && (txCategory === 'advance' || txType === 'advance')) {
                     console.log('[Order Deletion] Preserving advance payment transaction', {
                         orderId,
                         transactionId: txId,

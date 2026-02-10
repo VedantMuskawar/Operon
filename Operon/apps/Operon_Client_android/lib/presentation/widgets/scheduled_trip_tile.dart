@@ -22,7 +22,8 @@ class ScheduledTripTile extends StatelessWidget {
   final VoidCallback? onOpenDetails;
 
   Future<void> _callClient(BuildContext context) async {
-    final phone = trip['customerNumber'] as String? ?? trip['clientPhone'] as String?;
+    final phone =
+        trip['customerNumber'] as String? ?? trip['clientPhone'] as String?;
     if (phone == null || phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Phone number not available')),
@@ -120,14 +121,15 @@ class ScheduledTripTile extends StatelessWidget {
 
     if (scheduledDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Scheduled date is missing from trip data')),
+        const SnackBar(
+            content: Text('Scheduled date is missing from trip data')),
       );
       return;
     }
 
     try {
       final dmRepo = context.read<DeliveryMemoRepository>();
-      
+
       // Show loading
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -161,10 +163,11 @@ class ScheduledTripTile extends StatelessWidget {
       debugPrint('Stack trace: $stackTrace');
       debugPrint('Trip data keys: ${trip.keys.toList()}');
       debugPrint('Trip ID: $tripId, Schedule Trip ID: $scheduleTripId');
-      debugPrint('Scheduled date: $scheduledDate (type: ${scheduledDate.runtimeType})');
+      debugPrint(
+          'Scheduled date: $scheduledDate (type: ${scheduledDate.runtimeType})');
 
       if (!context.mounted) return;
-      
+
       // Provide more user-friendly error message
       String errorMessage = 'Failed to generate DM';
       if (e.toString().contains('scheduledDate')) {
@@ -172,9 +175,11 @@ class ScheduledTripTile extends StatelessWidget {
       } else if (e.toString().contains('already exists')) {
         errorMessage = 'DM already exists for this trip';
       } else if (e.toString().contains('Missing required')) {
-        errorMessage = 'Missing required trip information. Please refresh and try again.';
+        errorMessage =
+            'Missing required trip information. Please refresh and try again.';
       } else {
-        errorMessage = 'Failed to generate DM: ${e.toString().split('\n').first}';
+        errorMessage =
+            'Failed to generate DM: ${e.toString().split('\n').first}';
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -239,7 +244,7 @@ class ScheduledTripTile extends StatelessWidget {
 
     try {
       final dmRepo = context.read<DeliveryMemoRepository>();
-      
+
       // Show loading
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -274,12 +279,14 @@ class ScheduledTripTile extends StatelessWidget {
         ? '${deliveryZone['region'] ?? ''}, ${deliveryZone['city_name'] ?? deliveryZone['city'] ?? ''}'
         : 'N/A';
     final statusColor = _getStatusColor();
-    
+
     // Get product info from items
     final items = trip['items'] as List<dynamic>? ?? [];
-    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
+    final firstItem =
+        items.isNotEmpty ? items.first as Map<String, dynamic> : null;
     final productName = firstItem?['productName'] as String? ?? 'N/A';
-    final fixedQuantityPerTrip = firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
+    final fixedQuantityPerTrip =
+        firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
 
     // Check if DM exists
     final dmNumber = trip['dmNumber'] as int?;
@@ -292,7 +299,7 @@ class ScheduledTripTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: AuthColors.background.withOpacity(0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -319,7 +326,7 @@ class ScheduledTripTile extends StatelessWidget {
                           Text(
                             clientName,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                             ),
@@ -328,17 +335,17 @@ class ScheduledTripTile extends StatelessWidget {
                           const SizedBox(height: AppSpacing.paddingXS / 2),
                           Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.location_on_outlined,
                                 size: 12,
-                                color: Colors.white60,
+                                color: AuthColors.textSub.withOpacity(0.6),
                               ),
                               const SizedBox(width: AppSpacing.paddingXS),
                               Expanded(
                                 child: Text(
                                   zoneText,
-                                  style: const TextStyle(
-                                    color: Colors.white60,
+                                  style: TextStyle(
+                                    color: AuthColors.textSub.withOpacity(0.6),
                                     fontSize: 11,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -352,12 +359,15 @@ class ScheduledTripTile extends StatelessWidget {
                     const SizedBox(width: AppSpacing.paddingSM),
                     // Vehicle and Slot info
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.paddingSM,
+                          vertical: AppSpacing.paddingXS),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        color: AuthColors.backgroundAlt,
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSM),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
+                          color: AuthColors.textMainWithOpacity(0.1),
                           width: 1,
                         ),
                       ),
@@ -369,13 +379,13 @@ class ScheduledTripTile extends StatelessWidget {
                               const Icon(
                                 Icons.directions_car,
                                 size: 12,
-                                color: Colors.white70,
+                                color: AuthColors.textSub,
                               ),
                               const SizedBox(width: AppSpacing.paddingXS),
                               Text(
                                 vehicleNumber,
                                 style: const TextStyle(
-                                  color: Colors.white70,
+                                  color: AuthColors.textSub,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -389,13 +399,13 @@ class ScheduledTripTile extends StatelessWidget {
                               const Icon(
                                 Icons.schedule,
                                 size: 12,
-                                color: Colors.white70,
+                                color: AuthColors.textSub,
                               ),
                               const SizedBox(width: AppSpacing.paddingXS),
                               Text(
                                 'Slot $slot',
                                 style: const TextStyle(
-                                  color: Colors.white70,
+                                  color: AuthColors.textSub,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -412,10 +422,13 @@ class ScheduledTripTile extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.paddingSM,
+                          vertical: AppSpacing.paddingXS),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B1B2C).withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+                        color: AuthColors.backgroundAlt.withOpacity(0.5),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusXS),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -423,13 +436,13 @@ class ScheduledTripTile extends StatelessWidget {
                           const Icon(
                             Icons.inventory_2_outlined,
                             size: 12,
-                            color: Colors.white70,
+                            color: AuthColors.textSub,
                           ),
                           const SizedBox(width: AppSpacing.paddingXS),
                           Text(
                             productName,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                             ),
@@ -439,15 +452,18 @@ class ScheduledTripTile extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSpacing.gapSM),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.gapSM,
+                          vertical: AppSpacing.paddingXS),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+                        color: AuthColors.success.withOpacity(0.15),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusXS),
                       ),
                       child: Text(
                         'Qty: $fixedQuantityPerTrip',
                         style: const TextStyle(
-                          color: Color(0xFF81C784),
+                          color: AuthColors.successVariant,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
@@ -460,8 +476,8 @@ class ScheduledTripTile extends StatelessWidget {
             ),
           ),
           // Action buttons for pending/scheduled/dispatched/delivered/returned orders (outside InkWell)
-          if (orderStatus.toLowerCase() == 'pending' || 
-              orderStatus.toLowerCase() == 'scheduled' || 
+          if (orderStatus.toLowerCase() == 'pending' ||
+              orderStatus.toLowerCase() == 'scheduled' ||
               orderStatus.toLowerCase() == 'dispatched' ||
               orderStatus.toLowerCase() == 'delivered' ||
               orderStatus.toLowerCase() == 'returned') ...[
@@ -474,21 +490,22 @@ class ScheduledTripTile extends StatelessWidget {
                   _ActionButton(
                     icon: Icons.receipt_long,
                     label: 'DM-$dmNumber',
-                    color: Colors.blue.withOpacity(0.3),
+                    color: AuthColors.info.withOpacity(0.3),
                     onTap: () => _openPrintDialog(context),
                   )
-                else if (orderStatus.toLowerCase() != 'dispatched' && 
-                         orderStatus.toLowerCase() != 'delivered' &&
-                         orderStatus.toLowerCase() != 'returned')
+                else if (orderStatus.toLowerCase() != 'dispatched' &&
+                    orderStatus.toLowerCase() != 'delivered' &&
+                    orderStatus.toLowerCase() != 'returned')
                   _ActionButton(
                     icon: Icons.receipt_long,
                     label: 'Generate DM',
-                    color: Colors.blue.withOpacity(0.3),
+                    color: AuthColors.info.withOpacity(0.3),
                     onTap: () => _generateDM(context),
                   ),
-                if (hasDM || (orderStatus.toLowerCase() != 'dispatched' && 
-                             orderStatus.toLowerCase() != 'delivered' &&
-                             orderStatus.toLowerCase() != 'returned'))
+                if (hasDM ||
+                    (orderStatus.toLowerCase() != 'dispatched' &&
+                        orderStatus.toLowerCase() != 'delivered' &&
+                        orderStatus.toLowerCase() != 'returned'))
                   const SizedBox(height: AppSpacing.gapSM),
                 // Row 2: Call and Cancel DM / Reschedule
                 // Always show Call button for all statuses including delivered and returned
@@ -498,11 +515,11 @@ class ScheduledTripTile extends StatelessWidget {
                       child: _ActionButton(
                         icon: Icons.phone_outlined,
                         label: 'Call',
-                        color: Colors.green.withOpacity(0.3),
+                        color: AuthColors.success.withOpacity(0.3),
                         onTap: () => _callClient(context),
                       ),
                     ),
-                    if (orderStatus.toLowerCase() != 'dispatched' && 
+                    if (orderStatus.toLowerCase() != 'dispatched' &&
                         orderStatus.toLowerCase() != 'delivered' &&
                         orderStatus.toLowerCase() != 'returned') ...[
                       const SizedBox(width: AppSpacing.gapSM),
@@ -510,8 +527,9 @@ class ScheduledTripTile extends StatelessWidget {
                         child: _ActionButton(
                           icon: hasDM ? Icons.cancel_outlined : Icons.schedule,
                           label: hasDM ? 'Cancel DM' : 'Reschedule',
-                          color: Colors.orange.withOpacity(0.3),
-                          onTap: hasDM ? () => _cancelDM(context) : onReschedule,
+                          color: AuthColors.warning.withOpacity(0.3),
+                          onTap:
+                              hasDM ? () => _cancelDM(context) : onReschedule,
                         ),
                       ),
                     ],
@@ -546,7 +564,8 @@ class _ActionButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.gapSM),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingSM, vertical: AppSpacing.gapSM),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
@@ -554,13 +573,13 @@ class _ActionButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 14),
+            Icon(icon, color: AuthColors.textMain, size: 14),
             const SizedBox(width: AppSpacing.paddingXS),
             Flexible(
               child: Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
@@ -573,4 +592,3 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
-

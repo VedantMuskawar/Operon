@@ -1,0 +1,2 @@
+zone_id,city_name,region,is_active,roundtrip_km,product_id,product_name,unit_price,deliverable
+,Chennai,Central,true,12.5,PRODUCT_001,Cement 50kg,450.00,true

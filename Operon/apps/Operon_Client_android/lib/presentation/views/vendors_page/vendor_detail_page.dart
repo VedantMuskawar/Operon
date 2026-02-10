@@ -28,14 +28,14 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A0A0A),
+        backgroundColor: AuthColors.background,
         title: const Text(
           'Delete Vendor',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AuthColors.textMain),
         ),
         content: Text(
           'Are you sure you want to delete "${widget.vendor.name}"?',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
           TextButton(
@@ -85,13 +85,15 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF000000),
+      backgroundColor: AuthColors.background,
       body: SafeArea(
         child: Column(
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingMD),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.paddingXL,
+                  vertical: AppSpacing.paddingMD),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -104,7 +106,8 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
                     child: Text(
                       'Vendor Details',
                       style: AppTypography.withColor(
-                        AppTypography.withWeight(AppTypography.h2, FontWeight.w700),
+                        AppTypography.withWeight(
+                            AppTypography.h2, FontWeight.w700),
                         AuthColors.textMain,
                       ),
                       textAlign: TextAlign.center,
@@ -116,7 +119,8 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
             ),
             // Vendor Header Info
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
               child: _VendorHeader(
                 vendor: widget.vendor,
                 onEdit: _openEditDialog,
@@ -126,7 +130,8 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
             const SizedBox(height: AppSpacing.paddingLG),
             // Tab Bar
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
               child: Container(
                 decoration: BoxDecoration(
                   color: AuthColors.surface,
@@ -188,12 +193,12 @@ class _VendorHeader extends StatelessWidget {
   Color _getVendorColor() {
     final hash = vendor.vendorType.name.hashCode;
     final colors = [
-      const Color(0xFF6F4BFF),
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
-      const Color(0xFF9C27B0),
+      AuthColors.secondary,
+      AuthColors.successVariant,
+      AuthColors.warning,
+      AuthColors.info,
+      AuthColors.error,
+      AuthColors.secondary,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -245,7 +250,8 @@ class _VendorHeader extends StatelessWidget {
   }
 
   String _formatStatus() {
-    return vendor.status.name[0].toUpperCase() + vendor.status.name.substring(1);
+    return vendor.status.name[0].toUpperCase() +
+        vendor.status.name.substring(1);
   }
 
   @override
@@ -306,7 +312,7 @@ class _VendorHeader extends StatelessWidget {
                 child: Center(
                   child: Icon(
                     _getVendorTypeIcon(),
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     size: 28,
                   ),
                 ),
@@ -323,7 +329,7 @@ class _VendorHeader extends StatelessWidget {
                           child: Text(
                             vendor.name,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AuthColors.textMain,
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
                             ),
@@ -346,7 +352,8 @@ class _VendorHeader extends StatelessWidget {
                           child: Text(
                             vendor.phoneNumber,
                             style: AppTypography.withColor(
-                              AppTypography.withWeight(AppTypography.body, FontWeight.w600),
+                              AppTypography.withWeight(
+                                  AppTypography.body, FontWeight.w600),
                               AuthColors.textMainWithOpacity(0.8),
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -361,12 +368,13 @@ class _VendorHeader extends StatelessWidget {
               // Action Buttons
               IconButton(
                 onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: AuthColors.textSub),
+                icon:
+                    const Icon(Icons.delete_outline, color: AuthColors.textSub),
                 tooltip: 'Delete',
               ),
               IconButton(
                 onPressed: onEdit,
-                icon: const Icon(Icons.edit, color: Colors.white70),
+                icon: const Icon(Icons.edit, color: AuthColors.textSub),
                 tooltip: 'Edit',
               ),
             ],
@@ -418,21 +426,21 @@ class _VendorHeader extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: vendor.status == VendorStatus.active
-                      ? const Color(0xFF5AD8A4).withOpacity(0.2)
-                      : Colors.grey.withOpacity(0.2),
+                      ? AuthColors.successVariant.withOpacity(0.2)
+                      : AuthColors.textSubWithOpacity(0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
                     color: vendor.status == VendorStatus.active
-                        ? const Color(0xFF5AD8A4).withOpacity(0.5)
-                        : Colors.grey.withOpacity(0.5),
+                        ? AuthColors.successVariant.withOpacity(0.5)
+                        : AuthColors.textSubWithOpacity(0.5),
                   ),
                 ),
                 child: Text(
                   _formatStatus(),
                   style: TextStyle(
                     color: vendor.status == VendorStatus.active
-                        ? const Color(0xFF5AD8A4)
-                        : Colors.grey,
+                        ? AuthColors.successVariant
+                        : AuthColors.textSub,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -447,13 +455,13 @@ class _VendorHeader extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isPositive
-                        ? const Color(0xFF5AD8A4).withOpacity(0.2)
-                        : Colors.redAccent.withOpacity(0.2),
+                        ? AuthColors.successVariant.withOpacity(0.2)
+                        : AuthColors.error.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                     border: Border.all(
                       color: isPositive
-                          ? const Color(0xFF5AD8A4).withOpacity(0.5)
-                          : Colors.redAccent.withOpacity(0.5),
+                          ? AuthColors.successVariant.withOpacity(0.5)
+                          : AuthColors.error.withOpacity(0.5),
                     ),
                   ),
                   child: Row(
@@ -462,13 +470,17 @@ class _VendorHeader extends StatelessWidget {
                       Icon(
                         isPositive ? Icons.arrow_upward : Icons.arrow_downward,
                         size: 12,
-                        color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
+                        color: isPositive
+                            ? AuthColors.successVariant
+                            : AuthColors.error,
                       ),
                       const SizedBox(width: AppSpacing.paddingXS),
                       Text(
                         '${isPositive ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)}',
                         style: TextStyle(
-                          color: isPositive ? const Color(0xFF5AD8A4) : Colors.redAccent,
+                          color: isPositive
+                              ? AuthColors.successVariant
+                              : AuthColors.error,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -505,9 +517,7 @@ class _TabButton extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isSelected
-                  ? const Color(0xFF6F4BFF)
-                  : Colors.transparent,
+              color: isSelected ? AuthColors.secondary : AuthColors.transparent,
               width: 2,
             ),
           ),
@@ -516,7 +526,9 @@ class _TabButton extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
+            color: isSelected
+                ? AuthColors.textMain
+                : AuthColors.textMainWithOpacity(0.7),
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
           ),
@@ -543,7 +555,8 @@ class _OverviewSectionState extends State<_OverviewSection> {
   void initState() {
     super.initState();
     if (widget.vendor.vendorType == VendorType.rawMaterial &&
-        widget.vendor.rawMaterialDetails?.assignedMaterialIds.isNotEmpty == true) {
+        widget.vendor.rawMaterialDetails?.assignedMaterialIds.isNotEmpty ==
+            true) {
       _loadAssignedMaterials();
     }
   }
@@ -561,7 +574,8 @@ class _OverviewSectionState extends State<_OverviewSection> {
       }
 
       final repository = context.read<RawMaterialsRepository>();
-      final materialIds = widget.vendor.rawMaterialDetails?.assignedMaterialIds ?? [];
+      final materialIds =
+          widget.vendor.rawMaterialDetails?.assignedMaterialIds ?? [];
       final allMaterials = await repository.fetchRawMaterials(organization.id);
       final materials = allMaterials
           .where((material) => materialIds.contains(material.id))
@@ -583,12 +597,12 @@ class _OverviewSectionState extends State<_OverviewSection> {
   Color _getVendorColor() {
     final hash = widget.vendor.vendorType.name.hashCode;
     final colors = [
-      const Color(0xFF6F4BFF),
-      const Color(0xFF5AD8A4),
-      const Color(0xFFFF9800),
-      const Color(0xFF2196F3),
-      const Color(0xFFE91E63),
-      const Color(0xFF9C27B0),
+      AuthColors.secondary,
+      AuthColors.successVariant,
+      AuthColors.warning,
+      AuthColors.info,
+      AuthColors.error,
+      AuthColors.secondary,
     ];
     return colors[hash.abs() % colors.length];
   }
@@ -622,19 +636,19 @@ class _OverviewSectionState extends State<_OverviewSection> {
               gradient: LinearGradient(
                 colors: isPositive
                     ? [
-                        const Color(0xFF4CAF50).withOpacity(0.2),
-                        const Color(0xFF4CAF50).withOpacity(0.05),
+                        AuthColors.success.withOpacity(0.2),
+                        AuthColors.success.withOpacity(0.05),
                       ]
                     : [
-                        const Color(0xFFEF5350).withOpacity(0.2),
-                        const Color(0xFFEF5350).withOpacity(0.05),
+                        AuthColors.error.withOpacity(0.2),
+                        AuthColors.error.withOpacity(0.05),
                       ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
               border: Border.all(
-                color: (isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350))
+                color: (isPositive ? AuthColors.success : AuthColors.error)
                     .withOpacity(0.3),
                 width: 1,
               ),
@@ -645,7 +659,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                 const Text(
                   'Current Balance',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: AuthColors.textSub,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -654,7 +668,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                 Text(
                   _formatCurrency(vendor.currentBalance),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
@@ -665,13 +679,14 @@ class _OverviewSectionState extends State<_OverviewSection> {
                     Icon(
                       isPositive ? Icons.trending_up : Icons.trending_down,
                       size: 16,
-                      color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                      color: isPositive ? AuthColors.success : AuthColors.error,
                     ),
                     const SizedBox(width: AppSpacing.paddingXS),
                     Text(
                       '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())} from opening',
                       style: TextStyle(
-                        color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                        color:
+                            isPositive ? AuthColors.success : AuthColors.error,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -681,7 +696,9 @@ class _OverviewSectionState extends State<_OverviewSection> {
                       Text(
                         '(${isPositive ? '+' : ''}${percentChange.abs().toStringAsFixed(1)}%)',
                         style: TextStyle(
-                          color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                          color: isPositive
+                              ? AuthColors.success
+                              : AuthColors.error,
                           fontSize: 11,
                         ),
                       ),
@@ -691,7 +708,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
               ],
             ),
           ),
-            const SizedBox(height: AppSpacing.paddingLG),
+          const SizedBox(height: AppSpacing.paddingLG),
 
           // Financial Summary Cards
           Row(
@@ -700,29 +717,30 @@ class _OverviewSectionState extends State<_OverviewSection> {
                 child: _SummaryCard(
                   label: 'Opening Balance',
                   value: _formatCurrency(vendor.openingBalance),
-                  color: const Color(0xFF2196F3),
+                  color: AuthColors.info,
                 ),
               ),
-                      const SizedBox(width: AppSpacing.paddingMD),
+              const SizedBox(width: AppSpacing.paddingMD),
               Expanded(
                 child: _SummaryCard(
                   label: 'Net Change',
-                  value: '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())}',
-                  color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                  value:
+                      '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())}',
+                  color: isPositive ? AuthColors.success : AuthColors.error,
                 ),
               ),
             ],
           ),
-            const SizedBox(height: AppSpacing.paddingLG),
+          const SizedBox(height: AppSpacing.paddingLG),
 
           // Contact Information
           Container(
             padding: const EdgeInsets.all(AppSpacing.paddingLG),
             decoration: BoxDecoration(
-              color: const Color(0xFF131324),
+              color: AuthColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               border: Border.all(
-                color: Colors.white.withOpacity(0.1),
+                color: AuthColors.textMainWithOpacity(0.1),
                 width: 1,
               ),
             ),
@@ -732,7 +750,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                 const Text(
                   'Contact Information',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -743,14 +761,14 @@ class _OverviewSectionState extends State<_OverviewSection> {
                     Icon(
                       Icons.phone_outlined,
                       size: 20,
-                      color: Colors.white.withOpacity(0.7),
+                      color: AuthColors.textMainWithOpacity(0.7),
                     ),
                     const SizedBox(width: AppSpacing.paddingMD),
                     Expanded(
                       child: Text(
                         vendor.phoneNumber,
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AuthColors.textMain,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -765,14 +783,14 @@ class _OverviewSectionState extends State<_OverviewSection> {
                       Icon(
                         Icons.receipt_long_outlined,
                         size: 20,
-                        color: Colors.white.withOpacity(0.7),
+                        color: AuthColors.textMainWithOpacity(0.7),
                       ),
                       const SizedBox(width: AppSpacing.paddingMD),
                       Expanded(
                         child: Text(
                           'GST: ${vendor.gstNumber}',
                           style: const TextStyle(
-                            color: Colors.white70,
+                            color: AuthColors.textSub,
                             fontSize: 13,
                           ),
                         ),
@@ -787,14 +805,14 @@ class _OverviewSectionState extends State<_OverviewSection> {
                       Icon(
                         Icons.person_outline,
                         size: 20,
-                        color: Colors.white.withOpacity(0.7),
+                        color: AuthColors.textMainWithOpacity(0.7),
                       ),
                       const SizedBox(width: AppSpacing.paddingMD),
                       Expanded(
                         child: Text(
                           vendor.contactPerson!,
                           style: const TextStyle(
-                            color: Colors.white70,
+                            color: AuthColors.textSub,
                             fontSize: 13,
                           ),
                         ),
@@ -812,10 +830,10 @@ class _OverviewSectionState extends State<_OverviewSection> {
             Container(
               padding: const EdgeInsets.all(AppSpacing.paddingLG),
               decoration: BoxDecoration(
-                color: const Color(0xFF131324),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: AuthColors.textMainWithOpacity(0.1),
                   width: 1,
                 ),
               ),
@@ -825,7 +843,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
                   const Text(
                     'Assigned Raw Materials',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AuthColors.textMain,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -834,14 +852,15 @@ class _OverviewSectionState extends State<_OverviewSection> {
                   if (_isLoadingMaterials)
                     const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFF6F4BFF),
+                        color: AuthColors.secondary,
                       ),
                     )
-                  else if (_assignedMaterials == null || _assignedMaterials?.isEmpty == true)
+                  else if (_assignedMaterials == null ||
+                      _assignedMaterials?.isEmpty == true)
                     Text(
                       'No raw materials assigned',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: AuthColors.textMainWithOpacity(0.6),
                         fontSize: 13,
                       ),
                     )
@@ -857,7 +876,8 @@ class _OverviewSectionState extends State<_OverviewSection> {
                           ),
                           decoration: BoxDecoration(
                             color: vendorColor.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusSM),
                             border: Border.all(
                               color: vendorColor.withOpacity(0.3),
                             ),
@@ -912,7 +932,7 @@ class _SummaryCard extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              color: Colors.white70,
+              color: AuthColors.textSub,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -1011,7 +1031,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
           if (dateA == null && dateB == null) return 0;
           if (dateA == null) return 1;
           if (dateB == null) return -1;
-          
+
           Timestamp? tsA;
           Timestamp? tsB;
           if (dateA is Timestamp) {
@@ -1024,11 +1044,11 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
           } else if (dateB is DateTime) {
             tsB = Timestamp.fromDate(dateB);
           }
-          
+
           if (tsA == null && tsB == null) return 0;
           if (tsA == null) return 1;
           if (tsB == null) return -1;
-          
+
           return tsB.compareTo(tsA); // Descending
         });
 
@@ -1047,7 +1067,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
             .where('ledgerType', isEqualTo: 'vendorLedger')
             .where('vendorId', isEqualTo: widget.vendor.id)
             .limit(100);
-        
+
         _transactionsSubscription?.cancel();
         _transactionsSubscription = fallbackQuery.snapshots().listen(
           (snapshot) {
@@ -1066,7 +1086,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
               if (dateA == null && dateB == null) return 0;
               if (dateA == null) return 1;
               if (dateB == null) return -1;
-              
+
               Timestamp? tsA;
               Timestamp? tsB;
               if (dateA is Timestamp) {
@@ -1079,11 +1099,11 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
               } else if (dateB is DateTime) {
                 tsB = Timestamp.fromDate(dateB);
               }
-              
+
               if (tsA == null && tsB == null) return 0;
               if (tsA == null) return 1;
               if (tsB == null) return -1;
-              
+
               return tsB.compareTo(tsA);
             });
 
@@ -1135,7 +1155,8 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
   Widget build(BuildContext context) {
     return BlocListener<OrganizationContextCubit, OrganizationContextState>(
       listener: (context, state) {
-        if (state.organization != null && state.organization!.id != _currentOrgId) {
+        if (state.organization != null &&
+            state.organization!.id != _currentOrgId) {
           _currentOrgId = null;
           _subscribeToTransactions();
         }
@@ -1153,7 +1174,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.error_outline,
                           size: 48,
                           color: AuthColors.error,
@@ -1161,7 +1182,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                         const SizedBox(height: AppSpacing.paddingLG),
                         Text(
                           _error!,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.textSub,
                             fontSize: 14,
                           ),
@@ -1189,7 +1210,9 @@ String _formatCategoryName(String? category) {
   return category
       .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
       .split(' ')
-      .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1).toLowerCase())
+      .map((word) => word.isEmpty
+          ? ''
+          : word[0].toUpperCase() + word.substring(1).toLowerCase())
       .join(' ')
       .trim();
 }
@@ -1209,20 +1232,8 @@ class _LedgerTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var totalDebit = 0.0;
-    var totalCredit = 0.0;
-    for (final tx in transactions) {
-      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
-      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-      final isCredit = type == 'credit';
-      if (isCredit) {
-        totalCredit += amount;
-      } else {
-        totalDebit += amount;
-      }
-    }
-
-    if (transactions.isEmpty) {
+    final visible = List<Map<String, dynamic>>.from(transactions);
+    if (visible.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1235,7 +1246,7 @@ class _LedgerTable extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.paddingMD),
-          Text(
+          const Text(
             'No transactions found.',
             style: TextStyle(color: AuthColors.textSub),
           ),
@@ -1247,6 +1258,53 @@ class _LedgerTable extends StatelessWidget {
             formatCurrency: formatCurrency,
           ),
         ],
+      );
+    }
+
+    visible.sort((a, b) {
+      final aDate = a['transactionDate'];
+      final bDate = b['transactionDate'];
+      try {
+        final ad = aDate is Timestamp ? aDate.toDate() : (aDate as DateTime);
+        final bd = bDate is Timestamp ? bDate.toDate() : (bDate as DateTime);
+        return ad.compareTo(bd);
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    var totalDebit = 0.0;
+    var totalCredit = 0.0;
+    var running = openingBalance;
+    final rows = <Widget>[];
+    for (final tx in visible) {
+      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
+      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      final date = tx['transactionDate'] ?? tx['createdAt'];
+      final invoiceNo = tx['referenceNumber'] as String? ??
+          tx['metadata']?['invoiceNumber'] as String? ??
+          '-';
+      final category = tx['category'] as String?;
+      final desc = (tx['description'] as String?)?.trim();
+      final isCredit = type == 'credit';
+      final credit = isCredit ? amount : 0.0;
+      final debit = isCredit ? 0.0 : amount;
+      running += isCredit ? amount : -amount;
+      totalCredit += credit;
+      totalDebit += debit;
+
+      rows.add(
+        _LedgerTableRow(
+          date: date,
+          invoiceNo: invoiceNo,
+          debit: debit,
+          credit: credit,
+          balance: running,
+          type: _formatCategoryName(category),
+          remarks: (desc != null && desc.isNotEmpty) ? desc : '-',
+          formatCurrency: formatCurrency,
+          formatDate: formatDate,
+        ),
       );
     }
 
@@ -1266,36 +1324,14 @@ class _LedgerTable extends StatelessWidget {
           decoration: BoxDecoration(
             color: AuthColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+            border: Border.all(
+                color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
               _LedgerTableHeader(),
               Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
-              ...transactions.map((tx) {
-                final type = tx['type'] as String? ?? 'credit';
-                final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-                final balanceAfter = (tx['balanceAfter'] as num?)?.toDouble() ?? 0.0;
-                final date = tx['transactionDate'] ?? tx['createdAt'];
-                final invoiceNo = tx['referenceNumber'] as String? ?? tx['metadata']?['invoiceNumber'] as String? ?? '-';
-                final category = tx['category'] as String?;
-                final desc = (tx['description'] as String?)?.trim();
-                final isCredit = type == 'credit';
-                final credit = isCredit ? amount : 0.0;
-                final debit = !isCredit ? amount : 0.0;
-
-                return _LedgerTableRow(
-                  date: date,
-                  invoiceNo: invoiceNo,
-                  debit: debit,
-                  credit: credit,
-                  balance: balanceAfter,
-                  type: _formatCategoryName(category),
-                  remarks: (desc != null && desc.isNotEmpty) ? desc : '-',
-                  formatCurrency: formatCurrency,
-                  formatDate: formatDate,
-                );
-              }),
+              ...rows,
             ],
           ),
         ),
@@ -1314,17 +1350,46 @@ class _LedgerTable extends StatelessWidget {
 class _LedgerTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
+    return const Padding(
+      padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       child: Row(
         children: [
-          Expanded(flex: 1, child: Text('Date', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Invoice No.', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 1, child: Text('Type', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
-          Expanded(flex: 2, child: Text('Remarks', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Date',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Reference',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Debit',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Credit',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Balance',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 1,
+              child: Text('Type',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
+          Expanded(
+              flex: 2,
+              child: Text('Remarks',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center)),
         ],
       ),
     );
@@ -1360,13 +1425,66 @@ class _LedgerTableRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
-          Expanded(flex: 1, child: Text(formatDate(date), style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(invoiceNo, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(debit > 0 ? formatCurrency(debit) : '-', style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(credit > 0 ? formatCurrency(credit) : '-', style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(formatCurrency(balance), style: TextStyle(color: balance >= 0 ? AuthColors.warning : AuthColors.success, fontSize: 11, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 1, child: Text(type.isEmpty ? '-' : type, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
-          Expanded(flex: 2, child: Text(remarks, style: const TextStyle(color: AuthColors.textMain, fontSize: 11), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(formatDate(date),
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(invoiceNo,
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(debit > 0 ? formatCurrency(debit) : '-',
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(credit > 0 ? formatCurrency(credit) : '-',
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(formatCurrency(balance),
+                  style: TextStyle(
+                      color: balance >= 0
+                          ? AuthColors.warning
+                          : AuthColors.success,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 1,
+              child: Text(type.isEmpty ? '-' : type,
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
+          Expanded(
+              flex: 2,
+              child: Text(remarks,
+                  style:
+                      const TextStyle(color: AuthColors.textMain, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis)),
         ],
       ),
     );
@@ -1390,11 +1508,13 @@ class _LedgerSummaryFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentBalance = openingBalance + totalCredit - totalDebit;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+        border:
+            Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1403,36 +1523,64 @@ class _LedgerSummaryFooter extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Opening Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const Text('Opening Balance',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.paddingXS),
-              Text(formatCurrency(openingBalance), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text(formatCurrency(openingBalance),
+                  style: const TextStyle(
+                      color: AuthColors.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Debit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const Text('Total Debit',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.paddingXS),
-              Text(formatCurrency(totalDebit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text(formatCurrency(totalDebit),
+                  style: const TextStyle(
+                      color: AuthColors.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Credit', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const Text('Total Credit',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.paddingXS),
-              Text(formatCurrency(totalCredit), style: const TextStyle(color: AuthColors.info, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text(formatCurrency(totalCredit),
+                  style: const TextStyle(
+                      color: AuthColors.info,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Current Balance', style: TextStyle(color: AuthColors.textSub, fontSize: 11), textAlign: TextAlign.center),
+              const Text('Current Balance',
+                  style: TextStyle(color: AuthColors.textSub, fontSize: 11),
+                  textAlign: TextAlign.center),
               const SizedBox(height: AppSpacing.paddingXS),
-              Text(formatCurrency(currentBalance), style: const TextStyle(color: AuthColors.success, fontSize: 13, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
+              Text(formatCurrency(currentBalance),
+                  style: const TextStyle(
+                      color: AuthColors.success,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center),
             ],
           ),
         ],
@@ -1506,28 +1654,29 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('Vendor name'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter vendor name'
-                        : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Enter vendor name'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _phoneController,
-                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('Phone number'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter phone number'
-                        : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Enter phone number'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<VendorType>(
                 initialValue: _selectedVendorType,
                 dropdownColor: AuthColors.surface,
-                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.body, AuthColors.textMain),
                 items: VendorType.values
                     .map(
                       (type) => DropdownMenuItem(
@@ -1542,19 +1691,22 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
                   }
                 },
                 decoration: _inputDecoration('Vendor Type'),
-                validator: (value) => value == null ? 'Select vendor type' : null,
+                validator: (value) =>
+                    value == null ? 'Select vendor type' : null,
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _gstController,
-                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.body, AuthColors.textMain),
                 decoration: _inputDecoration('GST Number (optional)'),
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<VendorStatus>(
                 initialValue: _selectedStatus,
                 dropdownColor: AuthColors.surface,
-                style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.body, AuthColors.textMain),
                 items: VendorStatus.values
                     .map(
                       (status) => DropdownMenuItem(
@@ -1584,8 +1736,8 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
               ? () {
                   if (!(_formKey.currentState?.validate() ?? false)) return;
 
-                  final normalizedPhone = _phoneController.text
-                      .replaceAll(RegExp(r'[^0-9+]'), '');
+                  final normalizedPhone =
+                      _phoneController.text.replaceAll(RegExp(r'[^0-9+]'), '');
                   final phoneNumber = normalizedPhone.startsWith('+')
                       ? normalizedPhone
                       : '+91$normalizedPhone';
@@ -1611,20 +1763,24 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
                         : _gstController.text.trim(),
                     rawMaterialDetails: widget.vendor.rawMaterialDetails,
                     vehicleDetails: widget.vendor.vehicleDetails,
-                    repairMaintenanceDetails: widget.vendor.repairMaintenanceDetails,
+                    repairMaintenanceDetails:
+                        widget.vendor.repairMaintenanceDetails,
                     welfareDetails: widget.vendor.welfareDetails,
                     fuelDetails: widget.vendor.fuelDetails,
                     utilitiesDetails: widget.vendor.utilitiesDetails,
                     rentDetails: widget.vendor.rentDetails,
-                    professionalServicesDetails: widget.vendor.professionalServicesDetails,
-                    marketingAdvertisingDetails: widget.vendor.marketingAdvertisingDetails,
+                    professionalServicesDetails:
+                        widget.vendor.professionalServicesDetails,
+                    marketingAdvertisingDetails:
+                        widget.vendor.marketingAdvertisingDetails,
                     insuranceDetails: widget.vendor.insuranceDetails,
                     logisticsDetails: widget.vendor.logisticsDetails,
                     officeSuppliesDetails: widget.vendor.officeSuppliesDetails,
                     securityDetails: widget.vendor.securityDetails,
                     cleaningDetails: widget.vendor.cleaningDetails,
                     taxConsultantDetails: widget.vendor.taxConsultantDetails,
-                    bankingFinancialDetails: widget.vendor.bankingFinancialDetails,
+                    bankingFinancialDetails:
+                        widget.vendor.bankingFinancialDetails,
                   );
 
                   context.read<VendorsCubit>().updateVendor(vendor);
@@ -1642,7 +1798,8 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
+      labelStyle:
+          AppTypography.withColor(AppTypography.label, AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
@@ -1650,4 +1807,3 @@ class _VendorEditDialogState extends State<_VendorEditDialog> {
     );
   }
 }
-

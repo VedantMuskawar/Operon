@@ -13,7 +13,6 @@ void _log(String msg) {
 }
 
 const _channel = MethodChannel('operon.app/caller_overlay');
-const _keyPendingPhone = 'caller_overlay_pending_phone';
 const _keyCallerIdEnabled = 'caller_id_enabled';
 const _overlayPhoneFile = 'caller_overlay_phone.txt';
 
@@ -61,7 +60,8 @@ class CallerOverlayService {
   Future<String?> getPendingIncomingCall() async {
     if (!Platform.isAndroid) return null;
     try {
-      final phone = await _channel.invokeMethod<String>('getPendingIncomingCall');
+      final phone =
+          await _channel.invokeMethod<String>('getPendingIncomingCall');
       return (phone != null && phone.isNotEmpty) ? phone : null;
     } on PlatformException catch (e) {
       _log('getPendingIncomingCall error: $e');
@@ -73,7 +73,8 @@ class CallerOverlayService {
   Future<String?> getPendingIncomingCallPeek() async {
     if (!Platform.isAndroid) return null;
     try {
-      final phone = await _channel.invokeMethod<String>('getPendingIncomingCallPeek');
+      final phone =
+          await _channel.invokeMethod<String>('getPendingIncomingCallPeek');
       return (phone != null && phone.isNotEmpty) ? phone : null;
     } on PlatformException catch (e) {
       _log('getPendingIncomingCallPeek error: $e');
@@ -89,23 +90,6 @@ class CallerOverlayService {
     } on PlatformException catch (e) {
       _log('clearPendingIncomingCall error: $e');
     }
-  }
-
-  /// Store phone for overlay to read (overlay runs in separate isolate).
-  Future<void> _storePhoneForOverlay(String phone) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyPendingPhone, phone);
-  }
-
-  /// Read and clear stored phone (used by overlay entry point).
-  static Future<String?> takeStoredPhone() async {
-    final prefs = await SharedPreferences.getInstance();
-    final phone = prefs.getString(_keyPendingPhone);
-    if (phone != null && phone.isNotEmpty) {
-      await prefs.remove(_keyPendingPhone);
-      return phone;
-    }
-    return null;
   }
 
   /// Read phone from cache file (receiver writes; overlay isolate may not share SharedPreferences).
@@ -136,11 +120,11 @@ class CallerOverlayService {
 
     final overlayOk = await isOverlayPermissionGranted();
     if (!overlayOk) {
-      _log('Overlay permission not granted, skip. Enable in Profile → Caller ID.');
+      _log(
+          'Overlay permission not granted, skip. Enable in Profile → Caller ID.');
       return false;
     }
 
-    await _storePhoneForOverlay(normalized);
     try {
       await FlutterOverlayWindow.shareData(normalized);
     } catch (e) {
@@ -218,7 +202,8 @@ class CallerOverlayService {
     _log('Caller ID enabled: $enabled');
     if (!enabled) return false;
     final phone = await getPendingIncomingCallPeek();
-    _log('Pending phone: ${phone != null && phone.isNotEmpty ? phone : "null/empty"}');
+    _log(
+        'Pending phone: ${phone != null && phone.isNotEmpty ? phone : "null/empty"}');
     if (phone == null || phone.isEmpty) return false;
     await shareDataOnlyForOverlay(phone);
     await clearPendingIncomingCall();

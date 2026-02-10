@@ -77,7 +77,43 @@ class CallerOverlayRepository {
   Future<ClientRecord?> fetchClientByPhone(String phone) async {
     final normalized = normalizePhone(phone);
     if (normalized.isEmpty) return null;
-    return _clientService.findClientByPhone(normalized);
+
+    for (final variant in _buildPhoneVariants(normalized)) {
+      final client = await _clientService.findClientByPhone(variant);
+      if (client != null) return client;
+    }
+    return null;
+  }
+
+  Iterable<String> _buildPhoneVariants(String normalized) {
+    final variants = <String>{};
+    if (normalized.isEmpty) return variants;
+
+    variants.add(normalized);
+
+    if (normalized.startsWith('+')) {
+      variants.add(normalized.substring(1));
+    }
+
+    var trimmed = normalized;
+    while (trimmed.startsWith('0') && trimmed.length > 10) {
+      trimmed = trimmed.substring(1);
+      variants.add(trimmed);
+      if (trimmed.startsWith('+')) {
+        variants.add(trimmed.substring(1));
+      }
+    }
+
+    if (normalized.length == 10) {
+      variants.add('91$normalized');
+      variants.add('+91$normalized');
+    } else if (normalized.length == 12 && normalized.startsWith('91')) {
+      variants.add('+$normalized');
+    } else if (normalized.length == 13 && normalized.startsWith('+91')) {
+      variants.add(normalized.substring(1));
+    }
+
+    return variants;
   }
 
   /// First non-completed order for client in org. Excludes status == 'completed'.
@@ -118,11 +154,13 @@ class CallerOverlayRepository {
     double? unitPrice;
     String? tripTimesFixedQty;
     final items = o['items'] as List<dynamic>? ?? [];
-    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
+    final firstItem =
+        items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
     if (firstItem != null) {
       unitPrice = (firstItem['unitPrice'] as num?)?.toDouble();
       final trips = (firstItem['estimatedTrips'] as num?)?.toInt() ?? 0;
-      final fixedQty = (firstItem['fixedQuantityPerTrip'] as num?)?.toInt() ?? 0;
+      final fixedQty =
+          (firstItem['fixedQuantityPerTrip'] as num?)?.toInt() ?? 0;
       if (trips > 0 && fixedQty > 0) {
         tripTimesFixedQty = '$trips×$fixedQty';
       }
@@ -141,7 +179,8 @@ class CallerOverlayRepository {
   }
 
   /// First scheduled trip for order with tripStatus NOT in [delivered, returned].
-  Future<CallerOverlayScheduledTrip?> fetchActiveTripForOrder(String orderId) async {
+  Future<CallerOverlayScheduledTrip?> fetchActiveTripForOrder(
+      String orderId) async {
     final trips = await _scheduledTrips.getScheduledTripsForOrder(orderId);
     const exclude = ['delivered', 'returned'];
     final active = trips.where((t) {

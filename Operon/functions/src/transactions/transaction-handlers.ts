@@ -2,6 +2,7 @@ import * as admin from 'firebase-admin';
 import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import {
   TRANSACTIONS_COLLECTION,
+  CLIENTS_COLLECTION,
   CLIENT_LEDGERS_COLLECTION,
   VENDOR_LEDGERS_COLLECTION,
   VENDORS_COLLECTION,
@@ -19,6 +20,7 @@ import { getFinancialContext } from '../shared/financial-year';
 import { formatDate, cleanDailyData, getYearMonthCompact } from '../shared/date-helpers';
 import { getTransactionDate, removeUndefinedFields } from '../shared/transaction-helpers';
 import { CRITICAL_TRIGGER_OPTS, STANDARD_TRIGGER_OPTS } from '../shared/function-config';
+import { sendCashLedgerTransactionNotification } from '../notifications/transaction-notifications';
 
 const db = getFirestore();
 
@@ -149,6 +151,54 @@ function getFinancialYearDates(financialYear: string): { start: Date; end: Date 
   const end = new Date(Date.UTC(endYear, 3, 1, 0, 0, 0));
   
   return { start, end };
+}
+
+async function fetchEntityName(collection: string, entityId: string | undefined): Promise<string | undefined> {
+  if (!entityId) return undefined;
+  const doc = await db.collection(collection).doc(entityId).get();
+  if (!doc.exists) return undefined;
+  const data = doc.data() || {};
+  const name =
+    (data.name as string | undefined) ||
+    (data.clientName as string | undefined) ||
+    (data.vendorName as string | undefined) ||
+    (data.employeeName as string | undefined);
+  const trimmed = name?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+async function buildTransactionNameUpdates(transaction: FirebaseFirestore.DocumentData): Promise<Record<string, unknown>> {
+  const updates: Record<string, unknown> = {};
+  const metadata = (transaction.metadata as Record<string, unknown> | undefined) || {};
+
+  const clientName = (transaction.clientName as string | undefined)?.trim();
+  if (!clientName && transaction.clientId) {
+    const resolvedClientName = await fetchEntityName(CLIENTS_COLLECTION, transaction.clientId as string);
+    if (resolvedClientName) {
+      updates.clientName = resolvedClientName;
+      if (!(metadata.clientName as string | undefined)?.trim()) {
+        updates['metadata.clientName'] = resolvedClientName;
+      }
+    }
+  }
+
+  const vendorName = (metadata.vendorName as string | undefined)?.trim();
+  if (!vendorName && transaction.vendorId) {
+    const resolvedVendorName = await fetchEntityName(VENDORS_COLLECTION, transaction.vendorId as string);
+    if (resolvedVendorName) {
+      updates['metadata.vendorName'] = resolvedVendorName;
+    }
+  }
+
+  const employeeName = (metadata.employeeName as string | undefined)?.trim();
+  if (!employeeName && transaction.employeeId) {
+    const resolvedEmployeeName = await fetchEntityName(EMPLOYEES_COLLECTION, transaction.employeeId as string);
+    if (resolvedEmployeeName) {
+      updates['metadata.employeeName'] = resolvedEmployeeName;
+    }
+  }
+
+  return updates;
 }
 
 /**
@@ -1904,10 +1954,15 @@ export const onTransactionCreated = onDocumentCreated(
       });
       
       // Update transaction document with balances
-      await snapshot.ref.update({
+      const nameUpdates = await buildTransactionNameUpdates(transaction);
+      const updatePayload = removeUndefinedFields({
         balanceBefore,
         balanceAfter,
+        ...nameUpdates,
       });
+      if (Object.keys(updatePayload).length > 0) {
+        await snapshot.ref.update(updatePayload);
+      }
       
       // Update analytics
       await updateTransactionAnalytics(
@@ -1917,6 +1972,17 @@ export const onTransactionCreated = onDocumentCreated(
         transactionDate,
         false
       );
+
+      try {
+        await sendCashLedgerTransactionNotification(transactionId, transaction);
+      } catch (notificationError) {
+        console.error('[Transaction] Notification error', {
+          transactionId,
+          error: notificationError instanceof Error
+            ? notificationError.message
+            : String(notificationError),
+        });
+      }
       
       console.log('[Transaction] Successfully processed', {
         transactionId,

@@ -44,25 +44,21 @@ const function_config_1 = require("../shared/function-config");
 const logger_1 = require("../shared/logger");
 const db = (0, firestore_1.getFirestore)();
 /**
- * Revert attendance for an employee in a batch
- * This is a helper function that updates attendance within a transaction
+ * Compute revert write from a read snapshot (no tx writes).
+ * Firestore transactions require all reads before any writes.
  */
-async function revertAttendanceInTransaction(tx, organizationId, employeeId, batchDate, batchId) {
+function computeRevertWrite(attendanceDoc, organizationId, employeeId, batchDate, batchId) {
     const financialYear = (0, financial_year_1.getFinancialContext)(batchDate).fyLabel;
     const yearMonth = (0, date_helpers_1.getYearMonth)(batchDate);
     const ledgerId = `${employeeId}_${financialYear}`;
     const normalizedDate = (0, date_helpers_1.normalizeDate)(batchDate);
     const ledgerRef = db.collection(constants_1.EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
     const attendanceRef = ledgerRef.collection('Attendance').doc(yearMonth);
-    // Read attendance document
-    const attendanceDoc = await tx.get(attendanceRef);
     if (!attendanceDoc.exists) {
-        // No attendance record exists, nothing to revert
-        return;
+        return null;
     }
     const attendanceData = attendanceDoc.data();
     let dailyRecords = Array.from(attendanceData.dailyRecords || []);
-    // Find and remove the batch from daily records
     const dateIndex = dailyRecords.findIndex((record) => {
         var _a, _b;
         let recordDate;
@@ -82,31 +78,26 @@ async function revertAttendanceInTransaction(tx, organizationId, employeeId, bat
         return normalizedRecordDate.getTime() === normalizedDate.getTime();
     });
     if (dateIndex < 0) {
-        // No record for this date, nothing to revert
-        return;
+        return null;
     }
     const existingRecord = dailyRecords[dateIndex];
-    // Remove batchId from the record
     const batchIds = Array.from(existingRecord.batchIds || []);
     const updatedBatchIds = batchIds.filter((id) => id !== batchId);
     if (updatedBatchIds.length === 0) {
-        // No more batches for this day, remove the daily record
         dailyRecords = dailyRecords.filter((_, index) => index !== dateIndex);
     }
     else {
-        // Update the record with remaining batches
         dailyRecords[dateIndex] = Object.assign(Object.assign({}, existingRecord), { numberOfBatches: updatedBatchIds.length, batchIds: updatedBatchIds });
     }
-    // Recalculate totals
     const totalDaysPresent = dailyRecords.filter((record) => record.isPresent === true).length;
     const totalBatchesWorked = dailyRecords.reduce((sum, record) => sum + (record.numberOfBatches || 0), 0);
-    // If no daily records remain, delete the attendance document
     if (dailyRecords.length === 0) {
-        tx.delete(attendanceRef);
+        return { ref: attendanceRef, delete: true };
     }
-    else {
-        // Update attendance document
-        const attendanceJson = {
+    return {
+        ref: attendanceRef,
+        delete: false,
+        data: {
             yearMonth,
             employeeId,
             organizationId,
@@ -115,8 +106,35 @@ async function revertAttendanceInTransaction(tx, organizationId, employeeId, bat
             totalDaysPresent,
             totalBatchesWorked,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-        tx.update(attendanceRef, attendanceJson);
+        },
+    };
+}
+/**
+ * Revert attendance for all employees: all reads first, then all writes.
+ */
+async function revertAttendanceInTransaction(tx, organizationId, employeeIds, batchDate, batchId) {
+    const yearMonth = (0, date_helpers_1.getYearMonth)(batchDate);
+    // Phase 1: All reads
+    const writes = [];
+    for (const employeeId of employeeIds) {
+        const financialYear = (0, financial_year_1.getFinancialContext)(batchDate).fyLabel;
+        const ledgerId = `${employeeId}_${financialYear}`;
+        const ledgerRef = db.collection(constants_1.EMPLOYEE_LEDGERS_COLLECTION).doc(ledgerId);
+        const attendanceRef = ledgerRef.collection('Attendance').doc(yearMonth);
+        const attendanceDoc = await tx.get(attendanceRef);
+        const write = computeRevertWrite(attendanceDoc, organizationId, employeeId, batchDate, batchId);
+        if (write) {
+            writes.push(write);
+        }
+    }
+    // Phase 2: All writes
+    for (const w of writes) {
+        if (w.delete) {
+            tx.delete(w.ref);
+        }
+        else if (w.data) {
+            tx.update(w.ref, w.data);
+        }
     }
 }
 /**
@@ -130,15 +148,15 @@ exports.revertProductionBatchWages = (0, https_1.onCall)(function_config_1.CALLA
         batchId,
     });
     // Validate input
-    if (!batchId) {
-        throw new Error('Missing required parameter: batchId');
+    if (!batchId || typeof batchId !== 'string' || batchId.trim() === '') {
+        throw new https_1.HttpsError('invalid-argument', 'Missing or invalid batchId');
     }
     try {
         // Read batch document
         const batchRef = db.collection(constants_1.PRODUCTION_BATCHES_COLLECTION).doc(batchId);
         const batchDoc = await batchRef.get();
         if (!batchDoc.exists) {
-            throw new Error(`Batch not found: ${batchId}`);
+            throw new https_1.HttpsError('not-found', `Batch not found: ${batchId}`);
         }
         const batchData = batchDoc.data();
         const wageTransactionIds = batchData.wageTransactionIds || [];
@@ -186,14 +204,9 @@ exports.revertProductionBatchWages = (0, https_1.onCall)(function_config_1.CALLA
                 transactionCount: transactionBatch.length,
             });
         }
-        // Now revert attendance and delete batch atomically
-        // Use a transaction to ensure both attendance revert and batch deletion succeed or fail together
+        // Revert attendance and delete batch atomically (all reads before all writes)
         await db.runTransaction(async (tx) => {
-            // Revert attendance for all employees
-            for (const employeeId of employeeIds) {
-                await revertAttendanceInTransaction(tx, organizationId, employeeId, batchDate, batchId);
-            }
-            // Delete batch document
+            await revertAttendanceInTransaction(tx, organizationId, employeeIds, batchDate, batchId);
             tx.delete(batchRef);
         });
         (0, logger_1.logInfo)('ProductionBatches', 'revertProductionBatchWages', 'Successfully reverted batch', {
@@ -210,7 +223,9 @@ exports.revertProductionBatchWages = (0, https_1.onCall)(function_config_1.CALLA
     }
     catch (error) {
         (0, logger_1.logError)('ProductionBatches', 'revertProductionBatchWages', 'Error reverting batch', error instanceof Error ? error : String(error), { batchId });
-        throw error;
+        if (error instanceof https_1.HttpsError)
+            throw error;
+        throw (0, logger_1.toHttpsError)(error, 'internal');
     }
 });
 //# sourceMappingURL=revert-batch-wages.js.map

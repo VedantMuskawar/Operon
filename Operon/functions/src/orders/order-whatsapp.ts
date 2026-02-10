@@ -6,21 +6,135 @@ import {
 import { getFirestore } from '../shared/firestore-helpers';
 import { logInfo, logError } from '../shared/logger';
 import { LIGHT_TRIGGER_OPTS } from '../shared/function-config';
-import type { WhatsappSettings } from '../shared/whatsapp-service';
+import { enqueueWhatsappMessage } from '../whatsapp/whatsapp-message-queue';
 
 const db = getFirestore();
+const MAX_ORDER_ITEMS = 10;
+const MAX_ITEM_NAME_CHARS = 60;
+const MAX_ITEMS_TEXT_CHARS = 900;
 
-type WhatsappModule = {
-  loadWhatsappSettings: (orgId: string | undefined, verbose?: boolean) => Promise<WhatsappSettings | null>;
-  sendWhatsappTemplateMessage: (url: string, token: string, to: string, templateName: string, languageCode: string, parameters: string[], messageType: string, context: any) => Promise<void>;
-  sendWhatsappMessage: (url: string, token: string, to: string, messageBody: string, messageType: string, context: any) => Promise<void>;
-};
+function buildJobId(eventId: string | undefined, fallbackParts: Array<string | undefined>): string {
+  if (eventId) return eventId;
+  return fallbackParts.filter(Boolean).join('-');
+}
+
+function truncateText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value;
+  const suffix = '...';
+  const trimmedLength = Math.max(0, maxChars - suffix.length);
+  return `${value.slice(0, trimmedLength)}${suffix}`;
+}
+
+function formatOrderItems(
+  items: Array<{
+    productName: string;
+    totalQuantity?: number;
+    estimatedTrips?: number;
+    fixedQuantityPerTrip?: number;
+    total?: number;
+  }>,
+  multiline: boolean,
+): string {
+  if (!items || items.length === 0) return 'No items';
+
+  const lines: string[] = [];
+  const itemCount = Math.min(items.length, MAX_ORDER_ITEMS);
+
+  for (let index = 0; index < itemCount; index += 1) {
+    const item = items[index];
+    const itemNum = index + 1;
+    const estimatedTrips = item.estimatedTrips ?? 0;
+    const fixedQtyPerTrip = item.fixedQuantityPerTrip ?? 1;
+    const totalQuantity = item.totalQuantity ?? (estimatedTrips * fixedQtyPerTrip);
+    const total = item.total ?? 0;
+    const productName = truncateText(item.productName, MAX_ITEM_NAME_CHARS);
+
+    if (multiline) {
+      lines.push(
+        `${itemNum}. ${productName}\n   Qty: ${totalQuantity} units (${estimatedTrips} trips)\n   Amount: ₹${total.toFixed(2)}`,
+      );
+    } else {
+      lines.push(
+        `${itemNum}. ${productName} - Qty: ${totalQuantity} units (${estimatedTrips} trips) - ₹${total.toFixed(2)}`,
+      );
+    }
+  }
+
+  if (items.length > MAX_ORDER_ITEMS) {
+    lines.push(`...and ${items.length - MAX_ORDER_ITEMS} more items`);
+  }
+
+  const joined = lines.join(multiline ? '\n\n' : '\n');
+  return truncateText(joined, MAX_ITEMS_TEXT_CHARS);
+}
+
+function didItemsChange(
+  beforeItems?: Array<{
+    productName: string;
+    totalQuantity?: number;
+    estimatedTrips?: number;
+    fixedQuantityPerTrip?: number;
+    total?: number;
+  }>,
+  afterItems?: Array<{
+    productName: string;
+    totalQuantity?: number;
+    estimatedTrips?: number;
+    fixedQuantityPerTrip?: number;
+    total?: number;
+  }>,
+): boolean {
+  if (!beforeItems && !afterItems) return false;
+  if (!beforeItems || !afterItems) return true;
+  if (beforeItems.length !== afterItems.length) return true;
+
+  for (let i = 0; i < beforeItems.length; i += 1) {
+    const before = beforeItems[i];
+    const after = afterItems[i];
+    const beforeTrips = before.estimatedTrips ?? 0;
+    const afterTrips = after.estimatedTrips ?? 0;
+    const beforeFixed = before.fixedQuantityPerTrip ?? 1;
+    const afterFixed = after.fixedQuantityPerTrip ?? 1;
+    const beforeTotalQty = before.totalQuantity ?? (beforeTrips * beforeFixed);
+    const afterTotalQty = after.totalQuantity ?? (afterTrips * afterFixed);
+
+    if ((before.productName || '') !== (after.productName || '')) return true;
+    if (beforeTrips !== afterTrips) return true;
+    if (beforeFixed !== afterFixed) return true;
+    if (beforeTotalQty !== afterTotalQty) return true;
+    if ((before.total ?? 0) !== (after.total ?? 0)) return true;
+  }
+
+  return false;
+}
+
+function didPricingChange(
+  before?: { subtotal: number; totalGst?: number; totalAmount: number; currency: string },
+  after?: { subtotal: number; totalGst?: number; totalAmount: number; currency: string },
+): boolean {
+  if (!before && !after) return false;
+  if (!before || !after) return true;
+  return (
+    before.subtotal !== after.subtotal ||
+    (before.totalGst ?? 0) !== (after.totalGst ?? 0) ||
+    before.totalAmount !== after.totalAmount ||
+    before.currency !== after.currency
+  );
+}
+
+function didDeliveryZoneChange(
+  before?: { city_name: string; region: string },
+  after?: { city_name: string; region: string },
+): boolean {
+  if (!before && !after) return false;
+  if (!before || !after) return true;
+  return before.city_name !== after.city_name || before.region !== after.region;
+}
 
 /**
  * Sends WhatsApp notification to client when an order is created
  */
-async function sendOrderConfirmationMessage(
-  whatsapp: WhatsappModule,
+async function enqueueOrderConfirmationMessage(
   to: string,
   clientName: string | undefined,
   organizationId: string | undefined,
@@ -46,34 +160,14 @@ async function sendOrderConfirmationMessage(
     };
     advanceAmount?: number;
   },
+  jobId: string,
 ): Promise<void> {
-  const settings = await whatsapp.loadWhatsappSettings(organizationId, true);
-  if (!settings?.orderConfirmationTemplateId) {
-    logInfo('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Skipping – no WhatsApp settings or orderConfirmationTemplateId for org', {
-      orderId,
-      organizationId: organizationId ?? 'missing',
-    });
-    return;
-  }
-
-  const url = `https://graph.facebook.com/v19.0/${settings.phoneId}/messages`;
   const displayName = clientName && clientName.trim().length > 0
     ? clientName.trim()
     : 'there';
 
   // Format order items for template parameter 2
-  const itemsText = orderData.items
-    .map((item, index) => {
-      const itemNum = index + 1;
-      // Calculate totalQuantity if not present: estimatedTrips × fixedQuantityPerTrip
-      const estimatedTrips = item.estimatedTrips ?? 0;
-      const fixedQtyPerTrip = item.fixedQuantityPerTrip ?? 1;
-      const totalQuantity = item.totalQuantity ?? (estimatedTrips * fixedQtyPerTrip);
-      const total = item.total ?? 0;
-      
-      return `${itemNum}. ${item.productName} - Qty: ${totalQuantity} units (${estimatedTrips} trips) - ₹${total.toFixed(2)}`;
-    })
-    .join('\n');
+  const itemsText = formatOrderItems(orderData.items, false);
 
   // Format delivery zone for parameter 3
   const deliveryInfo = orderData.deliveryZone
@@ -101,35 +195,29 @@ async function sendOrderConfirmationMessage(
     advanceText,        // Parameter 5: Advance payment info (never empty)
   ];
 
-  logInfo('Order/WhatsApp', 'sendOrderConfirmationMessage', 'Sending order confirmation', {
+  logInfo('Order/WhatsApp', 'enqueueOrderConfirmationMessage', 'Enqueuing order confirmation', {
     organizationId,
     orderId,
     to: to.substring(0, 4) + '****',
-    phoneId: settings.phoneId,
-    templateId: settings.orderConfirmationTemplateId,
     hasItems: orderData.items.length > 0,
   });
 
-  await whatsapp.sendWhatsappTemplateMessage(
-    url,
-    settings.token,
+  await enqueueWhatsappMessage(jobId, {
+    type: 'order-confirmation',
     to,
-    settings.orderConfirmationTemplateId!,
-    settings.languageCode ?? 'en',
+    organizationId,
     parameters,
-    'order-confirmation',
-    {
+    context: {
       organizationId,
       orderId,
     },
-  );
+  });
 }
 
 /**
  * Sends WhatsApp notification to client when an order is updated
  */
-async function sendOrderUpdateMessage(
-  whatsapp: WhatsappModule,
+async function enqueueOrderUpdateMessage(
   to: string,
   clientName: string | undefined,
   organizationId: string | undefined,
@@ -156,34 +244,14 @@ async function sendOrderUpdateMessage(
     advanceAmount?: number;
     status?: string;
   },
+  jobId: string,
 ): Promise<void> {
-  const settings = await whatsapp.loadWhatsappSettings(organizationId);
-  if (!settings) {
-    console.log(
-      '[WhatsApp Order] Skipping send – no settings or disabled.',
-      { orderId, organizationId },
-    );
-    return;
-  }
-
-  const url = `https://graph.facebook.com/v19.0/${settings.phoneId}/messages`;
   const displayName = clientName && clientName.trim().length > 0
     ? clientName.trim()
     : 'there';
 
   // Format order items for message
-  const itemsText = orderData.items
-    .map((item, index) => {
-      const itemNum = index + 1;
-      // Calculate totalQuantity if not present: estimatedTrips × fixedQuantityPerTrip
-      const estimatedTrips = item.estimatedTrips ?? 0;
-      const fixedQtyPerTrip = item.fixedQuantityPerTrip ?? 1;
-      const totalQuantity = item.totalQuantity ?? (estimatedTrips * fixedQtyPerTrip);
-      const total = item.total ?? 0;
-      
-      return `${itemNum}. ${item.productName}\n   Qty: ${totalQuantity} units (${estimatedTrips} trips)\n   Amount: ₹${total.toFixed(2)}`;
-    })
-    .join('\n\n');
+  const itemsText = formatOrderItems(orderData.items, true);
 
   // Format delivery zone
   const deliveryInfo = orderData.deliveryZone
@@ -214,18 +282,23 @@ async function sendOrderUpdateMessage(
     `Pricing:\n${pricingText}${advanceText}${statusText}\n\n` +
     `Thank you!`;
 
-  logInfo('Order/WhatsApp', 'sendOrderUpdateMessage', 'Sending order update', {
+  logInfo('Order/WhatsApp', 'enqueueOrderUpdateMessage', 'Enqueuing order update', {
     organizationId,
     orderId,
     to: to.substring(0, 4) + '****',
-    phoneId: settings.phoneId,
     hasItems: orderData.items.length > 0,
     status: orderData.status,
   });
 
-  await whatsapp.sendWhatsappMessage(url, settings.token, to, messageBody, 'update', {
+  await enqueueWhatsappMessage(jobId, {
+    type: 'order-update',
+    to,
     organizationId,
-    orderId,
+    messageBody,
+    context: {
+      organizationId,
+      orderId,
+    },
   });
 }
 
@@ -319,10 +392,9 @@ export const onOrderCreatedSendWhatsapp = onDocumentCreated(
       return;
     }
 
-    const whatsapp = await import('../shared/whatsapp-service');
     try {
-      await sendOrderConfirmationMessage(
-        whatsapp,
+      const jobId = buildJobId(event.id, [orderId, 'order-created']);
+      await enqueueOrderConfirmationMessage(
         clientPhone,
         clientName,
         orderData.organizationId,
@@ -334,6 +406,7 @@ export const onOrderCreatedSendWhatsapp = onDocumentCreated(
           deliveryZone: orderData.deliveryZone,
           advanceAmount: orderData.advanceAmount,
         },
+        jobId,
       );
     } catch (err) {
       logError('Order/WhatsApp', 'onOrderCreatedSendWhatsapp', 'Failed to send order confirmation WhatsApp', err instanceof Error ? err : undefined, {
@@ -363,10 +436,10 @@ export const onOrderUpdatedSendWhatsapp = onDocumentUpdated(
     if (!before || !after) return;
 
     // Check if significant fields changed
-    const itemsChanged = JSON.stringify(before.items) !== JSON.stringify(after.items);
-    const pricingChanged = JSON.stringify(before.pricing) !== JSON.stringify(after.pricing);
+    const itemsChanged = didItemsChange(before.items, after.items);
+    const pricingChanged = didPricingChange(before.pricing, after.pricing);
     const statusChanged = before.status !== after.status;
-    const deliveryZoneChanged = JSON.stringify(before.deliveryZone) !== JSON.stringify(after.deliveryZone);
+    const deliveryZoneChanged = didDeliveryZoneChange(before.deliveryZone, after.deliveryZone);
     const advanceAmountChanged = before.advanceAmount !== after.advanceAmount;
 
     // Only send notification if significant changes occurred
@@ -453,9 +526,8 @@ export const onOrderUpdatedSendWhatsapp = onDocumentUpdated(
       return;
     }
 
-    const whatsapp = await import('../shared/whatsapp-service');
-    await sendOrderUpdateMessage(
-      whatsapp,
+    const jobId = buildJobId(event.id, [orderId, 'order-updated']);
+    await enqueueOrderUpdateMessage(
       clientPhone,
       clientName,
       orderData.organizationId,
@@ -468,6 +540,7 @@ export const onOrderUpdatedSendWhatsapp = onDocumentUpdated(
         advanceAmount: orderData.advanceAmount,
         status: orderData.status,
       },
+      jobId,
     );
   },
 );

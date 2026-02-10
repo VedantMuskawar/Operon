@@ -244,12 +244,12 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.paddingSM),
                       decoration: BoxDecoration(
-                        color: AuthColors.accentPurple.withValues(alpha: 0.2),
+                        color: AuthColors.secondary.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       child: const Icon(
                         Icons.card_giftcard,
-                        color: AuthColors.accentPurple,
+                        color: AuthColors.secondary,
                         size: 20,
                       ),
                     ),
@@ -386,7 +386,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _submitBonus,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AuthColors.accentPurple,
+                    backgroundColor: AuthColors.secondary,
                     foregroundColor: AuthColors.textMain,
                     padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),

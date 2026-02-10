@@ -29,12 +29,14 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
 
   void _updateCachedValues() {
     if (_analytics == null) return;
-    _cachedTotalPayableValue = '₹${_analytics!.totalPayable.toStringAsFixed(2)}';
+    _cachedTotalPayableValue =
+        '₹${_analytics!.totalPayable.toStringAsFixed(2)}';
   }
 
   String _canonicalFy(String? prettyFy) {
     if (prettyFy == null || prettyFy.isEmpty) return '';
-    final digits = RegExp(r'\d{4}').allMatches(prettyFy).map((m) => m.group(0)!);
+    final digits =
+        RegExp(r'\d{4}').allMatches(prettyFy).map((m) => m.group(0)!);
     if (digits.length >= 2) {
       final first = digits.first.substring(2);
       final second = digits.elementAt(1).substring(2);
@@ -50,11 +52,12 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
       final repository = AnalyticsRepository();
       final canonicalFy = _canonicalFy(orgContext.financialYear);
       final organizationId = orgContext.organization?.id;
-      
+
       if (kDebugMode) {
-        print('[VendorAnalyticsPage] Loading analytics for org: $organizationId, FY: $canonicalFy');
+        print(
+            '[VendorAnalyticsPage] Loading analytics for org: $organizationId, FY: $canonicalFy');
       }
-      
+
       final analytics = await repository.fetchVendorsAnalytics(
         financialYear: canonicalFy.isNotEmpty ? canonicalFy : null,
         organizationId: organizationId,
@@ -84,7 +87,9 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
       );
     }
 
-    if (_analytics == null || (_analytics!.totalPayable == 0 && _analytics!.purchasesByVendorType.isEmpty)) {
+    if (_analytics == null ||
+        (_analytics!.totalPayable == 0 &&
+            _analytics!.purchasesByVendorType.isEmpty)) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.paddingXXL),
@@ -121,7 +126,8 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
     }
 
     // Aggregate purchases across all vendor types by month
-    final purchasesByMonth = _aggregatePurchasesByMonth(_analytics!.purchasesByVendorType);
+    final purchasesByMonth =
+        _aggregatePurchasesByMonth(_analytics!.purchasesByVendorType);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
@@ -138,8 +144,9 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
             builder: (context, state) {
               final vendors = state.vendors;
               final totalVendors = vendors.length;
-              final activeVendors = vendors.where((v) => v.status == VendorStatus.active).length;
-              
+              final activeVendors =
+                  vendors.where((v) => v.status == VendorStatus.active).length;
+
               return _VendorsStatsHeader(
                 totalVendors: totalVendors,
                 activeVendors: activeVendors,
@@ -154,7 +161,8 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
               Expanded(
                 child: _InfoTile(
                   title: 'Total Payable',
-                  value: _cachedTotalPayableValue ?? '₹${_analytics!.totalPayable.toStringAsFixed(2)}',
+                  value: _cachedTotalPayableValue ??
+                      '₹${_analytics!.totalPayable.toStringAsFixed(2)}',
                 ),
               ),
               if (purchasesByMonth.isNotEmpty) ...[
@@ -181,9 +189,10 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
     );
   }
 
-  Map<String, double> _aggregatePurchasesByMonth(Map<String, Map<String, double>> purchasesByVendorType) {
+  Map<String, double> _aggregatePurchasesByMonth(
+      Map<String, Map<String, double>> purchasesByVendorType) {
     final aggregated = <String, double>{};
-    
+
     for (final vendorTypeData in purchasesByVendorType.values) {
       for (final entry in vendorTypeData.entries) {
         final monthKey = entry.key;
@@ -191,7 +200,7 @@ class _VendorAnalyticsPageState extends State<VendorAnalyticsPage> {
         aggregated[monthKey] = (aggregated[monthKey] ?? 0) + amount;
       }
     }
-    
+
     return aggregated;
   }
 
@@ -341,7 +350,7 @@ class _StatCard extends StatelessWidget {
             Text(
               subtitle!,
               style: TextStyle(
-                    color: subtitleColor ?? AuthColors.textSub,
+                color: subtitleColor ?? AuthColors.textSub,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
@@ -371,12 +380,12 @@ class _InfoTile extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF6F4BFF).withOpacity(0.2),
-            const Color(0xFF4CE0B3).withOpacity(0.1),
+            AuthColors.secondary.withOpacity(0.2),
+            AuthColors.successVariant.withOpacity(0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,7 +393,7 @@ class _InfoTile extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: Colors.white70,
+              color: AuthColors.textSub,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -393,7 +402,7 @@ class _InfoTile extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: AuthColors.textMain,
               fontSize: 28,
               fontWeight: FontWeight.w700,
             ),
@@ -497,10 +506,10 @@ class _PurchasesLineChartPainter extends CustomPainter {
     final chartHeight = size.height - padding - 30;
     final dataPoints = data.values.toList();
     final dataKeys = data.keys.toList();
-    
+
     if (chartWidth <= 0 || chartHeight <= 0) return;
     if (dataPoints.isEmpty) return;
-    
+
     final valueRange = maxValue - minValue;
     final normalizedValueRange = valueRange > 0 ? valueRange : 1.0;
 
@@ -524,13 +533,11 @@ class _PurchasesLineChartPainter extends CustomPainter {
       fontSize: 11,
     );
     for (int i = 0; i <= 4; i++) {
-      final value = valueRange > 0 
-          ? maxValue - valueRange * (i / 4)
-          : maxValue;
+      final value = valueRange > 0 ? maxValue - valueRange * (i / 4) : maxValue;
       final yPos = padding + (chartHeight / 4) * i;
-      
+
       if (yPos.isNaN || !yPos.isFinite) continue;
-      
+
       final textPainter = TextPainter(
         text: TextSpan(
           text: '₹${value.toInt()}',
@@ -539,12 +546,12 @@ class _PurchasesLineChartPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
-      
+
       if (textPainter.height.isNaN || !textPainter.height.isFinite) continue;
-      
+
       final offsetY = yPos - textPainter.height / 2;
       if (offsetY.isNaN || !offsetY.isFinite) continue;
-      
+
       textPainter.paint(
         canvas,
         Offset(0, offsetY),
@@ -554,7 +561,7 @@ class _PurchasesLineChartPainter extends CustomPainter {
     // Draw line and points
     final divisor = (dataPoints.length - 1);
     final chartDivisor = divisor > 0 ? divisor : 1.0;
-    
+
     if (dataPoints.length > 1) {
       final path = Path();
       final pointPaint = Paint()
@@ -564,9 +571,10 @@ class _PurchasesLineChartPainter extends CustomPainter {
 
       for (int i = 0; i < dataPoints.length; i++) {
         final x = padding + (chartWidth / chartDivisor) * i;
-        final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
+        final normalizedValue =
+            (dataPoints[i] - minValue) / normalizedValueRange;
         final y = padding + chartHeight - (normalizedValue * chartHeight);
-        
+
         if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
         if (i == 0) {
@@ -585,9 +593,10 @@ class _PurchasesLineChartPainter extends CustomPainter {
 
       for (int i = 0; i < dataPoints.length; i++) {
         final x = padding + (chartWidth / chartDivisor) * i;
-        final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
+        final normalizedValue =
+            (dataPoints[i] - minValue) / normalizedValueRange;
         final y = padding + chartHeight - (normalizedValue * chartHeight);
-        
+
         if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
         canvas.drawCircle(Offset(x, y), 4, pointPaint2);
@@ -596,11 +605,13 @@ class _PurchasesLineChartPainter extends CustomPainter {
 
       // Draw value labels
       for (int i = 0; i < dataPoints.length; i++) {
-        if (i % ((dataPoints.length / 6).ceil()) == 0 || i == dataPoints.length - 1) {
+        if (i % ((dataPoints.length / 6).ceil()) == 0 ||
+            i == dataPoints.length - 1) {
           final x = padding + (chartWidth / chartDivisor) * i;
-          final normalizedValue = (dataPoints[i] - minValue) / normalizedValueRange;
+          final normalizedValue =
+              (dataPoints[i] - minValue) / normalizedValueRange;
           final y = padding + chartHeight - (normalizedValue * chartHeight);
-          
+
           if (x.isNaN || y.isNaN || !x.isFinite || !y.isFinite) continue;
 
           final valueText = TextPainter(
@@ -617,9 +628,12 @@ class _PurchasesLineChartPainter extends CustomPainter {
           valueText.layout();
           final offsetX = x - valueText.width / 2;
           final offsetY = y - 20;
-          
-          if (offsetX.isNaN || offsetY.isNaN || !offsetX.isFinite || !offsetY.isFinite) continue;
-          
+
+          if (offsetX.isNaN ||
+              offsetY.isNaN ||
+              !offsetX.isFinite ||
+              !offsetY.isFinite) continue;
+
           valueText.paint(
             canvas,
             Offset(offsetX, offsetY),
@@ -630,14 +644,15 @@ class _PurchasesLineChartPainter extends CustomPainter {
       final pointPaint2 = Paint()
         ..color = AuthColors.primary
         ..style = PaintingStyle.fill;
-      
+
       final x = padding + chartWidth / 2;
       final normalizedValue = (dataPoints[0] - minValue) / normalizedValueRange;
       final y = padding + chartHeight - (normalizedValue * chartHeight);
-      
+
       if (!x.isNaN && !y.isNaN && x.isFinite && y.isFinite) {
         canvas.drawCircle(Offset(x, y), 4, pointPaint2);
-        canvas.drawCircle(Offset(x, y), 2, Paint()..color = AuthColors.textMain);
+        canvas.drawCircle(
+            Offset(x, y), 2, Paint()..color = AuthColors.textMain);
       }
     }
 
@@ -645,13 +660,13 @@ class _PurchasesLineChartPainter extends CustomPainter {
     if (dataKeys.length > 1) {
       final xAxisLabelCount = (dataKeys.length / 4).ceil();
       final xAxisDivisor = dataKeys.length - 1;
-      
+
       for (int i = 0; i < dataKeys.length; i++) {
         if (i % xAxisLabelCount == 0 || i == dataKeys.length - 1) {
           final x = padding + (chartWidth / xAxisDivisor) * i;
-          
+
           if (x.isNaN || !x.isFinite) continue;
-          
+
           final label = _formatXAxisLabel(dataKeys[i]);
           final labelText = TextPainter(
             text: TextSpan(
@@ -666,9 +681,12 @@ class _PurchasesLineChartPainter extends CustomPainter {
           labelText.layout();
           final offsetX = x - labelText.width / 2;
           final offsetY = size.height - 25;
-          
-          if (offsetX.isNaN || offsetY.isNaN || !offsetX.isFinite || !offsetY.isFinite) continue;
-          
+
+          if (offsetX.isNaN ||
+              offsetY.isNaN ||
+              !offsetX.isFinite ||
+              !offsetY.isFinite) continue;
+
           labelText.paint(
             canvas,
             Offset(offsetX, offsetY),
@@ -690,8 +708,11 @@ class _PurchasesLineChartPainter extends CustomPainter {
       labelText.layout();
       final offsetX = padding + chartWidth / 2 - labelText.width / 2;
       final offsetY = size.height - 25;
-      
-      if (!offsetX.isNaN && !offsetY.isNaN && offsetX.isFinite && offsetY.isFinite) {
+
+      if (!offsetX.isNaN &&
+          !offsetY.isNaN &&
+          offsetX.isFinite &&
+          offsetY.isFinite) {
         labelText.paint(
           canvas,
           Offset(offsetX, offsetY),
@@ -705,7 +726,20 @@ class _PurchasesLineChartPainter extends CustomPainter {
       final parts = key.split('-');
       if (parts.length == 2) {
         final month = int.parse(parts[1]);
-        final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final monthNames = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec'
+        ];
         if (month >= 1 && month <= 12) {
           return monthNames[month - 1];
         }
@@ -769,7 +803,20 @@ class _SummaryStats extends StatelessWidget {
       final parts = key.split('-');
       if (parts.length == 2) {
         final month = int.parse(parts[1]);
-        final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final monthNames = [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec'
+        ];
         if (month >= 1 && month <= 12) {
           return monthNames[month - 1];
         }
@@ -847,4 +894,3 @@ class _StatChip extends StatelessWidget {
     );
   }
 }
-

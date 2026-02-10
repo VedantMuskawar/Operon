@@ -75,7 +75,7 @@ class PaymentsQuickAccessDialog extends StatelessWidget {
               icon: Icons.payment_outlined,
               title: 'Record Payment',
               description: 'Record a new client payment',
-              color: AuthColors.accentPurple,
+              color: AuthColors.secondary,
               onTap: () {
                 Navigator.of(context).pop();
                 showDialog(

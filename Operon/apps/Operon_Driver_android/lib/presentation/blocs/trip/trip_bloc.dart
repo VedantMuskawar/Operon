@@ -26,12 +26,12 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
     required BackgroundSyncService backgroundSyncService,
     FlutterBackgroundService? backgroundService,
     FirebaseAuth? auth,
-  })  : _firestore = firestore,
-        _locationService = locationService,
-        _backgroundSyncService = backgroundSyncService,
-        _backgroundService = backgroundService ?? FlutterBackgroundService(),
-        _auth = auth ?? FirebaseAuth.instance,
-        super(const TripState()) {
+  }) : _firestore = firestore,
+       _locationService = locationService,
+       _backgroundSyncService = backgroundSyncService,
+       _backgroundService = backgroundService ?? FlutterBackgroundService(),
+       _auth = auth ?? FirebaseAuth.instance,
+       super(const TripState()) {
     on<StartTrip>(_onStartTrip);
     on<EndTrip>(_onEndTrip);
   }
@@ -50,10 +50,9 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
 
     final user = _auth.currentUser;
     if (user == null) {
-      emit(state.copyWith(
-        status: ViewStatus.failure,
-        message: 'Not signed in.',
-      ));
+      emit(
+        state.copyWith(status: ViewStatus.failure, message: 'Not signed in.'),
+      );
       return;
     }
 
@@ -62,20 +61,26 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
       // permission to post notifications.
       final notif = await Permission.notification.status;
       if (!notif.isGranted) {
-        emit(state.copyWith(
-          status: ViewStatus.failure,
-          message: 'Notification permission is required to start trip tracking.',
-        ));
+        emit(
+          state.copyWith(
+            status: ViewStatus.failure,
+            message:
+                'Notification permission is required to start trip tracking.',
+          ),
+        );
         return;
       }
 
       // Background location is required for reliable tracking.
       final bgLoc = await Permission.locationAlways.status;
       if (!bgLoc.isGranted) {
-        emit(state.copyWith(
-          status: ViewStatus.failure,
-          message: 'Location "Always" permission is required to start trip tracking.',
-        ));
+        emit(
+          state.copyWith(
+            status: ViewStatus.failure,
+            message:
+                'Location "Always" permission is required to start trip tracking.',
+          ),
+        );
         return;
       }
 
@@ -84,7 +89,9 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
       String? vehicleNumber;
       await _firestore.runTransaction((transaction) async {
         // Step 1: Read SCHEDULE_TRIPS document
-        final scheduleTripRef = _firestore.collection('SCHEDULE_TRIPS').doc(event.tripId);
+        final scheduleTripRef = _firestore
+            .collection('SCHEDULE_TRIPS')
+            .doc(event.tripId);
         final scheduleTripSnap = await transaction.get(scheduleTripRef);
 
         // Step 2: Validate trip availability
@@ -95,12 +102,16 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
           );
         }
 
-        final scheduleTripData = scheduleTripSnap.data() as Map<String, dynamic>;
-        final tripStatus = (scheduleTripData['tripStatus'] as String?)?.toLowerCase() ?? '';
+        final scheduleTripData =
+            scheduleTripSnap.data() as Map<String, dynamic>;
+        final tripStatus =
+            (scheduleTripData['tripStatus'] as String?)?.toLowerCase() ?? '';
         final isActive = scheduleTripData['isActive'] as bool? ?? true;
-        final orderStatus = (scheduleTripData['orderStatus'] as String?)?.toLowerCase() ?? '';
-        final source = scheduleTripData['source'] as String?; // 'driver' or 'client'
-        
+        final orderStatus =
+            (scheduleTripData['orderStatus'] as String?)?.toLowerCase() ?? '';
+        final source =
+            scheduleTripData['source'] as String?; // 'driver' or 'client'
+
         // Extract vehicle number for RTDB location updates
         vehicleNumber = scheduleTripData['vehicleNumber'] as String?;
 
@@ -113,8 +124,10 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
         }
 
         // Check if trip is already delivered or returned (cannot restart these)
-        if (tripStatus == 'delivered' || tripStatus == 'returned' ||
-            orderStatus == 'delivered' || orderStatus == 'returned') {
+        if (tripStatus == 'delivered' ||
+            tripStatus == 'returned' ||
+            orderStatus == 'delivered' ||
+            orderStatus == 'returned') {
           throw TripUnavailableException(
             'Trip has already been completed.',
             tripId: event.tripId,
@@ -123,7 +136,8 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
 
         // CRITICAL: If trip was dispatched by client (source == 'client'), prevent tracking
         // This enforces "No Partial Recovery" - if client dispatches, tracking must NOT start
-        final isAlreadyDispatched = tripStatus == 'dispatched' || orderStatus == 'dispatched';
+        final isAlreadyDispatched =
+            tripStatus == 'dispatched' || orderStatus == 'dispatched';
         if (isAlreadyDispatched && source == 'client') {
           throw TripUnavailableException(
             'Trip was dispatched by HQ. Tracking cannot be started. This trip is marked as manual/untracked.',
@@ -144,7 +158,7 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
 
         // Step 3: Atomically update SCHEDULE_TRIPS and create trips document
         final now = DateTime.now().millisecondsSinceEpoch;
-        
+
         // Update SCHEDULE_TRIPS status to dispatched (only if not already dispatched)
         if (!isAlreadyDispatched) {
           transaction.update(scheduleTripRef, {
@@ -158,7 +172,8 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
           // Already dispatched by driver - just update timestamp and ensure source is 'driver'
           transaction.update(scheduleTripRef, {
             'updatedAt': FieldValue.serverTimestamp(),
-            'source': 'driver', // Ensure source is set to driver when starting tracking
+            'source':
+                'driver', // Ensure source is set to driver when starting tracking
           });
         }
 
@@ -195,6 +210,8 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
         vehicleNumber: vehicleNumber,
       );
 
+      _backgroundSyncService.setTripActive(true);
+
       // Start service in foreground mode (configured in main.dart).
       // Avoid extra toggles that can trigger multiple startForeground calls.
       await _backgroundService.startService();
@@ -203,44 +220,78 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
 
       // #region agent log
       try {
-        final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-        final logData = {'location': 'trip_bloc.dart:187', 'message': 'Before emit success state', 'data': {'isClosed': isClosed, 'tripId': trip.id}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'G'};
-        logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
+        final logFile = File(
+          '/Users/vedantreddymuskawar/Operon/.cursor/debug.log',
+        );
+        final logData = {
+          'location': 'trip_bloc.dart:187',
+          'message': 'Before emit success state',
+          'data': {'isClosed': isClosed, 'tripId': trip.id},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sessionId': 'debug-session',
+          'runId': 'run2',
+          'hypothesisId': 'G',
+        };
+        logFile.writeAsStringSync(
+          '${jsonEncode(logData)}\n',
+          mode: FileMode.append,
+        );
       } catch (_) {}
       // #endregion
-      emit(state.copyWith(
-        status: ViewStatus.success,
-        activeTrip: trip,
-        isTracking: true,
-      ));
+      emit(
+        state.copyWith(
+          status: ViewStatus.success,
+          activeTrip: trip,
+          isTracking: true,
+        ),
+      );
       // #region agent log
       try {
-        final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-        final logData = {'location': 'trip_bloc.dart:195', 'message': 'After emit success state', 'data': {'isClosed': isClosed}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run2', 'hypothesisId': 'G'};
-        logFile.writeAsStringSync('${jsonEncode(logData)}\n', mode: FileMode.append);
+        final logFile = File(
+          '/Users/vedantreddymuskawar/Operon/.cursor/debug.log',
+        );
+        final logData = {
+          'location': 'trip_bloc.dart:195',
+          'message': 'After emit success state',
+          'data': {'isClosed': isClosed},
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'sessionId': 'debug-session',
+          'runId': 'run2',
+          'hypothesisId': 'G',
+        };
+        logFile.writeAsStringSync(
+          '${jsonEncode(logData)}\n',
+          mode: FileMode.append,
+        );
       } catch (_) {}
       // #endregion
 
       // Start monitoring trip status for external changes (e.g., dispatch undo from client app)
       _watchActiveTripStatus(trip.id);
     } on TripUnavailableException catch (e) {
-      debugPrint('[TripBloc] StartTrip failed: Trip unavailable - ${e.message}');
+      debugPrint(
+        '[TripBloc] StartTrip failed: Trip unavailable - ${e.message}',
+      );
       _stopWatchingTripStatus(); // Ensure no subscription is left running
-      emit(state.copyWith(
-        status: ViewStatus.failure,
-        message: e.message,
-        activeTrip: null,
-        isTracking: false,
-      ));
+      emit(
+        state.copyWith(
+          status: ViewStatus.failure,
+          message: e.message,
+          activeTrip: null,
+          isTracking: false,
+        ),
+      );
     } on TripNotFoundException catch (e) {
       debugPrint('[TripBloc] StartTrip failed: Trip not found - ${e.message}');
       _stopWatchingTripStatus(); // Ensure no subscription is left running
-      emit(state.copyWith(
-        status: ViewStatus.failure,
-        message: e.message,
-        activeTrip: null,
-        isTracking: false,
-      ));
+      emit(
+        state.copyWith(
+          status: ViewStatus.failure,
+          message: e.message,
+          activeTrip: null,
+          isTracking: false,
+        ),
+      );
     } catch (e, st) {
       debugPrint('[TripBloc] StartTrip failed: $e');
       debugPrintStack(stackTrace: st);
@@ -255,22 +306,43 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
       _stopWatchingTripStatus(); // Ensure no subscription is left running
 
       // Provide user-friendly error message
-      final errorMessage = e is Exception ? e.toString() : 'Failed to start trip tracking. Please try again.';
-      emit(state.copyWith(
-        status: ViewStatus.failure,
-        message: errorMessage,
-        activeTrip: null,
-        isTracking: false,
-      ));
+      final errorMessage = e is Exception
+          ? e.toString()
+          : 'Failed to start trip tracking. Please try again.';
+      emit(
+        state.copyWith(
+          status: ViewStatus.failure,
+          message: errorMessage,
+          activeTrip: null,
+          isTracking: false,
+        ),
+      );
     }
   }
 
   Future<void> _onEndTrip(EndTrip event, Emitter<TripState> emit) async {
     // #region agent log
-    final logData = {'location': 'trip_bloc.dart:226', 'message': '_onEndTrip called', 'data': {'isClosed': isClosed, 'activeTripId': state.activeTrip?.id, 'isTracking': state.isTracking}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'B'};
+    final logData = {
+      'location': 'trip_bloc.dart:226',
+      'message': '_onEndTrip called',
+      'data': {
+        'isClosed': isClosed,
+        'activeTripId': state.activeTrip?.id,
+        'isTracking': state.isTracking,
+      },
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'sessionId': 'debug-session',
+      'runId': 'run1',
+      'hypothesisId': 'B',
+    };
     try {
-      final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-      logFile.writeAsStringSync('${logFile.existsSync() ? logFile.readAsStringSync() : ""}${jsonEncode(logData)}\n', mode: FileMode.append);
+      final logFile = File(
+        '/Users/vedantreddymuskawar/Operon/.cursor/debug.log',
+      );
+      logFile.writeAsStringSync(
+        '${logFile.existsSync() ? logFile.readAsStringSync() : ""}${jsonEncode(logData)}\n',
+        mode: FileMode.append,
+      );
     } catch (_) {}
     // #endregion
     final currentTrip = state.activeTrip;
@@ -278,10 +350,23 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
 
     emit(state.copyWith(status: ViewStatus.loading, message: null));
     // #region agent log
-    final logData2 = {'location': 'trip_bloc.dart:234', 'message': '_onEndTrip emit loading', 'data': {'isClosed': isClosed}, 'timestamp': DateTime.now().millisecondsSinceEpoch, 'sessionId': 'debug-session', 'runId': 'run1', 'hypothesisId': 'B'};
+    final logData2 = {
+      'location': 'trip_bloc.dart:234',
+      'message': '_onEndTrip emit loading',
+      'data': {'isClosed': isClosed},
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'sessionId': 'debug-session',
+      'runId': 'run1',
+      'hypothesisId': 'B',
+    };
     try {
-      final logFile = File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log');
-      logFile.writeAsStringSync('${logFile.existsSync() ? logFile.readAsStringSync() : ""}${jsonEncode(logData2)}\n', mode: FileMode.append);
+      final logFile = File(
+        '/Users/vedantreddymuskawar/Operon/.cursor/debug.log',
+      );
+      logFile.writeAsStringSync(
+        '${logFile.existsSync() ? logFile.readAsStringSync() : ""}${jsonEncode(logData2)}\n',
+        mode: FileMode.append,
+      );
     } catch (_) {}
     // #endregion
 
@@ -295,14 +380,17 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
       // Stop location tracking
       await _locationService.stopTracking(flush: true);
 
+      _backgroundSyncService.setTripActive(false);
+
       // Rule #3: Cost-Optimized History (Polyline Strategy)
       // During the trip: Location points are buffered in Hive (local storage)
       // On EndTrip: Compress all points to a single polyline string and save to Firestore
       // This avoids costly Firestore writes during the trip (90%+ cost reduction)
       try {
         // Get location points from BackgroundSyncService (from Hive)
-        final locationPoints = await _backgroundSyncService.getLocationPointsForTrip(currentTrip.id);
-        
+        final locationPoints = await _backgroundSyncService
+            .getLocationPointsForTrip(currentTrip.id);
+
         if (locationPoints.isNotEmpty) {
           // Convert LocationPoint to DriverLocation
           final driverLocations = locationPoints.map((point) {
@@ -327,15 +415,19 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
               .collection('SCHEDULE_TRIPS')
               .doc(currentTrip.id)
               .update({
-            'routePolyline': polyline,
-            'routePointCount': pointCount,
-            'routeDistance': distanceMeters,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+                'routePolyline': polyline,
+                'routePointCount': pointCount,
+                'routeDistance': distanceMeters,
+                'updatedAt': FieldValue.serverTimestamp(),
+              });
 
-          debugPrint('[TripBloc] Saved polyline: $pointCount points, ${polyline.length} chars, ${distanceMeters.toStringAsFixed(2)}m');
+          debugPrint(
+            '[TripBloc] Saved polyline: $pointCount points, ${polyline.length} chars, ${distanceMeters.toStringAsFixed(2)}m',
+          );
         } else {
-          debugPrint('[TripBloc] No location points found for trip ${currentTrip.id}');
+          debugPrint(
+            '[TripBloc] No location points found for trip ${currentTrip.id}',
+          );
         }
       } catch (e, st) {
         debugPrint('[TripBloc] Failed to compress and save polyline: $e');
@@ -356,11 +448,13 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
       // Stop monitoring trip status
       _stopWatchingTripStatus();
 
-      emit(state.copyWith(
-        status: ViewStatus.success,
-        activeTrip: completedTrip,
-        isTracking: false,
-      ));
+      emit(
+        state.copyWith(
+          status: ViewStatus.success,
+          activeTrip: completedTrip,
+          isTracking: false,
+        ),
+      );
     } catch (e, st) {
       debugPrint('[TripBloc] EndTrip failed: $e');
       debugPrintStack(stackTrace: st);
@@ -368,22 +462,24 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
       // Stop watching even if end trip failed
       _stopWatchingTripStatus();
 
-      emit(state.copyWith(
-        status: ViewStatus.failure,
-        message: 'Failed to end trip tracking.',
-      ));
+      emit(
+        state.copyWith(
+          status: ViewStatus.failure,
+          message: 'Failed to end trip tracking.',
+        ),
+      );
     }
   }
 
   /// Monitor the active trip's status in Firestore for external changes.
-  /// 
+  ///
   /// **CRITICAL: This method ONLY stops tracking, NEVER starts it.**
   /// Tracking can ONLY be initiated via the `StartTrip` event (user action).
   /// This enforces "No Partial Recovery" - if Client dispatches remotely,
   /// tracking must NOT auto-start.
-  /// 
+  ///
   /// Behavior:
-  /// - If trip status reverts from tracking state (dispatched/delivered/returned) 
+  /// - If trip status reverts from tracking state (dispatched/delivered/returned)
   ///   to non-tracking state (scheduled), automatically calls `EndTrip()`.
   /// - If Client dispatches trip (source == 'client'), prevents auto-tracking
   ///   and marks trip as manual dispatch.
@@ -397,105 +493,120 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
         .doc(tripId)
         .snapshots()
         .listen(
-      (snapshot) {
-        // Check if bloc is still open before processing
-        if (isClosed) {
-          debugPrint('[TripBloc] Bloc is closed, ignoring trip status update');
-          return;
-        }
+          (snapshot) {
+            // Check if bloc is still open before processing
+            if (isClosed) {
+              debugPrint(
+                '[TripBloc] Bloc is closed, ignoring trip status update',
+              );
+              return;
+            }
 
-        // If trip document doesn't exist, it was deleted/cancelled
-        if (!snapshot.exists) {
-          debugPrint('[TripBloc] Trip $tripId was deleted or cancelled, stopping tracking');
-          if (!isClosed && state.isTracking) {
-            add(const EndTrip());
-          }
-          return;
-        }
+            // If trip document doesn't exist, it was deleted/cancelled
+            if (!snapshot.exists) {
+              debugPrint(
+                '[TripBloc] Trip $tripId was deleted or cancelled, stopping tracking',
+              );
+              if (!isClosed && state.isTracking) {
+                add(const EndTrip());
+              }
+              return;
+            }
 
-        final data = snapshot.data();
-        if (data == null) return;
+            final data = snapshot.data();
+            if (data == null) return;
 
-        final tripStatus = (data['tripStatus'] as String?)?.toLowerCase() ?? '';
-        final orderStatus = (data['orderStatus'] as String?)?.toLowerCase() ?? '';
-        final isActive = data['isActive'] as bool? ?? true;
-        final source = data['source'] as String?; // 'driver' or 'client'
+            final tripStatus =
+                (data['tripStatus'] as String?)?.toLowerCase() ?? '';
+            final orderStatus =
+                (data['orderStatus'] as String?)?.toLowerCase() ?? '';
+            final isActive = data['isActive'] as bool? ?? true;
+            final source = data['source'] as String?; // 'driver' or 'client'
 
-        // Check if trip was cancelled
-        if (!isActive || tripStatus == 'cancelled') {
-          debugPrint('[TripBloc] Trip $tripId was cancelled, stopping tracking');
-          if (!isClosed && state.isTracking) {
-            add(const EndTrip());
-          }
-          return;
-        }
+            // Check if trip was cancelled
+            if (!isActive || tripStatus == 'cancelled') {
+              debugPrint(
+                '[TripBloc] Trip $tripId was cancelled, stopping tracking',
+              );
+              if (!isClosed && state.isTracking) {
+                add(const EndTrip());
+              }
+              return;
+            }
 
-        // CRITICAL: Check if status changed to dispatched with source == 'client'
-        // This means Client manually dispatched the trip - DO NOT start tracking
-        // This enforces "No Partial Recovery" - tracking is exclusive to local StartTrip event
-        // NEVER start tracking here - only stop if already active (safety check)
-        if (tripStatus == 'dispatched' && source == 'client') {
-          debugPrint(
-            '[TripBloc] Trip $tripId was dispatched by client (source=client). Marking as manual dispatch. Tracking will NOT start.',
-          );
-          // Update state to mark as manual dispatch
-          if (!isClosed) {
-            emit(state.copyWith(
-              lastStatusChangeSource: 'client',
-              isManualDispatch: true,
-              message: 'Trip dispatched by HQ. Tracking not started.',
-            ));
-          }
-          // If tracking is active, stop it (shouldn't happen, but safety check)
-          if (state.isTracking && !isClosed) {
-            debugPrint('[TripBloc] Warning: Tracking was active when client dispatched. Stopping tracking.');
-            add(const EndTrip());
-          }
-          return;
-        }
+            // CRITICAL: Check if status changed to dispatched with source == 'client'
+            // This means Client manually dispatched the trip - DO NOT start tracking
+            // This enforces "No Partial Recovery" - tracking is exclusive to local StartTrip event
+            // NEVER start tracking here - only stop if already active (safety check)
+            if (tripStatus == 'dispatched' && source == 'client') {
+              debugPrint(
+                '[TripBloc] Trip $tripId was dispatched by client (source=client). Marking as manual dispatch. Tracking will NOT start.',
+              );
+              // Update state to mark as manual dispatch
+              if (!isClosed) {
+                emit(
+                  state.copyWith(
+                    lastStatusChangeSource: 'client',
+                    isManualDispatch: true,
+                    message: 'Trip dispatched by HQ. Tracking not started.',
+                  ),
+                );
+              }
+              // If tracking is active, stop it (shouldn't happen, but safety check)
+              if (state.isTracking && !isClosed) {
+                debugPrint(
+                  '[TripBloc] Warning: Tracking was active when client dispatched. Stopping tracking.',
+                );
+                add(const EndTrip());
+              }
+              return;
+            }
 
-        // If status changed to dispatched with source == 'driver', this is normal
-        // Only update source tracking, don't interfere with tracking
-        if (tripStatus == 'dispatched' && source == 'driver') {
-          if (!isClosed) {
-            emit(state.copyWith(
-              lastStatusChangeSource: 'driver',
-              isManualDispatch: false,
-            ));
-          }
-        }
+            // If status changed to dispatched with source == 'driver', this is normal
+            // Only update source tracking, don't interfere with tracking
+            if (tripStatus == 'dispatched' && source == 'driver') {
+              if (!isClosed) {
+                emit(
+                  state.copyWith(
+                    lastStatusChangeSource: 'driver',
+                    isManualDispatch: false,
+                  ),
+                );
+              }
+            }
 
-        // Only process tracking state changes if we have an active trip and tracking is active
-        if (state.activeTrip == null || !state.isTracking) {
-          return;
-        }
+            // Only process tracking state changes if we have an active trip and tracking is active
+            if (state.activeTrip == null || !state.isTracking) {
+              return;
+            }
 
-        // If trip status is no longer in a tracking state, stop tracking
-        // This handles the case where Client App undoes dispatch (dispatched -> scheduled)
-        // NOTE: This ONLY stops tracking - it NEVER starts tracking
-        final isTrackingState = tripStatus == 'dispatched' ||
-            tripStatus == 'delivered' ||
-            tripStatus == 'returned' ||
-            orderStatus == 'dispatched' ||
-            orderStatus == 'delivered' ||
-            orderStatus == 'returned';
+            // If trip status is no longer in a tracking state, stop tracking
+            // This handles the case where Client App undoes dispatch (dispatched -> scheduled)
+            // NOTE: This ONLY stops tracking - it NEVER starts tracking
+            final isTrackingState =
+                tripStatus == 'dispatched' ||
+                tripStatus == 'delivered' ||
+                tripStatus == 'returned' ||
+                orderStatus == 'dispatched' ||
+                orderStatus == 'delivered' ||
+                orderStatus == 'returned';
 
-        if (!isTrackingState) {
-          debugPrint(
-            '[TripBloc] Trip $tripId status changed from tracking state to $tripStatus, stopping tracking',
-          );
-          // ONLY stop tracking - NEVER start it
-          if (!isClosed) {
-            add(const EndTrip());
-          }
-        }
-      },
-      onError: (error) {
-        debugPrint('[TripBloc] Error watching trip status: $error');
-        // Don't stop tracking on stream errors - might be temporary network issues
-      },
-      cancelOnError: false, // Don't cancel subscription on errors
-    );
+            if (!isTrackingState) {
+              debugPrint(
+                '[TripBloc] Trip $tripId status changed from tracking state to $tripStatus, stopping tracking',
+              );
+              // ONLY stop tracking - NEVER start it
+              if (!isClosed) {
+                add(const EndTrip());
+              }
+            }
+          },
+          onError: (error) {
+            debugPrint('[TripBloc] Error watching trip status: $error');
+            // Don't stop tracking on stream errors - might be temporary network issues
+          },
+          cancelOnError: false, // Don't cancel subscription on errors
+        );
   }
 
   /// Stop monitoring trip status changes
@@ -510,4 +621,3 @@ class TripBloc extends BaseBloc<TripEvent, TripState> {
     return super.close();
   }
 }
-

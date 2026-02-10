@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onTripDispatchedSendWhatsapp = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -39,22 +6,18 @@ const constants_1 = require("../shared/constants");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
 const logger_1 = require("../shared/logger");
 const function_config_1 = require("../shared/function-config");
+const whatsapp_message_queue_1 = require("../whatsapp/whatsapp-message-queue");
 const db = (0, firestore_helpers_1.getFirestore)();
 const SCHEDULED_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
+function buildJobId(eventId, fallbackParts) {
+    if (eventId)
+        return eventId;
+    return fallbackParts.filter(Boolean).join('-');
+}
 /**
  * Sends WhatsApp notification to client when a trip is dispatched
  */
-async function sendTripDispatchMessage(whatsapp, to, clientName, organizationId, tripId, tripData) {
-    var _a;
-    const settings = await whatsapp.loadWhatsappSettings(organizationId);
-    if (!(settings === null || settings === void 0 ? void 0 : settings.tripDispatchTemplateId)) {
-        (0, logger_1.logWarning)('Trip/WhatsApp', 'sendTripDispatchMessage', 'Skipping send – no settings or disabled', {
-            tripId,
-            organizationId,
-        });
-        return;
-    }
-    const url = `https://graph.facebook.com/v19.0/${settings.phoneId}/messages`;
+async function enqueueTripDispatchMessage(to, clientName, organizationId, tripId, tripData, jobId) {
     const displayName = clientName && clientName.trim().length > 0
         ? clientName.trim()
         : 'there';
@@ -112,17 +75,21 @@ async function sendTripDispatchMessage(whatsapp, to, clientName, organizationId,
         totalAmountText, // Parameter 5: Total amount with breakdown
         driverInfo, // Parameter 6: Driver information
     ];
-    (0, logger_1.logInfo)('Trip/WhatsApp', 'sendTripDispatchMessage', 'Sending dispatch notification', {
+    (0, logger_1.logInfo)('Trip/WhatsApp', 'enqueueTripDispatchMessage', 'Enqueuing dispatch notification', {
         organizationId,
         tripId,
         to: to.substring(0, 4) + '****',
-        phoneId: settings.phoneId,
-        templateId: settings.tripDispatchTemplateId,
         hasItems: tripData.items && tripData.items.length > 0,
     });
-    await whatsapp.sendWhatsappTemplateMessage(url, settings.token, to, settings.tripDispatchTemplateId, (_a = settings.languageCode) !== null && _a !== void 0 ? _a : 'en', parameters, 'trip-dispatch', {
+    await (0, whatsapp_message_queue_1.enqueueWhatsappMessage)(jobId, {
+        type: 'trip-dispatch',
+        to,
         organizationId,
-        tripId,
+        parameters,
+        context: {
+            organizationId,
+            tripId,
+        },
     });
 }
 /**
@@ -184,7 +151,7 @@ exports.onTripDispatchedSendWhatsapp = (0, firestore_1.onDocumentUpdated)(Object
         });
         return;
     }
-    const whatsapp = await Promise.resolve().then(() => __importStar(require('../shared/whatsapp-service')));
-    await sendTripDispatchMessage(whatsapp, clientPhone, clientName, tripData.organizationId, tripId, tripData);
+    const jobId = buildJobId(event.id, [tripId, 'trip-dispatch']);
+    await enqueueTripDispatchMessage(clientPhone, clientName, tripData.organizationId, tripId, tripData, jobId);
 });
 //# sourceMappingURL=trip-dispatch-whatsapp.js.map

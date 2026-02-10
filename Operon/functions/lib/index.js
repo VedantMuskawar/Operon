@@ -44,12 +44,11 @@ const firestore_helpers_1 = require("./shared/firestore-helpers");
 (0, firestore_helpers_1.getFirestore)();
 // Re-export all Cloud Functions for Firebase deploy (root-level names required)
 __exportStar(require("./analytics"), exports);
-__exportStar(require("./clients/client-analytics"), exports);
-__exportStar(require("./clients/client-whatsapp"), exports);
+__exportStar(require("./clients"), exports);
 __exportStar(require("./transactions"), exports);
 __exportStar(require("./orders"), exports);
 __exportStar(require("./vendors"), exports);
-__exportStar(require("./raw-materials/stock-handlers"), exports);
+__exportStar(require("./raw-materials"), exports);
 __exportStar(require("./cleanup"), exports);
 __exportStar(require("./maintenance"), exports);
 __exportStar(require("./production-batches"), exports);
@@ -58,6 +57,8 @@ __exportStar(require("./ledger-maintenance"), exports);
 __exportStar(require("./employees/employee-analytics"), exports);
 __exportStar(require("./geofences"), exports);
 __exportStar(require("./edd"), exports);
+__exportStar(require("./whatsapp/whatsapp-message-queue"), exports);
+__exportStar(require("./whatsapp/whatsapp-webhook"), exports);
 // Grouped exports (domain objects) for clarity
 const ordersNs = __importStar(require("./orders"));
 const transactionsNs = __importStar(require("./transactions"));
@@ -75,6 +76,7 @@ exports.orders = {
     onTripDispatchedSendWhatsapp: ordersNs.onTripDispatchedSendWhatsapp,
     onTripDeliveredSendWhatsapp: ordersNs.onTripDeliveredSendWhatsapp,
     onTripReturnedCreateDM: ordersNs.onTripReturnedCreateDM,
+    deleteFullyScheduledOrdersWeekly: ordersNs.deleteFullyScheduledOrdersWeekly,
 };
 exports.transactions = {
     onTransactionCreated: transactionsNs.onTransactionCreated,

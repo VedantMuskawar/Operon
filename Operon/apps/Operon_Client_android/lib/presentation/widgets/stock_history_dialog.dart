@@ -70,7 +70,20 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
 
   String _formatDate(DateTime? date) {
     if (date == null) return 'N/A';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final day = date.day.toString().padLeft(2, '0');
     final month = months[date.month - 1];
     final year = date.year;
@@ -87,7 +100,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
       case StockHistoryType.out:
         return AuthColors.error;
       case StockHistoryType.adjustment:
-        return Colors.orange;
+        return AuthColors.warning;
     }
   }
 
@@ -177,7 +190,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Current Stock Info
             Container(
               padding: const EdgeInsets.all(AppSpacing.paddingLG),
@@ -226,7 +239,9 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                       Text(
                         '${widget.material.minimumStockLevel} ${widget.material.unitOfMeasurement}',
                         style: TextStyle(
-                          color: widget.material.isLowStock ? Colors.orange : AuthColors.textMain,
+                          color: widget.material.isLowStock
+                              ? AuthColors.warning
+                              : AuthColors.textMain,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -237,7 +252,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // History List
             Expanded(
               child: Container(
@@ -249,7 +264,9 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                   ),
                 ),
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: AuthColors.primary))
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                            color: AuthColors.primary))
                     : _error != null
                         ? Center(
                             child: Padding(
@@ -265,7 +282,8 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                   const SizedBox(height: 16),
                                   Text(
                                     _error!,
-                                    style: const TextStyle(color: AuthColors.error),
+                                    style: const TextStyle(
+                                        color: AuthColors.error),
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 16),
@@ -301,18 +319,21 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                             : ListView.separated(
                                 padding: const EdgeInsets.all(12),
                                 itemCount: _historyEntries.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
                                 itemBuilder: (context, index) {
                                   final entry = _historyEntries[index];
                                   final typeColor = _getTypeColor(entry.type);
-                                  
+
                                   return Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: AuthColors.surface,
-                                      borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                                      borderRadius: BorderRadius.circular(
+                                          AppSpacing.radiusSM),
                                       border: Border.all(
-                                        color: AuthColors.textMain.withOpacity(0.1),
+                                        color: AuthColors.textMain
+                                            .withOpacity(0.1),
                                       ),
                                     ),
                                     child: Row(
@@ -322,7 +343,8 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                           height: 40,
                                           decoration: BoxDecoration(
                                             color: typeColor.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                                            borderRadius: BorderRadius.circular(
+                                                AppSpacing.radiusSM),
                                           ),
                                           child: Icon(
                                             _getTypeIcon(entry.type),
@@ -333,7 +355,8 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Row(
                                                 children: [
@@ -341,7 +364,8 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                     _getTypeLabel(entry.type),
                                                     style: TextStyle(
                                                       color: typeColor,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                       fontSize: 14,
                                                     ),
                                                   ),
@@ -349,12 +373,14 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                   Text(
                                                     entry.quantity > 0
                                                         ? '+${entry.quantity.toStringAsFixed(2)}'
-                                                        : entry.quantity.toStringAsFixed(2),
+                                                        : entry.quantity
+                                                            .toStringAsFixed(2),
                                                     style: TextStyle(
                                                       color: entry.quantity > 0
                                                           ? AuthColors.success
                                                           : AuthColors.error,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                     ),
                                                   ),
                                                   Text(
@@ -366,7 +392,8 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: AppSpacing.paddingXS),
+                                              const SizedBox(
+                                                  height: AppSpacing.paddingXS),
                                               Text(
                                                 entry.reason,
                                                 style: const TextStyle(
@@ -374,7 +401,8 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                   fontSize: 12,
                                                 ),
                                               ),
-                                              if (entry.invoiceNumber != null) ...[
+                                              if (entry.invoiceNumber !=
+                                                  null) ...[
                                                 const SizedBox(height: 2),
                                                 Text(
                                                   'Invoice: ${entry.invoiceNumber}',
@@ -388,7 +416,8 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                           ),
                                         ),
                                         Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
                                           children: [
                                             Text(
                                               '${entry.balanceBefore.toStringAsFixed(2)} → ${entry.balanceAfter.toStringAsFixed(2)}',
@@ -398,7 +427,8 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            const SizedBox(height: AppSpacing.paddingXS),
+                                            const SizedBox(
+                                                height: AppSpacing.paddingXS),
                                             Text(
                                               _formatDate(entry.createdAt),
                                               style: const TextStyle(
@@ -416,7 +446,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Close Button
             SizedBox(
               width: double.infinity,
@@ -431,4 +461,3 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
     );
   }
 }
-

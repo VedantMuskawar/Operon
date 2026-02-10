@@ -66,7 +66,7 @@ class _ProductionBatchDetailModalState
       case ProductionBatchStatus.approved:
         return AuthColors.success;
       case ProductionBatchStatus.processed:
-        return AuthColors.accentPurple;
+        return AuthColors.secondary;
     }
   }
 

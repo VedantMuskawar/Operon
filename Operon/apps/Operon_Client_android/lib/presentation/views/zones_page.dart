@@ -74,11 +74,13 @@ class _ZonesPageState extends State<ZonesPage> {
     return BlocListener<DeliveryZonesCubit, DeliveryZonesState>(
       listener: (context, state) {
         if (state.status == ViewStatus.failure && state.message != null) {
-          final isNetworkError = NetworkErrorHelper.isNetworkError(state.message!);
+          final isNetworkError =
+              NetworkErrorHelper.isNetworkError(state.message!);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message!),
-              backgroundColor: isNetworkError ? AuthColors.warning : AuthColors.error,
+              backgroundColor:
+                  isNetworkError ? AuthColors.warning : AuthColors.error,
               duration: const Duration(seconds: 5),
               action: SnackBarAction(
                 label: 'Retry',
@@ -96,175 +98,189 @@ class _ZonesPageState extends State<ZonesPage> {
         appBar: const ModernPageHeader(
           title: 'Delivery Zones',
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
+        body: Column(
+          children: [
+            Expanded(
+              child: SafeArea(
+                bottom: false,
+                child: Padding(
                   padding: const EdgeInsets.all(AppSpacing.paddingLG),
-                  child: LayoutBuilder(
-          builder: (context, constraints) {
-            return BlocBuilder<DeliveryZonesCubit, DeliveryZonesState>(
-              builder: (context, state) {
-                // Error state
-                if (state.status == ViewStatus.failure && state.zones.isEmpty && state.cities.isEmpty) {
-                  final message = state.message ?? 'Failed to load delivery zones';
-                  final isNetworkError = NetworkErrorHelper.isNetworkError(message);
-                  return ErrorStateWidget(
-                    message: message,
-                    errorType: isNetworkError ? ErrorType.network : ErrorType.generic,
-                    onRetry: () {
-                      context.read<DeliveryZonesCubit>().loadZones();
-                    },
-                  );
-                }
+                  child: BlocBuilder<DeliveryZonesCubit, DeliveryZonesState>(
+                    builder: (context, state) {
+                      // Error state
+                      if (state.status == ViewStatus.failure &&
+                          state.zones.isEmpty &&
+                          state.cities.isEmpty) {
+                        final message =
+                            state.message ?? 'Failed to load delivery zones';
+                        final isNetworkError =
+                            NetworkErrorHelper.isNetworkError(message);
+                        return ErrorStateWidget(
+                          message: message,
+                          errorType: isNetworkError
+                              ? ErrorType.network
+                              : ErrorType.generic,
+                          onRetry: () {
+                            context.read<DeliveryZonesCubit>().loadZones();
+                          },
+                        );
+                      }
 
-                final zones = state.zones;
-                final cityGroups = <String, List<DeliveryZone>>{};
-                for (final zone in zones) {
-                  cityGroups.putIfAbsent(zone.cityName, () => []).add(zone);
-                }
-                final sortedCities = cityGroups.keys.toList()..sort();
-                final hasRegionSelected =
-                    (state.selectedZoneId ?? '').isNotEmpty &&
-                        zones.any((z) => z.id == state.selectedZoneId);
-                final selectedZone = hasRegionSelected
-                    ? zones.firstWhere((z) => z.id == state.selectedZoneId)
-                    : null;
-                _selectedCity ??= selectedZone?.cityName ??
-                    (sortedCities.isNotEmpty ? sortedCities.first : null);
-                final currentCityRegions = _selectedCity != null
-                    ? cityGroups[_selectedCity] ?? <DeliveryZone>[]
-                    : <DeliveryZone>[];
+                      final zones = state.zones;
+                      final cityGroups = <String, List<DeliveryZone>>{};
+                      for (final zone in zones) {
+                        cityGroups
+                            .putIfAbsent(zone.cityName, () => [])
+                            .add(zone);
+                      }
+                      final sortedCities = cityGroups.keys.toList()..sort();
+                      final hasRegionSelected =
+                          (state.selectedZoneId ?? '').isNotEmpty &&
+                              zones.any((z) => z.id == state.selectedZoneId);
+                      final selectedZone = hasRegionSelected
+                          ? zones
+                              .firstWhere((z) => z.id == state.selectedZoneId)
+                          : null;
+                      _selectedCity ??= selectedZone?.cityName ??
+                          (sortedCities.isNotEmpty ? sortedCities.first : null);
+                      final currentCityRegions = _selectedCity != null
+                          ? cityGroups[_selectedCity] ?? <DeliveryZone>[]
+                          : <DeliveryZone>[];
 
-                final totalWidth = constraints.maxWidth;
-                final cityWidth = totalWidth * 0.5;
-                final regionWidth = totalWidth * 0.5;
-
-                final columnHeight =
-                    constraints.maxHeight.isFinite ? constraints.maxHeight : null;
-                final resolvedHeight = columnHeight ?? MediaQuery.of(context).size.height * 0.55;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
-                      child: Row(
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              'City',
-                              style: TextStyle(
-                                color: AuthColors.textSub,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: AppSpacing.paddingSM),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'City',
+                                    style: TextStyle(
+                                      color: AuthColors.textSub,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    'Region',
+                                    style: TextStyle(
+                                      color: AuthColors.textSub,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          const SizedBox(height: AppSpacing.paddingMD),
                           Expanded(
-                            child: Text(
-                              'Region',
-                              style: TextStyle(
-                                color: AuthColors.textSub,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 220),
+                                    child: _CityColumn(
+                                      selectedCity: _selectedCity,
+                                      cities: state.cities,
+                                      isLoading:
+                                          state.status == ViewStatus.loading &&
+                                              state.cities.isEmpty,
+                                      onSelectCity: (city) =>
+                                          _selectCity(city, state),
+                                      canCreate: widget.isAdmin,
+                                      onAddCity: () =>
+                                          _openAddCityDialog(context),
+                                      canLongPress: widget.isAdmin,
+                                      onLongPressCity: widget.isAdmin
+                                          ? (city) => _openCityOptionsSheet(
+                                              context, city)
+                                          : null,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 220),
+                                    child: _RegionColumn(
+                                      regions: currentCityRegions,
+                                      selectedZoneId: state.selectedZoneId,
+                                      isLoading:
+                                          state.status == ViewStatus.loading &&
+                                              currentCityRegions.isEmpty &&
+                                              _selectedCity != null,
+                                      canEditZone:
+                                          widget.regionPermission.canEdit,
+                                      canDeleteZone:
+                                          widget.regionPermission.canDelete,
+                                      canCreateRegion:
+                                          widget.regionPermission.canCreate,
+                                      hasCities: state.cities.isNotEmpty,
+                                      selectedCity: _selectedCity,
+                                      onAddRegion: state.cities.isEmpty
+                                          ? null
+                                          : () => _openAddRegionDialog(
+                                                context,
+                                                cities: state.cities,
+                                                initialCity: _selectedCity,
+                                              ),
+                                      onSelectZone: (zoneId) => context
+                                          .read<DeliveryZonesCubit>()
+                                          .selectZone(zoneId),
+                                      onLongPressZone: (zone) =>
+                                          _openRegionPriceDialog(context, zone),
+                                      onEditZone: (zone) =>
+                                          _openZoneDialog(context, zone: zone),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.paddingMD),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          width: cityWidth,
-                          height: resolvedHeight,
-                          child: _CityColumn(
-                            selectedCity: _selectedCity,
-                            cities: state.cities,
-                            isLoading: state.status == ViewStatus.loading && state.cities.isEmpty,
-                            onSelectCity: (city) => _selectCity(city, state),
-                            canCreate: widget.isAdmin,
-                            onAddCity: () => _openAddCityDialog(context),
-                            canLongPress: widget.isAdmin,
-                            onLongPressCity: widget.isAdmin
-                                ? (city) => _openCityOptionsSheet(context, city)
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          width: regionWidth - 12,
-                          height: resolvedHeight,
-                          child: _RegionColumn(
-                            regions: currentCityRegions,
-                            selectedZoneId: state.selectedZoneId,
-                            isLoading: state.status == ViewStatus.loading && currentCityRegions.isEmpty && _selectedCity != null,
-                            canEditZone: widget.regionPermission.canEdit,
-                            canDeleteZone: widget.regionPermission.canDelete,
-                            canCreateRegion: widget.regionPermission.canCreate,
-                            hasCities: state.cities.isNotEmpty,
-                            selectedCity: _selectedCity,
-                            onAddRegion: state.cities.isEmpty
-                                ? null
-                                : () => _openAddRegionDialog(
-                                      context,
-                                      cities: state.cities,
-                                      initialCity: _selectedCity,
-                                    ),
-                            onSelectZone: (zoneId) =>
-                                context.read<DeliveryZonesCubit>().selectZone(zoneId),
-                            onLongPressZone: (zone) =>
-                                _openRegionPriceDialog(context, zone),
-                            onEditZone: (zone) => _openZoneDialog(context, zone: zone),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            );
-          },
+                      );
+                    },
                   ),
                 ),
               ),
-              FloatingNavBar(
-                items: const [
-                  NavBarItem(
-                    icon: Icons.home_rounded,
-                    label: 'Home',
-                    heroTag: 'nav_home',
-                  ),
-                  NavBarItem(
-                    icon: Icons.pending_actions_rounded,
-                    label: 'Pending',
-                    heroTag: 'nav_pending',
-                  ),
-                  NavBarItem(
-                    icon: Icons.schedule_rounded,
-                    label: 'Schedule',
-                    heroTag: 'nav_schedule',
-                  ),
-                  NavBarItem(
-                    icon: Icons.map_rounded,
-                    label: 'Map',
-                    heroTag: 'nav_map',
-                  ),
-                  NavBarItem(
-                    icon: Icons.event_available_rounded,
-                    label: 'Cash Ledger',
-                    heroTag: 'nav_cash_ledger',
-                  ),
-                ],
-                currentIndex: -1,
-                onItemTapped: (value) => context.go('/home', extra: value),
-              ),
-            ],
-          ),
+            ),
+            FloatingNavBar(
+              items: const [
+                NavBarItem(
+                  icon: Icons.home_rounded,
+                  label: 'Home',
+                  heroTag: 'nav_home',
+                ),
+                NavBarItem(
+                  icon: Icons.pending_actions_rounded,
+                  label: 'Pending',
+                  heroTag: 'nav_pending',
+                ),
+                NavBarItem(
+                  icon: Icons.schedule_rounded,
+                  label: 'Schedule',
+                  heroTag: 'nav_schedule',
+                ),
+                NavBarItem(
+                  icon: Icons.map_rounded,
+                  label: 'Map',
+                  heroTag: 'nav_map',
+                ),
+                NavBarItem(
+                  icon: Icons.event_available_rounded,
+                  label: 'Cash Ledger',
+                  heroTag: 'nav_cash_ledger',
+                ),
+              ],
+              currentIndex: -1,
+              onItemTapped: (value) => context.go('/home', extra: value),
+            ),
+          ],
         ),
       ),
     );
@@ -418,7 +434,8 @@ class _ZonesPageState extends State<ZonesPage> {
         builder: (context, setState) {
           return AlertDialog(
             backgroundColor: AuthColors.surface,
-            title: const Text('Rename City', style: TextStyle(color: AuthColors.textMain)),
+            title: const Text('Rename City',
+                style: TextStyle(color: AuthColors.textMain)),
             content: TextField(
               controller: controller,
               style: const TextStyle(color: AuthColors.textMain),
@@ -483,7 +500,8 @@ class _ZonesPageState extends State<ZonesPage> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Delete City', style: TextStyle(color: AuthColors.textMain)),
+        title: const Text('Delete City',
+            style: TextStyle(color: AuthColors.textMain)),
         content: Text(
           'Deleting "${city.name}" will remove all regions and prices in this city. This cannot be undone.',
           style: const TextStyle(color: AuthColors.textSub),
@@ -568,11 +586,13 @@ class _CityColumn extends StatelessWidget {
                   itemCount: 5,
                   itemBuilder: (context, index) {
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                      padding:
+                          const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                       child: LoadingSkeleton(
                         width: double.infinity,
                         height: 56,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusLG),
                       ),
                     );
                   },
@@ -591,7 +611,8 @@ class _CityColumn extends StatelessWidget {
                   : AnimationLimiter(
                       child: ListView.separated(
                         itemCount: cities.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: AppSpacing.paddingMD),
                         itemBuilder: (context, index) {
                           final city = cities[index];
                           final isSelected = city.name == selectedCity;
@@ -603,48 +624,57 @@ class _CityColumn extends StatelessWidget {
                               child: FadeInAnimation(
                                 curve: Curves.easeOut,
                                 child: GestureDetector(
-                          key: ValueKey(city.name),
-                          onTap: () => onSelectCity(city.name),
-                          onLongPress: canLongPress && onLongPressCity != null
-                              ? () => onLongPressCity!(city)
-                              : null,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingLG),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                              color: isSelected
-                                  ? AuthColors.surface
-                                  : AuthColors.surface,
-                              border: Border.all(
-                                color: isSelected ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.12),
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    city.name,
-                                    style: TextStyle(
-                                      color: AuthColors.textMain,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: isSelected ? 16 : 15,
+                                  key: ValueKey(city.name),
+                                  onTap: () => onSelectCity(city.name),
+                                  onLongPress:
+                                      canLongPress && onLongPressCity != null
+                                          ? () => onLongPressCity!(city)
+                                          : null,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: AppSpacing.paddingLG,
+                                        vertical: AppSpacing.paddingLG),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(
+                                          AppSpacing.radiusLG),
+                                      color: isSelected
+                                          ? AuthColors.surface
+                                          : AuthColors.surface,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? AuthColors.legacyAccent
+                                            : AuthColors.textMainWithOpacity(
+                                                0.12),
+                                        width: isSelected ? 2 : 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            city.name,
+                                            style: TextStyle(
+                                              color: AuthColors.textMain,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: isSelected ? 16 : 15,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isSelected)
+                                          const Icon(Icons.arrow_forward_ios,
+                                              size: 14,
+                                              color: AuthColors.textSub),
+                                      ],
                                     ),
                                   ),
                                 ),
-                                if (isSelected)
-                                  const Icon(Icons.arrow_forward_ios, size: 14, color: AuthColors.textSub),
-                              ],
-                            ),
-                          ),
-                                ),
                               ),
                             ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
         ),
       ],
     );
@@ -700,11 +730,13 @@ class _RegionColumn extends StatelessWidget {
                   itemCount: 5,
                   itemBuilder: (context, index) {
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                      padding:
+                          const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                       child: LoadingSkeleton(
                         width: double.infinity,
                         height: 80,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusXL),
                       ),
                     );
                   },
@@ -730,7 +762,8 @@ class _RegionColumn extends StatelessWidget {
                       : AnimationLimiter(
                           child: ListView.separated(
                             itemCount: regions.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: AppSpacing.paddingMD),
                             itemBuilder: (context, index) {
                               final zone = regions[index];
                               final isSelected = selectedZoneId == zone.id;
@@ -742,77 +775,91 @@ class _RegionColumn extends StatelessWidget {
                                   child: FadeInAnimation(
                                     curve: Curves.easeOut,
                                     child: GestureDetector(
-                              key: ValueKey(zone.id),
-                              onTap: () => onSelectZone(zone.id),
-                              onLongPress: () {
-                                HapticFeedback.mediumImpact();
-                                onLongPressZone(zone);
-                              },
-                              child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.all(AppSpacing.paddingLG),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
-          border: Border.all(
-            color: isSelected ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.12),
-            width: isSelected ? 2 : 1,
-          ),
-                          color: isSelected
-                              ? AuthColors.surface
-                              : AuthColors.surface,
-        ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                          zone.region,
-                    style: const TextStyle(
-                      color: AuthColors.textMain,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.paddingXS),
-                  Row(
-                    children: [
-                  Text(
-                              zone.isActive ? 'Active' : 'Inactive',
-                              style: TextStyle(
-                                color: zone.isActive
-                                    ? AuthColors.successVariant
-                                    : AuthColors.textSub,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                      ),
-                      if (zone.roundtripKm != null) ...[
-                        const SizedBox(width: 12),
-                        const Icon(
-                          Icons.straighten,
-                          size: 14,
-                          color: AuthColors.textSub,
-                        ),
-                        const SizedBox(width: AppSpacing.paddingXS),
-                        Text(
-                          '${zone.roundtripKm!.toStringAsFixed(1)} km',
-                          style: const TextStyle(
-                            color: AuthColors.textSub,
-                            fontSize: 12,
+                                      key: ValueKey(zone.id),
+                                      onTap: () => onSelectZone(zone.id),
+                                      onLongPress: () {
+                                        HapticFeedback.mediumImpact();
+                                        onLongPressZone(zone);
+                                      },
+                                      child: AnimatedContainer(
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        padding: const EdgeInsets.all(
+                                            AppSpacing.paddingLG),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                              AppSpacing.radiusXL),
+                                          border: Border.all(
+                                            color: isSelected
+                                                ? AuthColors.legacyAccent
+                                                : AuthColors
+                                                    .textMainWithOpacity(0.12),
+                                            width: isSelected ? 2 : 1,
+                                          ),
+                                          color: isSelected
+                                              ? AuthColors.surface
+                                              : AuthColors.surface,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              zone.region,
+                                              style: const TextStyle(
+                                                color: AuthColors.textMain,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                            const SizedBox(
+                                                height: AppSpacing.paddingXS),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  zone.isActive
+                                                      ? 'Active'
+                                                      : 'Inactive',
+                                                  style: TextStyle(
+                                                    color: zone.isActive
+                                                        ? AuthColors
+                                                            .successVariant
+                                                        : AuthColors.textSub,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                if (zone.roundtripKm !=
+                                                    null) ...[
+                                                  const SizedBox(width: 12),
+                                                  const Icon(
+                                                    Icons.straighten,
+                                                    size: 14,
+                                                    color: AuthColors.textSub,
+                                                  ),
+                                                  const SizedBox(
+                                                      width:
+                                                          AppSpacing.paddingXS),
+                                                  Text(
+                                                    '${zone.roundtripKm!.toStringAsFixed(1)} km',
+                                                    style: const TextStyle(
+                                                      color: AuthColors.textSub,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
         ),
       ],
     );
@@ -841,7 +888,8 @@ class _AddCityDialogState extends State<_AddCityDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AuthColors.surface,
-      title: const Text('Add City', style: TextStyle(color: AuthColors.textMain)),
+      title:
+          const Text('Add City', style: TextStyle(color: AuthColors.textMain)),
       content: Form(
         key: _formKey,
         child: TextFormField(
@@ -854,8 +902,9 @@ class _AddCityDialogState extends State<_AddCityDialog> {
             labelStyle: TextStyle(color: AuthColors.textSub),
             border: OutlineInputBorder(borderSide: BorderSide.none),
           ),
-          validator: (value) =>
-              (value == null || value.trim().isEmpty) ? 'Enter a city name' : null,
+          validator: (value) => (value == null || value.trim().isEmpty)
+              ? 'Enter a city name'
+              : null,
         ),
       ),
       actions: [
@@ -920,7 +969,8 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedCity = widget.initialCity ?? (widget.cities.isNotEmpty ? widget.cities.first.name : null);
+    _selectedCity = widget.initialCity ??
+        (widget.cities.isNotEmpty ? widget.cities.first.name : null);
   }
 
   @override
@@ -934,7 +984,8 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AuthColors.surface,
-      title: const Text('Add Region', style: TextStyle(color: AuthColors.textMain)),
+      title: const Text('Add Region',
+          style: TextStyle(color: AuthColors.textMain)),
       content: widget.cities.isEmpty
           ? const Text(
               'Please add a city first.',
@@ -964,8 +1015,9 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                         )
                         .toList(),
                     onChanged: (value) => setState(() => _selectedCity = value),
-                    validator: (value) =>
-                        (value == null || value.isEmpty) ? 'Select a city' : null,
+                    validator: (value) => (value == null || value.isEmpty)
+                        ? 'Select a city'
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
@@ -979,17 +1031,21 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                       border: OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? 'Enter a region' : null,
+                        (value == null || value.trim().isEmpty)
+                            ? 'Enter a region'
+                            : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _roundtripKmController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     style: const TextStyle(color: AuthColors.textMain),
                     decoration: const InputDecoration(
                       labelText: 'Round Trip Distance (KM)',
                       hintText: 'e.g., 25.5',
-                      prefixIcon: Icon(Icons.straighten, color: AuthColors.textSub),
+                      prefixIcon:
+                          Icon(Icons.straighten, color: AuthColors.textSub),
                       filled: true,
                       fillColor: AuthColors.surface,
                       labelStyle: TextStyle(color: AuthColors.textSub),
@@ -1022,7 +1078,8 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                   if (_selectedCity == null) return;
                   setState(() => _submitting = true);
                   try {
-                    final roundtripKm = double.parse(_roundtripKmController.text.trim());
+                    final roundtripKm =
+                        double.parse(_roundtripKmController.text.trim());
                     await context.read<DeliveryZonesCubit>().createRegion(
                           city: _selectedCity!,
                           region: _regionController.text.trim(),
@@ -1085,7 +1142,8 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
   }
 
   void _syncPrice(DeliveryZonesState state) {
-    final selectedId = _selectedProductId ?? (state.products.isNotEmpty ? state.products.first.id : null);
+    final selectedId = _selectedProductId ??
+        (state.products.isNotEmpty ? state.products.first.id : null);
     if (_selectedProductId != selectedId) {
       _selectedProductId = selectedId;
       _lastSyncedProductId = null;
@@ -1129,104 +1187,117 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
 
         return AlertDialog(
           backgroundColor: AuthColors.surface,
-          insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingXXL),
+          insetPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.paddingXL,
+              vertical: AppSpacing.paddingXXL),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.zone.region, style: const TextStyle(color: AuthColors.textMain)),
-              Text(widget.zone.cityName, style: const TextStyle(color: AuthColors.textSub)),
+              Text(widget.zone.region,
+                  style: const TextStyle(color: AuthColors.textMain)),
+              Text(widget.zone.cityName,
+                  style: const TextStyle(color: AuthColors.textSub)),
             ],
           ),
           content: SingleChildScrollView(
             child: Form(
               key: _formKey,
               child: products.isEmpty
-                ? const Text(
-                    'No products available to configure prices.',
-                    style: TextStyle(color: AuthColors.textSub),
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedProductId,
-                        dropdownColor: AuthColors.surface,
-                        decoration: const InputDecoration(
-                          labelText: 'Product',
-                          filled: true,
-                          fillColor: AuthColors.surface,
-                          labelStyle: TextStyle(color: AuthColors.textSub),
-                          border: OutlineInputBorder(borderSide: BorderSide.none),
+                  ? const Text(
+                      'No products available to configure prices.',
+                      style: TextStyle(color: AuthColors.textSub),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedProductId,
+                          dropdownColor: AuthColors.surface,
+                          decoration: const InputDecoration(
+                            labelText: 'Product',
+                            filled: true,
+                            fillColor: AuthColors.surface,
+                            labelStyle: TextStyle(color: AuthColors.textSub),
+                            border:
+                                OutlineInputBorder(borderSide: BorderSide.none),
+                          ),
+                          items: products
+                              .map(
+                                (product) => DropdownMenuItem(
+                                  value: product.id,
+                                  child: Text(product.name),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) =>
+                              setState(() => _selectedProductId = value),
                         ),
-                        items: products
-                            .map(
-                              (product) => DropdownMenuItem(
-                                value: product.id,
-                                child: Text(product.name),
+                        const SizedBox(height: AppSpacing.paddingMD),
+                        TextFormField(
+                          controller: _priceController,
+                          style: const TextStyle(color: AuthColors.textMain),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          enabled: canEditPrice,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter a price';
+                            }
+                            final parsed = double.tryParse(value.trim());
+                            if (parsed == null) {
+                              return 'Enter a valid number';
+                            }
+                            if (parsed < 0) {
+                              return 'Price cannot be negative';
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Unit Price',
+                            labelStyle:
+                                const TextStyle(color: AuthColors.textSub),
+                            filled: true,
+                            fillColor: AuthColors.surface,
+                            errorStyle:
+                                const TextStyle(color: AuthColors.error),
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusMD),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusMD),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusMD),
+                              borderSide: const BorderSide(
+                                color: AuthColors.primary,
+                                width: 2,
                               ),
-                            )
-                            .toList(),
-                        onChanged: (value) => setState(() => _selectedProductId = value),
-                      ),
-                      const SizedBox(height: AppSpacing.paddingMD),
-                      TextFormField(
-                        controller: _priceController,
-                        style: const TextStyle(color: AuthColors.textMain),
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
-                        enabled: canEditPrice,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Enter a price';
-                          }
-                          final parsed = double.tryParse(value.trim());
-                          if (parsed == null) {
-                            return 'Enter a valid number';
-                          }
-                          if (parsed < 0) {
-                            return 'Price cannot be negative';
-                          }
-                          return null;
-                        },
-                        decoration: InputDecoration(
-                          labelText: 'Unit Price',
-                          labelStyle: const TextStyle(color: AuthColors.textSub),
-                          filled: true,
-                          fillColor: AuthColors.surface,
-                          errorStyle: const TextStyle(color: AuthColors.error),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                            borderSide: const BorderSide(
-                              color: AuthColors.primary,
-                              width: 2,
                             ),
-                          ),
-                          errorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                            borderSide: const BorderSide(
-                              color: AuthColors.error,
-                              width: 1,
+                            errorBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusMD),
+                              borderSide: const BorderSide(
+                                color: AuthColors.error,
+                                width: 1,
+                              ),
                             ),
-                          ),
-                          focusedErrorBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                            borderSide: const BorderSide(
-                              color: AuthColors.error,
-                              width: 2,
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusMD),
+                              borderSide: const BorderSide(
+                                color: AuthColors.error,
+                                width: 2,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
             ),
           ),
           actions: [
@@ -1242,7 +1313,8 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                     context: context,
                     builder: (context) => AlertDialog(
                       backgroundColor: AuthColors.surface,
-                      title: const Text('Delete Region', style: TextStyle(color: AuthColors.textMain)),
+                      title: const Text('Delete Region',
+                          style: TextStyle(color: AuthColors.textMain)),
                       content: Text(
                         'Are you sure you want to delete "${widget.zone.region}"? This will also delete all prices for this region.',
                         style: const TextStyle(color: AuthColors.textSub),
@@ -1263,9 +1335,11 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                     ),
                   );
                   if (confirmed != true || !mounted) return;
-                  
+
                   try {
-                    await context.read<DeliveryZonesCubit>().deleteZone(widget.zone.id);
+                    await context
+                        .read<DeliveryZonesCubit>()
+                        .deleteZone(widget.zone.id);
                     if (mounted) {
                       Navigator.of(context).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1279,7 +1353,8 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Failed to delete region: ${err.toString()}'),
+                          content: Text(
+                              'Failed to delete region: ${err.toString()}'),
                           backgroundColor: AuthColors.error,
                         ),
                       );
@@ -1296,14 +1371,18 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
               child: const Text('Close'),
             ),
             TextButton(
-              onPressed: !canEditPrice || products.isEmpty || _selectedProductId == null || _submitting
+              onPressed: !canEditPrice ||
+                      products.isEmpty ||
+                      _selectedProductId == null ||
+                      _submitting
                   ? null
                   : () async {
                       HapticFeedback.mediumImpact();
                       if (!(_formKey.currentState?.validate() ?? false)) {
                         return;
                       }
-                      final parsed = double.tryParse(_priceController.text.trim());
+                      final parsed =
+                          double.tryParse(_priceController.text.trim());
                       if (parsed == null || parsed < 0) {
                         return;
                       }
@@ -1313,7 +1392,8 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                               DeliveryZonePrice(
                                 productId: _selectedProductId!,
                                 productName: products
-                                    .firstWhere((p) => p.id == _selectedProductId!)
+                                    .firstWhere(
+                                        (p) => p.id == _selectedProductId!)
                                     .name,
                                 deliverable: true,
                                 unitPrice: parsed,
@@ -1332,13 +1412,15 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Failed to update price: ${err.toString()}'),
+                              content: Text(
+                                  'Failed to update price: ${err.toString()}'),
                               backgroundColor: AuthColors.error,
                               action: SnackBarAction(
                                 label: 'Retry',
                                 onPressed: () {
                                   // Re-run the save operation
-                                  final parsed = double.tryParse(_priceController.text.trim());
+                                  final parsed = double.tryParse(
+                                      _priceController.text.trim());
                                   if (parsed != null && parsed >= 0) {
                                     // This will be handled by the button's onPressed callback
                                   }
@@ -1421,7 +1503,8 @@ class _ZoneDialogState extends State<_ZoneDialog> {
         widget.cityPermission.canEdit || widget.regionPermission.canEdit;
     final canSubmit = isEditing
         ? (widget.cityPermission.canEdit || widget.regionPermission.canEdit)
-        : (widget.cityPermission.canCreate && widget.regionPermission.canCreate);
+        : (widget.cityPermission.canCreate &&
+            widget.regionPermission.canCreate);
     _zonesLog(
         'ZoneDialog editing=$isEditing canSubmit=$canSubmit cityPerm=${widget.cityPermission} regionPerm=${widget.regionPermission}');
 
@@ -1441,10 +1524,9 @@ class _ZoneDialogState extends State<_ZoneDialog> {
               style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('City'),
               enabled: canEditCityField,
-              validator: (value) =>
-                  (value == null || value.trim().isEmpty)
-                      ? 'Enter city name'
-                      : null,
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? 'Enter city name'
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -1452,15 +1534,15 @@ class _ZoneDialogState extends State<_ZoneDialog> {
               style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('Region'),
               enabled: canEditRegionField,
-              validator: (value) =>
-                  (value == null || value.trim().isEmpty)
-                      ? 'Enter region'
-                      : null,
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? 'Enter region'
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _roundtripKmController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               style: const TextStyle(color: AuthColors.textMain),
               decoration: _inputDecoration('Round Trip Distance (KM)'),
               enabled: canEditRegionField,
@@ -1492,8 +1574,8 @@ class _ZoneDialogState extends State<_ZoneDialog> {
                 child: Text(
                   'You do not have permission to save changes for this zone.',
                   style: TextStyle(color: AuthColors.error, fontSize: 12),
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -1505,46 +1587,50 @@ class _ZoneDialogState extends State<_ZoneDialog> {
         TextButton(
           onPressed: canSubmit
               ? () async {
-            if (!(_formKey.currentState?.validate() ?? false)) return;
+                  if (!(_formKey.currentState?.validate() ?? false)) return;
                   _zonesLog('ZoneDialog submit tapped (editing=$isEditing)');
-            final cubit = context.read<DeliveryZonesCubit>();
-            final state = cubit.state;
-            
-            // Find city by name to get cityId
-            final cityName = _cityController.text.trim();
-            final city = state.cities.firstWhere(
-              (c) => c.name == cityName,
-              orElse: () => throw Exception('City not found: $cityName'),
-            );
-            
-            // Get organizationId from existing zone or from cubit
-            final organizationId = widget.zone?.organizationId ?? 
-                (state.zones.isNotEmpty ? state.zones.first.organizationId : cubit.orgId);
-            
-            // Parse roundtripKm
-            final roundtripKmText = _roundtripKmController.text.trim();
-            final roundtripKm = roundtripKmText.isEmpty
-                ? null
-                : double.tryParse(roundtripKmText);
-            if (roundtripKm != null && roundtripKm <= 0) {
-              throw Exception('Round trip distance must be a positive number');
-            }
-            
-            // ID will be auto-generated by Firestore for new zones
-            final zone = DeliveryZone(
-              id: widget.zone?.id ?? '', // Empty for new zones, Firestore will generate
-              organizationId: organizationId,
-              cityId: city.id,
-              cityName: city.name,
-              region: _regionController.text.trim(),
-              prices: widget.zone?.prices ?? {},
-              isActive: _isActive,
-              roundtripKm: roundtripKm,
-            );
+                  final cubit = context.read<DeliveryZonesCubit>();
+                  final state = cubit.state;
+
+                  // Find city by name to get cityId
+                  final cityName = _cityController.text.trim();
+                  final city = state.cities.firstWhere(
+                    (c) => c.name == cityName,
+                    orElse: () => throw Exception('City not found: $cityName'),
+                  );
+
+                  // Get organizationId from existing zone or from cubit
+                  final organizationId = widget.zone?.organizationId ??
+                      (state.zones.isNotEmpty
+                          ? state.zones.first.organizationId
+                          : cubit.orgId);
+
+                  // Parse roundtripKm
+                  final roundtripKmText = _roundtripKmController.text.trim();
+                  final roundtripKm = roundtripKmText.isEmpty
+                      ? null
+                      : double.tryParse(roundtripKmText);
+                  if (roundtripKm != null && roundtripKm <= 0) {
+                    throw Exception(
+                        'Round trip distance must be a positive number');
+                  }
+
+                  // ID will be auto-generated by Firestore for new zones
+                  final zone = DeliveryZone(
+                    id: widget.zone?.id ??
+                        '', // Empty for new zones, Firestore will generate
+                    organizationId: organizationId,
+                    cityId: city.id,
+                    cityName: city.name,
+                    region: _regionController.text.trim(),
+                    prices: widget.zone?.prices ?? {},
+                    isActive: _isActive,
+                    roundtripKm: roundtripKm,
+                  );
                   try {
-            if (isEditing) {
+                    if (isEditing) {
                       await cubit.updateZone(zone);
-            } else {
+                    } else {
                       await cubit.createZone(zone);
                     }
                     if (mounted) Navigator.of(context).pop();
@@ -1579,4 +1665,3 @@ class _ZoneDialogState extends State<_ZoneDialog> {
     );
   }
 }
-

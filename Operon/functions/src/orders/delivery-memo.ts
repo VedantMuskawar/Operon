@@ -257,6 +257,7 @@ export const generateDM = onCall(
             amount: tripTotal,
             tripId, // Schedule Trip document ID
             description: `Order Credit - DM-${result.dmNumber} (${paymentType === 'pay_later' ? 'Pay Later' : 'Pay on Delivery'})`,
+            transactionDate: admin.firestore.Timestamp.fromDate(scheduledDate), // Use scheduled date, not DM creation date
             metadata: {
               tripId,
               dmNumber: result.dmNumber,

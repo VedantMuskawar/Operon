@@ -22,25 +22,27 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
   final _invoiceNumberController = TextEditingController();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   VendorType? _selectedVendorType;
   Vendor? _selectedVendor;
   DateTime _selectedDate = DateTime.now();
   List<Vendor> _filteredVendors = [];
   Map<VendorType, List<Vendor>> _vendorsByType = {};
   List<VendorType> _availableTypes = [];
-  
+
   // Raw materials for raw material vendors
   List<RawMaterial> _assignedMaterials = [];
   final Map<String, TextEditingController> _materialQuantityControllers = {};
   final Map<String, TextEditingController> _materialPriceControllers = {};
   bool _isLoadingMaterials = false;
-  
+
   // Additional charges
-  final TextEditingController _unloadingChargesController = TextEditingController();
-  final TextEditingController _unloadingGstPercentController = TextEditingController(text: '18');
+  final TextEditingController _unloadingChargesController =
+      TextEditingController();
+  final TextEditingController _unloadingGstPercentController =
+      TextEditingController(text: '18');
   bool _unloadingHasGst = true;
-  
+
   // Fuel-specific fields
   Vehicle? _selectedVehicle;
   List<Vehicle> _vehicles = [];
@@ -67,9 +69,10 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
     }
     super.dispose();
   }
-  
+
   Future<void> _loadVehicles() async {
-    if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.fuel) {
+    if (_selectedVendor == null ||
+        _selectedVendor!.vendorType != VendorType.fuel) {
       setState(() {
         _vehicles = [];
         _selectedVehicle = null;
@@ -77,17 +80,17 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       });
       return;
     }
-    
+
     setState(() => _isLoadingVehicles = true);
     try {
       final orgState = context.read<OrganizationContextCubit>().state;
       final organization = orgState.organization;
       if (organization == null) return;
-      
+
       final vehiclesRepo = context.read<VehiclesRepository>();
       final allVehicles = await vehiclesRepo.fetchVehicles(organization.id);
       final activeVehicles = allVehicles.where((v) => v.isActive).toList();
-      
+
       setState(() {
         _vehicles = activeVehicles;
         _isLoadingVehicles = false;
@@ -101,23 +104,25 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       }
     }
   }
-  
+
   Future<void> _loadAssignedMaterials() async {
-    if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.rawMaterial) {
+    if (_selectedVendor == null ||
+        _selectedVendor!.vendorType != VendorType.rawMaterial) {
       setState(() {
         _assignedMaterials = [];
         _isLoadingMaterials = false;
       });
       return;
     }
-    
+
     setState(() => _isLoadingMaterials = true);
     try {
       final orgState = context.read<OrganizationContextCubit>().state;
       final organization = orgState.organization;
       if (organization == null) return;
-      
-      final assignedIds = _selectedVendor!.rawMaterialDetails?.assignedMaterialIds ?? [];
+
+      final assignedIds =
+          _selectedVendor!.rawMaterialDetails?.assignedMaterialIds ?? [];
       if (assignedIds.isEmpty) {
         setState(() {
           _assignedMaterials = [];
@@ -125,13 +130,14 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
         });
         return;
       }
-      
+
       final repository = RawMaterialsRepository(
         dataSource: RawMaterialsDataSource(),
       );
       final allMaterials = await repository.fetchRawMaterials(organization.id);
-      final materials = allMaterials.where((m) => assignedIds.contains(m.id)).toList();
-      
+      final materials =
+          allMaterials.where((m) => assignedIds.contains(m.id)).toList();
+
       // Initialize controllers for each material
       for (final material in materials) {
         if (!_materialQuantityControllers.containsKey(material.id)) {
@@ -143,7 +149,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
           );
         }
       }
-      
+
       setState(() {
         _assignedMaterials = materials;
         _isLoadingMaterials = false;
@@ -157,66 +163,71 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       }
     }
   }
-  
+
   // Calculate material totals with GST
   Map<String, double> _calculateMaterialTotals() {
     double materialsSubtotal = 0;
     double materialsGst = 0;
-    
+
     for (final material in _assignedMaterials) {
-      final quantityText = _materialQuantityControllers[material.id]?.text.trim() ?? '0';
-      final priceText = _materialPriceControllers[material.id]?.text.trim() ?? '0';
+      final quantityText =
+          _materialQuantityControllers[material.id]?.text.trim() ?? '0';
+      final priceText =
+          _materialPriceControllers[material.id]?.text.trim() ?? '0';
       final quantity = double.tryParse(quantityText) ?? 0;
       final price = double.tryParse(priceText) ?? 0;
       final materialSubtotal = quantity * price;
       materialsSubtotal += materialSubtotal;
-      
+
       // Calculate GST for this material
       if (material.hasGst && material.gstPercent != null) {
         final gstAmount = materialSubtotal * (material.gstPercent! / 100);
         materialsGst += gstAmount;
       }
     }
-    
+
     return {
       'subtotal': materialsSubtotal,
       'gst': materialsGst,
       'total': materialsSubtotal + materialsGst,
     };
   }
-  
+
   // Calculate additional charges totals with GST
   Map<String, double> _calculateChargesTotals() {
-    final unloadingAmount = double.tryParse(_unloadingChargesController.text.trim()) ?? 0;
+    final unloadingAmount =
+        double.tryParse(_unloadingChargesController.text.trim()) ?? 0;
     double chargesGst = 0;
-    
+
     if (unloadingAmount > 0 && _unloadingHasGst) {
-      final gstPercent = double.tryParse(_unloadingGstPercentController.text.trim()) ?? 18;
+      final gstPercent =
+          double.tryParse(_unloadingGstPercentController.text.trim()) ?? 18;
       chargesGst = unloadingAmount * (gstPercent / 100);
     }
-    
+
     return {
       'subtotal': unloadingAmount,
       'gst': chargesGst,
       'total': unloadingAmount + chargesGst,
     };
   }
-  
+
   // Calculate grand total
   double _calculateGrandTotal() {
     final materialTotals = _calculateMaterialTotals();
     final chargesTotals = _calculateChargesTotals();
     return materialTotals['total']! + chargesTotals['total']!;
   }
-  
+
   // Update amount controller when values change
   void _updateTotalAmount() {
     final total = _calculateGrandTotal();
     _amountController.text = total.toStringAsFixed(2);
   }
-  
+
   // Build breakdown row widget
-  Widget _buildBreakdownRow(String label, double amount, {bool isTotal = false}) {
+  Widget _buildBreakdownRow(String label, double amount,
+      {bool isTotal = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
       child: Row(
@@ -225,7 +236,9 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
           Text(
             label,
             style: TextStyle(
-              color: isTotal ? AuthColors.textMain : AuthColors.textMainWithOpacity(0.7),
+              color: isTotal
+                  ? AuthColors.textMain
+                  : AuthColors.textMainWithOpacity(0.7),
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.normal,
               fontSize: isTotal ? 14 : 12,
             ),
@@ -255,13 +268,11 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
           .where('status', isEqualTo: 'active')
           .get();
 
-      final vendors = vendorsSnapshot.docs
-          .map((doc) {
-            final data = doc.data();
-            data['vendorId'] = doc.id;
-            return Vendor.fromJson(data, doc.id);
-          })
-          .toList();
+      final vendors = vendorsSnapshot.docs.map((doc) {
+        final data = doc.data();
+        data['vendorId'] = doc.id;
+        return Vendor.fromJson(data, doc.id);
+      }).toList();
 
       // Group vendors by type
       final vendorsByType = <VendorType, List<Vendor>>{};
@@ -278,7 +289,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       setState(() {
         _vendorsByType = vendorsByType;
         _availableTypes = availableTypes;
-        
+
         // Auto-select first type if only one exists
         if (_availableTypes.length == 1) {
           _selectedVendorType = _availableTypes.first;
@@ -329,7 +340,20 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
   }
 
   String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final day = date.day.toString().padLeft(2, '0');
     final month = months[date.month - 1];
     final year = date.year;
@@ -359,7 +383,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       );
       return;
     }
-    if (_selectedVendor!.vendorType == VendorType.fuel && _selectedVehicle == null) {
+    if (_selectedVendor!.vendorType == VendorType.fuel &&
+        _selectedVehicle == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a vehicle')),
       );
@@ -369,14 +394,14 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
     final orgState = context.read<OrganizationContextCubit>().state;
     final organization = orgState.organization;
     final currentUser = FirebaseAuth.instance.currentUser;
-    
+
     if (organization == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Organization not found')),
       );
       return;
     }
-    
+
     if (currentUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('User not authenticated')),
@@ -393,35 +418,39 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       // Build detailed metadata with breakdown
       final materialTotals = _calculateMaterialTotals();
       final chargesTotals = _calculateChargesTotals();
-      
+
       Map<String, dynamic> metadata = {
         'invoiceNumber': invoiceNumber,
         'recordedVia': 'purchase-page',
       };
-      
+
       // Add fuel-specific metadata
       if (_selectedVendor!.vendorType == VendorType.fuel) {
         metadata['purchaseType'] = 'fuel';
         metadata['vehicleNumber'] = _selectedVehicle?.vehicleNumber ?? '';
-        metadata['voucherNumber'] = invoiceNumber; // Use invoice/voucher number as voucher number
+        metadata['voucherNumber'] =
+            invoiceNumber; // Use invoice/voucher number as voucher number
         metadata['linkedTrips'] = <Map<String, dynamic>>[];
       }
-      
+
       // Add raw materials with GST breakdown
-      if (_selectedVendor!.vendorType == VendorType.rawMaterial && _assignedMaterials.isNotEmpty) {
+      if (_selectedVendor!.vendorType == VendorType.rawMaterial &&
+          _assignedMaterials.isNotEmpty) {
         final rawMaterials = <Map<String, dynamic>>[];
         for (final material in _assignedMaterials) {
-          final quantityText = _materialQuantityControllers[material.id]?.text.trim() ?? '0';
-          final priceText = _materialPriceControllers[material.id]?.text.trim() ?? '0';
+          final quantityText =
+              _materialQuantityControllers[material.id]?.text.trim() ?? '0';
+          final priceText =
+              _materialPriceControllers[material.id]?.text.trim() ?? '0';
           final quantity = double.tryParse(quantityText) ?? 0;
           final price = double.tryParse(priceText) ?? 0;
-          
+
           if (quantity > 0) {
             final materialSubtotal = quantity * price;
             final materialGst = material.hasGst && material.gstPercent != null
                 ? materialSubtotal * (material.gstPercent! / 100)
                 : 0.0;
-            
+
             rawMaterials.add({
               'materialId': material.id,
               'materialName': material.name,
@@ -439,27 +468,34 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
           metadata['rawMaterials'] = rawMaterials;
         }
       }
-      
+
       // Add additional charges
-      final unloadingAmount = double.tryParse(_unloadingChargesController.text.trim()) ?? 0;
+      final unloadingAmount =
+          double.tryParse(_unloadingChargesController.text.trim()) ?? 0;
       if (unloadingAmount > 0) {
         final additionalCharges = <Map<String, dynamic>>[];
         final unloadingGst = _unloadingHasGst
-            ? unloadingAmount * ((double.tryParse(_unloadingGstPercentController.text.trim()) ?? 18) / 100)
+            ? unloadingAmount *
+                ((double.tryParse(_unloadingGstPercentController.text.trim()) ??
+                        18) /
+                    100)
             : 0.0;
-        
+
         additionalCharges.add({
           'type': 'unloading',
           'amount': unloadingAmount,
           'hasGst': _unloadingHasGst,
-          'gstPercent': _unloadingHasGst ? (double.tryParse(_unloadingGstPercentController.text.trim()) ?? 18) : null,
+          'gstPercent': _unloadingHasGst
+              ? (double.tryParse(_unloadingGstPercentController.text.trim()) ??
+                  18)
+              : null,
           'gstAmount': unloadingGst,
           'total': unloadingAmount + unloadingGst,
         });
-        
+
         metadata['additionalCharges'] = additionalCharges;
       }
-      
+
       // Add totals breakdown
       metadata['totals'] = {
         'materialsSubtotal': materialTotals['subtotal']!,
@@ -491,7 +527,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       );
 
       // Save to Firestore
-      final transactionsRef = FirebaseFirestore.instance.collection('TRANSACTIONS');
+      final transactionsRef =
+          FirebaseFirestore.instance.collection('TRANSACTIONS');
       final transactionJson = transaction.toJson();
       // Add transactionDate field (used by Cloud Functions)
       transactionJson['transactionDate'] = Timestamp.fromDate(_selectedDate);
@@ -541,7 +578,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       padding: const EdgeInsets.all(AppSpacing.paddingSM),
                       decoration: BoxDecoration(
                         color: AuthColors.legacyAccent.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       child: const Icon(
                         Icons.shopping_cart,
@@ -567,7 +605,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.paddingXXL),
-                
+
                 // Vendor Type Selection (Option Buttons)
                 if (_availableTypes.isNotEmpty) ...[
                   const Text(
@@ -593,15 +631,18 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         selectedColor: AuthColors.legacyAccent.withOpacity(0.3),
                         checkmarkColor: AuthColors.legacyAccent,
                         labelStyle: TextStyle(
-                          color: isSelected ? AuthColors.textMain : AuthColors.textSub,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          color: isSelected
+                              ? AuthColors.textMain
+                              : AuthColors.textSub,
+                          fontWeight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: AppSpacing.paddingXXL),
                 ],
-                
+
                 // Vendor Dropdown
                 DropdownButtonFormField<Vendor>(
                   initialValue: _selectedVendor,
@@ -639,7 +680,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       _selectedVehicle = null; // Reset vehicle selection
                     });
                     // Load assigned materials if raw material vendor
-                    if (vendor != null && vendor.vendorType == VendorType.rawMaterial) {
+                    if (vendor != null &&
+                        vendor.vendorType == VendorType.rawMaterial) {
                       _loadAssignedMaterials();
                     } else {
                       setState(() {
@@ -647,7 +689,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       });
                     }
                     // Load vehicles if fuel vendor; clear additional charges (not used for fuel)
-                    if (vendor != null && vendor.vendorType == VendorType.fuel) {
+                    if (vendor != null &&
+                        vendor.vendorType == VendorType.fuel) {
                       _loadVehicles();
                       _unloadingChargesController.clear();
                       _updateTotalAmount();
@@ -658,10 +701,11 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       });
                     }
                   },
-                  validator: (value) => value == null ? 'Please select a vendor' : null,
+                  validator: (value) =>
+                      value == null ? 'Please select a vendor' : null,
                 ),
                 const SizedBox(height: AppSpacing.paddingLG),
-                
+
                 // Date
                 InkWell(
                   onTap: _selectDate,
@@ -674,33 +718,34 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           _formatDate(_selectedDate),
                           style: const TextStyle(color: AuthColors.textMain),
                         ),
-                        const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 20),
+                        const Icon(Icons.calendar_today,
+                            color: AuthColors.textSub, size: 20),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.paddingLG),
-                
+
                 // Invoice/Voucher Number (for fuel, this is the voucher number)
                 TextFormField(
                   controller: _invoiceNumberController,
                   style: const TextStyle(color: AuthColors.textMain),
-                  decoration: _inputDecoration(
-                    _selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel
-                        ? 'Voucher Number'
-                        : 'Invoice/Voucher Number'
-                  ),
-                  validator: (value) =>
-                      (value == null || value.trim().isEmpty)
-                          ? 'Enter ${_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel ? "voucher" : "invoice/voucher"} number'
-                          : null,
+                  decoration: _inputDecoration(_selectedVendor != null &&
+                          _selectedVendor!.vendorType == VendorType.fuel
+                      ? 'Voucher Number'
+                      : 'Invoice/Voucher Number'),
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Enter ${_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel ? "voucher" : "invoice/voucher"} number'
+                      : null,
                 ),
                 const SizedBox(height: AppSpacing.paddingLG),
-                
+
                 // Fuel-specific fields (vehicle option buttons)
-                if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
+                if (_selectedVendor != null &&
+                    _selectedVendor!.vendorType == VendorType.fuel) ...[
                   _isLoadingVehicles
-                      ? const Center(child: Padding(
+                      ? const Center(
+                          child: Padding(
                           padding: EdgeInsets.all(AppSpacing.paddingLG),
                           child: CircularProgressIndicator(),
                         ))
@@ -710,25 +755,31 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             spacing: 8,
                             runSpacing: 8,
                             children: _vehicles.map((vehicle) {
-                              final isSelected = _selectedVehicle?.id == vehicle.id;
+                              final isSelected =
+                                  _selectedVehicle?.id == vehicle.id;
                               return FilterChip(
                                 label: Text(
                                   vehicle.vehicleNumber,
                                   style: TextStyle(
-                                    color: isSelected ? AuthColors.textMain : AuthColors.textSub,
+                                    color: isSelected
+                                        ? AuthColors.textMain
+                                        : AuthColors.textSub,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 selected: isSelected,
                                 onSelected: (_) {
                                   setState(() {
-                                    _selectedVehicle = isSelected ? null : vehicle;
+                                    _selectedVehicle =
+                                        isSelected ? null : vehicle;
                                   });
                                 },
                                 selectedColor: AuthColors.primary,
                                 checkmarkColor: AuthColors.textMain,
                                 side: BorderSide(
-                                  color: isSelected ? AuthColors.primary : AuthColors.textMain.withOpacity(0.3),
+                                  color: isSelected
+                                      ? AuthColors.primary
+                                      : AuthColors.textMain.withOpacity(0.3),
                                 ),
                               );
                             }).toList(),
@@ -736,9 +787,10 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         ),
                   const SizedBox(height: AppSpacing.paddingLG),
                 ],
-                
+
                 // Raw Materials Section (for raw material vendors)
-                if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.rawMaterial) ...[
+                if (_selectedVendor != null &&
+                    _selectedVendor!.vendorType == VendorType.rawMaterial) ...[
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     decoration: BoxDecoration(
@@ -791,12 +843,15 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         else
                           ..._assignedMaterials.map((material) {
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                              padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.paddingMD),
                               child: Container(
-                                padding: const EdgeInsets.all(AppSpacing.paddingMD),
+                                padding:
+                                    const EdgeInsets.all(AppSpacing.paddingMD),
                                 decoration: BoxDecoration(
                                   color: AuthColors.surface,
-                                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                                  borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusSM),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -808,26 +863,41 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: AppSpacing.paddingSM),
+                                    const SizedBox(
+                                        height: AppSpacing.paddingSM),
                                     Row(
                                       children: [
                                         Expanded(
                                           child: TextFormField(
-                                            controller: _materialQuantityControllers[material.id],
-                                            style: const TextStyle(color: AuthColors.textMain),
-                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            controller:
+                                                _materialQuantityControllers[
+                                                    material.id],
+                                            style: const TextStyle(
+                                                color: AuthColors.textMain),
+                                            keyboardType: const TextInputType
+                                                .numberWithOptions(
+                                                decimal: true),
                                             decoration: InputDecoration(
                                               labelText: 'Quantity',
                                               hintText: '0',
                                               filled: true,
-                                              fillColor: AuthColors.backgroundAlt,
-                                              labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
-                                              suffixText: material.unitOfMeasurement,
-                                              suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
+                                              fillColor:
+                                                  AuthColors.backgroundAlt,
+                                              labelStyle: TextStyle(
+                                                  color: AuthColors.textMain
+                                                      .withOpacity(0.7)),
+                                              suffixText:
+                                                  material.unitOfMeasurement,
+                                              suffixStyle: TextStyle(
+                                                  color: AuthColors.textMain
+                                                      .withOpacity(0.5)),
                                               border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        AppSpacing.radiusSM),
                                                 borderSide: BorderSide(
-                                                  color: AuthColors.textMain.withOpacity(0.1),
+                                                  color: AuthColors.textMain
+                                                      .withOpacity(0.1),
                                                 ),
                                               ),
                                             ),
@@ -838,24 +908,38 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                             },
                                           ),
                                         ),
-                                        const SizedBox(width: AppSpacing.paddingMD),
+                                        const SizedBox(
+                                            width: AppSpacing.paddingMD),
                                         Expanded(
                                           child: TextFormField(
-                                            controller: _materialPriceControllers[material.id],
-                                            style: const TextStyle(color: AuthColors.textMain),
-                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            controller:
+                                                _materialPriceControllers[
+                                                    material.id],
+                                            style: const TextStyle(
+                                                color: AuthColors.textMain),
+                                            keyboardType: const TextInputType
+                                                .numberWithOptions(
+                                                decimal: true),
                                             decoration: InputDecoration(
                                               labelText: 'Unit Price',
                                               hintText: '0.00',
                                               filled: true,
-                                              fillColor: AuthColors.backgroundAlt,
-                                              labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
+                                              fillColor:
+                                                  AuthColors.backgroundAlt,
+                                              labelStyle: TextStyle(
+                                                  color: AuthColors.textMain
+                                                      .withOpacity(0.7)),
                                               prefixText: '₹',
-                                              prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
+                                              prefixStyle: TextStyle(
+                                                  color: AuthColors.textMain
+                                                      .withOpacity(0.5)),
                                               border: OutlineInputBorder(
-                                                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        AppSpacing.radiusSM),
                                                 borderSide: BorderSide(
-                                                  color: AuthColors.textMain.withOpacity(0.1),
+                                                  color: AuthColors.textMain
+                                                      .withOpacity(0.1),
                                                 ),
                                               ),
                                             ),
@@ -880,14 +964,21 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             padding: const EdgeInsets.all(AppSpacing.paddingMD),
                             decoration: BoxDecoration(
                               color: AuthColors.surface,
-                              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusSM),
                             ),
                             child: Column(
                               children: [
-                                _buildBreakdownRow('Materials Subtotal', _calculateMaterialTotals()['subtotal']!),
-                                _buildBreakdownRow('GST on Materials', _calculateMaterialTotals()['gst']!),
-                                Divider(color: AuthColors.textMainWithOpacity(0.24), height: 16),
-                                _buildBreakdownRow('Materials Total', _calculateMaterialTotals()['total']!, isTotal: true),
+                                _buildBreakdownRow('Materials Subtotal',
+                                    _calculateMaterialTotals()['subtotal']!),
+                                _buildBreakdownRow('GST on Materials',
+                                    _calculateMaterialTotals()['gst']!),
+                                Divider(
+                                    color: AuthColors.textMainWithOpacity(0.24),
+                                    height: 16),
+                                _buildBreakdownRow('Materials Total',
+                                    _calculateMaterialTotals()['total']!,
+                                    isTotal: true),
                               ],
                             ),
                           ),
@@ -897,114 +988,70 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   ),
                   const SizedBox(height: AppSpacing.paddingLG),
                 ],
-                
+
                 // Additional Charges Section (hidden for fuel vendors)
-                if (_selectedVendor == null || _selectedVendor!.vendorType != VendorType.fuel) ...[
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.paddingLG),
-                  decoration: BoxDecoration(
-                    color: AuthColors.surface,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                    border: Border.all(
-                      color: AuthColors.textMain.withOpacity(0.1),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.local_shipping_outlined,
-                            color: AuthColors.textSub,
-                            size: 20,
-                          ),
-                          SizedBox(width: AppSpacing.paddingSM),
-                          Text(
-                            'Additional Charges',
-                            style: TextStyle(
-                              color: AuthColors.textMain,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
+                if (_selectedVendor == null ||
+                    _selectedVendor!.vendorType != VendorType.fuel) ...[
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.paddingLG),
+                    decoration: BoxDecoration(
+                      color: AuthColors.surface,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                      border: Border.all(
+                        color: AuthColors.textMain.withOpacity(0.1),
                       ),
-                      const SizedBox(height: AppSpacing.paddingMD),
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _unloadingChargesController,
-                              style: const TextStyle(color: AuthColors.textMain),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: InputDecoration(
-                                labelText: 'Unloading Charges',
-                                hintText: '0.00',
-                                filled: true,
-                                fillColor: AuthColors.surface,
-                                labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
-                                prefixText: '₹',
-                                prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                                  borderSide: BorderSide(
-                                    color: AuthColors.textMain.withOpacity(0.1),
-                                  ),
-                                ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(
+                              Icons.local_shipping_outlined,
+                              color: AuthColors.textSub,
+                              size: 20,
+                            ),
+                            SizedBox(width: AppSpacing.paddingSM),
+                            Text(
+                              'Additional Charges',
+                              style: TextStyle(
+                                color: AuthColors.textMain,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
-                              onChanged: (_) {
-                                setState(() {
-                                  _updateTotalAmount();
-                                });
-                              },
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.paddingMD),
-                          Expanded(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Checkbox(
-                                  value: _unloadingHasGst,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _unloadingHasGst = value ?? true;
-                                      _updateTotalAmount();
-                                    });
-                                  },
-                                  activeColor: AuthColors.primary,
-                                ),
-                                const Flexible(
-                                  child: Text(
-                                    'GST',
-                                    style: TextStyle(color: AuthColors.textSub, fontSize: 12),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_unloadingHasGst) ...[
-                            const SizedBox(width: AppSpacing.paddingSM),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.paddingMD),
+                        Row(
+                          children: [
                             Expanded(
+                              flex: 2,
                               child: TextFormField(
-                                controller: _unloadingGstPercentController,
-                                style: const TextStyle(color: AuthColors.textMain),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                controller: _unloadingChargesController,
+                                style:
+                                    const TextStyle(color: AuthColors.textMain),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                        decimal: true),
                                 decoration: InputDecoration(
-                                  labelText: 'GST %',
-                                  hintText: '18',
+                                  labelText: 'Unloading Charges',
+                                  hintText: '0.00',
                                   filled: true,
                                   fillColor: AuthColors.surface,
-                                  labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
-                                  suffixText: '%',
-                                  suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
+                                  labelStyle: TextStyle(
+                                      color:
+                                          AuthColors.textMain.withOpacity(0.7)),
+                                  prefixText: '₹',
+                                  prefixStyle: TextStyle(
+                                      color:
+                                          AuthColors.textMain.withOpacity(0.5)),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                                    borderRadius: BorderRadius.circular(
+                                        AppSpacing.radiusSM),
                                     borderSide: BorderSide(
-                                      color: AuthColors.textMain.withOpacity(0.1),
+                                      color:
+                                          AuthColors.textMain.withOpacity(0.1),
                                     ),
                                   ),
                                 ),
@@ -1015,39 +1062,117 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                 },
                               ),
                             ),
-                          ],
-                        ],
-                      ),
-                      if ((double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0) ...[
-                        const SizedBox(height: AppSpacing.paddingSM),
-                        Container(
-                          padding: const EdgeInsets.all(AppSpacing.paddingMD),
-                          decoration: BoxDecoration(
-                            color: AuthColors.surface,
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                          ),
-                          child: Column(
-                            children: [
-                              _buildBreakdownRow('Charges Subtotal', _calculateChargesTotals()['subtotal']!),
-                              if (_unloadingHasGst)
-                                _buildBreakdownRow('GST on Charges', _calculateChargesTotals()['gst']!),
-                              Divider(color: AuthColors.textMainWithOpacity(0.24), height: 16),
-                              _buildBreakdownRow('Charges Total', _calculateChargesTotals()['total']!, isTotal: true),
+                            const SizedBox(width: AppSpacing.paddingMD),
+                            Expanded(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Checkbox(
+                                    value: _unloadingHasGst,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _unloadingHasGst = value ?? true;
+                                        _updateTotalAmount();
+                                      });
+                                    },
+                                    activeColor: AuthColors.primary,
+                                  ),
+                                  const Flexible(
+                                    child: Text(
+                                      'GST',
+                                      style: TextStyle(
+                                          color: AuthColors.textSub,
+                                          fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_unloadingHasGst) ...[
+                              const SizedBox(width: AppSpacing.paddingSM),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _unloadingGstPercentController,
+                                  style: const TextStyle(
+                                      color: AuthColors.textMain),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
+                                  decoration: InputDecoration(
+                                    labelText: 'GST %',
+                                    hintText: '18',
+                                    filled: true,
+                                    fillColor: AuthColors.surface,
+                                    labelStyle: TextStyle(
+                                        color: AuthColors.textMain
+                                            .withOpacity(0.7)),
+                                    suffixText: '%',
+                                    suffixStyle: TextStyle(
+                                        color: AuthColors.textMain
+                                            .withOpacity(0.5)),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(
+                                          AppSpacing.radiusSM),
+                                      borderSide: BorderSide(
+                                        color: AuthColors.textMain
+                                            .withOpacity(0.1),
+                                      ),
+                                    ),
+                                  ),
+                                  onChanged: (_) {
+                                    setState(() {
+                                      _updateTotalAmount();
+                                    });
+                                  },
+                                ),
+                              ),
                             ],
-                          ),
+                          ],
                         ),
+                        if ((double.tryParse(
+                                    _unloadingChargesController.text.trim()) ??
+                                0) >
+                            0) ...[
+                          const SizedBox(height: AppSpacing.paddingSM),
+                          Container(
+                            padding: const EdgeInsets.all(AppSpacing.paddingMD),
+                            decoration: BoxDecoration(
+                              color: AuthColors.surface,
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusSM),
+                            ),
+                            child: Column(
+                              children: [
+                                _buildBreakdownRow('Charges Subtotal',
+                                    _calculateChargesTotals()['subtotal']!),
+                                if (_unloadingHasGst)
+                                  _buildBreakdownRow('GST on Charges',
+                                      _calculateChargesTotals()['gst']!),
+                                Divider(
+                                    color: AuthColors.textMainWithOpacity(0.24),
+                                    height: 16),
+                                _buildBreakdownRow('Charges Total',
+                                    _calculateChargesTotals()['total']!,
+                                    isTotal: true),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.paddingLG),
+                  const SizedBox(height: AppSpacing.paddingLG),
                 ],
-                
+
                 // Final Breakdown Summary
-                if (_selectedVendor != null && 
-                    _selectedVendor!.vendorType == VendorType.rawMaterial && 
-                    (_assignedMaterials.isNotEmpty || 
-                     (double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0)) ...[
+                if (_selectedVendor != null &&
+                    _selectedVendor!.vendorType == VendorType.rawMaterial &&
+                    (_assignedMaterials.isNotEmpty ||
+                        (double.tryParse(
+                                    _unloadingChargesController.text.trim()) ??
+                                0) >
+                            0)) ...[
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     decoration: BoxDecoration(
@@ -1060,29 +1185,42 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     child: Column(
                       children: [
                         if (_assignedMaterials.isNotEmpty) ...[
-                          _buildBreakdownRow('Materials Total', _calculateMaterialTotals()['total']!),
+                          _buildBreakdownRow('Materials Total',
+                              _calculateMaterialTotals()['total']!),
                         ],
-                        if ((double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0) ...[
-                          _buildBreakdownRow('Charges Total', _calculateChargesTotals()['total']!),
+                        if ((double.tryParse(
+                                    _unloadingChargesController.text.trim()) ??
+                                0) >
+                            0) ...[
+                          _buildBreakdownRow('Charges Total',
+                              _calculateChargesTotals()['total']!),
                         ],
-                        Divider(color: AuthColors.textMainWithOpacity(0.24), height: 16),
-                        _buildBreakdownRow('Grand Total', _calculateGrandTotal(), isTotal: true),
+                        Divider(
+                            color: AuthColors.textMainWithOpacity(0.24),
+                            height: 16),
+                        _buildBreakdownRow(
+                            'Grand Total', _calculateGrandTotal(),
+                            isTotal: true),
                       ],
                     ),
                   ),
                   const SizedBox(height: AppSpacing.paddingLG),
                 ],
-                
+
                 // Amount
                 TextFormField(
                   controller: _amountController,
                   style: const TextStyle(color: AuthColors.textMain),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                   decoration: _inputDecoration('Total Amount'),
-                  readOnly: _selectedVendor != null && 
-                           _selectedVendor!.vendorType == VendorType.rawMaterial && 
-                           (_assignedMaterials.isNotEmpty || 
-                            (double.tryParse(_unloadingChargesController.text.trim()) ?? 0) > 0),
+                  readOnly: _selectedVendor != null &&
+                      _selectedVendor!.vendorType == VendorType.rawMaterial &&
+                      (_assignedMaterials.isNotEmpty ||
+                          (double.tryParse(_unloadingChargesController.text
+                                      .trim()) ??
+                                  0) >
+                              0),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Enter amount';
@@ -1095,7 +1233,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   },
                 ),
                 const SizedBox(height: AppSpacing.paddingLG),
-                
+
                 // Description (Optional)
                 TextFormField(
                   controller: _descriptionController,
@@ -1104,7 +1242,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   maxLines: 3,
                 ),
                 const SizedBox(height: AppSpacing.paddingXXL),
-                
+
                 // Actions
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -1113,7 +1251,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       onPressed: () => Navigator.of(context).pop(),
                       child: Text(
                         'Cancel',
-                        style: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
+                        style: TextStyle(
+                            color: AuthColors.textMain.withOpacity(0.7)),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.paddingMD),
@@ -1157,17 +1296,16 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
-          color: Colors.red,
+          color: AuthColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: const BorderSide(
-          color: Colors.red,
+          color: AuthColors.error,
           width: 2,
         ),
       ),
     );
   }
 }
-

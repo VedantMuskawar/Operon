@@ -36,6 +36,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   int _totalPendingTrips = 0;
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
+  bool _isEddRunning = false;
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
   String? _currentOrgId;
   int? _selectedFixedQuantityFilter; // null means "All"
@@ -43,9 +44,9 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   // Cached — recomputed only when _orders or _selectedFixedQuantityFilter change
   List<Map<String, dynamic>> _cachedFilteredOrders = [];
   List<int> _cachedUniqueQuantities = [];
-  
+
   // Cache trip counts per order to avoid recalculating on every stream update
-  Map<String, int> _orderTripCounts = {};
+  final Map<String, int> _orderTripCounts = {};
   Set<String> _cachedOrderIds = {};
 
   @override
@@ -59,29 +60,57 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     _cachedUniqueQuantities = _computeUniqueQuantities();
   }
 
-  /// Calculate trips for a single order
+  /// Calculate remaining trips for a single order (pending trips to schedule)
+  /// Do NOT use totalTripsRequired — that's total; we need remaining only
   int _calculateOrderTrips(Map<String, dynamic> order) {
     final items = order['items'] as List<dynamic>? ?? [];
-    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
-    final autoSchedule = order['autoSchedule'] as Map<String, dynamic>?;
-    
-    // Priority: 1. autoSchedule.totalTripsRequired, 2. Sum of item estimatedTrips, 3. Fallback
-    int totalEstimatedTrips = 0;
-    if (autoSchedule?['totalTripsRequired'] != null) {
-      totalEstimatedTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
-    } else {
-      // Fallback: Sum estimated trips from all items
-      for (final item in items) {
-        final itemMap = item as Map<String, dynamic>;
-        totalEstimatedTrips += (itemMap['estimatedTrips'] as int? ?? 0);
-      }
-      if (totalEstimatedTrips == 0 && firstItem != null) {
-        totalEstimatedTrips = firstItem['estimatedTrips'] as int? ?? 
-            (order['tripIds'] as List<dynamic>?)?.length ?? 0;
+    final firstItem =
+        items.isNotEmpty ? items.first as Map<String, dynamic> : null;
+    int remainingTrips = 0;
+    for (final item in items) {
+      final itemMap = item as Map<String, dynamic>;
+      remainingTrips += (itemMap['estimatedTrips'] as int? ?? 0);
+    }
+    if (remainingTrips == 0 && firstItem != null) {
+      remainingTrips = firstItem['estimatedTrips'] as int? ??
+          (order['tripIds'] as List<dynamic>?)?.length ??
+          0;
+    }
+    return remainingTrips;
+  }
+
+  Future<void> _runEddForAllOrders() async {
+    if (_isEddRunning) return;
+
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final organization = orgContext.organization;
+    if (organization == null) {
+      DashSnackbar.show(context,
+          message: 'Organization not selected', isError: true);
+      return;
+    }
+
+    setState(() {
+      _isEddRunning = true;
+    });
+
+    try {
+      final repository = context.read<PendingOrdersRepository>();
+      final result =
+          await repository.calculateEddForAllPendingOrders(organization.id);
+      final updatedOrders = result['updatedOrders'] ?? 0;
+      DashSnackbar.show(context,
+          message: 'EDD calculated for $updatedOrders order(s)');
+    } catch (e) {
+      DashSnackbar.show(context,
+          message: 'Failed to calculate EDD: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isEddRunning = false;
+        });
       }
     }
-    
-    return totalEstimatedTrips;
   }
 
   /// Calculate total trips count, using cached values when possible
@@ -91,11 +120,11 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
         .map((o) => o['id'] as String? ?? '')
         .where((id) => id.isNotEmpty)
         .toSet();
-    
+
     // Check if orders list actually changed by comparing IDs using Set (O(n) instead of O(n²))
     final ordersChanged = newOrderIds.length != _cachedOrderIds.length ||
         !newOrderIds.every((id) => _cachedOrderIds.contains(id));
-    
+
     if (ordersChanged) {
       // Recalculate trip counts for all orders
       _orderTripCounts.clear();
@@ -107,22 +136,24 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
       }
       _cachedOrderIds = newOrderIds;
     }
-    
+
     // Sum up cached trip counts
     for (final orderId in newOrderIds) {
       totalTrips += _orderTripCounts[orderId] ?? 0;
     }
-    
+
     return totalTrips;
   }
 
   List<Map<String, dynamic>> _computeFilteredOrders() {
-    if (_selectedFixedQuantityFilter == null) return _orders; // Return reference, no need to copy
+    if (_selectedFixedQuantityFilter == null)
+      return _orders; // Return reference, no need to copy
     return _orders.where((order) {
       final items = order['items'] as List<dynamic>? ?? [];
       if (items.isEmpty) return false;
       final firstItem = items.first as Map<String, dynamic>;
-      return (firstItem['fixedQuantityPerTrip'] as int?) == _selectedFixedQuantityFilter;
+      return (firstItem['fixedQuantityPerTrip'] as int?) ==
+          _selectedFixedQuantityFilter;
     }).toList();
   }
 
@@ -131,7 +162,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     for (final order in _orders) {
       final items = order['items'] as List<dynamic>? ?? [];
       if (items.isNotEmpty) {
-        final q = (items.first as Map<String, dynamic>)['fixedQuantityPerTrip'] as int?;
+        final q = (items.first as Map<String, dynamic>)['fixedQuantityPerTrip']
+            as int?;
         if (q != null && q > 0) unique.add(q);
       }
     }
@@ -176,21 +208,21 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
       (orders) {
         // Use cached calculation method that only recalculates when orders change
         final tripsCount = _calculateTotalTrips(orders);
-      
-      if (mounted) {
-        setState(() {
-          _orders = orders;
-          _pendingOrdersCount = orders.length;
-          _totalPendingTrips = tripsCount;
-          _isLoading = false;
-          _updateCachedValues();
-        });
-      }
+
+        if (mounted) {
+          setState(() {
+            _orders = orders;
+            _pendingOrdersCount = orders.length;
+            _totalPendingTrips = tripsCount;
+            _isLoading = false;
+            _updateCachedValues();
+          });
+        }
       },
       onError: (_) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       },
     );
   }
@@ -218,30 +250,60 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
             : CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: _StatTile(
-                            title: 'Orders',
-                            value: _pendingOrdersCount.toString(),
-                            icon: Icons.shopping_cart_outlined,
-                            accentColor: AuthColors.primary,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _StatTile(
+                                title: 'Orders',
+                                value: _pendingOrdersCount.toString(),
+                                icon: Icons.shopping_cart_outlined,
+                                accentColor: AuthColors.primary,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.paddingLG),
+                            Expanded(
+                              child: _StatTile(
+                                title: 'Trips',
+                                value: _totalPendingTrips.toString(),
+                                icon: Icons.route_outlined,
+                                accentColor: AuthColors.secondary,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: AppSpacing.paddingLG),
-                        Expanded(
-                          child: _StatTile(
-                            title: 'Trips',
-                            value: _totalPendingTrips.toString(),
-                            icon: Icons.route_outlined,
-                            accentColor: AuthColors.secondary,
+                        const SizedBox(height: AppSpacing.paddingMD),
+                        SizedBox(
+                          height: 44,
+                          child: ElevatedButton.icon(
+                            onPressed: (_isEddRunning || _orders.isEmpty)
+                                ? null
+                                : _runEddForAllOrders,
+                            icon: _isEddRunning
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.schedule_outlined),
+                            label: Text(_isEddRunning
+                                ? 'Calculating EDD...'
+                                : 'Estimated Dates'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AuthColors.primary,
+                              foregroundColor: AuthColors.textMain,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                   if (_orders.isNotEmpty) ...[
-                    const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingXL)),
+                    const SliverToBoxAdapter(
+                        child: SizedBox(height: AppSpacing.paddingXL)),
                     SliverToBoxAdapter(
                       child: _FixedQuantityFilter(
                         uniqueQuantities: _cachedUniqueQuantities,
@@ -254,7 +316,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                         },
                       ),
                     ),
-                    const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingMD)),
+                    const SliverToBoxAdapter(
+                        child: SizedBox(height: AppSpacing.paddingMD)),
                   ],
                   if (_cachedFilteredOrders.isNotEmpty)
                     SliverList(
@@ -262,7 +325,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                         (context, index) {
                           final order = _cachedFilteredOrders[index];
                           final tile = Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                            padding: const EdgeInsets.only(
+                                bottom: AppSpacing.paddingMD),
                             child: OrderTile(
                               key: ValueKey(order['id']),
                               order: order,
@@ -295,9 +359,9 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                       ),
                     )
                   else if (!_isLoading && _orders.isEmpty)
-                    SliverToBoxAdapter(
+                    const SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 32),
+                        padding: EdgeInsets.only(top: 32),
                         child: OrdersSectionEmptyState(
                           title: 'No Pending Orders',
                           message: 'All orders have been processed',
@@ -375,12 +439,15 @@ class _FilterChip extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingSM),
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingSM),
           decoration: BoxDecoration(
             color: isSelected ? AuthColors.primary : AuthColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
             border: Border.all(
-              color: isSelected ? AuthColors.primary : AuthColors.textMainWithOpacity(0.15),
+              color: isSelected
+                  ? AuthColors.primary
+                  : AuthColors.textMainWithOpacity(0.15),
               width: isSelected ? 1.5 : 1,
             ),
             boxShadow: isSelected
@@ -396,9 +463,11 @@ class _FilterChip extends StatelessWidget {
           child: Text(
             label,
             style: AppTypography.withColor(
-              isSelected 
-                  ? AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w600)
-                  : AppTypography.withWeight(AppTypography.bodySmall, FontWeight.w500),
+              isSelected
+                  ? AppTypography.withWeight(
+                      AppTypography.bodySmall, FontWeight.w600)
+                  : AppTypography.withWeight(
+                      AppTypography.bodySmall, FontWeight.w500),
               isSelected ? AuthColors.textMain : AuthColors.textSub,
             ),
           ),
@@ -424,7 +493,8 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingLG),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingLG),
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -441,12 +511,14 @@ class _StatTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textSub),
+                  style: AppTypography.withColor(
+                      AppTypography.labelSmall, AuthColors.textSub),
                 ),
                 const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   value,
-                  style: AppTypography.withColor(AppTypography.h1, AuthColors.textMain),
+                  style: AppTypography.withColor(
+                      AppTypography.h1, AuthColors.textMain),
                 ),
               ],
             ),
@@ -484,7 +556,8 @@ class _CustomerTypeDialog extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 'Select Customer Type',
-                style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
+                style: AppTypography.withColor(
+                    AppTypography.h3, AuthColors.textMain),
               ),
             ),
             const SizedBox(height: AppSpacing.paddingXL),
@@ -505,13 +578,16 @@ class _CustomerTypeDialog extends StatelessWidget {
                   final clientsRepository = context.read<ClientsRepository>();
                   try {
                     // Fetch the most recently created client
-                    final recentClients = await clientsRepository.fetchRecentClients(limit: 1);
-                    final createdClient = recentClients.isNotEmpty ? recentClients.first : null;
-                    
+                    final recentClients =
+                        await clientsRepository.fetchRecentClients(limit: 1);
+                    final createdClient =
+                        recentClients.isNotEmpty ? recentClients.first : null;
+
                     if (context.mounted) {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => CreateOrderPage(client: createdClient),
+                          builder: (_) =>
+                              CreateOrderPage(client: createdClient),
                           fullscreenDialog: true,
                         ),
                       );
@@ -605,12 +681,14 @@ class _CustomerTypeOption extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: AppTypography.withColor(AppTypography.h4, AuthColors.textMain),
+                    style: AppTypography.withColor(
+                        AppTypography.h4, AuthColors.textMain),
                   ),
                   const SizedBox(height: AppSpacing.paddingXS),
                   Text(
                     subtitle,
-                    style: AppTypography.withColor(AppTypography.bodySmall, AuthColors.textSub),
+                    style: AppTypography.withColor(
+                        AppTypography.bodySmall, AuthColors.textSub),
                   ),
                 ],
               ),
@@ -625,6 +703,3 @@ class _CustomerTypeOption extends StatelessWidget {
     );
   }
 }
-
-
-

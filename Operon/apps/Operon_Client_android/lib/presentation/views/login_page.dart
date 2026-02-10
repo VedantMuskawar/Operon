@@ -12,7 +12,7 @@ class LoginPageShell extends StatelessWidget {
   final Widget child;
   final String title;
 
-  static const _outerBackground = Color(0xFF000000);
+  static const _outerBackground = AuthColors.background;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -28,7 +28,9 @@ class LoginPageShell extends StatelessWidget {
           }
           return Center(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXXL, vertical: AppSpacing.paddingXXXL),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.paddingXXL,
+                  vertical: AppSpacing.paddingXXXL),
               child: RepaintBoundary(
                 child: Row(
                   children: [
@@ -112,9 +114,9 @@ class _HeroPanelState extends State<_HeroPanel> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF080816),
-              Color(0xFF0C0C1F),
-              Color(0xFF120F25),
+              AuthColors.background,
+              AuthColors.backgroundAlt,
+              AuthColors.surface,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -133,16 +135,17 @@ class _HeroPanelState extends State<_HeroPanel> {
                       width: 220,
                       height: 220,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(AppSpacing.avatarSM * 1.5),
-                        gradient: const LinearGradient(
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.avatarSM * 1.5),
+                        gradient: LinearGradient(
                           colors: [
-                            Color(0x332E1BFF),
-                            Color(0x003C1DA6),
+                            AuthColors.secondary.withOpacity(0.2),
+                            AuthColors.transparent,
                           ],
                         ),
-                        boxShadow: const [
+                        boxShadow: [
                           BoxShadow(
-                            color: Color(0x40836DFF),
+                            color: AuthColors.secondary.withOpacity(0.25),
                             blurRadius: 100,
                             spreadRadius: 40,
                           ),
@@ -167,7 +170,6 @@ class _LoginFormCard extends StatelessWidget {
 
   final String title;
   final Widget child;
-
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +211,8 @@ class _MobileLoginShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingXXL),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingXL, vertical: AppSpacing.paddingXXL),
         child: RepaintBoundary(
           child: _LoginFormCard(
             title: title,
@@ -220,4 +223,3 @@ class _MobileLoginShell extends StatelessWidget {
     );
   }
 }
-

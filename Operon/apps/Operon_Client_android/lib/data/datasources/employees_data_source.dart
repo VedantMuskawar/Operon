@@ -10,11 +10,57 @@ class EmployeesDataSource {
   CollectionReference<Map<String, dynamic>> get _employeesRef =>
       _firestore.collection('EMPLOYEES');
 
-  Future<List<OrganizationEmployee>> fetchEmployees(String organizationId) async {
+  Future<List<OrganizationEmployee>> fetchEmployees(
+      String organizationId) async {
     final snapshot = await _employeesRef
         .where('organizationId', isEqualTo: organizationId)
         .orderBy('employeeName')
         .limit(500)
+        .get();
+    return snapshot.docs
+        .map((doc) => OrganizationEmployee.fromJson(doc.data(), doc.id))
+        .toList();
+  }
+
+  Future<
+      ({
+        List<OrganizationEmployee> employees,
+        DocumentSnapshot<Map<String, dynamic>>? lastDoc,
+      })> fetchEmployeesPage({
+    required String organizationId,
+    int limit = 30,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+  }) async {
+    Query<Map<String, dynamic>> query = _employeesRef
+        .where('organizationId', isEqualTo: organizationId)
+        .orderBy('employeeName')
+        .limit(limit);
+
+    if (startAfterDocument != null) {
+      query = query.startAfterDocument(startAfterDocument);
+    }
+
+    final snapshot = await query.get();
+    final employees = snapshot.docs
+        .map((doc) => OrganizationEmployee.fromJson(doc.data(), doc.id))
+        .toList();
+    final lastDoc = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
+    return (employees: employees, lastDoc: lastDoc);
+  }
+
+  Future<List<OrganizationEmployee>> searchEmployeesByName(
+    String organizationId,
+    String query, {
+    int limit = 30,
+  }) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return [];
+    final snapshot = await _employeesRef
+        .where('organizationId', isEqualTo: organizationId)
+        .orderBy('employeeName')
+        .startAt([trimmed])
+        .endAt(['$trimmed\uf8ff'])
+        .limit(limit)
         .get();
     return snapshot.docs
         .map((doc) => OrganizationEmployee.fromJson(doc.data(), doc.id))
@@ -47,4 +93,3 @@ class EmployeesDataSource {
     return _employeesRef.doc(employeeId).delete();
   }
 }
-

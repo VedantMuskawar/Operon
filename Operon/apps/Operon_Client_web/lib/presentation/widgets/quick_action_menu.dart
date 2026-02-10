@@ -231,7 +231,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                                   ]
                                 : [
                                     AuthColors.primary,
-                                    AuthColors.accentPurple,
+                                    AuthColors.secondary,
                                   ],
                           ),
                           borderRadius: BorderRadius.circular(16),
@@ -313,7 +313,7 @@ class _ActionButton extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [
                       AuthColors.primary,
-                      AuthColors.accentPurple,
+                      AuthColors.secondary,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(10),

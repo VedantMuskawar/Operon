@@ -137,12 +137,12 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AuthColors.accentPurple.withValues(alpha: 0.2),
+                    color: AuthColors.secondary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.history,
-                    color: AuthColors.accentPurple,
+                    color: AuthColors.secondary,
                     size: 20,
                   ),
                 ),

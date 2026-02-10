@@ -11,7 +11,6 @@ import 'package:dash_web/presentation/views/home_sections/attendance_view.dart';
 import 'package:dash_web/presentation/views/analytics_dashboard_view.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -93,27 +92,29 @@ class _HomePageState extends State<HomePage> {
     // Use HomeCubit for state management
     // Get organization ID for key to prevent recreation when org doesn't change
     final orgId = orgState.organization?.id ?? 'no-org';
-    
+
     return BlocProvider(
-      key: ValueKey('home_cubit_$orgId'), // Prevent recreation when org doesn't change
+      key: ValueKey(
+          'home_cubit_$orgId'), // Prevent recreation when org doesn't change
       create: (context) {
         final cubit = HomeCubit(
           profileStatsRepository: profileStatsRepository,
         );
-        
+
         // Initialize with current role
         cubit.updateAppAccessRole(orgState.appAccessRole);
-        
+
         // Defer loadProfileStats until after first frame to prevent blocking initial render
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) {
-            final currentOrgState = context.read<OrganizationContextCubit>().state;
+            final currentOrgState =
+                context.read<OrganizationContextCubit>().state;
             if (currentOrgState.organization != null) {
               cubit.loadProfileStats(currentOrgState.organization!.id);
             }
           }
         });
-        
+
         return cubit;
       },
       child: BlocListener<OrganizationContextCubit, OrganizationContextState>(
@@ -127,25 +128,25 @@ class _HomePageState extends State<HomePage> {
           }
         },
         child: BlocBuilder<HomeCubit, HomeState>(
-          buildWhen: (previous, current) => 
+          buildWhen: (previous, current) =>
               previous.currentIndex != current.currentIndex ||
               previous.allowedSections != current.allowedSections,
           builder: (context, homeState) {
-          return SectionWorkspaceLayout(
-            panelTitle: _sectionTitles[homeState.currentIndex],
-            currentIndex: homeState.currentIndex,
-            onNavTap: (index) {
-              // Cash Ledger is the 6th nav item (index 5) and opens its own page
-              if (index == 5) {
-                context.go('/cash-ledger');
-                return;
-              }
-              context.read<HomeCubit>().switchToSection(index);
-            },
-            allowedSections: homeState.allowedSections,
-            child: _sections[homeState.currentIndex],
-          );
-        },
+            return SectionWorkspaceLayout(
+              panelTitle: _sectionTitles[homeState.currentIndex],
+              currentIndex: homeState.currentIndex,
+              onNavTap: (index) {
+                // Cash Ledger is the 6th nav item (index 5) and opens its own page
+                if (index == 5) {
+                  context.go('/cash-ledger');
+                  return;
+                }
+                context.read<HomeCubit>().switchToSection(index);
+              },
+              allowedSections: homeState.allowedSections,
+              child: _sections[homeState.currentIndex],
+            );
+          },
         ),
       ),
     );
@@ -197,14 +198,15 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
 
   @override
   Widget build(BuildContext context) {
-    final appAccessRole = context.watch<OrganizationContextCubit>().state.appAccessRole;
+    final appAccessRole =
+        context.watch<OrganizationContextCubit>().state.appAccessRole;
     final isAdmin = appAccessRole?.isAdmin ?? false;
-    
+
     // Organize tiles by categories
     final peopleTiles = <_TileData>[];
     final financialTiles = <_TileData>[];
     final operationsTiles = <_TileData>[];
-    
+
     // People & Contacts
     if (isAdmin || appAccessRole?.canCreate('employees') == true) {
       peopleTiles.add(_TileData(
@@ -233,7 +235,9 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         onTap: () => context.go('/clients'),
       ));
     }
-    if (isAdmin || appAccessRole?.canCreate('vendors') == true || appAccessRole?.canAccessPage('vendors') == true) {
+    if (isAdmin ||
+        appAccessRole?.canCreate('vendors') == true ||
+        appAccessRole?.canAccessPage('vendors') == true) {
       peopleTiles.add(_TileData(
         icon: Icons.store_outlined,
         label: 'Vendors',
@@ -242,7 +246,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         onTap: () => context.go('/vendors'),
       ));
     }
-    
+
     // Financial
     financialTiles.add(_TileData(
       icon: Icons.receipt_long_outlined,
@@ -251,6 +255,15 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
       color: AuthColors.success, // Green
       onTap: () => context.go('/financial-transactions'),
     ));
+    if (isAdmin || appAccessRole?.canAccessPage('accountsLedger') == true) {
+      financialTiles.add(_TileData(
+        icon: Icons.account_balance_outlined,
+        label: 'Accounts',
+        description: 'Combined ledgers',
+        color: AuthColors.success, // Green
+        onTap: () => context.go('/accounts'),
+      ));
+    }
     if (isAdmin || appAccessRole?.canAccessPage('employees') == true) {
       financialTiles.add(_TileData(
         icon: Icons.payments_outlined,
@@ -290,7 +303,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
       color: AuthColors.success, // Green
       onTap: () => context.go('/trip-wages'),
     ));
-    
+
     // Operations
     if (isAdmin ||
         appAccessRole?.canAccessSection('pendingOrders') == true ||
@@ -371,7 +384,8 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
                   itemBuilder: (context, index) {
                     final tileData = allTiles[index];
                     final tileDelay = 0.1 + (index * 0.05);
-                    final tileAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+                    final tileAnimation =
+                        Tween<double>(begin: 0.0, end: 1.0).animate(
                       CurvedAnimation(
                         parent: _entranceController,
                         curve: Interval(
@@ -384,7 +398,8 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
                     return AnimatedBuilder(
                       animation: tileAnimation,
                       builder: (context, child) {
-                        final clampedOpacity = tileAnimation.value.clamp(0.0, 1.0);
+                        final clampedOpacity =
+                            tileAnimation.value.clamp(0.0, 1.0);
                         return Opacity(
                           opacity: clampedOpacity,
                           child: Transform.translate(
@@ -521,8 +536,6 @@ class _NotificationSection extends StatelessWidget {
   }
 }
 
-
-
 /// Widget showing delivery progress for today's scheduled trips
 class _DeliveryProgressWidget extends StatelessWidget {
   const _DeliveryProgressWidget();
@@ -530,7 +543,7 @@ class _DeliveryProgressWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final orgState = context.watch<OrganizationContextCubit>().state;
-    
+
     // Return empty if no organization selected
     if (!orgState.hasSelection || orgState.organization == null) {
       return const SizedBox.shrink();
@@ -538,9 +551,9 @@ class _DeliveryProgressWidget extends StatelessWidget {
 
     final organizationId = orgState.organization!.id;
     final currentDate = DateTime.now();
-    
+
     final repository = context.read<ScheduledTripsRepository>();
-    
+
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: repository.watchScheduledTripsForDate(
         organizationId: organizationId,
@@ -569,7 +582,7 @@ class _DeliveryProgressWidget extends StatelessWidget {
 
         final trips = snapshot.data ?? [];
         final totalTrips = trips.length;
-        
+
         // Handle empty state - no scheduled trips
         if (totalTrips == 0) {
           return Center(
@@ -583,7 +596,8 @@ class _DeliveryProgressWidget extends StatelessWidget {
                     value: 0.0,
                     strokeWidth: 14,
                     backgroundColor: AuthColors.textMainWithOpacity(0.1),
-                    valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.successVariant),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                        AuthColors.successVariant),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -633,7 +647,8 @@ class _DeliveryProgressWidget extends StatelessWidget {
                   value: progress,
                   strokeWidth: 14,
                   backgroundColor: Colors.white.withOpacity(0.1),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF5AD8A4)),
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(Color(0xFF5AD8A4)),
                 ),
                 Text(
                   '$percentage%',

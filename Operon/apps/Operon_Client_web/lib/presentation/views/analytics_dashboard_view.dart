@@ -294,24 +294,16 @@ class _AnalyticsTabContent extends StatelessWidget {
     (icon: Icons.paid_outlined, label: 'Trip Wages'),
   ];
 
-  bool _shouldShowDailyView() {
-    if (startDate == null || endDate == null) return false;
-    final daysDifference = endDate!.difference(startDate!).inDays;
-    return daysDifference <= 30;
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AnalyticsDashboardCubit>().state;
-    final isDaily = _shouldShowDailyView();
-    final showDailyEmptyState = isDaily && selectedTabIndex != 0;
 
     if (kDebugMode) {
-      debugPrint('[AnalyticsDashboard UI] startDate=$startDate endDate=$endDate isDaily=$isDaily selectedTabIndex=$selectedTabIndex '
+      debugPrint('[AnalyticsDashboard UI] startDate=$startDate endDate=$endDate selectedTabIndex=$selectedTabIndex '
           'hasTransactions=${state.transactions != null} hasClients=${state.clients != null} '
           'hasEmployees=${state.employees != null} hasVendors=${state.vendors != null} '
           'hasDeliveries=${state.deliveries != null} hasProductions=${state.productions != null} '
-          'hasTripWages=${state.tripWages != null} showDailyEmptyState=$showDailyEmptyState');
+          'hasTripWages=${state.tripWages != null}');
     }
 
     return Column(
@@ -330,15 +322,7 @@ class _AnalyticsTabContent extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: showDailyEmptyState
-              ? SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: _EmptySection(
-                    message: 'Daily breakdown is available for Transactions only. Select a date range of 30 days or less to see this category.',
-                    icon: Icons.today,
-                  ),
-                )
-              : IndexedStack(
+          child: IndexedStack(
                   index: selectedTabIndex,
                   children: [
                     _TabContent(
@@ -350,7 +334,6 @@ class _AnalyticsTabContent extends StatelessWidget {
                           ? TransactionAnalyticsContent(
                               key: ValueKey('transactions_${startDate?.millisecondsSinceEpoch}_${endDate?.millisecondsSinceEpoch}_${selectedTabIndex}'),
                               analytics: state.transactions!,
-                              isDailyView: isDaily,
                               startDate: startDate,
                               endDate: endDate,
                             )

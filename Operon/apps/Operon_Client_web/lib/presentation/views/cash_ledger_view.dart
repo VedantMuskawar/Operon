@@ -493,7 +493,9 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                 custom_table.DataTableColumn<PaymentAccountSummary>(
                   label: 'Account',
                   flex: 2,
+                  alignment: Alignment.center,
                   cellBuilder: (context, s, _) => Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.account_balance_wallet,
@@ -501,9 +503,9 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                         color: AuthColors.primary,
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
+                      Flexible(
                         child: Text(
-                          s.displayName,
+                          _getPaymentAccountDisplayName(s.displayName),
                           style: const TextStyle(
                             color: AuthColors.textMain,
                             fontWeight: FontWeight.w500,
@@ -512,6 +514,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ],
@@ -521,7 +524,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                   label: 'Income',
                   flex: 2,
                   numeric: true,
-                  alignment: Alignment.centerRight,
+                  alignment: Alignment.center,
                   cellBuilder: (context, s, _) => Text(
                     _formatCurrency(s.income),
                     style: const TextStyle(
@@ -530,14 +533,14 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                       fontSize: 13,
                       fontFamily: 'SF Pro Display',
                     ),
-                    textAlign: TextAlign.end,
+                    textAlign: TextAlign.center,
                   ),
                 ),
                 custom_table.DataTableColumn<PaymentAccountSummary>(
                   label: 'Expenses',
                   flex: 2,
                   numeric: true,
-                  alignment: Alignment.centerRight,
+                  alignment: Alignment.center,
                   cellBuilder: (context, s, _) => Text(
                     _formatCurrency(s.expense),
                     style: const TextStyle(
@@ -546,14 +549,14 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                       fontSize: 13,
                       fontFamily: 'SF Pro Display',
                     ),
-                    textAlign: TextAlign.end,
+                    textAlign: TextAlign.center,
                   ),
                 ),
                 custom_table.DataTableColumn<PaymentAccountSummary>(
                   label: 'Net',
                   flex: 2,
                   numeric: true,
-                  alignment: Alignment.centerRight,
+                  alignment: Alignment.center,
                   cellBuilder: (context, s, _) => Text(
                     _formatCurrency(s.net),
                     style: TextStyle(
@@ -564,7 +567,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                       fontSize: 13,
                       fontFamily: 'SF Pro Display',
                     ),
-                    textAlign: TextAlign.end,
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
@@ -1057,24 +1060,27 @@ class _CashLedgerViewState extends State<CashLedgerView> {
             // Date column
             Expanded(
               flex: 2,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.calculate,
-                    size: 18,
-                    color: AuthColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Total',
-                    style: TextStyle(
-                      color: AuthColors.textMain,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'SF Pro Display',
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.calculate,
+                      size: 18,
+                      color: AuthColors.primary,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Text(
+                      'Total',
+                      style: TextStyle(
+                        color: AuthColors.textMain,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'SF Pro Display',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // Type column (empty)

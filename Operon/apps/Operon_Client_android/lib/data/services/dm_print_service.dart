@@ -9,7 +9,12 @@ import 'package:dash_mobile/data/services/qr_code_service.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_html_to_pdf_plus/flutter_html_to_pdf_plus.dart'
-    show FlutterHtmlToPdf, PrintPdfConfiguration, PrintOrientation, PrintSize, PdfPageMargin;
+    show
+        FlutterHtmlToPdf,
+        PrintPdfConfiguration,
+        PrintOrientation,
+        PrintSize,
+        PdfPageMargin;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
@@ -50,23 +55,25 @@ class DmPrintService {
   /// Convert schedule trip data to DM data format
   Map<String, dynamic> convertTripToDmData(Map<String, dynamic> tripData) {
     final itemsData = tripData['items'];
-    final items = itemsData is List
-        ? itemsData
-        : (itemsData != null ? [itemsData] : []);
+    final items =
+        itemsData is List ? itemsData : (itemsData != null ? [itemsData] : []);
 
     var tripPricingData = tripData['tripPricing'] as Map<String, dynamic>?;
     if (tripPricingData == null) {
       tripPricingData = <String, dynamic>{};
-      if (tripData['total'] != null) tripPricingData['total'] = tripData['total'];
-      if (tripData['subtotal'] != null) tripPricingData['subtotal'] = tripData['subtotal'];
+      if (tripData['total'] != null)
+        tripPricingData['total'] = tripData['total'];
+      if (tripData['subtotal'] != null)
+        tripPricingData['subtotal'] = tripData['subtotal'];
       if (tripPricingData['total'] == null && items.isNotEmpty) {
         double calculatedTotal = 0.0;
         for (final item in items) {
           if (item is Map<String, dynamic>) {
-            final quantity = (item['fixedQuantityPerTrip'] as num?)?.toDouble() ??
-                (item['totalQuantity'] as num?)?.toDouble() ??
-                (item['quantity'] as num?)?.toDouble() ??
-                0.0;
+            final quantity =
+                (item['fixedQuantityPerTrip'] as num?)?.toDouble() ??
+                    (item['totalQuantity'] as num?)?.toDouble() ??
+                    (item['quantity'] as num?)?.toDouble() ??
+                    0.0;
             final unitPrice = (item['unitPrice'] as num?)?.toDouble() ??
                 (item['price'] as num?)?.toDouble() ??
                 0.0;
@@ -80,7 +87,8 @@ class DmPrintService {
     var deliveryZone = tripData['deliveryZone'] as Map<String, dynamic>?;
     if (deliveryZone == null) {
       deliveryZone = <String, dynamic>{};
-      if (tripData['region'] != null) deliveryZone['region'] = tripData['region'];
+      if (tripData['region'] != null)
+        deliveryZone['region'] = tripData['region'];
       if (tripData['city'] != null || tripData['cityName'] != null) {
         deliveryZone['city_name'] = tripData['cityName'] ?? tripData['city'];
       }
@@ -101,17 +109,16 @@ class DmPrintService {
       'scheduledDate': scheduledDate,
       'vehicleNumber': tripData['vehicleNumber'] ?? 'N/A',
       'driverName': tripData['driverName'] ?? 'N/A',
-      'driverPhone': tripData['driverPhone'] ??
-          tripData['driverPhoneNumber'] ??
-          'N/A',
+      'driverPhone':
+          tripData['driverPhone'] ?? tripData['driverPhoneNumber'] ?? 'N/A',
       'items': items,
       'tripPricing': tripPricingData,
       'paymentStatus': tripData['paymentStatus'] ?? false,
       'toAccount': tripData['toAccount'],
       'paySchedule': tripData['paySchedule'],
       'address': tripData['address'],
-      'regionName': tripData['regionName'] ??
-          ((deliveryZone['region'] as String?) ?? ''),
+      'regionName':
+          tripData['regionName'] ?? ((deliveryZone['region'] as String?) ?? ''),
     };
 
     if (dmData['scheduledDate'] is Timestamp) {
@@ -232,23 +239,27 @@ class DmPrintService {
     required String organizationId,
     required Map<String, dynamic> dmData,
   }) async {
-    final dmSettings = await _dmSettingsRepository.fetchDmSettings(organizationId);
+    final dmSettings =
+        await _dmSettingsRepository.fetchDmSettings(organizationId);
     if (dmSettings == null) {
-      throw Exception('DM Settings not found. Please configure DM Settings first.');
+      throw Exception(
+          'DM Settings not found. Please configure DM Settings first.');
     }
 
     Map<String, dynamic>? paymentAccount;
     Uint8List? qrCodeBytes;
     final showQrCode = dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
 
-    final accounts = await _paymentAccountsRepository.fetchAccounts(organizationId);
+    final accounts =
+        await _paymentAccountsRepository.fetchAccounts(organizationId);
 
     if (accounts.isNotEmpty) {
       PaymentAccount? selectedAccount;
       if (showQrCode) {
         try {
           selectedAccount = accounts.firstWhere(
-            (acc) => acc.qrCodeImageUrl != null && acc.qrCodeImageUrl!.isNotEmpty,
+            (acc) =>
+                acc.qrCodeImageUrl != null && acc.qrCodeImageUrl!.isNotEmpty,
           );
         } catch (e) {
           try {
@@ -266,8 +277,8 @@ class DmPrintService {
             selectedAccount.upiQrData != null &&
             selectedAccount.upiQrData!.isNotEmpty) {
           try {
-            qrCodeBytes =
-                await _qrCodeService.generateQrCodeImage(selectedAccount.upiQrData!);
+            qrCodeBytes = await _qrCodeService
+                .generateQrCodeImage(selectedAccount.upiQrData!);
           } catch (e) {}
         } else if ((qrCodeBytes == null || qrCodeBytes.isEmpty) &&
             selectedAccount.upiId != null &&
@@ -366,18 +377,18 @@ class DmPrintService {
   /// Format currency (INR format with commas)
   String _formatCurrency(double amount) {
     final formatted = amount.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        );
     return '₹$formatted';
   }
 
   /// Format number (with commas)
   String _formatNumber(double number) {
     return number.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        );
   }
 
   /// Convert number to words (for amount in words)
@@ -385,13 +396,13 @@ class DmPrintService {
     if (amount < 1) {
       return 'Zero Rupees';
     }
-    
+
     final rupees = amount.floor();
     final paise = ((amount - rupees) * 100).round();
-    
+
     final rupeesText = _convertNumberToWords(rupees.toInt());
     final paiseText = paise > 0 ? _convertNumberToWords(paise) : '';
-    
+
     if (paise > 0) {
       return '$rupeesText Rupees and $paiseText Paise Only';
     } else {
@@ -403,26 +414,60 @@ class DmPrintService {
   String _convertNumberToWords(int number) {
     if (number == 0) return 'Zero';
     if (number < 0) return 'Negative ${_convertNumberToWords(-number)}';
-    
-    final ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
-    final teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-    final tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-    
+
+    final ones = [
+      '',
+      'One',
+      'Two',
+      'Three',
+      'Four',
+      'Five',
+      'Six',
+      'Seven',
+      'Eight',
+      'Nine'
+    ];
+    final teens = [
+      'Ten',
+      'Eleven',
+      'Twelve',
+      'Thirteen',
+      'Fourteen',
+      'Fifteen',
+      'Sixteen',
+      'Seventeen',
+      'Eighteen',
+      'Nineteen'
+    ];
+    final tens = [
+      '',
+      '',
+      'Twenty',
+      'Thirty',
+      'Forty',
+      'Fifty',
+      'Sixty',
+      'Seventy',
+      'Eighty',
+      'Ninety'
+    ];
+
     if (number < 10) return ones[number];
     if (number < 20) return teens[number - 10];
     if (number < 100) {
-      return tens[number ~/ 10] + (number % 10 != 0 ? ' ${ones[number % 10]}' : '');
+      return tens[number ~/ 10] +
+          (number % 10 != 0 ? ' ${ones[number % 10]}' : '');
     }
     if (number < 1000) {
-      return ones[number ~/ 100] + ' Hundred' + (number % 100 != 0 ? ' ${_convertNumberToWords(number % 100)}' : '');
+      return '${ones[number ~/ 100]} Hundred${number % 100 != 0 ? ' ${_convertNumberToWords(number % 100)}' : ''}';
     }
     if (number < 100000) {
-      return _convertNumberToWords(number ~/ 1000) + ' Thousand' + (number % 1000 != 0 ? ' ${_convertNumberToWords(number % 1000)}' : '');
+      return '${_convertNumberToWords(number ~/ 1000)} Thousand${number % 1000 != 0 ? ' ${_convertNumberToWords(number % 1000)}' : ''}';
     }
     if (number < 10000000) {
-      return _convertNumberToWords(number ~/ 100000) + ' Lakh' + (number % 100000 != 0 ? ' ${_convertNumberToWords(number % 100000)}' : '');
+      return '${_convertNumberToWords(number ~/ 100000)} Lakh${number % 100000 != 0 ? ' ${_convertNumberToWords(number % 100000)}' : ''}';
     }
-    
+
     final crore = number ~/ 10000000;
     final remainder = number % 10000000;
     return remainder > 0
@@ -434,19 +479,20 @@ class DmPrintService {
   String _buildTableRows(List<dynamic> items) {
     final buffer = StringBuffer();
     double totalAmount = 0.0;
-    
+
     for (int i = 0; i < items.length; i++) {
       final item = items[i] as Map<String, dynamic>;
       final productName = item['productName'] as String? ?? 'N/A';
       final quantity = (item['fixedQuantityPerTrip'] as num?)?.toDouble() ??
-          (item['quantity'] as num?)?.toDouble() ?? 0.0;
+          (item['quantity'] as num?)?.toDouble() ??
+          0.0;
       final unitPrice = (item['unitPrice'] as num?)?.toDouble() ?? 0.0;
       final amount = (item['subtotal'] as num?)?.toDouble() ??
           (item['amount'] as num?)?.toDouble() ??
           (quantity * unitPrice);
-      
+
       totalAmount += amount;
-      
+
       buffer.writeln('      <tr>');
       buffer.writeln('        <td>${i + 1}</td>');
       buffer.writeln('        <td>${_escapeHtml(productName)}</td>');
@@ -455,16 +501,18 @@ class DmPrintService {
       buffer.writeln('        <td>${_formatCurrency(amount)}</td>');
       buffer.writeln('      </tr>');
     }
-    
+
     // Total row
     buffer.writeln('      <tr>');
     buffer.writeln('        <td></td>');
     buffer.writeln('        <td></td>');
     buffer.writeln('        <td></td>');
-    buffer.writeln('        <td style="text-align: right; font-weight: bold;">Total</td>');
-    buffer.writeln('        <td style="text-align: right; font-weight: bold;">${_formatCurrency(totalAmount)}</td>');
+    buffer.writeln(
+        '        <td style="text-align: right; font-weight: bold;">Total</td>');
+    buffer.writeln(
+        '        <td style="text-align: right; font-weight: bold;">${_formatCurrency(totalAmount)}</td>');
     buffer.writeln('      </tr>');
-    
+
     return buffer.toString();
   }
 
@@ -474,29 +522,40 @@ class DmPrintService {
     Map<String, dynamic>? paymentAccount,
     String? qrDataUri,
   ) {
-    if (dmSettings.paymentDisplay == DmPaymentDisplay.qrCode && qrDataUri != null) {
+    if (dmSettings.paymentDisplay == DmPaymentDisplay.qrCode &&
+        qrDataUri != null) {
       return '''
   <div class="payment-section">
     <img src="$qrDataUri" alt="QR Code" class="qr-code">
     <div>Scan QR Code to Pay</div>
   </div>
 ''';
-    } else if (dmSettings.paymentDisplay == DmPaymentDisplay.bankDetails && paymentAccount != null) {
+    } else if (dmSettings.paymentDisplay == DmPaymentDisplay.bankDetails &&
+        paymentAccount != null) {
       final buffer = StringBuffer();
       buffer.writeln('  <div class="payment-section">');
       buffer.writeln('    <div style="text-align: left;">');
-      buffer.writeln('      <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">Bank Details:</div>');
-      if (paymentAccount['name'] != null && paymentAccount['name'].toString().isNotEmpty) {
-        buffer.writeln('      <div>Bank Name: ${_escapeHtml(paymentAccount['name'].toString())}</div>');
+      buffer.writeln(
+          '      <div style="font-weight: bold; font-size: 14px; margin-bottom: 5px;">Bank Details:</div>');
+      if (paymentAccount['name'] != null &&
+          paymentAccount['name'].toString().isNotEmpty) {
+        buffer.writeln(
+            '      <div>Bank Name: ${_escapeHtml(paymentAccount['name'].toString())}</div>');
       }
-      if (paymentAccount['accountNumber'] != null && paymentAccount['accountNumber'].toString().isNotEmpty) {
-        buffer.writeln('      <div>Account Number: ${_escapeHtml(paymentAccount['accountNumber'].toString())}</div>');
+      if (paymentAccount['accountNumber'] != null &&
+          paymentAccount['accountNumber'].toString().isNotEmpty) {
+        buffer.writeln(
+            '      <div>Account Number: ${_escapeHtml(paymentAccount['accountNumber'].toString())}</div>');
       }
-      if (paymentAccount['ifscCode'] != null && paymentAccount['ifscCode'].toString().isNotEmpty) {
-        buffer.writeln('      <div>IFSC Code: ${_escapeHtml(paymentAccount['ifscCode'].toString())}</div>');
+      if (paymentAccount['ifscCode'] != null &&
+          paymentAccount['ifscCode'].toString().isNotEmpty) {
+        buffer.writeln(
+            '      <div>IFSC Code: ${_escapeHtml(paymentAccount['ifscCode'].toString())}</div>');
       }
-      if (paymentAccount['upiId'] != null && paymentAccount['upiId'].toString().isNotEmpty) {
-        buffer.writeln('      <div>UPI ID: ${_escapeHtml(paymentAccount['upiId'].toString())}</div>');
+      if (paymentAccount['upiId'] != null &&
+          paymentAccount['upiId'].toString().isNotEmpty) {
+        buffer.writeln(
+            '      <div>UPI ID: ${_escapeHtml(paymentAccount['upiId'].toString())}</div>');
       }
       buffer.writeln('    </div>');
       buffer.writeln('  </div>');
@@ -525,7 +584,7 @@ class DmPrintService {
         qrCodeBytes: qrCodeBytes,
       );
     }
-    
+
     // Use universal template for all other cases
     return _generateDmHtml(
       dmData: dmData,
@@ -548,26 +607,27 @@ class DmPrintService {
     final dmNumber = dmData['dmNumber'] as int? ?? 0;
     final clientName = dmData['clientName'] as String? ?? 'N/A';
     final clientPhoneRaw = dmData['clientPhone'] as String?;
-    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty) 
-        ? clientPhoneRaw.trim() 
-        : 'N/A';
+    final clientPhone =
+        (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty)
+            ? clientPhoneRaw.trim()
+            : 'N/A';
     final deliveryZone = dmData['deliveryZone'] as Map<String, dynamic>?;
     String clientAddress = 'N/A';
     if (deliveryZone != null) {
       final city = deliveryZone['city_name'] ?? deliveryZone['city'] ?? '';
       final region = deliveryZone['region'] ?? '';
       final area = deliveryZone['area'] ?? '';
-      
+
       final addressParts = <String>[];
       if (area.isNotEmpty) addressParts.add(area);
       if (city.isNotEmpty) addressParts.add(city);
       if (region.isNotEmpty) addressParts.add(region);
-      
+
       clientAddress = addressParts.isNotEmpty ? addressParts.join(', ') : 'N/A';
     } else {
       clientAddress = dmData['clientAddress'] as String? ?? 'N/A';
     }
-    
+
     // Extract date
     final scheduledDate = dmData['scheduledDate'];
     DateTime? date;
@@ -580,33 +640,33 @@ class DmPrintService {
         date = scheduledDate;
       }
     }
-    final dateText = date != null
-        ? '${date.day}/${date.month}/${date.year}'
-        : 'N/A';
-    
+    final dateText =
+        date != null ? '${date.day}/${date.month}/${date.year}' : 'N/A';
+
     // Extract driver info
     final driverName = dmData['driverName'] as String? ?? 'N/A';
     final driverPhone = dmData['driverPhone'] as String? ?? 'N/A';
-    
+
     // Extract items
     final items = (dmData['items'] as List<dynamic>?) ?? [];
-    
+
     // Extract pricing
     final tripPricing = dmData['tripPricing'] as Map<String, dynamic>? ?? {};
     final total = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    
+
     // Convert images to base64
     String? logoDataUri;
     if (logoBytes != null && logoBytes.isNotEmpty) {
       logoDataUri = 'data:image/png;base64,${base64Encode(logoBytes)}';
     }
-    
+
     String? qrDataUri;
-    if (qrCodeBytes != null && qrCodeBytes.isNotEmpty &&
+    if (qrCodeBytes != null &&
+        qrCodeBytes.isNotEmpty &&
         dmSettings.paymentDisplay == DmPaymentDisplay.qrCode) {
       qrDataUri = 'data:image/png;base64,${base64Encode(qrCodeBytes)}';
     }
-    
+
     // Build HTML (simplified version without print header for Android PDF)
     final html = '''
 <!DOCTYPE html>
@@ -878,7 +938,7 @@ class DmPrintService {
 </body>
 </html>
 ''';
-    
+
     return html;
   }
 
@@ -893,11 +953,14 @@ class DmPrintService {
     // Extract data from dmData
     final dmNumber = dmData['dmNumber'] as int? ?? 0;
     final clientName = dmData['clientName'] as String? ?? 'N/A';
-    final clientPhoneRaw = dmData['clientPhone'] as String?;
-    final clientPhone = (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty) 
-        ? clientPhoneRaw.trim() 
-        : 'N/A';
-    
+    final clientPhoneRaw = dmData['clientPhone'] as String? ??
+        dmData['clientPhoneNumber'] as String? ??
+        dmData['customerNumber'] as String?;
+    final clientPhone =
+        (clientPhoneRaw != null && clientPhoneRaw.trim().isNotEmpty)
+            ? clientPhoneRaw.trim()
+            : 'N/A';
+
     // Extract address
     final deliveryZone = dmData['deliveryZone'] as Map<String, dynamic>?;
     String address = 'N/A';
@@ -906,7 +969,7 @@ class DmPrintService {
       final city = deliveryZone['city_name'] ?? deliveryZone['city'] ?? '';
       final region = deliveryZone['region'] ?? '';
       final area = deliveryZone['area'] ?? '';
-      
+
       final addressParts = <String>[];
       if (area.isNotEmpty) addressParts.add(area);
       if (city.isNotEmpty) addressParts.add(city);
@@ -914,13 +977,13 @@ class DmPrintService {
         addressParts.add(region);
         regionName = region;
       }
-      
+
       address = addressParts.isNotEmpty ? addressParts.join(', ') : 'N/A';
     } else {
       address = dmData['clientAddress'] as String? ?? 'N/A';
       regionName = dmData['regionName'] as String? ?? 'N/A';
     }
-    
+
     // Extract date
     final scheduledDate = dmData['scheduledDate'];
     DateTime? date;
@@ -936,24 +999,46 @@ class DmPrintService {
     final dateText = date != null
         ? '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'
         : 'N/A';
-    
+
     // Extract driver and vehicle info
     final driverName = dmData['driverName'] as String? ?? 'N/A';
     final vehicleNumber = dmData['vehicleNumber'] as String? ?? 'N/A';
-    
-    // Extract product info (for single product DMs)
-    final productName = dmData['productName'] as String? ?? 'N/A';
-    final productQuant = (dmData['productQuant'] as num?)?.toDouble() ?? 0.0;
-    final productUnitPrice = (dmData['productUnitPrice'] as num?)?.toDouble() ?? 0.0;
-    final total = productQuant * productUnitPrice;
-    
+
+    // Extract product info: use top-level fields if present, else derive from items + tripPricing
+    final items = (dmData['items'] as List<dynamic>?) ?? [];
+    final tripPricing = dmData['tripPricing'] as Map<String, dynamic>? ?? {};
+    String productName = dmData['productName'] as String? ?? 'N/A';
+    double productQuant = (dmData['productQuant'] as num?)?.toDouble() ?? 0.0;
+    double productUnitPrice =
+        (dmData['productUnitPrice'] as num?)?.toDouble() ?? 0.0;
+    double total;
+    if (productName != 'N/A' && productQuant > 0) {
+      total = productQuant * productUnitPrice;
+    } else if (items.isNotEmpty) {
+      final item = items.first as Map<String, dynamic>;
+      productName =
+          item['productName'] as String? ?? item['name'] as String? ?? 'N/A';
+      productQuant = (item['fixedQuantityPerTrip'] as num?)?.toDouble() ??
+          (item['totalQuantity'] as num?)?.toDouble() ??
+          (item['quantity'] as num?)?.toDouble() ??
+          0.0;
+      productUnitPrice = (item['unitPrice'] as num?)?.toDouble() ??
+          (item['price'] as num?)?.toDouble() ??
+          0.0;
+      total = (tripPricing['total'] as num?)?.toDouble() ??
+          (productQuant * productUnitPrice);
+    } else {
+      total = (tripPricing['total'] as num?)?.toDouble() ??
+          (productQuant * productUnitPrice);
+    }
+
     // Extract payment info - handle both bool and string values from Firestore
     final paymentStatusValue = dmData['paymentStatus'];
     final paymentStatus = paymentStatusValue is bool
         ? paymentStatusValue
         : (paymentStatusValue is String
-            ? paymentStatusValue.toLowerCase() == 'true' || 
-              paymentStatusValue.toLowerCase() == 'paid'
+            ? paymentStatusValue.toLowerCase() == 'true' ||
+                paymentStatusValue.toLowerCase() == 'paid'
             : false);
     final toAccount = dmData['toAccount'] as String?;
     final paySchedule = dmData['paySchedule'] as String?;
@@ -966,17 +1051,23 @@ class DmPrintService {
       paymentMode = 'Credit';
     } else if (paySchedule != null) {
       paymentMode = paySchedule;
+    } else {
+      final paymentModeRaw = dmData['paymentMode'] as String?;
+      if (paymentModeRaw != null && paymentModeRaw.trim().isNotEmpty) {
+        paymentMode = paymentModeRaw.trim();
+      }
     }
-    
+
     // Convert images to base64
     String? logoDataUri;
     if (logoBytes != null && logoBytes.isNotEmpty) {
       logoDataUri = 'data:image/png;base64,${base64Encode(logoBytes)}';
     }
-    
+
     String? qrDataUri;
     String? qrLabel;
-    if (qrCodeBytes != null && qrCodeBytes.isNotEmpty &&
+    if (qrCodeBytes != null &&
+        qrCodeBytes.isNotEmpty &&
         dmSettings.paymentDisplay == DmPaymentDisplay.qrCode) {
       qrDataUri = 'data:image/png;base64,${base64Encode(qrCodeBytes)}';
       final paymentLabel = paymentAccount?['label'] as String?;
@@ -988,7 +1079,7 @@ class DmPrintService {
         qrLabel = 'Lakshmee Intelligent Technologies';
       }
     }
-    
+
     // Company info from DM settings
     final companyName = dmSettings.header.name.isNotEmpty
         ? dmSettings.header.name.toUpperCase()
@@ -1002,13 +1093,20 @@ class DmPrintService {
     final jurisdictionNote = dmSettings.footer.customText?.isNotEmpty == true
         ? dmSettings.footer.customText!
         : 'Note: Subject to Chandrapur Jurisdiction';
-    
-    // Build Lakshmee HTML (simplified for Android PDF - no print header)
+
+    // Address display: match PrintDM.jsx (address || "—")
+    final addressDisplay =
+        (address.isEmpty || address == 'N/A') ? '—' : address;
+
+    // Build Lakshmee HTML (matches PaveBoard's PrintDM.jsx)
     final html = '''
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
   <style>
     * {
       -webkit-print-color-adjust: exact;
@@ -1018,8 +1116,183 @@ class DmPrintService {
       font-family: 'Inter', 'Arial', sans-serif;
       margin: 0;
       padding: 0;
-      background: white;
+      background: #f5f5f5;
       color: black;
+    }
+    .no-print {
+      display: none !important;
+    }
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 0;
+        background: white !important;
+        overflow: visible !important;
+      }
+      .print-preview-container {
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        overflow: visible !important;
+      }
+      .page-shadow.page {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        margin: 0 auto !important;
+        padding: 10mm 0 !important;
+        width: 200mm !important;
+        height: auto !important;
+        min-height: 277mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        overflow: visible !important;
+      }
+      .wrapper {
+        width: 190mm !important;
+        height: 277mm !important;
+        margin: 0 auto !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        align-items: center !important;
+        overflow: visible !important;
+      }
+      .print-page {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      .ticket {
+        width: 190mm !important;
+        height: 138mm !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin: 0 auto !important;
+        overflow: visible !important;
+      }
+      img {
+        max-width: 100% !important;
+        height: auto !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+    /* Header styles (no-print) – Operon app UI */
+    .print-header {
+      background: #1E1E1E;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 1rem 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .print-header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .print-header-icon {
+      width: 40px;
+      height: 40px;
+      background: #5D1C19;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: #E0E0E0;
+    }
+    .print-header-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #E0E0E0;
+      letter-spacing: -0.02em;
+    }
+    .print-header-subtitle {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #A1A1A1;
+      font-weight: 400;
+    }
+    .print-header-buttons {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .print-header-btn {
+      border-radius: 10px;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 180ms ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .print-header-btn-share {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #E0E0E0;
+    }
+    .print-header-btn-share:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.35);
+    }
+    .print-header-btn-print {
+      background: #5D1C19;
+      border: 1px solid #871C1C;
+      color: #E0E0E0;
+    }
+    .print-header-btn-print:hover {
+      background: #871C1C;
+      filter: brightness(1.1);
+    }
+    .print-header-btn-cancel {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #A1A1A1;
+    }
+    .print-header-btn-cancel:hover {
+      background: rgba(255,255,255,0.06);
+      color: #E0E0E0;
+    }
+    .print-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1E1E1E;
+      color: #E0E0E0;
+      padding: 0.6rem 1.2rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      z-index: 1000;
+      opacity: 0;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+      pointer-events: none;
+    }
+    .print-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
     }
     .print-preview-container {
       width: 210mm;
@@ -1033,9 +1306,29 @@ class DmPrintService {
       display: flex;
       justify-content: center;
       align-items: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
+      border-radius: 2px;
+      position: relative;
       padding: 5mm;
     }
-    .page-shadow {
+    .page-shadow.page {
+      width: 210mm;
+      height: 297mm;
+      background-color: white;
+      color: black;
+      font-family: 'Inter', sans-serif;
+      print-color-adjust: exact;
+      overflow: hidden;
+      margin: auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
+      border-radius: 2px;
+      position: relative;
+      padding: 5mm;
+    }
+    .wrapper {
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -1044,24 +1337,10 @@ class DmPrintService {
       margin: auto;
       gap: 1mm;
       height: 277mm;
-      padding: 0mm;
+      padding: 0;
     }
-    .page {
-      width: 200mm;
-      max-width: 200mm;
-      height: 138mm;
-      padding: 4mm 5mm;
-      border: 1px solid black;
-      box-sizing: border-box;
-      font-size: 11px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 1px;
-      font-family: 'Inter', sans-serif;
-      position: relative;
-      z-index: 1;
-      background-color: #fff;
+    .print-page {
+      page-break-after: avoid;
     }
     .ticket {
       width: 200mm;
@@ -1211,6 +1490,7 @@ class DmPrintService {
       gap: 1px;
       font-size: 14px;
     }
+    .table,
     .product-table {
       border: 1px solid black;
       padding: 3px 4px;
@@ -1275,13 +1555,47 @@ class DmPrintService {
       color: #888;
     }
   </style>
+  <script>
+    function handleClose() {
+      if (window.opener) window.close();
+      else window.history.back();
+    }
+    function handleShare() {
+      var title = 'Delivery Memo #$dmNumber';
+      var url = location.href;
+      if (navigator.share) {
+        navigator.share({ title: title, url: url }).catch(function() {});
+      } else {
+        navigator.clipboard.writeText(url).then(function() {
+          var t = document.getElementById('share-toast');
+          if (t) { t.classList.add('show'); setTimeout(function() { t.classList.remove('show'); }, 2000); }
+        });
+      }
+    }
+  </script>
 </head>
 <body>
+  <div id="share-toast" class="print-toast">Link copied to clipboard</div>
+  <div class="no-print print-header">
+    <div class="print-header-left">
+      <div class="print-header-icon">🚚</div>
+      <div>
+        <h1 class="print-header-title">Delivery Memo #$dmNumber</h1>
+        <p class="print-header-subtitle">Operon</p>
+      </div>
+    </div>
+    <div class="print-header-buttons">
+      <button type="button" class="print-header-btn print-header-btn-share" onclick="handleShare()">Share</button>
+      <button type="button" class="print-header-btn print-header-btn-print" onclick="window.print()">Print</button>
+      <button type="button" class="print-header-btn print-header-btn-cancel" onclick="handleClose()">Cancel</button>
+    </div>
+  </div>
+  
   <div class="print-preview-container">
-    <div class="page-shadow">
-      <!-- Original Ticket -->
-      <div class="page">
-        <div class="ticket">
+    <div class="page-shadow page">
+      <div class="wrapper">
+        <div class="print-page">
+          <div class="ticket">
           ${logoDataUri != null ? '<img src="$logoDataUri" alt="Watermark" class="watermark" />' : ''}
           <div class="flag-text">🚩 जय श्री राम 🚩</div>
           <div class="branding">
@@ -1301,14 +1615,14 @@ class DmPrintService {
                   ${qrDataUri != null ? '<img src="$qrDataUri" alt="Payment QR Code" class="qr-image-large" />' : '<div style="font-size: 22px; color: #666;">QR Code</div>'}
                 </div>
                 <div class="qr-label-large">${_escapeHtml(qrLabel ?? companyName)}</div>
-                <div class="qr-amount-large">Scan to pay ₹${_formatCurrency(total)}</div>
+                <div class="qr-amount-large">Scan to pay ${_formatCurrency(total)}</div>
               </div>
             </div>
             <div class="right-column">
               <div class="info-box">
                 <div class="info-col">
                   <div><strong>Client:</strong> <strong>${_escapeHtml(clientName)}</strong></div>
-                  <div><strong>Address:</strong> ${_escapeHtml(address)}, ${_escapeHtml(regionName)}</div>
+                  <div><strong>Address:</strong> ${_escapeHtml(addressDisplay)}, ${_escapeHtml(regionName)}</div>
                   <div><strong>Phone:</strong> <strong>${_escapeHtml(clientPhone)}</strong></div>
                 </div>
                 <div class="info-col">
@@ -1317,11 +1631,11 @@ class DmPrintService {
                   <div><strong>Driver:</strong> ${_escapeHtml(driverName)}</div>
                 </div>
               </div>
-              <div class="product-table">
+              <div class="table">
                 <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
                 <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
-                <div class="table-row"><span>💰 Unit Price</span><span>₹${_formatCurrency(productUnitPrice)}</span></div>
-                <div class="table-row-total"><span>🧾 Total</span><span>₹${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>${_formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>${_formatCurrency(total)}</span></div>
                 <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
               </div>
             </div>
@@ -1340,17 +1654,13 @@ class DmPrintService {
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Cut Line -->
-      <div class="cut-line">
-        <hr />
-        <div class="cut-line-text">✂️ Cut Here</div>
-      </div>
-      
-      <!-- Duplicate Ticket -->
-      <div class="page">
-        <div class="ticket duplicate">
+        </div>
+        <div style="width: 100%; text-align: center; margin: 0.5mm 0;">
+          <hr style="border-top: 1px dashed #555; margin: 0;" />
+          <div style="font-size: 5px; color: #888;">✂️ Cut Here</div>
+        </div>
+        <div class="print-page">
+          <div class="ticket duplicate">
           ${logoDataUri != null ? '<img src="$logoDataUri" alt="Watermark" class="watermark" />' : ''}
           <div class="flag-text">🚩 जय श्री राम 🚩</div>
           <div class="branding">
@@ -1370,14 +1680,14 @@ class DmPrintService {
                   ${qrDataUri != null ? '<img src="$qrDataUri" alt="Payment QR Code" class="qr-image-large" />' : '<div style="font-size: 22px; color: #666;">QR Code</div>'}
                 </div>
                 <div class="qr-label-large">${_escapeHtml(qrLabel ?? companyName)}</div>
-                <div class="qr-amount-large">Scan to pay ₹${_formatCurrency(total)}</div>
+                <div class="qr-amount-large">Scan to pay ${_formatCurrency(total)}</div>
               </div>
             </div>
             <div class="right-column">
               <div class="info-box">
                 <div class="info-col">
                   <div><strong>Client:</strong> <strong>${_escapeHtml(clientName)}</strong></div>
-                  <div><strong>Address:</strong> ${_escapeHtml(address)}, ${_escapeHtml(regionName)}</div>
+                  <div><strong>Address:</strong> ${_escapeHtml(addressDisplay)}, ${_escapeHtml(regionName)}</div>
                   <div><strong>Phone:</strong> <strong>${_escapeHtml(clientPhone)}</strong></div>
                 </div>
                 <div class="info-col">
@@ -1386,11 +1696,11 @@ class DmPrintService {
                   <div><strong>Driver:</strong> ${_escapeHtml(driverName)}</div>
                 </div>
               </div>
-              <div class="product-table">
+              <div class="table">
                 <div class="table-row"><span>📦 Product</span><span>${_escapeHtml(productName)}</span></div>
                 <div class="table-row"><span>🔢 Quantity</span><span>${_formatNumber(productQuant)}</span></div>
-                <div class="table-row"><span>💰 Unit Price</span><span>₹${_formatCurrency(productUnitPrice)}</span></div>
-                <div class="table-row-total"><span>🧾 Total</span><span>₹${_formatCurrency(total)}</span></div>
+                <div class="table-row"><span>💰 Unit Price</span><span>${_formatCurrency(productUnitPrice)}</span></div>
+                <div class="table-row-total"><span>🧾 Total</span><span>${_formatCurrency(total)}</span></div>
                 <div class="table-row"><span>💳 Payment Mode</span><span>${_escapeHtml(paymentMode)}</span></div>
               </div>
             </div>
@@ -1409,13 +1719,14 @@ class DmPrintService {
             </div>
           </div>
         </div>
+        </div>
       </div>
     </div>
   </div>
 </body>
 </html>
 ''';
-    
+
     return html;
   }
 
@@ -1427,8 +1738,9 @@ class DmPrintService {
     Map<String, dynamic>? dmData,
   }) async {
     try {
-      print('[DmPrintService] Starting unified HTML-based print flow for DM $dmNumber');
-      
+      print(
+          '[DmPrintService] Starting unified HTML-based print flow for DM $dmNumber');
+
       // Fetch DM data if not provided
       Map<String, dynamic>? finalDmData = dmData;
       if (finalDmData == null) {
@@ -1439,19 +1751,19 @@ class DmPrintService {
           dmId: null,
           tripData: null,
         );
-        
+
         if (finalDmData == null) {
           throw Exception('DM not found for number: $dmNumber');
         }
       }
-      
+
       // Load view payload (settings, payment account, QR code, logo)
       print('[DmPrintService] Loading DM view data...');
       final viewPayload = await loadDmViewData(
         organizationId: organizationId,
         dmData: finalDmData,
       );
-      
+
       // Generate HTML string using same method as Web
       print('[DmPrintService] Generating HTML for print...');
       final htmlString = generateDmHtmlForPrint(
@@ -1461,15 +1773,18 @@ class DmPrintService {
         logoBytes: viewPayload.logoBytes,
         qrCodeBytes: viewPayload.qrCodeBytes,
       );
-      
+
       // Convert HTML to PDF bytes using flutter_html_to_pdf_plus
       print('[DmPrintService] Converting HTML to PDF...');
-      final pdfBytes = await _convertHtmlToPdf(htmlString);
-      
+      final pdfBytes = await _convertHtmlToPdf(
+        htmlString,
+        dmSettings: viewPayload.dmSettings,
+      );
+
       // Open print preview with PDF bytes
       print('[DmPrintService] Opening print preview...');
       await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
-      
+
       print('[DmPrintService] Print preview opened successfully');
     } catch (e, stackTrace) {
       print('[DmPrintService] ERROR in print flow: $e');
@@ -1479,11 +1794,24 @@ class DmPrintService {
   }
 
   /// Convert HTML string to PDF bytes using flutter_html_to_pdf_plus
-  Future<Uint8List> _convertHtmlToPdf(String htmlString) async {
+  Future<Uint8List> _convertHtmlToPdf(
+    String htmlString, {
+    required DmSettings dmSettings,
+  }) async {
     try {
       // Get temporary directory
       final tempDir = await getTemporaryDirectory();
-      
+      final isLakshmee = dmSettings.templateType == DmTemplateType.custom &&
+          dmSettings.customTemplateId == 'lakshmee_v1';
+      final orientation = isLakshmee
+          ? PrintOrientation.Portrait
+          : (dmSettings.printOrientation == DmPrintOrientation.landscape
+              ? PrintOrientation.Landscape
+              : PrintOrientation.Portrait);
+      final margins = isLakshmee
+          ? const PdfPageMargin(top: 0, bottom: 0, left: 0, right: 0)
+          : const PdfPageMargin(top: 15, bottom: 15, left: 15, right: 15);
+
       // Convert HTML content directly to PDF bytes
       final pdfBytes = await FlutterHtmlToPdf.convertFromHtmlContentBytes(
         content: htmlString,
@@ -1491,16 +1819,11 @@ class DmPrintService {
           targetDirectory: tempDir.path,
           targetName: 'temp_dm_print',
           printSize: PrintSize.A4,
-          printOrientation: PrintOrientation.Portrait,
-          margins: PdfPageMargin(
-            top: 15,
-            bottom: 15,
-            left: 15,
-            right: 15,
-          ),
+          printOrientation: orientation,
+          margins: margins,
         ),
       );
-      
+
       return pdfBytes;
     } catch (e) {
       print('[DmPrintService] ERROR converting HTML to PDF: $e');

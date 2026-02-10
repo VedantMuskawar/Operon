@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:core_ui/core_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
@@ -24,7 +25,8 @@ class TexturedBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     // Debug logging
     if (kDebugMode) {
-      debugPrint('[TexturedBackground] Building with Pattern: $pattern, Opacity: $opacity');
+      debugPrint(
+          '[TexturedBackground] Building with Pattern: $pattern, Opacity: $opacity');
     }
 
     return Container(
@@ -35,9 +37,10 @@ class TexturedBackground extends StatelessWidget {
           // TEST: Simple colored container to verify Stack is working
           // Make it very visible
           Container(
-            color: kDebugMode && debugMode 
-                ? Colors.blue.withOpacity(0.5) // Blue tint to verify rendering
-                : Colors.transparent,
+            color: kDebugMode && debugMode
+                ? AuthColors.info
+                    .withOpacity(0.5) // Blue tint to verify rendering
+                : AuthColors.transparent,
           ),
           // Textured overlay - using LayoutBuilder to get actual size
           IgnorePointer(
@@ -46,11 +49,15 @@ class TexturedBackground extends StatelessWidget {
                 builder: (context, constraints) {
                   final size = Size(
                     constraints.maxWidth.isFinite ? constraints.maxWidth : 1000,
-                    constraints.maxHeight.isFinite ? constraints.maxHeight : 2000,
+                    constraints.maxHeight.isFinite
+                        ? constraints.maxHeight
+                        : 2000,
                   );
                   if (kDebugMode && debugMode) {
-                    debugPrint('[TexturedBackground] LayoutBuilder constraints: ${constraints.maxWidth}x${constraints.maxHeight}');
-                    debugPrint('[TexturedBackground] Using size: ${size.width}x${size.height}');
+                    debugPrint(
+                        '[TexturedBackground] LayoutBuilder constraints: ${constraints.maxWidth}x${constraints.maxHeight}');
+                    debugPrint(
+                        '[TexturedBackground] Using size: ${size.width}x${size.height}');
                   }
                   return SizedBox(
                     width: size.width,
@@ -75,16 +82,16 @@ class TexturedBackground extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(AppSpacing.paddingSM),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.9),
+                  color: AuthColors.error.withOpacity(0.9),
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(8),
                   ),
-                  border: Border.all(color: Colors.white, width: 1),
+                  border: Border.all(color: AuthColors.textMain, width: 1),
                 ),
                 child: Text(
                   'BG: ${pattern.name}\nOpacity: ${opacity.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -121,7 +128,8 @@ class _TexturedPainter extends CustomPainter {
     // Validate size first
     if (size.width <= 0 || size.height <= 0 || !size.isFinite) {
       if (kDebugMode && debugMode) {
-        debugPrint('[TexturedPainter] Invalid or infinite size: ${size.width}x${size.height}, skipping');
+        debugPrint(
+            '[TexturedPainter] Invalid or infinite size: ${size.width}x${size.height}, skipping');
       }
       return;
     }
@@ -130,19 +138,21 @@ class _TexturedPainter extends CustomPainter {
     // Increase opacity for better visibility
     final effectiveOpacity = opacity * 1.5; // Boost visibility
     final paint = Paint()
-      ..color = Colors.white.withOpacity(effectiveOpacity.clamp(0.0, 1.0))
+      ..color =
+          AuthColors.textMain.withOpacity(effectiveOpacity.clamp(0.0, 1.0))
       ..strokeWidth = 0.5
       ..style = PaintingStyle.fill;
 
     // Debug: Log paint call
     if (kDebugMode && debugMode) {
-      debugPrint('[TexturedPainter] Painting ${pattern.name} pattern on ${size.width}x${size.height} canvas with opacity ${effectiveOpacity.toStringAsFixed(2)}');
+      debugPrint(
+          '[TexturedPainter] Painting ${pattern.name} pattern on ${size.width}x${size.height} canvas with opacity ${effectiveOpacity.toStringAsFixed(2)}');
     }
 
     // Test: Draw a border to verify painting works
     if (kDebugMode && debugMode) {
       final testPaint = Paint()
-        ..color = Colors.red
+        ..color = AuthColors.error
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), testPaint);
@@ -167,16 +177,16 @@ class _TexturedPainter extends CustomPainter {
     final random = _SeededRandom(42);
     const density = 0.12; // Increased density for better visibility
     final totalPixels = (size.width * size.height * density / 100).round();
-    
+
     if (kDebugMode && debugMode) {
       debugPrint('[TexturedPainter] Drawing $totalPixels grain dots');
     }
-    
+
     for (int i = 0; i < totalPixels; i++) {
       final x = random.nextDouble() * size.width;
       final y = random.nextDouble() * size.height;
       final radius = random.nextDouble() * 1.5 + 0.5; // Larger dots
-      
+
       canvas.drawCircle(
         Offset(x, y),
         radius,
@@ -189,15 +199,16 @@ class _TexturedPainter extends CustomPainter {
     // Create a regular dotted pattern - more visible
     const spacing = 4.0; // Closer spacing
     const dotSize = 2.0; // Larger dots
-    
+
     // Validate size
     if (size.width <= 0 || size.height <= 0) {
       if (kDebugMode && debugMode) {
-        debugPrint('[TexturedPainter] Invalid size: ${size.width}x${size.height}, skipping paint');
+        debugPrint(
+            '[TexturedPainter] Invalid size: ${size.width}x${size.height}, skipping paint');
       }
       return;
     }
-    
+
     int dotCount = 0;
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
@@ -213,9 +224,10 @@ class _TexturedPainter extends CustomPainter {
         }
       }
     }
-    
+
     if (kDebugMode && debugMode) {
-      debugPrint('[TexturedPainter] Drew $dotCount dotted pattern dots on ${size.width}x${size.height}');
+      debugPrint(
+          '[TexturedPainter] Drew $dotCount dotted pattern dots on ${size.width}x${size.height}');
     }
   }
 
@@ -224,7 +236,7 @@ class _TexturedPainter extends CustomPainter {
     const spacing = 8.0;
     paint.style = PaintingStyle.stroke;
     paint.strokeWidth = 0.3;
-    
+
     for (double i = -size.height; i < size.width + size.height; i += spacing) {
       canvas.drawLine(
         Offset(i, 0),
@@ -241,12 +253,11 @@ class _TexturedPainter extends CustomPainter {
 /// Simple seeded random number generator for consistent grain pattern
 class _SeededRandom {
   _SeededRandom(this.seed);
-  
+
   int seed;
-  
+
   double nextDouble() {
     seed = (seed * 1103515245 + 12345) & 0x7fffffff;
     return seed / 0x7fffffff;
   }
 }
-

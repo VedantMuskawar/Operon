@@ -58,46 +58,54 @@ class _OrderTileState extends State<OrderTile> {
 
   void _computeCachedValues() {
     final items = widget.order['items'] as List<dynamic>? ?? [];
-    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
+    final firstItem =
+        items.isNotEmpty ? items.first as Map<String, dynamic> : null;
     final autoSchedule = widget.order['autoSchedule'] as Map<String, dynamic>?;
-    
-    // Calculate total trips
+    final edd = widget.order['edd'] as Map<String, dynamic>?;
+
+    // Calculate total trips: prefer item-level sum (source of truth)
     int totalTrips = 0;
-    if (autoSchedule?['totalTripsRequired'] != null) {
-      totalTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
-    } else {
-      for (final item in items) {
-        final itemMap = item as Map<String, dynamic>;
-        final itemEstimatedTrips = (itemMap['estimatedTrips'] as int? ?? 0);
-        final itemScheduledTrips = (itemMap['scheduledTrips'] as int? ?? 0);
-        totalTrips += (itemEstimatedTrips + itemScheduledTrips);
-      }
-      if (totalTrips == 0 && firstItem != null) {
-        final firstItemEstimated = firstItem['estimatedTrips'] as int? ?? 0;
-        final firstItemScheduled = firstItem['scheduledTrips'] as int? ?? 0;
-        totalTrips = firstItemEstimated + firstItemScheduled;
-        if (totalTrips == 0) {
-          totalTrips = (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
-        }
+    int itemLevelScheduled = 0;
+    for (final item in items) {
+      final itemMap = item as Map<String, dynamic>;
+      final itemEstimatedTrips = (itemMap['estimatedTrips'] as int? ?? 0);
+      final itemScheduledTrips = (itemMap['scheduledTrips'] as int? ?? 0);
+      totalTrips += (itemEstimatedTrips + itemScheduledTrips);
+      itemLevelScheduled += itemScheduledTrips;
+    }
+    if (totalTrips == 0 && firstItem != null) {
+      final firstItemEstimated = firstItem['estimatedTrips'] as int? ?? 0;
+      final firstItemScheduled = firstItem['scheduledTrips'] as int? ?? 0;
+      totalTrips = firstItemEstimated + firstItemScheduled;
+      itemLevelScheduled = firstItemScheduled;
+      if (totalTrips == 0) {
+        totalTrips = (widget.order['tripIds'] as List<dynamic>?)?.length ?? 0;
       }
     }
-    
-    final totalScheduledTrips = widget.order['totalScheduledTrips'] as int? ?? 0;
-    final estimatedTrips = totalTrips - totalScheduledTrips;
-    
+    if (totalTrips == 0 && autoSchedule?['totalTripsRequired'] != null) {
+      totalTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
+    }
+    final totalScheduledTrips = totalTrips > 0 && itemLevelScheduled > 0
+        ? itemLevelScheduled
+        : (widget.order['totalScheduledTrips'] as int? ?? 0);
+    final estimatedTrips =
+        (totalTrips - totalScheduledTrips).clamp(0, totalTrips);
+
     final productName = firstItem?['productName'] as String? ?? 'N/A';
-    final fixedQuantityPerTrip = firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
+    final fixedQuantityPerTrip =
+        firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
     final clientName = widget.order['clientName'] as String? ?? 'N/A';
     final deliveryZone = widget.order['deliveryZone'] as Map<String, dynamic>?;
     final zoneText = deliveryZone != null
         ? '${deliveryZone['region'] ?? ''}, ${deliveryZone['city_name'] ?? deliveryZone['city'] ?? ''}'
         : 'N/A';
     final createdAt = widget.order['createdAt'];
-    final estimatedDeliveryDate = autoSchedule?['estimatedDeliveryDate'];
-    
+    final estimatedDeliveryDate = edd?['estimatedCompletionDate'] ??
+        autoSchedule?['estimatedDeliveryDate'];
+
     // Cache formatted date string
     _cachedFormattedCreatedAt = _formatDate(createdAt);
-    
+
     // Compute priority-related values
     final priority = widget.order['priority'] as String? ?? 'normal';
     final isHighPriority = priority == 'high' || priority == 'priority';
@@ -120,7 +128,7 @@ class _OrderTileState extends State<OrderTile> {
             ),
           ]
         : <BoxShadow>[];
-    
+
     _cachedTotalTrips = totalTrips;
     _cachedTotalScheduledTrips = totalScheduledTrips;
     _cachedEstimatedTrips = estimatedTrips;
@@ -145,6 +153,10 @@ class _OrderTileState extends State<OrderTile> {
       DateTime date;
       if (timestamp is DateTime) {
         date = timestamp;
+      } else if (timestamp is String) {
+        final parsed = DateTime.tryParse(timestamp);
+        if (parsed == null) return 'N/A';
+        date = parsed;
       } else {
         date = (timestamp as dynamic).toDate();
       }
@@ -199,6 +211,10 @@ class _OrderTileState extends State<OrderTile> {
       DateTime etaDate;
       if (timestamp is DateTime) {
         etaDate = timestamp;
+      } else if (timestamp is String) {
+        final parsed = DateTime.tryParse(timestamp);
+        if (parsed == null) return const SizedBox.shrink();
+        etaDate = parsed;
       } else {
         etaDate = (timestamp as dynamic).toDate();
       }
@@ -260,13 +276,13 @@ class _OrderTileState extends State<OrderTile> {
     }
   }
 
-
   Future<void> _deleteOrder() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Delete Order', style: TextStyle(color: AuthColors.textMain)),
+        title: const Text('Delete Order',
+            style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to delete this order?',
           style: TextStyle(color: AuthColors.textSub),
@@ -278,7 +294,8 @@ class _OrderTileState extends State<OrderTile> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete', style: TextStyle(color: AuthColors.error)),
+            child:
+                const Text('Delete', style: TextStyle(color: AuthColors.error)),
           ),
         ],
       ),
@@ -328,7 +345,7 @@ class _OrderTileState extends State<OrderTile> {
   Future<void> _openScheduleModal() async {
     final clientId = widget.order['clientId'] as String?;
     final clientName = widget.order['clientName'] as String? ?? 'N/A';
-    
+
     if (clientId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Client information not available')),
@@ -342,7 +359,7 @@ class _OrderTileState extends State<OrderTile> {
       final client = await clientService.findClientByPhone(
         widget.order['clientPhone'] as String? ?? '',
       );
-      
+
       if (client == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Client not found')),
@@ -391,7 +408,8 @@ class _OrderTileState extends State<OrderTile> {
     final clientName = _cachedClientName ?? 'N/A';
     final zoneText = _cachedZoneText ?? 'N/A';
     final createdAt = _cachedCreatedAt;
-    final priorityColor = _cachedPriorityColor ?? AuthColors.textMainWithOpacity(0.15);
+    final priorityColor =
+        _cachedPriorityColor ?? AuthColors.textMainWithOpacity(0.15);
     final priorityShadows = _cachedPriorityShadows ?? const [];
     final estimatedDeliveryDate = _cachedEstimatedDeliveryDate;
 
@@ -451,7 +469,8 @@ class _OrderTileState extends State<OrderTile> {
               _ProductInfo(
                 productName: productName,
                 fixedQuantityPerTrip: fixedQuantityPerTrip,
-                formattedCreatedAt: _cachedFormattedCreatedAt ?? _formatDate(createdAt),
+                formattedCreatedAt:
+                    _cachedFormattedCreatedAt ?? _formatDate(createdAt),
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               // Action buttons
@@ -587,17 +606,13 @@ class _TripCounterBadge extends StatelessWidget {
               Icon(
                 Icons.route,
                 size: AppSpacing.iconSM,
-                color: isComplete
-                    ? AuthColors.textMain
-                    : AuthColors.primary,
+                color: isComplete ? AuthColors.textMain : AuthColors.primary,
               ),
               const SizedBox(width: AppSpacing.paddingXS / 2),
               Text(
                 '$scheduled/$total',
                 style: AppTypography.labelSmall.copyWith(
-                  color: isComplete
-                      ? AuthColors.textMain
-                      : AuthColors.primary,
+                  color: isComplete ? AuthColors.textMain : AuthColors.primary,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -869,4 +884,3 @@ class _CompactActionButton extends StatelessWidget {
     );
   }
 }
-

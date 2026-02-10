@@ -5,7 +5,6 @@ import 'package:core_datasources/core_datasources.dart';
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
-import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/data/services/storage_service.dart';
@@ -20,7 +19,6 @@ import 'package:dash_mobile/presentation/widgets/fuel_ledger_pdf_dialog.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/data/repositories/dm_settings_repository.dart';
 import 'package:dash_mobile/data/services/dm_print_service.dart';
-import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 enum ExpenseFormType {
   vendorPayment,
@@ -52,7 +50,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
 
   ExpenseFormType _selectedType = ExpenseFormType.vendorPayment;
   Vendor? _selectedVendor;
-  OrganizationEmployee? _selectedEmployee;
+  List<OrganizationEmployee> _selectedEmployees = [];
   ExpenseSubCategory? _selectedSubCategory;
   PaymentAccount? _selectedPaymentAccount;
   DateTime _selectedDate = DateTime.now();
@@ -66,11 +64,14 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   bool _isSubmitting = false;
 
   // Invoice selection state
-  String _invoiceSelectionMode = 'manualSelection'; // 'dateRange' or 'manualSelection'
+  String _invoiceSelectionMode =
+      'manualSelection'; // 'dateRange' or 'manualSelection'
   DateTime? _invoiceDateRangeStart;
   DateTime? _invoiceDateRangeEnd;
-  final TextEditingController _fromInvoiceNumberController = TextEditingController();
-  final TextEditingController _toInvoiceNumberController = TextEditingController();
+  final TextEditingController _fromInvoiceNumberController =
+      TextEditingController();
+  final TextEditingController _toInvoiceNumberController =
+      TextEditingController();
   List<Transaction> _availableInvoices = [];
   Set<String> _selectedInvoiceIds = {};
   bool _isLoadingInvoices = false;
@@ -116,29 +117,38 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
       final vendorsRepo = context.read<VendorsRepository>();
       final employeesRepo = context.read<EmployeesRepository>();
       final subCategoriesRepo = context.read<ExpenseSubCategoriesRepository>();
-      final paymentAccountsDataSource = context.read<PaymentAccountsDataSource>();
+      final paymentAccountsDataSource =
+          context.read<PaymentAccountsDataSource>();
 
       _vendors = await vendorsRepo.fetchVendors(organizationId);
       _employees = await employeesRepo.fetchEmployees(organizationId);
-      _subCategories = await subCategoriesRepo.fetchSubCategories(organizationId);
-      _paymentAccounts = await paymentAccountsDataSource.fetchAccounts(organizationId);
+      _subCategories =
+          await subCategoriesRepo.fetchSubCategories(organizationId);
+      _paymentAccounts =
+          await paymentAccountsDataSource.fetchAccounts(organizationId);
 
       // Initialize selections from widget parameters
       if (widget.vendorId != null) {
         _selectedVendor = _vendors.firstWhere(
           (v) => v.id == widget.vendorId,
-          orElse: () => _vendors.isNotEmpty ? _vendors.first : throw StateError('No vendors'),
+          orElse: () => _vendors.isNotEmpty
+              ? _vendors.first
+              : throw StateError('No vendors'),
         );
       }
       if (widget.employeeId != null) {
-        _selectedEmployee = _employees.firstWhere(
+        final employee = _employees.firstWhere(
           (e) => e.id == widget.employeeId,
-          orElse: () => _employees.isNotEmpty ? _employees.first : throw StateError('No employees'),
+          orElse: () => _employees.isNotEmpty
+              ? _employees.first
+              : throw StateError('No employees'),
         );
+        _selectedEmployees = [employee];
       }
       // Set default payment account
-      _selectedPaymentAccount = _paymentAccounts.firstWhereOrNull((pa) => pa.isPrimary) ??
-          (_paymentAccounts.isNotEmpty ? _paymentAccounts.first : null);
+      _selectedPaymentAccount =
+          _paymentAccounts.firstWhereOrNull((pa) => pa.isPrimary) ??
+              (_paymentAccounts.isNotEmpty ? _paymentAccounts.first : null);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -153,7 +163,20 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   }
 
   String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final day = date.day.toString().padLeft(2, '0');
     final month = months[date.month - 1];
     final year = date.year;
@@ -266,7 +289,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   void _updatePaymentAmount() {
     double total = 0;
     for (final invoiceId in _selectedInvoiceIds) {
-      final invoice = _availableInvoices.firstWhere((inv) => inv.id == invoiceId);
+      final invoice =
+          _availableInvoices.firstWhere((inv) => inv.id == invoiceId);
       final metadata = invoice.metadata;
       final paidAmount = (metadata?['paidAmount'] as num?)?.toDouble() ?? 0;
       final remainingAmount = invoice.amount - paidAmount;
@@ -316,8 +340,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     final transactionsDataSource = context.read<TransactionsDataSource>();
 
     try {
-      Transaction transaction;
-      
+      Transaction? transaction;
+      final salaryTransactionIds = <String>[];
+
       switch (_selectedType) {
         case ExpenseFormType.vendorPayment:
           if (_selectedVendor == null) {
@@ -336,7 +361,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               'linkedInvoiceIds': linkedInvoiceIds,
               'paymentMode': _invoiceSelectionMode,
             };
-            if (_invoiceDateRangeStart != null && _invoiceDateRangeEnd != null) {
+            if (_invoiceDateRangeStart != null &&
+                _invoiceDateRangeEnd != null) {
               metadata['dateRange'] = {
                 'startDate': _invoiceDateRangeStart!.toIso8601String(),
                 'endDate': _invoiceDateRangeEnd!.toIso8601String(),
@@ -368,35 +394,50 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           );
           break;
         case ExpenseFormType.salaryDebit:
-          if (_selectedEmployee == null) {
+          if (_selectedEmployees.isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Select an employee')),
+              const SnackBar(content: Text('Select at least one employee')),
             );
             setState(() => _isSubmitting = false);
             return;
           }
-          transaction = Transaction(
-            id: '',
-            organizationId: organizationId,
-            employeeId: _selectedEmployee!.id,
-            ledgerType: LedgerType.employeeLedger,
-            type: TransactionType.debit,
-            category: TransactionCategory.salaryDebit,
-            amount: amount,
-            createdBy: userId,
-            createdAt: _selectedDate,
-            updatedAt: DateTime.now(),
-            financialYear: financialYear,
-            paymentAccountId: _selectedPaymentAccount!.id,
-            paymentAccountType: _selectedPaymentAccount!.type.name,
-            description: _descriptionController.text.trim().isEmpty
-                ? null
-                : _descriptionController.text.trim(),
-            referenceNumber: _referenceNumberController.text.trim().isEmpty
-                ? null
-                : _referenceNumberController.text.trim(),
-            metadata: {'employeeName': _selectedEmployee!.name},
-          );
+          final splitGroupId = 'split_${DateTime.now().microsecondsSinceEpoch}';
+          final splitAmounts =
+              _computeSplitAmounts(amount, _selectedEmployees.length);
+          for (var i = 0; i < _selectedEmployees.length; i++) {
+            final employee = _selectedEmployees[i];
+            final metadata = <String, dynamic>{
+              'employeeName': employee.name,
+              'splitIndex': i + 1,
+              'splitCount': _selectedEmployees.length,
+            };
+            transaction = Transaction(
+              id: '',
+              organizationId: organizationId,
+              employeeId: employee.id,
+              splitGroupId: splitGroupId,
+              ledgerType: LedgerType.employeeLedger,
+              type: TransactionType.debit,
+              category: TransactionCategory.salaryDebit,
+              amount: splitAmounts[i],
+              createdBy: userId,
+              createdAt: _selectedDate,
+              updatedAt: DateTime.now(),
+              financialYear: financialYear,
+              paymentAccountId: _selectedPaymentAccount!.id,
+              paymentAccountType: _selectedPaymentAccount!.type.name,
+              description: _descriptionController.text.trim().isEmpty
+                  ? null
+                  : _descriptionController.text.trim(),
+              referenceNumber: _referenceNumberController.text.trim().isEmpty
+                  ? null
+                  : _referenceNumberController.text.trim(),
+              metadata: metadata,
+            );
+            final transactionId =
+                await transactionsDataSource.createTransaction(transaction);
+            salaryTransactionIds.add(transactionId);
+          }
           break;
         case ExpenseFormType.generalExpense:
           if (_selectedSubCategory == null) {
@@ -440,7 +481,18 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           break;
       }
 
-      final transactionId = await transactionsDataSource.createTransaction(transaction);
+      if (_selectedType != ExpenseFormType.salaryDebit) {
+        if (transaction == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Expense data is incomplete.')),
+            );
+          }
+          setState(() => _isSubmitting = false);
+          return;
+        }
+        await transactionsDataSource.createTransaction(transaction);
+      }
 
       // Upload cash voucher photo for salary expense if provided
       if (_selectedType == ExpenseFormType.salaryDebit &&
@@ -448,15 +500,19 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           mounted) {
         try {
           final storageService = StorageService();
-          final downloadUrl = await storageService.uploadExpenseVoucher(
-            imageFile: _cashVoucherPhoto!,
-            organizationId: organizationId,
-            transactionId: transactionId,
-          );
-          await context.read<TransactionsRepository>().updateTransactionMetadata(
-                transactionId,
-                {'cashVoucherPhotoUrl': downloadUrl},
-              );
+          for (final transactionId in salaryTransactionIds) {
+            final downloadUrl = await storageService.uploadExpenseVoucher(
+              imageFile: _cashVoucherPhoto!,
+              organizationId: organizationId,
+              transactionId: transactionId,
+            );
+            await context
+                .read<TransactionsRepository>()
+                .updateTransactionMetadata(
+              transactionId,
+              {'cashVoucherPhotoUrl': downloadUrl},
+            );
+          }
         } catch (uploadError) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -509,6 +565,16 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     );
   }
 
+  List<double> _computeSplitAmounts(double amount, int count) {
+    final totalCents = (amount * 100).round();
+    final baseCents = totalCents ~/ count;
+    final remainder = totalCents % count;
+    return List<double>.generate(
+      count,
+      (index) => (baseCents + (index < remainder ? 1 : 0)) / 100,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -525,153 +591,174 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(AppSpacing.paddingLG),
                       child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Expense Type Selector
-                    const Text(
-                      'Expense Type',
-                      style: TextStyle(
-                        color: AuthColors.textSub,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.paddingSM),
-                    _buildTypeSelector(),
-                    const SizedBox(height: AppSpacing.paddingXXL),
-                    // Dynamic fields based on type
-                    if (_selectedType == ExpenseFormType.vendorPayment) ...[
-                      _buildVendorSelector(),
-                      if (_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel) ...[
-                        const SizedBox(height: AppSpacing.paddingLG),
-                        OutlinedButton.icon(
-                          onPressed: () => _openFuelLedgerPdfDialog(),
-                          icon: const Icon(Icons.picture_as_pdf, size: 20),
-                          label: const Text('Fuel Ledger PDF'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AuthColors.primary,
-                            side: const BorderSide(color: AuthColors.primary),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.paddingXXL),
-                      _buildInvoiceSelectionSection(),
-                    ] else if (_selectedType == ExpenseFormType.salaryDebit) ...[
-                      _buildEmployeeSelector(),
-                      const SizedBox(height: AppSpacing.paddingLG),
-                      _buildCashVoucherSection(),
-                    ] else if (_selectedType == ExpenseFormType.generalExpense) ...[
-                      _buildSubCategorySelector(),
-                    ],
-                    const SizedBox(height: AppSpacing.paddingXXL),
-                    // Amount
-                    TextFormField(
-                      controller: _amountController,
-                      style: const TextStyle(color: AuthColors.textMain),
-                      decoration: _inputDecoration('Amount *'),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                      ],
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Enter amount';
-                        }
-                        final amount = double.tryParse(value);
-                        if (amount == null || amount <= 0) {
-                          return 'Enter valid amount';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.paddingXXL),
-                    // Payment Account
-                    _buildPaymentAccountSelector(),
-                    const SizedBox(height: AppSpacing.paddingXXL),
-                    // Date
-                    InkWell(
-                      onTap: _selectDate,
-                      child: Container(
-                        padding: const EdgeInsets.all(AppSpacing.paddingLG),
-                        decoration: BoxDecoration(
-                          color: AuthColors.surface,
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                        ),
-                        child: Row(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.calendar_today,
-                                color: AuthColors.textSub, size: 20),
-                            const SizedBox(width: AppSpacing.paddingMD),
-                            Text(
-                              _formatDate(_selectedDate),
-                              style: const TextStyle(color: AuthColors.textMain),
+                            // Expense Type Selector
+                            const Text(
+                              'Expense Type',
+                              style: TextStyle(
+                                color: AuthColors.textSub,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.paddingSM),
+                            _buildTypeSelector(),
+                            const SizedBox(height: AppSpacing.paddingXXL),
+                            // Dynamic fields based on type
+                            if (_selectedType ==
+                                ExpenseFormType.vendorPayment) ...[
+                              _buildVendorSelector(),
+                              if (_selectedVendor != null &&
+                                  _selectedVendor!.vendorType ==
+                                      VendorType.fuel) ...[
+                                const SizedBox(height: AppSpacing.paddingLG),
+                                OutlinedButton.icon(
+                                  onPressed: () => _openFuelLedgerPdfDialog(),
+                                  icon: const Icon(Icons.picture_as_pdf,
+                                      size: 20),
+                                  label: const Text('Fuel Ledger PDF'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AuthColors.primary,
+                                    side: const BorderSide(
+                                        color: AuthColors.primary),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: AppSpacing.paddingXXL),
+                              _buildInvoiceSelectionSection(),
+                            ] else if (_selectedType ==
+                                ExpenseFormType.salaryDebit) ...[
+                              _buildEmployeeSelector(),
+                              const SizedBox(height: AppSpacing.paddingLG),
+                              _buildCashVoucherSection(),
+                            ] else if (_selectedType ==
+                                ExpenseFormType.generalExpense) ...[
+                              _buildSubCategorySelector(),
+                            ],
+                            const SizedBox(height: AppSpacing.paddingXXL),
+                            // Amount
+                            TextFormField(
+                              controller: _amountController,
+                              style:
+                                  const TextStyle(color: AuthColors.textMain),
+                              decoration: _inputDecoration('Amount *'),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              inputFormatters: [
+                                FilteringTextInputFormatter.allow(
+                                    RegExp(r'^\d+\.?\d{0,2}')),
+                              ],
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Enter amount';
+                                }
+                                final amount = double.tryParse(value);
+                                if (amount == null || amount <= 0) {
+                                  return 'Enter valid amount';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: AppSpacing.paddingXXL),
+                            // Payment Account
+                            _buildPaymentAccountSelector(),
+                            const SizedBox(height: AppSpacing.paddingXXL),
+                            // Date
+                            InkWell(
+                              onTap: _selectDate,
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.all(AppSpacing.paddingLG),
+                                decoration: BoxDecoration(
+                                  color: AuthColors.surface,
+                                  borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusMD),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.calendar_today,
+                                        color: AuthColors.textSub, size: 20),
+                                    const SizedBox(width: AppSpacing.paddingMD),
+                                    Text(
+                                      _formatDate(_selectedDate),
+                                      style: const TextStyle(
+                                          color: AuthColors.textMain),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.paddingXXL),
+                            // Description
+                            TextFormField(
+                              controller: _descriptionController,
+                              style:
+                                  const TextStyle(color: AuthColors.textMain),
+                              decoration: _inputDecoration(
+                                _selectedType == ExpenseFormType.generalExpense
+                                    ? 'Description *'
+                                    : 'Description',
+                              ),
+                              maxLines: 3,
+                              validator: (value) {
+                                if (_selectedType ==
+                                        ExpenseFormType.generalExpense &&
+                                    (value == null || value.trim().isEmpty)) {
+                                  return 'Enter description';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: AppSpacing.paddingXXL),
+                            // Reference Number
+                            TextFormField(
+                              controller: _referenceNumberController,
+                              style:
+                                  const TextStyle(color: AuthColors.textMain),
+                              decoration: _inputDecoration('Reference Number'),
+                            ),
+                            const SizedBox(height: AppSpacing.paddingXXXL),
+                            // Save Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _isSubmitting ? null : _save,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AuthColors.primary,
+                                  foregroundColor: AuthColors.textMain,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: AppSpacing.paddingLG),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        AppSpacing.radiusMD),
+                                  ),
+                                ),
+                                child: _isSubmitting
+                                    ? const SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                  AuthColors.textMain),
+                                        ),
+                                      )
+                                    : const Text(
+                                        'Save Expense',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.paddingXXL),
-                    // Description
-                    TextFormField(
-                      controller: _descriptionController,
-                      style: const TextStyle(color: AuthColors.textMain),
-                      decoration: _inputDecoration(
-                        _selectedType == ExpenseFormType.generalExpense
-                            ? 'Description *'
-                            : 'Description',
-                      ),
-                      maxLines: 3,
-                      validator: (value) {
-                        if (_selectedType == ExpenseFormType.generalExpense &&
-                            (value == null || value.trim().isEmpty)) {
-                          return 'Enter description';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.paddingXXL),
-                    // Reference Number
-                    TextFormField(
-                      controller: _referenceNumberController,
-                      style: const TextStyle(color: AuthColors.textMain),
-                      decoration: _inputDecoration('Reference Number'),
-                    ),
-                    const SizedBox(height: AppSpacing.paddingXXXL),
-                    // Save Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isSubmitting ? null : _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AuthColors.primary,
-                          foregroundColor: AuthColors.textMain,
-                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                          ),
-                        ),
-                        child: _isSubmitting
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
-                                ),
-                              )
-                            : const Text(
-                                'Save Expense',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
                       ),
                     ),
             ),
@@ -757,7 +844,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         setState(() {
           _selectedType = type;
           _selectedVendor = null;
-          _selectedEmployee = null;
+          _selectedEmployees = [];
           _selectedSubCategory = null;
           if (type != ExpenseFormType.salaryDebit) _cashVoucherPhoto = null;
         });
@@ -770,15 +857,15 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               : Colors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
-            color: isSelected
-                ? AuthColors.primary
-                : Colors.transparent,
+            color: isSelected ? AuthColors.primary : Colors.transparent,
             width: 1.5,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub, size: 20),
+            Icon(icon,
+                color: isSelected ? AuthColors.primary : AuthColors.textSub,
+                size: 20),
             const SizedBox(height: AppSpacing.paddingXS),
             Text(
               label,
@@ -816,7 +903,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           children: [
             Expanded(
               child: RadioListTile<String>(
-                title: const Text('Pay Selected Invoices', style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
+                title: const Text('Pay Selected Invoices',
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
                 value: 'manualSelection',
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
@@ -837,7 +925,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             ),
             Expanded(
               child: RadioListTile<String>(
-                title: const Text('Pay by Date Range', style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
+                title: const Text('Pay by Date Range',
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
                 value: 'dateRange',
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
@@ -864,7 +953,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: _invoiceDateRangeStart ?? DateTime.now().subtract(const Duration(days: 30)),
+                      initialDate: _invoiceDateRangeStart ??
+                          DateTime.now().subtract(const Duration(days: 30)),
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                       builder: (context, child) {
@@ -893,11 +983,13 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     decoration: BoxDecoration(
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                      border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
+                      border: Border.all(
+                          color: AuthColors.textMain.withOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
+                        const Icon(Icons.calendar_today,
+                            color: AuthColors.textSub, size: 18),
                         const SizedBox(width: AppSpacing.paddingSM),
                         Text(
                           _invoiceDateRangeStart == null
@@ -950,11 +1042,13 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     decoration: BoxDecoration(
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                      border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
+                      border: Border.all(
+                          color: AuthColors.textMain.withOpacity(0.1)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 18),
+                        const Icon(Icons.calendar_today,
+                            color: AuthColors.textSub, size: 18),
                         const SizedBox(width: AppSpacing.paddingSM),
                         Text(
                           _invoiceDateRangeEnd == null
@@ -1017,7 +1111,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           TextButton.icon(
             onPressed: _loadUnpaidInvoices,
             icon: const Icon(Icons.search, size: 18, color: AuthColors.primary),
-            label: const Text('Search Invoices', style: TextStyle(color: AuthColors.primary)),
+            label: const Text('Search Invoices',
+                style: TextStyle(color: AuthColors.primary)),
           ),
           const SizedBox(height: 16),
         ],
@@ -1027,7 +1122,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             padding: EdgeInsets.all(AppSpacing.paddingLG),
             child: Center(child: CircularProgressIndicator()),
           )
-        else if (_invoiceSelectionMode == 'dateRange' && (_invoiceDateRangeStart == null || _invoiceDateRangeEnd == null))
+        else if (_invoiceSelectionMode == 'dateRange' &&
+            (_invoiceDateRangeStart == null || _invoiceDateRangeEnd == null))
           const Padding(
             padding: EdgeInsets.all(AppSpacing.paddingLG),
             child: Text(
@@ -1039,7 +1135,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           Padding(
             padding: const EdgeInsets.all(AppSpacing.paddingLG),
             child: Text(
-              _invoiceSelectionMode == 'manualSelection' && _fromInvoiceNumberController.text.trim().isEmpty && _toInvoiceNumberController.text.trim().isEmpty
+              _invoiceSelectionMode == 'manualSelection' &&
+                      _fromInvoiceNumberController.text.trim().isEmpty &&
+                      _toInvoiceNumberController.text.trim().isEmpty
                   ? 'Enter invoice number range and click Search'
                   : 'No unpaid invoices found',
               style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
@@ -1067,9 +1165,12 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                 const SizedBox(height: AppSpacing.paddingMD),
                 ..._availableInvoices.take(5).map((invoice) {
                   final remainingAmount = _getInvoiceRemainingAmount(invoice);
-                  final invoiceNumber = invoice.referenceNumber ?? invoice.metadata?['invoiceNumber'] ?? 'N/A';
+                  final invoiceNumber = invoice.referenceNumber ??
+                      invoice.metadata?['invoiceNumber'] ??
+                      'N/A';
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
+                    padding:
+                        const EdgeInsets.only(bottom: AppSpacing.paddingSM),
                     child: Row(
                       children: [
                         Expanded(
@@ -1078,11 +1179,15 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                             children: [
                               Text(
                                 invoiceNumber,
-                                style: const TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w500),
+                                style: const TextStyle(
+                                    color: AuthColors.textMain,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500),
                               ),
                               Text(
                                 '${_formatDate(invoice.createdAt ?? DateTime.now())} | ₹${remainingAmount.toStringAsFixed(2)}',
-                                style: const TextStyle(color: AuthColors.textSub, fontSize: 11),
+                                style: const TextStyle(
+                                    color: AuthColors.textSub, fontSize: 11),
                               ),
                             ],
                           ),
@@ -1096,7 +1201,10 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     padding: const EdgeInsets.only(top: AppSpacing.paddingSM),
                     child: Text(
                       '... and ${_availableInvoices.length - 5} more',
-                      style: const TextStyle(color: AuthColors.textSub, fontSize: 12, fontStyle: FontStyle.italic),
+                      style: const TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic),
                     ),
                   ),
               ],
@@ -1117,7 +1225,10 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               children: [
                 const Text(
                   'Total Amount:',
-                  style: TextStyle(color: AuthColors.textSub, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: AuthColors.textSub,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600),
                 ),
                 Text(
                   '₹${_amountController.text.isEmpty ? "0.00" : _amountController.text}',
@@ -1174,12 +1285,152 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     );
   }
 
+  String _employeeSelectionText() {
+    if (_selectedEmployees.isEmpty) return 'Select employees';
+    if (_selectedEmployees.length <= 2) {
+      return _selectedEmployees.map((e) => e.name).join(', ');
+    }
+    return '${_selectedEmployees.length} employees selected';
+  }
+
+  Future<void> _openEmployeeSelectorDialog() async {
+    if (_employees.isEmpty) return;
+    final searchController = TextEditingController();
+    final selectedIds = _selectedEmployees.map((e) => e.id).toSet();
+    List<OrganizationEmployee> filtered = List.of(_employees);
+
+    final result = await showDialog<Set<String>>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void updateFilter(String value) {
+              final query = value.trim().toLowerCase();
+              setDialogState(() {
+                if (query.isEmpty) {
+                  filtered = List.of(_employees);
+                } else {
+                  filtered = _employees
+                      .where(
+                        (employee) =>
+                            employee.name.toLowerCase().contains(query),
+                      )
+                      .toList();
+                }
+              });
+            }
+
+            final availableHeight = MediaQuery.of(context).size.height -
+                MediaQuery.of(context).viewInsets.bottom;
+            var dialogHeight = availableHeight * 0.7;
+            if (dialogHeight < 280) dialogHeight = 280;
+            if (dialogHeight > 520) dialogHeight = 520;
+
+            return AlertDialog(
+              backgroundColor: AuthColors.surface,
+              title: const Text(
+                'Select Employees',
+                style: TextStyle(color: AuthColors.textMain),
+              ),
+              content: SizedBox(
+                width: 520,
+                height: dialogHeight,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: searchController,
+                      onChanged: updateFilter,
+                      style: const TextStyle(color: AuthColors.textMain),
+                      decoration: InputDecoration(
+                        labelText: 'Search employees',
+                        labelStyle: const TextStyle(color: AuthColors.textSub),
+                        filled: true,
+                        fillColor: AuthColors.background,
+                        prefixIcon:
+                            const Icon(Icons.search, color: AuthColors.textSub),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AuthColors.textMainWithOpacity(0.12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No employees found.',
+                                style: TextStyle(color: AuthColors.textSub),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final employee = filtered[index];
+                                final isSelected =
+                                    selectedIds.contains(employee.id);
+                                return CheckboxListTile(
+                                  value: isSelected,
+                                  onChanged: (selected) {
+                                    setDialogState(() {
+                                      if (selected == true) {
+                                        selectedIds.add(employee.id);
+                                      } else {
+                                        selectedIds.remove(employee.id);
+                                      }
+                                    });
+                                  },
+                                  title: Text(
+                                    employee.name,
+                                    style: const TextStyle(
+                                        color: AuthColors.textMain),
+                                  ),
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                DashButton(
+                  label: 'Cancel',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  variant: DashButtonVariant.text,
+                ),
+                DashButton(
+                  label: 'Apply',
+                  onPressed: () => Navigator.of(dialogContext).pop(selectedIds),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    searchController.dispose();
+
+    if (result != null && mounted) {
+      setState(() {
+        _selectedEmployees = _employees
+            .where((employee) => result.contains(employee.id))
+            .toList();
+      });
+    }
+  }
+
   Widget _buildEmployeeSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Employee *',
+          'Employees *',
           style: TextStyle(
             color: AuthColors.textSub,
             fontSize: 14,
@@ -1187,24 +1438,57 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           ),
         ),
         const SizedBox(height: AppSpacing.paddingSM),
-        DropdownButtonFormField<OrganizationEmployee>(
-          initialValue: _selectedEmployee,
-          dropdownColor: AuthColors.surface,
-          style: const TextStyle(color: AuthColors.textMain),
-          decoration: _inputDecoration('Select employee'),
-          items: _employees.map((employee) {
-            return DropdownMenuItem(
-              value: employee,
-              child: Text(employee.name),
-            );
-          }).toList(),
-          onChanged: (employee) {
-            setState(() {
-              _selectedEmployee = employee;
-            });
-          },
-          validator: (value) => value == null ? 'Select an employee' : null,
-        ),
+        if (_employees.isEmpty)
+          const Text(
+            'No employees available.',
+            style: TextStyle(color: AuthColors.textSub),
+          )
+        else
+          InkWell(
+            onTap: _openEmployeeSelectorDialog,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AuthColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _employeeSelectionText(),
+                      style: TextStyle(
+                        color: _selectedEmployees.isEmpty
+                            ? AuthColors.textSub
+                            : AuthColors.textMain,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down, color: AuthColors.textSub),
+                ],
+              ),
+            ),
+          ),
+        if (_selectedEmployees.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.paddingSM),
+          Wrap(
+            spacing: AppSpacing.paddingSM,
+            runSpacing: AppSpacing.paddingSM,
+            children: _selectedEmployees
+                .map(
+                  (employee) => Chip(
+                    label: Text(employee.name),
+                    backgroundColor: AuthColors.background,
+                    labelStyle: const TextStyle(color: AuthColors.textMain),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
       ],
     );
   }
@@ -1221,13 +1505,16 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: AuthColors.textMain),
-              title: const Text('Choose from Gallery', style: TextStyle(color: AuthColors.textMain)),
+              leading:
+                  const Icon(Icons.photo_library, color: AuthColors.textMain),
+              title: const Text('Choose from Gallery',
+                  style: TextStyle(color: AuthColors.textMain)),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AuthColors.textMain),
-              title: const Text('Take Photo', style: TextStyle(color: AuthColors.textMain)),
+              title: const Text('Take Photo',
+                  style: TextStyle(color: AuthColors.textMain)),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
           ],
@@ -1269,7 +1556,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         OutlinedButton.icon(
           onPressed: _pickCashVoucherPhoto,
           icon: const Icon(Icons.camera_alt, size: 20),
-          label: Text(_cashVoucherPhoto == null ? 'Take photo' : 'Change photo'),
+          label:
+              Text(_cashVoucherPhoto == null ? 'Take photo' : 'Change photo'),
           style: OutlinedButton.styleFrom(
             foregroundColor: AuthColors.primary,
             side: const BorderSide(color: AuthColors.primary),
@@ -1329,7 +1617,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     width: 12,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Color(int.parse(subCategory.colorHex.substring(1), radix: 16) + 0xFF000000),
+                      color: Color(int.parse(subCategory.colorHex.substring(1),
+                              radix: 16) +
+                          0xFF000000),
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -1375,7 +1665,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             padding: const EdgeInsets.only(top: AppSpacing.paddingSM),
             child: Text(
               'Select a payment account',
-              style: TextStyle(color: AuthColors.error.withOpacity(0.8), fontSize: 12),
+              style: TextStyle(
+                  color: AuthColors.error.withOpacity(0.8), fontSize: 12),
             ),
           ),
       ],
@@ -1399,7 +1690,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         icon = Icons.payment;
         break;
     }
-    
+
     return InkWell(
       onTap: () {
         setState(() {
@@ -1407,7 +1698,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected
               ? AuthColors.primaryWithOpacity(0.2)
@@ -1423,7 +1715,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub, size: 18),
+            Icon(icon,
+                color: isSelected ? AuthColors.primary : AuthColors.textSub,
+                size: 18),
             const SizedBox(width: AppSpacing.paddingSM),
             Text(
               account.name,
@@ -1436,7 +1730,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             if (account.isPrimary) ...[
               const SizedBox(width: AppSpacing.paddingXS),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXS, vertical: AppSpacing.paddingXS),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.paddingXS,
+                    vertical: AppSpacing.paddingXS),
                 decoration: BoxDecoration(
                   color: AuthColors.primaryWithOpacity(0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
@@ -1480,4 +1776,3 @@ extension FirstWhereOrNull<T> on List<T> {
     }
   }
 }
-

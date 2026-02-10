@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:core_ui/core_ui.dart' show AuthColors;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -17,8 +18,8 @@ class QrCodeService {
       data: data,
       version: QrVersions.auto,
       errorCorrectionLevel: QrErrorCorrectLevel.L,
-      color: Colors.black,
-      emptyColor: Colors.white,
+      color: AuthColors.printBlack,
+      emptyColor: AuthColors.printWhite,
       gapless: true,
     );
 
@@ -29,7 +30,7 @@ class QrCodeService {
     final picture = picRecorder.endRecording();
     final image = await picture.toImage(size, size);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    
+
     if (byteData == null) {
       throw Exception('Failed to generate QR code image');
     }
@@ -84,4 +85,3 @@ class QrCodeService {
     }
   }
 }
-

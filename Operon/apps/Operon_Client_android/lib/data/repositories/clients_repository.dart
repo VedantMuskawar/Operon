@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
 
 class ClientsRepository {
@@ -8,6 +9,20 @@ class ClientsRepository {
 
   Future<List<ClientRecord>> fetchRecentClients({int limit = 10}) {
     return _service.fetchRecentClients(limit: limit);
+  }
+
+  Future<
+      ({
+        List<ClientRecord> clients,
+        DocumentSnapshot<Map<String, dynamic>>? lastDoc,
+      })> fetchClientsPage({
+    int limit = 30,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+  }) {
+    return _service.fetchClientsPage(
+      limit: limit,
+      startAfterDocument: startAfterDocument,
+    );
   }
 
   Stream<List<ClientRecord>> recentClientsStream({int limit = 10}) {
@@ -30,4 +45,3 @@ class ClientsRepository {
     return _service.searchClientsByName(trimmed, limit: 20);
   }
 }
-

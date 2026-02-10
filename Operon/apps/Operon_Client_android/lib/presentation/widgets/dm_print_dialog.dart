@@ -40,8 +40,8 @@ class DmPrintDialog extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.7),
+      backgroundColor: AuthColors.transparent,
+      barrierColor: AuthColors.background.withOpacity(0.7),
       builder: (context) => DmPrintDialog(
         dmPrintService: dmPrintService,
         organizationId: organizationId,
@@ -183,7 +183,8 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
             // Content
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.paddingXL),
                 child: Column(
                   children: [
                     if (_isLoadingView) ...[
@@ -200,10 +201,12 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
                       const Spacer(),
                     ] else if (_hasError) ...[
                       const Spacer(),
-                      const Icon(Icons.error_outline, color: AuthColors.error, size: 64),
+                      const Icon(Icons.error_outline,
+                          color: AuthColors.error, size: 64),
                       const SizedBox(height: AppSpacing.paddingLG),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.paddingXL),
                         child: Text(
                           _errorMessage ?? 'Failed to load',
                           style: const TextStyle(
@@ -240,7 +243,8 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
                           child: Center(
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
-                                maxWidth: MediaQuery.sizeOf(context).width * 0.9,
+                                maxWidth:
+                                    MediaQuery.sizeOf(context).width * 0.9,
                               ),
                               child: AspectRatio(
                                 aspectRatio: 210 / 297,
@@ -307,9 +311,10 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
                           ),
                         ],
                       ),
-                      SizedBox(height: MediaQuery.of(context).viewInsets.bottom > 0 
-                        ? MediaQuery.of(context).viewInsets.bottom 
-                        : AppSpacing.paddingLG),
+                      SizedBox(
+                          height: MediaQuery.of(context).viewInsets.bottom > 0
+                              ? MediaQuery.of(context).viewInsets.bottom
+                              : AppSpacing.paddingLG),
                     ],
                   ],
                 ),

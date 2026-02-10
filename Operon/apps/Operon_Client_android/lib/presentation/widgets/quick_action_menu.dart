@@ -28,7 +28,7 @@ class QuickActionMenu extends StatefulWidget {
 
   /// Standard FAB position - right edge with safe padding
   static const double standardRight = 24.0;
-  
+
   /// Standard FAB position - above nav bar with safe padding
   static double standardBottom(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -87,7 +87,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
       final index = entry.key;
       final reversedIndex = widget.actions.length - 1 - index;
       final delay = (reversedIndex * 0.05).clamp(0.0, 0.3);
-      
+
       return Tween<Offset>(
         begin: const Offset(0, 1),
         end: Offset.zero,
@@ -137,7 +137,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
-    
+
     return SizedBox(
       width: screenSize.width,
       height: screenSize.height,
@@ -156,111 +156,116 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                     return Opacity(
                       opacity: _fadeAnimation.value,
                       child: Container(
-                        color: Colors.black.withOpacity(0.5 * _fadeAnimation.value),
+                        color: AuthColors.background
+                            .withOpacity(0.5 * _fadeAnimation.value),
                       ),
                     );
                   },
                 ),
               ),
             ),
-        
-        // Action buttons - slide up from bottom
-        ...widget.actions.asMap().entries.map((entry) {
-          final index = entry.key;
-          final action = entry.value;
-          final reversedIndex = widget.actions.length - 1 - index;
-          final offset = (reversedIndex + 1) * 72.0; // 56px button + 16px spacing
 
-          return Positioned(
-            right: widget.right ?? QuickActionMenu.standardRight,
-            bottom: (widget.bottom ?? QuickActionMenu.standardBottom(context)) + offset,
-            child: AnimatedBuilder(
-              animation: _slideAnimations[index],
-              builder: (context, child) {
-                final slideValue = _slideAnimations[index].value;
-                final opacity = slideValue.dy == 0 ? 1.0 : 0.0;
-                
-                return IgnorePointer(
-                  ignoring: !_isExpanded || opacity == 0.0,
-                  child: Opacity(
-                    opacity: opacity,
-                    child: Transform.translate(
-                      offset: Offset(0, slideValue.dy * 80),
-                      child: Transform.scale(
-                        scale: 1.0 - (slideValue.dy * 0.2),
-                        child: _ActionButton(
-                          icon: action.icon,
-                          label: action.label,
-                          onTap: () => _handleActionTap(action),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        }),
-        
-        // Main FAB button - always visible
-        Positioned(
-          right: widget.right ?? QuickActionMenu.standardRight,
-          bottom: widget.bottom ?? QuickActionMenu.standardBottom(context),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _toggleMenu,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+          // Action buttons - slide up from bottom
+          ...widget.actions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final action = entry.value;
+            final reversedIndex = widget.actions.length - 1 - index;
+            final offset =
+                (reversedIndex + 1) * 72.0; // 56px button + 16px spacing
+
+            return Positioned(
+              right: widget.right ?? QuickActionMenu.standardRight,
+              bottom:
+                  (widget.bottom ?? QuickActionMenu.standardBottom(context)) +
+                      offset,
               child: AnimatedBuilder(
-                animation: _controller,
+                animation: _slideAnimations[index],
                 builder: (context, child) {
-                  return Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Transform.rotate(
-                      angle: _rotationAnimation.value * 2 * 3.14159,
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: _isExpanded
-                                ? [
-                                    AuthColors.legacyAccent,
-                                    AuthColors.legacyAccent.withOpacity(0.8),
-                                  ]
-                                : [
-                                    AuthColors.legacyAccent,
-                                    AuthColors.legacyAccent.withOpacity(0.9),
-                                  ],
+                  final slideValue = _slideAnimations[index].value;
+                  final opacity = slideValue.dy == 0 ? 1.0 : 0.0;
+
+                  return IgnorePointer(
+                    ignoring: !_isExpanded || opacity == 0.0,
+                    child: Opacity(
+                      opacity: opacity,
+                      child: Transform.translate(
+                        offset: Offset(0, slideValue.dy * 80),
+                        child: Transform.scale(
+                          scale: 1.0 - (slideValue.dy * 0.2),
+                          child: _ActionButton(
+                            icon: action.icon,
+                            label: action.label,
+                            onTap: () => _handleActionTap(action),
                           ),
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AuthColors.legacyAccent.withOpacity(
-                                _isExpanded ? 0.5 : 0.4,
-                              ),
-                              blurRadius: _isExpanded ? 20 : 12,
-                              offset: Offset(0, _isExpanded ? 8 : 4),
-                              spreadRadius: _isExpanded ? 2 : 0,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          _isExpanded ? Icons.close : Icons.add,
-                          color: AuthColors.textMain,
-                          size: 24,
                         ),
                       ),
                     ),
                   );
                 },
               ),
+            );
+          }),
+
+          // Main FAB button - always visible
+          Positioned(
+            right: widget.right ?? QuickActionMenu.standardRight,
+            bottom: widget.bottom ?? QuickActionMenu.standardBottom(context),
+            child: Material(
+              color: AuthColors.transparent,
+              child: InkWell(
+                onTap: _toggleMenu,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: _scaleAnimation.value,
+                      child: Transform.rotate(
+                        angle: _rotationAnimation.value * 2 * 3.14159,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: _isExpanded
+                                  ? [
+                                      AuthColors.legacyAccent,
+                                      AuthColors.legacyAccent.withOpacity(0.8),
+                                    ]
+                                  : [
+                                      AuthColors.legacyAccent,
+                                      AuthColors.legacyAccent.withOpacity(0.9),
+                                    ],
+                            ),
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusLG),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AuthColors.legacyAccent.withOpacity(
+                                  _isExpanded ? 0.5 : 0.4,
+                                ),
+                                blurRadius: _isExpanded ? 20 : 12,
+                                offset: Offset(0, _isExpanded ? 8 : 4),
+                                spreadRadius: _isExpanded ? 2 : 0,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            _isExpanded ? Icons.close : Icons.add,
+                            color: AuthColors.textMain,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
       ),
     );
   }
@@ -280,12 +285,13 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AuthColors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
           decoration: BoxDecoration(
             color: AuthColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
@@ -295,7 +301,7 @@ class _ActionButton extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
+                color: AuthColors.background.withOpacity(0.4),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
                 spreadRadius: 0,
@@ -328,7 +334,7 @@ class _ActionButton extends StatelessWidget {
                 ),
                 child: Icon(
                   icon,
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   size: 20,
                 ),
               ),
@@ -336,7 +342,7 @@ class _ActionButton extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.2,

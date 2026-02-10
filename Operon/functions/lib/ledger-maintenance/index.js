@@ -23,6 +23,7 @@ __exportStar(require("./rebuild/rebuild-all-ledgers"), exports);
 __exportStar(require("./rebuild/rebuild-scheduled"), exports);
 __exportStar(require("./maintenance/sync-balance"), exports);
 __exportStar(require("./maintenance/fix-inconsistencies"), exports);
+__exportStar(require("./accounts-ledger"), exports);
 // Export types
 __exportStar(require("./ledger-types"), exports);
 //# sourceMappingURL=index.js.map

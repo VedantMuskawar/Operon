@@ -15,20 +15,23 @@ class BackgroundSyncService {
     FirebaseDatabase? database,
     Connectivity? connectivity,
     FirebaseFirestore? firestore,
-  })  : _database = database ?? FirebaseDatabase.instance,
-        _connectivity = connectivity ?? Connectivity(),
-        _firestore = firestore ?? FirebaseFirestore.instance;
+  }) : _database = database ?? FirebaseDatabase.instance,
+       _connectivity = connectivity ?? Connectivity(),
+       _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseDatabase _database;
   final Connectivity _connectivity;
   final FirebaseFirestore _firestore;
 
   static const String _locationBoxName = 'locationPoints';
+  static const Duration _activeSyncInterval = Duration(seconds: 60);
+  static const Duration _idleSyncInterval = Duration(minutes: 5);
   Box<LocationPoint>? _locationBox;
 
   Timer? _syncTimer;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   bool _isSyncing = false;
+  bool _isTripActive = false;
 
   /// Start the sync service
   /// Runs sync every 60 seconds and when network is restored
@@ -44,21 +47,32 @@ class BackgroundSyncService {
       return;
     }
 
-    // Start periodic sync (every 60 seconds)
-    _syncTimer = Timer.periodic(const Duration(seconds: 60), (_) {
-      _syncUnsyncedPoints();
-    });
+    _startSyncTimer();
 
     // Sync when network is restored
-    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((results) {
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen((
+      results,
+    ) {
       if (results.any((result) => result != ConnectivityResult.none)) {
-        debugPrint('[BackgroundSyncService] Network restored, triggering sync...');
+        debugPrint(
+          '[BackgroundSyncService] Network restored, triggering sync...',
+        );
         _syncUnsyncedPoints();
       }
     });
 
     // Initial sync
     _syncUnsyncedPoints();
+  }
+
+  void setTripActive(bool isActive) {
+    if (_isTripActive == isActive) return;
+    _isTripActive = isActive;
+    _startSyncTimer();
+
+    if (!isActive) {
+      _syncUnsyncedPoints();
+    }
   }
 
   /// Stop the sync service
@@ -70,10 +84,20 @@ class BackgroundSyncService {
     debugPrint('[BackgroundSyncService] Sync service stopped');
   }
 
+  void _startSyncTimer() {
+    _syncTimer?.cancel();
+    final interval = _isTripActive ? _activeSyncInterval : _idleSyncInterval;
+    _syncTimer = Timer.periodic(interval, (_) {
+      _syncUnsyncedPoints();
+    });
+  }
+
   /// Sync all unsynced location points to RTDB
   Future<void> _syncUnsyncedPoints() async {
     if (_isSyncing) {
-      debugPrint('[BackgroundSyncService] Sync already in progress, skipping...');
+      debugPrint(
+        '[BackgroundSyncService] Sync already in progress, skipping...',
+      );
       return;
     }
 
@@ -88,8 +112,12 @@ class BackgroundSyncService {
 
     // Check network connectivity
     final connectivityResults = await _connectivity.checkConnectivity();
-    if (connectivityResults.every((result) => result == ConnectivityResult.none)) {
-      debugPrint('[BackgroundSyncService] No network connection, skipping sync...');
+    if (connectivityResults.every(
+      (result) => result == ConnectivityResult.none,
+    )) {
+      debugPrint(
+        '[BackgroundSyncService] No network connection, skipping sync...',
+      );
       return;
     }
 
@@ -101,11 +129,19 @@ class BackgroundSyncService {
       final unsyncedPoints = allPoints.where((point) => !point.synced).toList();
 
       if (unsyncedPoints.isEmpty) {
+        if (!_isTripActive) {
+          debugPrint(
+            '[BackgroundSyncService] No unsynced points (idle), skipping',
+          );
+          return;
+        }
         debugPrint('[BackgroundSyncService] No unsynced points to sync');
         return;
       }
 
-      debugPrint('[BackgroundSyncService] Found ${unsyncedPoints.length} unsynced points');
+      debugPrint(
+        '[BackgroundSyncService] Found ${unsyncedPoints.length} unsynced points',
+      );
 
       // Group by (uid, tripId) for batch upload
       final groupedPoints = <String, List<LocationPoint>>{};
@@ -137,7 +173,9 @@ class BackgroundSyncService {
               vehicleNumber = tripData?['vehicleNumber'] as String?;
             }
           } catch (e) {
-            debugPrint('[BackgroundSyncService] Failed to fetch vehicleNumber: $e');
+            debugPrint(
+              '[BackgroundSyncService] Failed to fetch vehicleNumber: $e',
+            );
             // Continue without vehicleNumber
           }
 
@@ -146,7 +184,7 @@ class BackgroundSyncService {
           // NOTE: We ONLY write to RTDB during active trips (for live tracking)
           // We do NOT write to Firestore history during trips - polyline is saved on EndTrip only
           final latestPoint = points.last;
-          
+
           // Update active driver location (latest point)
           // Include vehicleNumber if available
           final locationData = latestPoint.toJson();
@@ -176,14 +214,20 @@ class BackgroundSyncService {
             totalSynced++;
           }
 
-          debugPrint('[BackgroundSyncService] Synced ${points.length} points for trip $tripId');
+          debugPrint(
+            '[BackgroundSyncService] Synced ${points.length} points for trip $tripId',
+          );
         } catch (e) {
-          debugPrint('[BackgroundSyncService] Failed to sync points for trip $tripId: $e');
+          debugPrint(
+            '[BackgroundSyncService] Failed to sync points for trip $tripId: $e',
+          );
           // Continue with next group
         }
       }
 
-      debugPrint('[BackgroundSyncService] Sync completed: $totalSynced points synced');
+      debugPrint(
+        '[BackgroundSyncService] Sync completed: $totalSynced points synced',
+      );
     } catch (e, st) {
       debugPrint('[BackgroundSyncService] Sync failed: $e');
       debugPrintStack(stackTrace: st);

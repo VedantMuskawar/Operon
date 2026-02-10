@@ -1,4 +1,5 @@
 import 'package:core_models/core_models.dart';
+import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -83,10 +84,10 @@ class _ExpenseSubCategoryFormDialogState
     final isEditing = widget.subCategory != null;
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: Text(
         isEditing ? 'Edit Sub-Category' : 'Add Sub-Category',
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SingleChildScrollView(
         child: Form(
@@ -97,17 +98,16 @@ class _ExpenseSubCategoryFormDialogState
             children: [
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Name *'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter sub-category name'
-                        : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Enter sub-category name'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _descriptionController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Description'),
                 maxLines: 2,
               ),
@@ -115,7 +115,7 @@ class _ExpenseSubCategoryFormDialogState
               // Icon selector
               const Text(
                 'Icon',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
+                style: TextStyle(color: AuthColors.textSub, fontSize: 14),
               ),
               const SizedBox(height: AppSpacing.paddingSM),
               Wrap(
@@ -134,13 +134,19 @@ class _ExpenseSubCategoryFormDialogState
                       height: 48,
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? Color(int.parse(_selectedColor.substring(1), radix: 16) + 0xFF000000).withOpacity(0.2)
-                            : const Color(0xFF1B1B2C),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                            ? Color(int.parse(_selectedColor.substring(1),
+                                        radix: 16) +
+                                    0xFF000000)
+                                .withOpacity(0.2)
+                            : AuthColors.backgroundAlt,
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMD),
                         border: Border.all(
                           color: isSelected
-                              ? Color(int.parse(_selectedColor.substring(1), radix: 16) + 0xFF000000)
-                              : Colors.white24,
+                              ? Color(int.parse(_selectedColor.substring(1),
+                                      radix: 16) +
+                                  0xFF000000)
+                              : AuthColors.textSubWithOpacity(0.24),
                           width: isSelected ? 2 : 1,
                         ),
                       ),
@@ -158,7 +164,7 @@ class _ExpenseSubCategoryFormDialogState
               // Color selector
               const Text(
                 'Color',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
+                style: TextStyle(color: AuthColors.textSub, fontSize: 14),
               ),
               const SizedBox(height: AppSpacing.paddingSM),
               Wrap(
@@ -176,10 +182,13 @@ class _ExpenseSubCategoryFormDialogState
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Color(int.parse(color.substring(1), radix: 16) + 0xFF000000),
+                        color: Color(int.parse(color.substring(1), radix: 16) +
+                            0xFF000000),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isSelected ? Colors.white : Colors.transparent,
+                          color: isSelected
+                              ? AuthColors.textMain
+                              : AuthColors.transparent,
                           width: isSelected ? 3 : 0,
                         ),
                       ),
@@ -190,7 +199,7 @@ class _ExpenseSubCategoryFormDialogState
               const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _orderController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Display Order'),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -211,7 +220,7 @@ class _ExpenseSubCategoryFormDialogState
                 children: [
                   const Text(
                     'Active',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                   ),
                   const Spacer(),
                   Switch(
@@ -221,7 +230,7 @@ class _ExpenseSubCategoryFormDialogState
                         _isActive = value;
                       });
                     },
-                    activeThumbColor: const Color(0xFF6F4BFF),
+                    activeThumbColor: AuthColors.secondary,
                   ),
                 ],
               ),
@@ -268,8 +277,8 @@ class _ExpenseSubCategoryFormDialogState
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.backgroundAlt,
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
@@ -277,4 +286,3 @@ class _ExpenseSubCategoryFormDialogState
     );
   }
 }
-

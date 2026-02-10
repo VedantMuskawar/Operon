@@ -29,6 +29,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   int _totalPendingTrips = 0;
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
+  bool _isEddRunning = false;
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
   String? _currentOrgId;
   int? _selectedFixedQuantityFilter; // null means "All"
@@ -74,29 +75,23 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     await _ordersSubscription?.cancel();
     _ordersSubscription = repository.watchPendingOrders(orgId).listen(
       (orders) {
+        // Pending Trips = remaining trips to schedule (sum of estimatedTrips per item)
+        // Do NOT use totalTripsRequired — that's total; we need remaining only
         final tripsCount = orders.fold<int>(0, (total, order) {
           final items = order['items'] as List<dynamic>? ?? [];
-          final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
-          final autoSchedule = order['autoSchedule'] as Map<String, dynamic>?;
-          
-          // Calculate total estimated trips using same logic as tile
-          // Priority: 1. autoSchedule.totalTripsRequired, 2. Sum of item estimatedTrips, 3. Fallback
-          int totalEstimatedTrips = 0;
-          if (autoSchedule?['totalTripsRequired'] != null) {
-            totalEstimatedTrips = (autoSchedule!['totalTripsRequired'] as num).toInt();
-          } else {
-            // Fallback: Sum estimated trips from all items
-            for (final item in items) {
-              final itemMap = item as Map<String, dynamic>;
-              totalEstimatedTrips += (itemMap['estimatedTrips'] as int? ?? 0);
-            }
-            if (totalEstimatedTrips == 0 && firstItem != null) {
-              totalEstimatedTrips = firstItem['estimatedTrips'] as int? ?? 
-                  (order['tripIds'] as List<dynamic>?)?.length ?? 0;
-            }
+          final firstItem =
+              items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
+          int remainingTrips = 0;
+          for (final item in items) {
+            final itemMap = item as Map<String, dynamic>;
+            remainingTrips += (itemMap['estimatedTrips'] as int? ?? 0);
           }
-          
-          return total + totalEstimatedTrips;
+          if (remainingTrips == 0 && firstItem != null) {
+            remainingTrips = firstItem['estimatedTrips'] as int? ??
+                (order['tripIds'] as List<dynamic>?)?.length ??
+                0;
+          }
+          return total + remainingTrips;
         });
 
         if (mounted) {
@@ -147,7 +142,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
 
   List<Map<String, dynamic>> _sortOrders(List<Map<String, dynamic>> orders) {
     final sorted = List<Map<String, dynamic>>.from(orders);
-    
+
     sorted.sort((a, b) {
       switch (_sortOption) {
         case SortOption.dateNewest:
@@ -176,7 +171,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
           return nameB.compareTo(nameA);
       }
     });
-    
+
     return sorted;
   }
 
@@ -220,6 +215,40 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     });
   }
 
+  Future<void> _runEddForAllOrders() async {
+    if (_isEddRunning) return;
+
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final organization = orgContext.organization;
+    if (organization == null) {
+      DashSnackbar.show(context,
+          message: 'Organization not selected', isError: true);
+      return;
+    }
+
+    setState(() {
+      _isEddRunning = true;
+    });
+
+    try {
+      final repository = context.read<PendingOrdersRepository>();
+      final result =
+          await repository.calculateEddForAllPendingOrders(organization.id);
+      final updatedOrders = result['updatedOrders'] ?? 0;
+      DashSnackbar.show(context,
+          message: 'EDD calculated for $updatedOrders order(s)');
+    } catch (e) {
+      DashSnackbar.show(context,
+          message: 'Failed to calculate EDD: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isEddRunning = false;
+        });
+      }
+    }
+  }
+
   Future<void> _bulkDelete() async {
     if (_selectedOrderIds.isEmpty) return;
 
@@ -259,11 +288,13 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
       _deselectAll();
       DashSnackbar.show(
         context,
-        message: '${_selectedOrderIds.length} order${_selectedOrderIds.length > 1 ? 's' : ''} deleted successfully',
+        message:
+            '${_selectedOrderIds.length} order${_selectedOrderIds.length > 1 ? 's' : ''} deleted successfully',
       );
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Failed to delete orders: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to delete orders: $e', isError: true);
       }
     }
   }
@@ -290,9 +321,10 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
       onKeyEvent: (event) {
         if (event is KeyDownEvent) {
           final keyboard = HardwareKeyboard.instance;
-          final isMetaOrControl = keyboard.isMetaPressed || keyboard.isControlPressed;
+          final isMetaOrControl =
+              keyboard.isMetaPressed || keyboard.isControlPressed;
           final isShift = keyboard.isShiftPressed;
-          
+
           // Ctrl/Cmd + A to select all
           if (event.logicalKey == LogicalKeyboardKey.keyA && isMetaOrControl) {
             if (isShift) {
@@ -343,6 +375,31 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                           value: _totalPendingTrips.toString(),
                           icon: Icons.local_shipping_outlined,
                           color: AuthColors.success,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        height: 48,
+                        child: ElevatedButton.icon(
+                          onPressed: (_isEddRunning || _orders.isEmpty)
+                              ? null
+                              : _runEddForAllOrders,
+                          icon: _isEddRunning
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.schedule_outlined),
+                          label: Text(_isEddRunning
+                              ? 'Calculating EDD...'
+                              : 'Estimated Dates'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AuthColors.primary,
+                            foregroundColor: AuthColors.textMain,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
                         ),
                       ),
                     ],
@@ -403,19 +460,24 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                         const crossAxisSpacing = 20.0;
                         const mainAxisSpacing = 20.0;
                         final contentWidth = constraints.maxWidth;
-                        final usableWidth = contentWidth - crossAxisSpacing * (columnCount - 1);
+                        final usableWidth =
+                            contentWidth - crossAxisSpacing * (columnCount - 1);
                         final tileWidth = columnCount > 0
-                            ? (usableWidth > 0 ? usableWidth / columnCount : contentWidth / columnCount)
+                            ? (usableWidth > 0
+                                ? usableWidth / columnCount
+                                : contentWidth / columnCount)
                             : contentWidth;
 
                         return AnimationLimiter(
                           child: Wrap(
                             spacing: crossAxisSpacing,
                             runSpacing: mainAxisSpacing,
-                            children: List.generate(filteredOrders.length, (index) {
+                            children:
+                                List.generate(filteredOrders.length, (index) {
                               final order = filteredOrders[index];
                               final orderId = order['id'] as String;
-                              final isSelected = _selectedOrderIds.contains(orderId);
+                              final isSelected =
+                                  _selectedOrderIds.contains(orderId);
 
                               return AnimationConfiguration.staggeredGrid(
                                 position: index,
@@ -433,7 +495,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                                           key: ValueKey(orderId),
                                           order: order,
                                           isSelected: isSelected,
-                                          onTripsUpdated: () => _subscribeToOrders(),
+                                          onTripsUpdated: () =>
+                                              _subscribeToOrders(),
                                           onDeleted: () {
                                             _selectedOrderIds.remove(orderId);
                                             _subscribeToOrders();
@@ -442,7 +505,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                                             // Toggle selection on tap
                                             _toggleOrderSelection(orderId);
                                           },
-                                          onSelectionToggle: () => _toggleOrderSelection(orderId),
+                                          onSelectionToggle: () =>
+                                              _toggleOrderSelection(orderId),
                                         ),
                                       ),
                                     ),
@@ -460,10 +524,13 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                     const EmptyState(
                       icon: Icons.pending_actions_outlined,
                       title: 'No Pending Orders',
-                      message: 'All orders have been processed or there are no orders yet.',
+                      message:
+                          'All orders have been processed or there are no orders yet.',
                     ),
                   ],
-                  if (!_isLoading && _getFilteredOrders().isEmpty && _orders.isNotEmpty) ...[
+                  if (!_isLoading &&
+                      _getFilteredOrders().isEmpty &&
+                      _orders.isNotEmpty) ...[
                     const SizedBox(height: 48),
                     EmptyState(
                       icon: Icons.search_off_outlined,
@@ -537,7 +604,7 @@ class _StatTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                    style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textMain,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -645,9 +712,7 @@ class _FilterChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected
-                ? AuthColors.primary
-                : AuthColors.surface,
+            color: isSelected ? AuthColors.primary : AuthColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isSelected
@@ -820,7 +885,7 @@ class _BulkActionsBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.check_circle_outline,
             color: AuthColors.primary,
             size: 20,
@@ -828,7 +893,7 @@ class _BulkActionsBar extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             '$selectedCount selected',
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -1123,4 +1188,3 @@ class _SkeletonOrderTile extends StatelessWidget {
     );
   }
 }
-

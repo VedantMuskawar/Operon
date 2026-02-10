@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_models/core_models.dart';
 import 'vendors_data_source.dart';
 
@@ -9,6 +10,22 @@ class VendorsRepository {
 
   Future<List<Vendor>> fetchVendors(String organizationId) {
     return _dataSource.fetchVendors(organizationId);
+  }
+
+  Future<
+      ({
+        List<Vendor> vendors,
+        DocumentSnapshot<Map<String, dynamic>>? lastDoc,
+      })> fetchVendorsPage({
+    required String organizationId,
+    int limit = 30,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+  }) {
+    return _dataSource.fetchVendorsPage(
+      organizationId: organizationId,
+      limit: limit,
+      startAfterDocument: startAfterDocument,
+    );
   }
 
   Stream<List<Vendor>> watchVendors(String organizationId) {
@@ -49,12 +66,3 @@ class VendorsRepository {
     return _dataSource.deleteVendor(vendorId);
   }
 }
-
-
-
-
-
-
-
-
-

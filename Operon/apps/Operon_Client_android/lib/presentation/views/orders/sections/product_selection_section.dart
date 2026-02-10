@@ -129,7 +129,7 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
                     });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AuthColors.accentPurple,
+                    backgroundColor: AuthColors.secondary,
                     padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -198,7 +198,7 @@ class _ProductDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.backgroundAlt,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       ),
       child: DropdownButtonFormField<OrganizationProduct>(
@@ -240,7 +240,7 @@ class _FixedQuantityDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1B1B2C),
+        color: AuthColors.backgroundAlt,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       ),
       child: DropdownButtonFormField<int>(
@@ -285,7 +285,7 @@ class _TripQuantitySelector extends StatelessWidget {
       children: [
         const Text(
           'Number of Trips:',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+          style: TextStyle(color: AuthColors.textSub, fontSize: 14),
         ),
         const SizedBox(height: AppSpacing.paddingSM),
         AnimatedSwitcher(
@@ -295,7 +295,7 @@ class _TripQuantitySelector extends StatelessWidget {
             children: [
               // Decrement Button
               Material(
-                color: Colors.transparent,
+                color: AuthColors.transparent,
                 child: InkWell(
                   onTap: trips > 1 ? onDecrement : null,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
@@ -315,7 +315,7 @@ class _TripQuantitySelector extends StatelessWidget {
                     ),
                     child: Icon(
                       Icons.remove,
-                      color: trips > 1 ? Colors.white : Colors.white38,
+                      color: trips > 1 ? AuthColors.textMain : AuthColors.textDisabled,
                     ),
                   ),
                 ),
@@ -326,7 +326,7 @@ class _TripQuantitySelector extends StatelessWidget {
                 width: 80,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1B1B2C),
+                  color: AuthColors.backgroundAlt,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(color: AuthColors.textMainWithOpacity(0.24)),
                 ),
@@ -343,7 +343,7 @@ class _TripQuantitySelector extends StatelessWidget {
               const SizedBox(width: AppSpacing.paddingMD),
               // Increment Button
               Material(
-                color: Colors.transparent,
+                color: AuthColors.transparent,
                 child: InkWell(
                   onTap: onIncrement,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
@@ -351,7 +351,7 @@ class _TripQuantitySelector extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1B1B2C),
+                      color: AuthColors.backgroundAlt,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       border: Border.all(color: AuthColors.textMainWithOpacity(0.24)),
                     ),
@@ -391,12 +391,12 @@ class _OrderItemTile extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A2A), Color(0xFF0A0A0A)],
+          colors: [AuthColors.backgroundAlt, AuthColors.background],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,7 +419,7 @@ class _OrderItemTile extends StatelessWidget {
                     Text(
                       item.displayText,
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: AuthColors.textSub,
                         fontSize: 14,
                       ),
                     ),
@@ -427,7 +427,7 @@ class _OrderItemTile extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                icon: const Icon(Icons.delete_outline, color: AuthColors.error),
                 onPressed: onRemove,
               ),
             ],
@@ -437,11 +437,11 @@ class _OrderItemTile extends StatelessWidget {
             children: [
               const Text(
                 'Trips: ',
-                style: TextStyle(color: Colors.white54, fontSize: 12),
+                style: TextStyle(color: AuthColors.textDisabled, fontSize: 12),
               ),
               // Decrement
               Material(
-                color: Colors.transparent,
+                color: AuthColors.transparent,
                 child: InkWell(
                   onTap: item.estimatedTrips > 1 ? onDecrement : null,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
@@ -450,16 +450,16 @@ class _OrderItemTile extends StatelessWidget {
                     height: 32,
                     decoration: BoxDecoration(
                       color: item.estimatedTrips > 1
-                          ? Colors.white.withOpacity(0.1)
-                          : Colors.white.withOpacity(0.05),
+                          ? AuthColors.textMain.withOpacity(0.1)
+                          : AuthColors.textMain.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                     ),
                     child: Icon(
                       Icons.remove,
                       size: 16,
                       color: item.estimatedTrips > 1
-                          ? Colors.white
-                          : Colors.white38,
+                          ? AuthColors.textMain
+                          : AuthColors.textDisabled,
                     ),
                   ),
                 ),
@@ -471,7 +471,7 @@ class _OrderItemTile extends StatelessWidget {
                 child: Text(
                   item.estimatedTrips.toString(),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AuthColors.textMain,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -479,7 +479,7 @@ class _OrderItemTile extends StatelessWidget {
               const SizedBox(width: AppSpacing.paddingSM),
               // Increment
               Material(
-                color: Colors.transparent,
+                color: AuthColors.transparent,
                 child: InkWell(
                   onTap: onIncrement,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
@@ -487,7 +487,7 @@ class _OrderItemTile extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
+                      color: AuthColors.textMain.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                     ),
                     child: const Icon(

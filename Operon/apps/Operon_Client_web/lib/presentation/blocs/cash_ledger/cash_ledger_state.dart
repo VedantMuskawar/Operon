@@ -81,12 +81,12 @@ class CashLedgerState extends BaseState {
   double get totalOrderTransactions =>
       orderTransactions.fold(0.0, (sum, tx) => sum + tx.amount);
   // For order transactions, only debit (actual payments) counts as income
-  double get totalOrderIncome =>
-      orderTransactions
-          .where((tx) => tx.type == TransactionType.debit)
-          .fold(0.0, (sum, tx) => sum + tx.amount);
+  double get totalOrderIncome => orderTransactions
+      .where((tx) => tx.type == TransactionType.debit)
+      .fold(0.0, (sum, tx) => sum + tx.amount);
   double get totalPayments => payments.fold(0.0, (sum, tx) => sum + tx.amount);
-  double get totalPurchases => purchases.fold(0.0, (sum, tx) => sum + tx.amount);
+  double get totalPurchases =>
+      purchases.fold(0.0, (sum, tx) => sum + tx.amount);
   double get totalExpenses => expenses.fold(0.0, (sum, tx) => sum + tx.amount);
 
   double get totalIncome => totalOrderIncome + totalPayments;
@@ -95,29 +95,31 @@ class CashLedgerState extends BaseState {
 
   /// Calculate total credit and debit from all transactions
   double get totalCredit {
-    return allRows
-        .where((tx) => tx.type == TransactionType.credit)
-        .fold(0.0, (sum, tx) {
-      // For grouped transactions, use cumulative credit from metadata
+    var total = 0.0;
+    for (final tx in allRows) {
+      // For grouped transactions, always use cumulative credit (even if net is debit)
       final transactionCount = tx.metadata?['transactionCount'] as int?;
       if (transactionCount != null && transactionCount > 1) {
-        return sum + ((tx.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0);
+        total += (tx.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+      } else if (tx.type == TransactionType.credit) {
+        total += tx.amount;
       }
-      return sum + tx.amount;
-    });
+    }
+    return total;
   }
 
   double get totalDebit {
-    return allRows
-        .where((tx) => tx.type == TransactionType.debit)
-        .fold(0.0, (sum, tx) {
-      // For grouped transactions, use cumulative debit from metadata
+    var total = 0.0;
+    for (final tx in allRows) {
+      // For grouped transactions, always use cumulative debit (even if net is credit)
       final transactionCount = tx.metadata?['transactionCount'] as int?;
       if (transactionCount != null && transactionCount > 1) {
-        return sum + ((tx.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0);
+        total += (tx.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0;
+      } else if (tx.type == TransactionType.debit) {
+        total += tx.amount;
       }
-      return sum + tx.amount;
-    });
+    }
+    return total;
   }
 
   /// Per-account income and expense for display below the table.
@@ -125,9 +127,11 @@ class CashLedgerState extends BaseState {
     final map = <String, PaymentAccountSummary>{};
     void add(String? id, String? name, double income, double expense) {
       final key = (id?.trim().isEmpty ?? true) ? (name ?? '') : id!;
-      final displayName = name?.trim().isEmpty != true ? name! : (id ?? 'Unknown');
+      final displayName =
+          name?.trim().isEmpty != true ? name! : (id ?? 'Unknown');
       if (!map.containsKey(key)) {
-        map[key] = PaymentAccountSummary(displayName: displayName, income: 0, expense: 0);
+        map[key] = PaymentAccountSummary(
+            displayName: displayName, income: 0, expense: 0);
       }
       final cur = map[key]!;
       map[key] = PaymentAccountSummary(
@@ -136,21 +140,43 @@ class CashLedgerState extends BaseState {
         expense: cur.expense + expense,
       );
     }
+
     // For order transactions, only debit (actual payments) counts as income
     for (final t in orderTransactions) {
-      if (t.type == TransactionType.debit) {
-        add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
+      final transactionCount = t.metadata?['transactionCount'] as int?;
+      final isGrouped = transactionCount != null && transactionCount > 1;
+      if (isGrouped) {
+        final debitAccounts = t.metadata?['debitPaymentAccounts'] as List?;
+        if (debitAccounts != null) {
+          for (final account in debitAccounts) {
+            final accountMap = account as Map<String, dynamic>?;
+            final name = accountMap?['name']?.toString().trim() ?? 'Unknown';
+            final amount = (accountMap?['amount'] as num?)?.toDouble() ?? 0.0;
+            if (amount > 0) {
+              add(null, name, amount, 0);
+            }
+          }
+        }
+      } else if (t.type == TransactionType.debit) {
+        add(
+            t.paymentAccountId,
+            t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown',
+            t.amount,
+            0);
       }
       // Credit transactions (clientCredit/PayLater) don't count as income
     }
     for (final t in payments) {
-      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
+      add(t.paymentAccountId,
+          t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', t.amount, 0);
     }
     for (final t in purchases) {
-      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', 0, t.amount);
+      add(t.paymentAccountId,
+          t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', 0, t.amount);
     }
     for (final t in expenses) {
-      add(t.paymentAccountId, t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', 0, t.amount);
+      add(t.paymentAccountId,
+          t.paymentAccountName ?? t.paymentAccountId ?? 'Unknown', 0, t.amount);
     }
     final list = map.values.toList();
     list.sort((a, b) => a.displayName.compareTo(b.displayName));

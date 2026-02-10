@@ -2,9 +2,11 @@ import 'dart:typed_data';
 
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar;
+import 'package:core_ui/core_ui.dart'
+    show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar;
 import 'package:core_ui/core_ui.dart' show showLedgerDateRangeModal;
-import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, LedgerRowData;
+import 'package:core_utils/core_utils.dart'
+    show calculateOpeningBalance, LedgerRowData;
 import 'package:dash_web/presentation/widgets/ledger_preview_dialog.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
@@ -37,7 +39,6 @@ class EmployeeDetailModal extends StatefulWidget {
 }
 
 class _EmployeeDetailModalState extends State<EmployeeDetailModal> {
-
   Future<void> _confirmDelete() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -51,11 +52,13 @@ class _EmployeeDetailModalState extends State<EmployeeDetailModal> {
         final repository = context.read<EmployeesRepository>();
         await repository.deleteEmployee(widget.employee.id);
         if (!mounted) return;
-        DashSnackbar.show(context, message: 'Employee deleted.', isError: false);
+        DashSnackbar.show(context,
+            message: 'Employee deleted.', isError: false);
         Navigator.of(context).pop();
       } catch (error) {
         if (!mounted) return;
-        DashSnackbar.show(context, message: 'Unable to delete employee: $error', isError: true);
+        DashSnackbar.show(context,
+            message: 'Unable to delete employee: $error', isError: true);
       }
     }
   }
@@ -85,7 +88,9 @@ class _EmployeeDetailModalState extends State<EmployeeDetailModal> {
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
+    return name.length >= 2
+        ? name.substring(0, 2).toUpperCase()
+        : name.toUpperCase();
   }
 
   String _getWageTypeDisplayName(WageType type) {
@@ -110,7 +115,7 @@ class _EmployeeDetailModalState extends State<EmployeeDetailModal> {
   @override
   Widget build(BuildContext context) {
     final roleColor = _getRoleColor(widget.employee.primaryJobRoleTitle);
-    
+
     return DetailModalBase(
       onClose: () => Navigator.of(context).pop(),
       child: Column(
@@ -290,9 +295,7 @@ class _TabButton extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isSelected
-                  ? const Color(0xFF6F4BFF)
-                  : Colors.transparent,
+              color: isSelected ? const Color(0xFF6F4BFF) : Colors.transparent,
               width: 2,
             ),
           ),
@@ -363,7 +366,9 @@ class _OverviewSection extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: (isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350))
+                color: (isPositive
+                        ? const Color(0xFF4CAF50)
+                        : const Color(0xFFEF5350))
                     .withOpacity(0.3),
                 width: 1,
               ),
@@ -394,13 +399,17 @@ class _OverviewSection extends StatelessWidget {
                     Icon(
                       isPositive ? Icons.trending_up : Icons.trending_down,
                       size: 16,
-                      color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                      color: isPositive
+                          ? const Color(0xFF4CAF50)
+                          : const Color(0xFFEF5350),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())} from opening',
                       style: TextStyle(
-                        color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                        color: isPositive
+                            ? const Color(0xFF4CAF50)
+                            : const Color(0xFFEF5350),
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -410,7 +419,9 @@ class _OverviewSection extends StatelessWidget {
                       Text(
                         '(${isPositive ? '+' : ''}${percentChange.abs().toStringAsFixed(1)}%)',
                         style: TextStyle(
-                          color: isPositive ? const Color(0xFF4CAF50) : const Color(0xFFEF5350),
+                          color: isPositive
+                              ? const Color(0xFF4CAF50)
+                              : const Color(0xFFEF5350),
                           fontSize: 11,
                         ),
                       ),
@@ -436,7 +447,8 @@ class _OverviewSection extends StatelessWidget {
               Expanded(
                 child: _SummaryCard(
                   label: 'Net Change',
-                  value: '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())}',
+                  value:
+                      '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())}',
                   color: isPositive ? AuthColors.success : AuthColors.error,
                 ),
               ),
@@ -488,7 +500,8 @@ class _OverviewSection extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            employee.wage.baseAmount != null || employee.wage.rate != null
+                            employee.wage.baseAmount != null ||
+                                    employee.wage.rate != null
                                 ? '₹${(employee.wage.baseAmount ?? employee.wage.rate ?? 0).toStringAsFixed(2)}'
                                 : 'Not set',
                             style: const TextStyle(
@@ -560,7 +573,9 @@ class _OverviewSection extends StatelessWidget {
                               style: TextStyle(
                                 color: isPrimary ? roleColor : Colors.white70,
                                 fontSize: 12,
-                                fontWeight: isPrimary ? FontWeight.w600 : FontWeight.w500,
+                                fontWeight: isPrimary
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                               ),
                             ),
                             if (isPrimary) ...[
@@ -639,19 +654,19 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
   @override
   Widget build(BuildContext context) {
     final orgState = context.watch<OrganizationContextCubit>().state;
-      final organization = orgState.organization;
+    final organization = orgState.organization;
 
-      if (organization == null) {
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'No organization selected',
-              style: TextStyle(color: AuthColors.textSub),
-            ),
+    if (organization == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            'No organization selected',
+            style: TextStyle(color: AuthColors.textSub),
           ),
-        );
-      }
+        ),
+      );
+    }
 
     final repository = context.read<EmployeeWagesRepository>();
 
@@ -665,7 +680,8 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
           ),
           builder: (context, transactionsSnapshot) {
             if (ledgerSnapshot.connectionState == ConnectionState.waiting ||
-                transactionsSnapshot.connectionState == ConnectionState.waiting) {
+                transactionsSnapshot.connectionState ==
+                    ConnectionState.waiting) {
               return const Center(
                 child: CircularProgressIndicator(
                   color: AuthColors.primary,
@@ -680,7 +696,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.error_outline,
                         size: 48,
                         color: AuthColors.error,
@@ -688,7 +704,7 @@ class _TransactionsSectionState extends State<_TransactionsSection> {
                       const SizedBox(height: 16),
                       Text(
                         'Failed to load ledger: ${ledgerSnapshot.error ?? transactionsSnapshot.error}',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textSub,
                           fontSize: 14,
                         ),
@@ -753,7 +769,9 @@ String _formatCategoryName(String? category) {
   return category
       .replaceAllMapped(RegExp(r'([A-Z])'), (match) => ' ${match.group(1)}')
       .split(' ')
-      .map((word) => word.isEmpty ? '' : word[0].toUpperCase() + word.substring(1).toLowerCase())
+      .map((word) => word.isEmpty
+          ? ''
+          : word[0].toUpperCase() + word.substring(1).toLowerCase())
       .join(' ')
       .trim();
 }
@@ -798,14 +816,16 @@ class _LedgerTable extends StatelessWidget {
       final organization = orgContext.organization;
       if (organization == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        DashSnackbar.show(context, message: 'No organization selected', isError: true);
+        DashSnackbar.show(context,
+            message: 'No organization selected', isError: true);
         return;
       }
 
       // Fetch all transactions for opening balance calculation
       final employeeWagesDataSource = EmployeeWagesDataSource();
       final financialYear = FinancialYearUtils.getCurrentFinancialYear();
-      final allTransactions = await employeeWagesDataSource.fetchEmployeeTransactions(
+      final allTransactions =
+          await employeeWagesDataSource.fetchEmployeeTransactions(
         organizationId: organization.id,
         employeeId: employeeId,
         financialYear: financialYear,
@@ -823,8 +843,9 @@ class _LedgerTable extends StatelessWidget {
       final transactionsInRange = allTransactions.where((tx) {
         final txDate = tx.createdAt ?? tx.updatedAt;
         if (txDate == null) return false;
-        return txDate.isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
-               txDate.isBefore(dateRange.end.add(const Duration(days: 1)));
+        return txDate
+                .isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
+            txDate.isBefore(dateRange.end.add(const Duration(days: 1)));
       }).toList();
 
       // Sort chronologically
@@ -837,7 +858,7 @@ class _LedgerTable extends StatelessWidget {
       // Convert to LedgerRowData
       double runningBalance = openingBal;
       final ledgerRows = <LedgerRowData>[];
-      
+
       for (final tx in transactionsInRange) {
         final txDate = tx.createdAt ?? tx.updatedAt ?? DateTime.now();
         final type = tx.type;
@@ -877,13 +898,17 @@ class _LedgerTable extends StatelessWidget {
       final dmSettings = await dmSettingsRepo.fetchDmSettings(organization.id);
       if (dmSettings == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        DashSnackbar.show(context, message: 'DM settings not found. Please configure DM settings first.', isError: true);
+        DashSnackbar.show(context,
+            message:
+                'DM settings not found. Please configure DM settings first.',
+            isError: true);
         return;
       }
 
       // Load logo if available
       Uint8List? logoBytes;
-      if (dmSettings.header.logoImageUrl != null && dmSettings.header.logoImageUrl!.isNotEmpty) {
+      if (dmSettings.header.logoImageUrl != null &&
+          dmSettings.header.logoImageUrl!.isNotEmpty) {
         try {
           final logoUrl = dmSettings.header.logoImageUrl!;
           final response = await http.get(Uri.parse(logoUrl));
@@ -916,27 +941,16 @@ class _LedgerTable extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // Close loading if still open
-        DashSnackbar.show(context, message: 'Failed to generate ledger PDF: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to generate ledger PDF: $e', isError: true);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    var totalDebit = 0.0;
-    var totalCredit = 0.0;
-    for (final tx in transactions) {
-      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
-      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-      final isCredit = type == 'credit';
-      if (isCredit) {
-        totalCredit += amount;
-      } else {
-        totalDebit += amount;
-      }
-    }
-
-    if (transactions.isEmpty) {
+    final visible = List<Map<String, dynamic>>.from(transactions);
+    if (visible.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -950,9 +964,12 @@ class _LedgerTable extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text(
+          const Text(
             'No transactions found.',
-            style: TextStyle(color: AuthColors.textSub, fontSize: 13, fontFamily: 'SF Pro Display'),
+            style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 13,
+                fontFamily: 'SF Pro Display'),
           ),
           const SizedBox(height: 20),
           _LedgerSummaryFooter(
@@ -962,6 +979,62 @@ class _LedgerTable extends StatelessWidget {
             formatCurrency: formatCurrency,
           ),
         ],
+      );
+    }
+
+    visible.sort((a, b) {
+      final aDate = a['transactionDate'];
+      final bDate = b['transactionDate'];
+      try {
+        final ad = aDate is Timestamp ? aDate.toDate() : (aDate as DateTime);
+        final bd = bDate is Timestamp ? bDate.toDate() : (bDate as DateTime);
+        return ad.compareTo(bd);
+      } catch (_) {
+        return 0;
+      }
+    });
+
+    var totalDebit = 0.0;
+    var totalCredit = 0.0;
+    var running = openingBalance;
+    final rows = <Widget>[];
+    for (final tx in visible) {
+      final type = (tx['type'] as String? ?? 'credit').toLowerCase();
+      final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+      final date = tx['transactionDate'] ?? tx['createdAt'];
+      final desc = (tx['description'] as String?)?.trim();
+      final batchTrip = (desc != null && desc.isNotEmpty) ? desc : '-';
+      final category = tx['category'] as String?;
+      final isCredit = type == 'credit';
+      final credit = isCredit ? amount : 0.0;
+      final debit = isCredit ? 0.0 : amount;
+      final txId = tx['transactionId'] as String? ?? tx['id'] as String?;
+      final metadata = tx['metadata'] as Map<String, dynamic>?;
+      final voucherUrl = metadata?['cashVoucherPhotoUrl']?.toString();
+      final showVoucher = category == 'salaryDebit' &&
+          txId != null &&
+          txId.isNotEmpty &&
+          voucherUrl != null &&
+          voucherUrl.isNotEmpty;
+
+      running += isCredit ? amount : -amount;
+      totalCredit += credit;
+      totalDebit += debit;
+
+      rows.add(
+        _LedgerTableRow(
+          date: date,
+          batchTrip: batchTrip,
+          debit: debit,
+          credit: credit,
+          balance: running,
+          type: _formatCategoryName(category),
+          remarks: '-',
+          formatCurrency: formatCurrency,
+          formatDate: formatDate,
+          transactionId: txId,
+          showVoucher: showVoucher,
+        ),
       );
     }
 
@@ -993,46 +1066,14 @@ class _LedgerTable extends StatelessWidget {
           decoration: BoxDecoration(
             color: AuthColors.surface,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+            border: Border.all(
+                color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
               _LedgerTableHeader(),
               Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
-              ...transactions.map((tx) {
-                final type = tx['type'] as String? ?? 'credit';
-                final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-                final balanceAfter = (tx['balanceAfter'] as num?)?.toDouble() ?? 0.0;
-                final date = tx['transactionDate'] ?? tx['createdAt'];
-                final desc = (tx['description'] as String?)?.trim();
-                final batchTrip = (desc != null && desc.isNotEmpty) ? desc : '-';
-                final category = tx['category'] as String?;
-                final isCredit = type == 'credit';
-                final credit = isCredit ? amount : 0.0;
-                final debit = !isCredit ? amount : 0.0;
-                final txId = tx['transactionId'] as String? ?? tx['id'] as String?;
-                final metadata = tx['metadata'] as Map<String, dynamic>?;
-                final voucherUrl = metadata?['cashVoucherPhotoUrl']?.toString();
-                final showVoucher = category == 'salaryDebit' &&
-                    txId != null &&
-                    txId.isNotEmpty &&
-                    voucherUrl != null &&
-                    voucherUrl.isNotEmpty;
-
-                return _LedgerTableRow(
-                  date: date,
-                  batchTrip: batchTrip,
-                  debit: debit,
-                  credit: credit,
-                  balance: balanceAfter,
-                  type: _formatCategoryName(category),
-                  remarks: '-',
-                  formatCurrency: formatCurrency,
-                  formatDate: formatDate,
-                  transactionId: txId,
-                  showVoucher: showVoucher,
-                );
-              }),
+              ...rows,
             ],
           ),
         ),
@@ -1063,7 +1104,7 @@ class _LedgerTableHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(flex: 1, child: _borderedCell('Date')),
-        Expanded(flex: 1, child: _borderedCell('Batch/Trip')),
+        Expanded(flex: 1, child: _borderedCell('Reference')),
         Expanded(flex: 1, child: _borderedCell('Debit')),
         Expanded(flex: 1, child: _borderedCell('Credit')),
         Expanded(flex: 1, child: _borderedCell('Balance')),
@@ -1073,7 +1114,8 @@ class _LedgerTableHeader extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             alignment: Alignment.center,
-            child: Text('Remarks', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Remarks',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
       ],
@@ -1130,12 +1172,51 @@ class _LedgerTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(flex: 1, child: _cell(Text(formatDate(date), style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(batchTrip, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(debit > 0 ? formatCurrency(debit) : '-', style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(credit > 0 ? formatCurrency(credit) : '-', style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(formatCurrency(balance), style: _cellStyle.copyWith(color: balance >= 0 ? AuthColors.warning : AuthColors.success, fontWeight: FontWeight.w600), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
-        Expanded(flex: 1, child: _cell(Text(type.isEmpty ? '-' : type, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(formatDate(date),
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(batchTrip,
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(debit > 0 ? formatCurrency(debit) : '-',
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(credit > 0 ? formatCurrency(credit) : '-',
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(formatCurrency(balance),
+                style: _cellStyle.copyWith(
+                    color:
+                        balance >= 0 ? AuthColors.warning : AuthColors.success,
+                    fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
+        Expanded(
+            flex: 1,
+            child: _cell(Text(type.isEmpty ? '-' : type,
+                style: _cellStyle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis))),
         Expanded(
           flex: 2,
           child: Container(
@@ -1143,16 +1224,22 @@ class _LedgerTableRow extends StatelessWidget {
             alignment: Alignment.center,
             child: showVoucher && transactionId != null
                 ? TextButton(
-                    onPressed: () => showSalaryVoucherModal(context, transactionId!),
+                    onPressed: () =>
+                        showSalaryVoucherModal(context, transactionId!),
                     style: TextButton.styleFrom(
                       foregroundColor: AuthColors.primary,
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Text('View voucher', style: TextStyle(fontSize: 12)),
+                    child: const Text('View voucher',
+                        style: TextStyle(fontSize: 12)),
                   )
-                : Text(remarks, style: _cellStyle, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                : Text(remarks,
+                    style: _cellStyle,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
           ),
         ),
       ],
@@ -1201,7 +1288,8 @@ class _LedgerSummaryFooter extends StatelessWidget {
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+        border:
+            Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1210,36 +1298,48 @@ class _LedgerSummaryFooter extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Opening Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Opening Balance',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(openingBalance), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(openingBalance),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Debit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Total Debit',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(totalDebit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(totalDebit),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Credit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Total Credit',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(totalCredit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(totalCredit),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Current Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Current Balance',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(currentBalance), style: _footerValueStyle.copyWith(color: AuthColors.success), textAlign: TextAlign.center),
+              Text(formatCurrency(currentBalance),
+                  style: _footerValueStyle.copyWith(color: AuthColors.success),
+                  textAlign: TextAlign.center),
             ],
           ),
         ],
@@ -1305,4 +1405,3 @@ class _DeleteEmployeeDialog extends StatelessWidget {
     );
   }
 }
-

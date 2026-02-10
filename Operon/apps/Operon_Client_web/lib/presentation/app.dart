@@ -133,6 +133,7 @@ class DashWebApp extends StatelessWidget {
         RepositoryProvider<PendingOrdersRepository>(
           create: (_) => PendingOrdersRepository(
             dataSource: PendingOrdersDataSource(),
+            functions: FirebaseFunctions.instanceFor(region: 'asia-south1'),
           ),
         ),
         RepositoryProvider<ScheduledTripsRepository>(
@@ -198,7 +199,8 @@ class DashWebApp extends StatelessWidget {
         RepositoryProvider<DmPrintService>(
           create: (context) => DmPrintService(
             dmSettingsRepository: context.read<DmSettingsRepository>(),
-            paymentAccountsRepository: context.read<PaymentAccountsRepository>(),
+            paymentAccountsRepository:
+                context.read<PaymentAccountsRepository>(),
             qrCodeService: context.read<QrCodeService>(),
           ),
         ),
@@ -239,7 +241,8 @@ class DashWebApp extends StatelessWidget {
               authRepository: context.read<AuthRepository>(),
               orgContextCubit: context.read<OrganizationContextCubit>(),
               orgSelectorCubit: context.read<OrgSelectorCubit>(),
-              appAccessRolesRepository: context.read<AppAccessRolesRepository>(),
+              appAccessRolesRepository:
+                  context.read<AppAccessRolesRepository>(),
             ),
           ),
           BlocProvider<AnalyticsDashboardCubit>(
@@ -256,13 +259,16 @@ class DashWebApp extends StatelessWidget {
               listener: (context, state) {
                 // Handle navigation at app level for hot restart cases
                 if (state.status == AppInitializationStatus.contextRestored) {
-                  final orgState = context.read<OrganizationContextCubit>().state;
+                  final orgState =
+                      context.read<OrganizationContextCubit>().state;
                   if (orgState.hasSelection) {
-                    final currentRoute = router.routerDelegate.currentConfiguration.uri.path;
-                    
+                    final currentRoute =
+                        router.routerDelegate.currentConfiguration.uri.path;
+
                     // Check if the current route is NOT home AND is NOT a print route
                     // This prevents the app from hijacking the /print-dm route during initialization
-                    if (currentRoute != '/home' && !currentRoute.startsWith('/print-dm')) {
+                    if (currentRoute != '/home' &&
+                        !currentRoute.startsWith('/print-dm')) {
                       router.go('/home');
                     }
                   }
@@ -274,22 +280,29 @@ class DashWebApp extends StatelessWidget {
                   // This handles the case where the router preserves the previous route
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (context.mounted) {
-                      final initState = context.read<AppInitializationCubit>().state;
-                      
+                      final initState =
+                          context.read<AppInitializationCubit>().state;
+
                       // If initialization hasn't started, trigger it
                       if (initState.status == AppInitializationStatus.initial) {
-                        context.read<AuthBloc>().add(const AuthStatusRequested());
+                        context
+                            .read<AuthBloc>()
+                            .add(const AuthStatusRequested());
                         context.read<AppInitializationCubit>().initialize();
-                      } else if (initState.status == AppInitializationStatus.contextRestored) {
+                      } else if (initState.status ==
+                          AppInitializationStatus.contextRestored) {
                         // If already restored, check if we need to navigate
-                        final orgState = context.read<OrganizationContextCubit>().state;
+                        final orgState =
+                            context.read<OrganizationContextCubit>().state;
                         if (orgState.hasSelection) {
                           try {
                             final router = GoRouter.maybeOf(context);
                             if (router != null) {
-                              final currentRoute = router.routerDelegate.currentConfiguration.uri.path;
+                              final currentRoute = router
+                                  .routerDelegate.currentConfiguration.uri.path;
                               // Only redirect from splash or root, not from print routes
-                              if ((currentRoute == '/splash' || currentRoute == '/') && 
+                              if ((currentRoute == '/splash' ||
+                                      currentRoute == '/') &&
                                   !currentRoute.startsWith('/print-dm')) {
                                 context.go('/home');
                               }
@@ -301,7 +314,7 @@ class DashWebApp extends StatelessWidget {
                       }
                     }
                   });
-                  
+
                   return MaterialApp.router(
                     title: 'Dash Web',
                     theme: buildDashTheme(),

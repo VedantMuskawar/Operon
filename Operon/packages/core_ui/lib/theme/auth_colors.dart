@@ -15,7 +15,8 @@ class AuthColors {
 
   // Background colors
   static const Color background = Color(0xFF121212); // Off-Black
-  static const Color backgroundAlt = Color(0xFF141414); // Slightly lighter black
+  static const Color backgroundAlt =
+      Color(0xFF141414); // Slightly lighter black
   static const Color surface = Color(0xFF1E1E1E); // Dark Grey
 
   // Text colors
@@ -26,23 +27,46 @@ class AuthColors {
   // Accent colors
   /// Legacy accent – use [primary] or [secondary] for new code. Kept for compatibility.
   static const Color legacyAccent = primary;
-  static const Color unselectedTile = Color(0xFFF7ABAB); // Light pink for unselected org tiles
+  static const Color unselectedTile =
+      Color(0xFFF7ABAB); // Light pink for unselected org tiles
   static const Color error = Color(0xFFFF5252); // Error red
   static const Color success = Color(0xFF4CAF50); // Success green
-  static const Color successVariant = Color(0xFF5AD8A4); // Lighter success green
-  static const Color warning = Color(0xFFFF9800); // Warning orange (used for people/tiles)
-  static const Color info = Color(0xFF2196F3); // Info blue (used for operations)
-  static const Color accentPurple = Color(0xFF9C27B0); // Accent purple (used for documents/status)
+  static const Color successVariant =
+      Color(0xFF5AD8A4); // Lighter success green
+  static const Color warning =
+      Color(0xFFFF9800); // Warning orange (used for people/tiles)
+  static const Color info =
+      Color(0xFF2196F3); // Info blue (used for operations)
+  static const Color accentPurple =
+      Color(0xFF9C27B0); // Accent purple (used for documents/status)
+
+  // Utility colors
+  static const Color transparent = Colors.transparent;
+
+  // Print/document colors
+  static const Color printBlack = Color(0xFF000000);
+  static const Color printWhite = Color(0xFFFFFFFF);
+  static const Color printGray = Color(0xFF888888);
+  static const Color printLightGray = Color(0xFFE0E0E0);
+  static const Color printLighterGray = Color(0xFFF1F1F1);
+  static const Color printBorderGray = Color(0xFFBBBBBB);
+  static const Color printBorderLight = Color(0xFFCCCCCC);
+  static const Color printPaper = Color(0xFFF8F8F8);
+  static const Color printPaperAlt = Color(0xFFFAFAFA);
 
   // Opacity variants
-  static Color primaryWithOpacity(double opacity) => primary.withOpacity(opacity);
-  static Color secondaryWithOpacity(double opacity) => secondary.withOpacity(opacity);
-  static Color textMainWithOpacity(double opacity) => textMain.withOpacity(opacity);
-  static Color textSubWithOpacity(double opacity) => textSub.withOpacity(opacity);
+  static Color primaryWithOpacity(double opacity) =>
+      primary.withOpacity(opacity);
+  static Color secondaryWithOpacity(double opacity) =>
+      secondary.withOpacity(opacity);
+  static Color textMainWithOpacity(double opacity) =>
+      textMain.withOpacity(opacity);
+  static Color textSubWithOpacity(double opacity) =>
+      textSub.withOpacity(opacity);
 }
 
 /// Logistics-specific color palette for fleet management UI.
-/// 
+///
 /// Provides colors optimized for HUD displays, status indicators,
 /// and premium glassmorphism effects.
 class LogisticsColors {
@@ -66,10 +90,10 @@ class LogisticsColors {
   /// Vehicle status colors for pin markers
   /// Available - Vehicle ready for assignment
   static const Color vehicleAvailable = Color(0xFF2ECC71);
-  
+
   /// On Trip - Vehicle currently on a trip
   static const Color vehicleOnTrip = Color(0xFF2980B9);
-  
+
   /// Offline - Vehicle not reporting location (muted slate for dark map contrast)
   static const Color vehicleOffline = Color(0xFF95A5A6);
 
@@ -83,8 +107,12 @@ class LogisticsColors {
   static const Color vehicleAlert = Color(0xFFE74C3C);
 
   // Opacity variants
-  static Color navyBlueWithOpacity(double opacity) => navyBlue.withOpacity(opacity);
-  static Color neonGreenWithOpacity(double opacity) => neonGreen.withOpacity(opacity);
-  static Color burntOrangeWithOpacity(double opacity) => burntOrange.withOpacity(opacity);
-  static Color hudBlackWithOpacity(double opacity) => hudBlack.withOpacity(opacity);
+  static Color navyBlueWithOpacity(double opacity) =>
+      navyBlue.withOpacity(opacity);
+  static Color neonGreenWithOpacity(double opacity) =>
+      neonGreen.withOpacity(opacity);
+  static Color burntOrangeWithOpacity(double opacity) =>
+      burntOrange.withOpacity(opacity);
+  static Color hudBlackWithOpacity(double opacity) =>
+      hudBlack.withOpacity(opacity);
 }

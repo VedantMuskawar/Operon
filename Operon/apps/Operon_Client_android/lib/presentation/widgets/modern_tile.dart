@@ -28,26 +28,26 @@ class ModernTile extends StatelessWidget {
 
   static List<BoxShadow> _cardShadow() => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.3),
+          color: AuthColors.background.withOpacity(0.3),
           blurRadius: 8,
           offset: const Offset(0, 4),
         ),
       ];
   static List<BoxShadow> _cardElevatedShadow() => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.4),
+          color: AuthColors.background.withOpacity(0.4),
           blurRadius: 12,
           offset: const Offset(0, 6),
         ),
         BoxShadow(
-          color: Colors.black.withOpacity(0.2),
+          color: AuthColors.background.withOpacity(0.2),
           blurRadius: 4,
           offset: const Offset(0, 2),
         ),
       ];
   static List<BoxShadow> _cardHoverShadow() => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.5),
+          color: AuthColors.background.withOpacity(0.5),
           blurRadius: 16,
           offset: const Offset(0, 8),
         ),
@@ -57,7 +57,8 @@ class ModernTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveBorderColor = borderColor ??
         (accentColor?.withOpacity(0.2) ?? AuthColors.textMainWithOpacity(0.1));
-    final effectivePadding = padding ?? const EdgeInsets.all(AppSpacing.paddingLG);
+    final effectivePadding =
+        padding ?? const EdgeInsets.all(AppSpacing.paddingLG);
     final effectiveMargin = margin ?? EdgeInsets.zero;
 
     final List<BoxShadow> shadow = elevation == 0
@@ -145,7 +146,9 @@ class ModernTileWithAvatar extends StatelessWidget {
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
+    return name.length >= 2
+        ? name.substring(0, 2).toUpperCase()
+        : name.toUpperCase();
   }
 
   @override
@@ -208,7 +211,8 @@ class ModernTileWithAvatar extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title,
-                        style: AppTypography.h4.copyWith(color: AuthColors.textMain),
+                        style: AppTypography.h4
+                            .copyWith(color: AuthColors.textMain),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -391,4 +395,3 @@ class ModernProductTile extends StatelessWidget {
     );
   }
 }
-

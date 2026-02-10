@@ -4,8 +4,16 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashCard, DashSnackbar, showLedgerDateRangeModal;
-import 'package:core_utils/core_utils.dart' show calculateOpeningBalance, LedgerRowData;
+import 'package:core_ui/core_ui.dart'
+    show
+        AuthColors,
+        DashButton,
+        DashButtonVariant,
+        DashCard,
+        DashSnackbar,
+        showLedgerDateRangeModal;
+import 'package:core_utils/core_utils.dart'
+    show calculateOpeningBalance, LedgerRowData;
 import 'package:dash_web/presentation/widgets/ledger_preview_dialog.dart';
 import 'package:dash_web/data/repositories/clients_repository.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
@@ -58,68 +66,68 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
       panelTitle: 'Client Details',
       currentIndex: 0,
       onNavTap: (value) => context.go('/home?section=$value'),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Client Header Info
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Client Header Info
           _ClientHeader(
             name: client.name,
             phone: _primaryPhone,
             onEdit: _selectPrimaryContact,
             onDelete: _confirmDelete,
-                ),
-                const SizedBox(height: 16),
-                // Tab Bar
+          ),
+          const SizedBox(height: 16),
+          // Tab Bar
           Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF131324),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
+            decoration: BoxDecoration(
+              color: const Color(0xFF131324),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
                 color: Colors.white.withOpacity(0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _TabButton(
-                            label: 'Overview',
-                            isSelected: _selectedTabIndex == 0,
-                            onTap: () => setState(() => _selectedTabIndex = 0),
-                          ),
-                        ),
-                        Expanded(
-                          child: _TabButton(
-                            label: 'Orders',
-                            isSelected: _selectedTabIndex == 1,
-                            onTap: () => setState(() => _selectedTabIndex = 1),
-                          ),
-                        ),
-                        Expanded(
-                          child: _TabButton(
-                            label: 'Ledger',
-                            isSelected: _selectedTabIndex == 2,
-                            onTap: () => setState(() => _selectedTabIndex = 2),
-                          ),
-                        ),
-                      ],
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _TabButton(
+                    label: 'Overview',
+                    isSelected: _selectedTabIndex == 0,
+                    onTap: () => setState(() => _selectedTabIndex = 0),
                   ),
                 ),
-                const SizedBox(height: 16),
-                // Content based on selected tab
-                IndexedStack(
-                  index: _selectedTabIndex,
-                  children: [
-                OverviewSection(clientId: widget.client.id),
-                PendingOrdersSection(clientId: widget.client.id),
-                AnalyticsSection(
-                  clientId: widget.client.id,
-                  clientName: widget.client.name,
+                Expanded(
+                  child: _TabButton(
+                    label: 'Orders',
+                    isSelected: _selectedTabIndex == 1,
+                    onTap: () => setState(() => _selectedTabIndex = 1),
+                  ),
                 ),
-                  ],
+                Expanded(
+                  child: _TabButton(
+                    label: 'Ledger',
+                    isSelected: _selectedTabIndex == 2,
+                    onTap: () => setState(() => _selectedTabIndex = 2),
+                  ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          // Content based on selected tab
+          IndexedStack(
+            index: _selectedTabIndex,
+            children: [
+              OverviewSection(clientId: widget.client.id),
+              PendingOrdersSection(clientId: widget.client.id),
+              AnalyticsSection(
+                clientId: widget.client.id,
+                clientName: widget.client.name,
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -147,7 +155,8 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
         : _buildPrimaryOptions(widget.client);
     if (options.isEmpty) {
       if (!mounted) return;
-      DashSnackbar.show(context, message: 'No contacts available to assign.', isError: true);
+      DashSnackbar.show(context,
+          message: 'No contacts available to assign.', isError: true);
       return;
     }
 
@@ -186,10 +195,12 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
         _primaryPhone = newPhone;
         _primaryOptions = updatedOptions;
       });
-      DashSnackbar.show(context, message: 'Primary number updated.', isError: false);
+      DashSnackbar.show(context,
+          message: 'Primary number updated.', isError: false);
     } catch (error) {
       if (!mounted) return;
-      DashSnackbar.show(context, message: 'Unable to update number: $error', isError: true);
+      DashSnackbar.show(context,
+          message: 'Unable to update number: $error', isError: true);
     }
   }
 
@@ -211,7 +222,8 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
       context.go('/clients');
     } catch (error) {
       if (!mounted) return;
-      DashSnackbar.show(context, message: 'Unable to delete client: $error', isError: true);
+      DashSnackbar.show(context,
+          message: 'Unable to delete client: $error', isError: true);
     }
   }
 }
@@ -242,21 +254,21 @@ class _ClientHeader extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
                   name,
-                        style: const TextStyle(
-                          color: Colors.white,
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               IconButton(
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline, color: Colors.white70),
@@ -268,16 +280,16 @@ class _ClientHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-                            Text(
+          Text(
             'Primary: $phone',
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -311,14 +323,14 @@ class _PrimaryContactDialog extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+          mainAxisSize: MainAxisSize.min,
+          children: [
             const Text(
               'Select Primary Contact',
-                            style: TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 16),
@@ -337,7 +349,7 @@ class _PrimaryContactDialog extends StatelessWidget {
                     ),
                     leading: CircleAvatar(
                       backgroundColor: isSelected
-                          ? AuthColors.accentPurple
+                          ? AuthColors.secondary
                           : AuthColors.surface,
                       child: Text(
                         option.label.isNotEmpty ? option.label[0] : '?',
@@ -359,10 +371,10 @@ class _PrimaryContactDialog extends StatelessWidget {
                   );
                 },
               ),
-                ),
-              ],
             ),
-          ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -382,9 +394,9 @@ class _DeleteClientDialog extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
-              mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          children: [
             const Text(
               'Delete client',
               style: TextStyle(
@@ -397,7 +409,7 @@ class _DeleteClientDialog extends StatelessWidget {
             Text(
               'This will permanently remove $clientName and all related analytics. This action cannot be undone.',
               style: const TextStyle(
-                  color: Colors.white70,
+                color: Colors.white70,
                 fontSize: 13,
               ),
             ),
@@ -473,7 +485,8 @@ class _OverviewSectionState extends State<OverviewSection> {
     final repository = context.read<ClientLedgerRepository>();
 
     await _ledgerSubscription?.cancel();
-    _ledgerSubscription = repository.watchClientLedger(orgId, widget.clientId).listen(
+    _ledgerSubscription =
+        repository.watchClientLedger(orgId, widget.clientId).listen(
       (ledger) {
         if (mounted) {
           setState(() {
@@ -514,7 +527,7 @@ class _OverviewSectionState extends State<OverviewSection> {
       }
       final now = DateTime.now();
       final difference = now.difference(date);
-      
+
       if (difference.inDays == 0) {
         return 'Today';
       } else if (difference.inDays == 1) {
@@ -539,79 +552,91 @@ class _OverviewSectionState extends State<OverviewSection> {
         }
       },
       child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF6F4BFF),
-                ),
-              )
-            : _ledger == null
-                ? const Center(
-        child: Text(
-                      'No financial data available for this client.',
-          style: TextStyle(color: Colors.white54),
-        ),
-                  )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Current Balance Card
-                        _BalanceCard(
-                          currentBalance: (_ledger!['currentBalance'] as num?)?.toDouble() ?? 0.0,
-                          openingBalance: (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
-                        ),
-                        const SizedBox(height: 16),
-                        // Financial Summary Cards
-                        Row(
-          children: [
-                            Expanded(
-                              child: _SummaryCard(
-                                label: 'Total Income',
-                                value: _formatCurrency(
-                                  (_ledger!['totalIncome'] as num?)?.toDouble() ?? 0.0,
-                                ),
-                                color: AuthColors.success,
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF6F4BFF),
+              ),
+            )
+          : _ledger == null
+              ? const Center(
+                  child: Text(
+                    'No financial data available for this client.',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Current Balance Card
+                      _BalanceCard(
+                        currentBalance:
+                            (_ledger!['currentBalance'] as num?)?.toDouble() ??
+                                0.0,
+                        openingBalance:
+                            (_ledger!['openingBalance'] as num?)?.toDouble() ??
+                                0.0,
+                      ),
+                      const SizedBox(height: 16),
+                      // Financial Summary Cards
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _SummaryCard(
+                              label: 'Total Income',
+                              value: _formatCurrency(
+                                (_ledger!['totalIncome'] as num?)?.toDouble() ??
+                                    0.0,
                               ),
+                              color: AuthColors.success,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _SummaryCard(
-                                label: 'Total Receivables',
-                                value: _formatCurrency(
-                                  (_ledger!['totalReceivables'] as num?)?.toDouble() ?? 0.0,
-                                ),
-                                color: AuthColors.error,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryCard(
-                          label: 'Net Balance',
-                          value: _formatCurrency(
-                            (_ledger!['netBalance'] as num?)?.toDouble() ??
-                                (_ledger!['currentBalance'] as num?)?.toDouble() ?? 0.0,
                           ),
-                          color: AuthColors.accentPurple,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _SummaryCard(
+                              label: 'Total Receivables',
+                              value: _formatCurrency(
+                                (_ledger!['totalReceivables'] as num?)
+                                        ?.toDouble() ??
+                                    0.0,
+                              ),
+                              color: AuthColors.error,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _SummaryCard(
+                        label: 'Net Balance',
+                        value: _formatCurrency(
+                          (_ledger!['netBalance'] as num?)?.toDouble() ??
+                              (_ledger!['currentBalance'] as num?)
+                                  ?.toDouble() ??
+                              0.0,
                         ),
-                        const SizedBox(height: 16),
-                        // Transaction Summary
-                        _TransactionSummaryCard(
-                          total: _ledger!['transactionCount'] as int? ?? 0,
+                        color: AuthColors.secondary,
+                      ),
+                      const SizedBox(height: 16),
+                      // Transaction Summary
+                      _TransactionSummaryCard(
+                        total: _ledger!['transactionCount'] as int? ?? 0,
+                      ),
+                      const SizedBox(height: 16),
+                      // Recent Activity
+                      if (_ledger!['lastTransactionDate'] != null)
+                        _RecentActivityCard(
+                          lastTransactionDate: _ledger!['lastTransactionDate'],
+                          lastTransactionAmount:
+                              (_ledger!['lastTransactionAmount'] as num?)
+                                      ?.toDouble() ??
+                                  0.0,
+                          formatDate: _formatDate,
+                          formatCurrency: _formatCurrency,
                         ),
-                        const SizedBox(height: 16),
-                        // Recent Activity
-                        if (_ledger!['lastTransactionDate'] != null)
-                          _RecentActivityCard(
-                            lastTransactionDate: _ledger!['lastTransactionDate'],
-                            lastTransactionAmount: (_ledger!['lastTransactionAmount'] as num?)?.toDouble() ?? 0.0,
-                            formatDate: _formatDate,
-                            formatCurrency: _formatCurrency,
-            ),
-          ],
-        ),
-      ),
+                    ],
+                  ),
+                ),
     );
   }
 }
@@ -644,14 +669,21 @@ class _BalanceCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isPositive
-                ? [AuthColors.success.withOpacity(0.2), AuthColors.success.withOpacity(0.05)]
-                : [AuthColors.error.withOpacity(0.2), AuthColors.error.withOpacity(0.05)],
+                ? [
+                    AuthColors.success.withOpacity(0.2),
+                    AuthColors.success.withOpacity(0.05)
+                  ]
+                : [
+                    AuthColors.error.withOpacity(0.2),
+                    AuthColors.error.withOpacity(0.05)
+                  ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: (isPositive ? AuthColors.success : AuthColors.error).withOpacity(0.3),
+            color: (isPositive ? AuthColors.success : AuthColors.error)
+                .withOpacity(0.3),
             width: 1,
           ),
         ),
@@ -660,22 +692,22 @@ class _BalanceCard extends StatelessWidget {
           children: [
             const Text(
               'Current Balance',
-                      style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            formatCurrency(currentBalance),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 8),
+            Text(
+              formatCurrency(currentBalance),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Icon(
@@ -753,17 +785,17 @@ class _TransactionSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+      decoration: BoxDecoration(
         color: const Color(0xFF131324),
         borderRadius: BorderRadius.circular(12),
-              border: Border.all(
+        border: Border.all(
           color: Colors.white.withOpacity(0.1),
           width: 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           const Text(
             'Transactions',
             style: TextStyle(
@@ -773,8 +805,8 @@ class _TransactionSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-                Row(
-                  children: [
+          Row(
+            children: [
               Expanded(
                 child: _TransactionStatItem(
                   label: 'Total Transactions',
@@ -782,8 +814,8 @@ class _TransactionSummaryCard extends StatelessWidget {
                   color: Colors.white70,
                 ),
               ),
-                  ],
-                ),
+            ],
+          ),
         ],
       ),
     );
@@ -804,10 +836,10 @@ class _TransactionStatItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Text(
-              label,
+          label,
           style: const TextStyle(
             color: Colors.white60,
             fontSize: 11,
@@ -815,14 +847,14 @@ class _TransactionStatItem extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-              value,
+          value,
           style: TextStyle(
             color: color,
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            ),
           ),
-        ],
+        ),
+      ],
     );
   }
 }
@@ -844,17 +876,17 @@ class _RecentActivityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
+      decoration: BoxDecoration(
         color: const Color(0xFF131324),
         borderRadius: BorderRadius.circular(12),
-          border: Border.all(
+        border: Border.all(
           color: Colors.white.withOpacity(0.1),
           width: 1,
         ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           const Text(
             'Recent Activity',
             style: TextStyle(
@@ -862,8 +894,8 @@ class _RecentActivityCard extends StatelessWidget {
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
-            ),
-            const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               const Icon(
@@ -876,24 +908,24 @@ class _RecentActivityCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-            Text(
+                    Text(
                       'Last transaction: ${formatDate(lastTransactionDate)}',
                       style: const TextStyle(
                         color: Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
                       formatCurrency(lastTransactionAmount),
-              style: const TextStyle(
-                color: Colors.white,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1024,9 +1056,9 @@ class _PendingOrdersSectionState extends State<PendingOrdersSection> {
   }
 }
 
-
 class AnalyticsSection extends StatefulWidget {
-  const AnalyticsSection({super.key, required this.clientId, required this.clientName});
+  const AnalyticsSection(
+      {super.key, required this.clientId, required this.clientName});
 
   final String clientId;
   final String clientName;
@@ -1080,7 +1112,8 @@ class _AnalyticsSectionState extends State<AnalyticsSection> {
     await _ledgerSubscription?.cancel();
     await _transactionsSubscription?.cancel();
 
-    _ledgerSubscription = repository.watchClientLedger(orgId, widget.clientId).listen(
+    _ledgerSubscription =
+        repository.watchClientLedger(orgId, widget.clientId).listen(
       (ledger) {
         if (mounted) {
           setState(() {
@@ -1098,7 +1131,8 @@ class _AnalyticsSectionState extends State<AnalyticsSection> {
       },
     );
 
-    _transactionsSubscription = repository.watchRecentTransactions(orgId, widget.clientId, 50).listen(
+    _transactionsSubscription =
+        repository.watchRecentTransactions(orgId, widget.clientId, 50).listen(
       (transactions) {
         if (mounted) {
           setState(() {
@@ -1156,33 +1190,35 @@ class _AnalyticsSectionState extends State<AnalyticsSection> {
         }
       },
       child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: AuthColors.primary,
-                ),
-              )
-            : _ledger == null
-                ? SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: Center(
-                      child: Text(
-                        'No ledger data available for this client.',
-                        style: TextStyle(color: AuthColors.textSub),
-                      ),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
-                    child: _LedgerTable(
-                      openingBalance: (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
-                      transactions: _transactions,
-                      formatCurrency: _formatCurrency,
-                      formatDate: _formatDate,
-                      clientId: widget.clientId,
-                      clientName: widget.clientName,
-                      storedOpeningBalance: (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: AuthColors.primary,
+              ),
+            )
+          : _ledger == null
+              ? const SingleChildScrollView(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: Text(
+                      'No ledger data available for this client.',
+                      style: TextStyle(color: AuthColors.textSub),
                     ),
                   ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: _LedgerTable(
+                    openingBalance:
+                        (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
+                    transactions: _transactions,
+                    formatCurrency: _formatCurrency,
+                    formatDate: _formatDate,
+                    clientId: widget.clientId,
+                    clientName: widget.clientName,
+                    storedOpeningBalance:
+                        (_ledger!['openingBalance'] as num?)?.toDouble() ?? 0.0,
+                  ),
+                ),
     );
   }
 }
@@ -1272,14 +1308,16 @@ class _LedgerTable extends StatelessWidget {
       final organization = orgContext.organization;
       if (organization == null || !context.mounted) {
         Navigator.of(context).pop(); // Close loading
-        DashSnackbar.show(context, message: 'No organization selected', isError: true);
+        DashSnackbar.show(context,
+            message: 'No organization selected', isError: true);
         return;
       }
 
       // Fetch all transactions for opening balance calculation
       final transactionsDataSource = TransactionsDataSource();
       final financialYear = FinancialYearUtils.getCurrentFinancialYear();
-      final allTransactions = await transactionsDataSource.getClientTransactions(
+      final allTransactions =
+          await transactionsDataSource.getClientTransactions(
         organizationId: organization.id,
         clientId: clientId,
         financialYear: financialYear,
@@ -1297,8 +1335,9 @@ class _LedgerTable extends StatelessWidget {
       final transactionsInRange = allTransactions.where((tx) {
         final txDate = tx.createdAt ?? tx.updatedAt;
         if (txDate == null) return false;
-        return txDate.isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
-               txDate.isBefore(dateRange.end.add(const Duration(days: 1)));
+        return txDate
+                .isAfter(dateRange.start.subtract(const Duration(days: 1))) &&
+            txDate.isBefore(dateRange.end.add(const Duration(days: 1)));
       }).toList();
 
       // Sort chronologically
@@ -1311,7 +1350,7 @@ class _LedgerTable extends StatelessWidget {
       // Convert to LedgerRowData
       double runningBalance = openingBal;
       final ledgerRows = <LedgerRowData>[];
-      
+
       for (final tx in transactionsInRange) {
         final txDate = tx.createdAt ?? tx.updatedAt ?? DateTime.now();
         final type = tx.type;
@@ -1356,7 +1395,7 @@ class _LedgerTable extends StatelessWidget {
         qrCodeService: QrCodeService(),
         storage: FirebaseStorage.instance,
       );
-      
+
       final ledgerPayload = await ledgerPrintService.loadLedgerViewData(
         organizationId: organization.id,
       );
@@ -1382,7 +1421,8 @@ class _LedgerTable extends StatelessWidget {
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // Close loading if still open
-        DashSnackbar.show(context, message: 'Failed to generate ledger PDF: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to generate ledger PDF: $e', isError: true);
       }
     }
   }
@@ -1416,9 +1456,12 @@ class _LedgerTable extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          Text(
+          const Text(
             'No transactions found.',
-            style: TextStyle(color: AuthColors.textSub, fontSize: 13, fontFamily: 'SF Pro Display'),
+            style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 13,
+                fontFamily: 'SF Pro Display'),
           ),
           const SizedBox(height: 20),
           _LedgerSummaryFooter(
@@ -1447,7 +1490,7 @@ class _LedgerTable extends StatelessWidget {
     // Group transactions by DM number (cumulative amounts)
     // If no DM number, show category instead
     final List<_LedgerRowModel> rows = [];
-    double running = 0;
+    double running = openingBalance;
 
     int i = 0;
     while (i < visible.length) {
@@ -1466,50 +1509,48 @@ class _LedgerTable extends StatelessWidget {
         dynamic earliestDate = date;
         final List<_PaymentPart> parts = [];
         int j = i;
-        
+
         while (j < visible.length) {
           final next = visible[j];
           final nMeta = next['metadata'] as Map<String, dynamic>? ?? {};
           final nDm = nMeta['dmNumber'] ?? next['dmNumber'];
-          
+
           // Stop if DM number doesn't match
           if (nDm != dmNumber) break;
-          
+
           final nt = (next['type'] as String? ?? '').toLowerCase();
           final nAmt = (next['amount'] as num?)?.toDouble() ?? 0.0;
           final nDate = next['transactionDate'];
-          
+
           // Track earliest date
           try {
-            final currentDate = earliestDate is Timestamp ? earliestDate.toDate() : (earliestDate as DateTime);
-            final nextDate = nDate is Timestamp ? nDate.toDate() : (nDate as DateTime);
+            final currentDate = earliestDate is Timestamp
+                ? earliestDate.toDate()
+                : (earliestDate as DateTime);
+            final nextDate =
+                nDate is Timestamp ? nDate.toDate() : (nDate as DateTime);
             if (nextDate.isBefore(currentDate)) {
               earliestDate = nDate;
             }
           } catch (_) {}
-          
+
           // Calculate credit/debit
           if (nt == 'credit') {
             totalCredit += nAmt;
-          } else if (nt == 'payment' || nt == 'debit') {
+          } else {
             totalDebit += nAmt;
             if (nt == 'payment') {
               final acctType = (next['paymentAccountType'] as String?) ?? '';
               parts.add(_PaymentPart(amount: nAmt, accountType: acctType));
             }
-          } else if (nt == 'refund' || nt == 'advance') {
-            totalDebit += nAmt;
-          } else {
-            // For other types, treat as credit if positive
-            totalCredit += nAmt;
           }
-          
+
           j++;
         }
-        
+
         final delta = totalCredit - totalDebit;
         running += delta;
-        
+
         final firstDesc = (visible[i]['description'] as String?)?.trim();
         rows.add(_LedgerRowModel(
           date: earliestDate,
@@ -1518,38 +1559,24 @@ class _LedgerTable extends StatelessWidget {
           debit: totalDebit,
           balanceAfter: running,
           type: 'Order',
-          remarks: (firstDesc != null && firstDesc.isNotEmpty) ? firstDesc : '-',
+          remarks:
+              (firstDesc != null && firstDesc.isNotEmpty) ? firstDesc : '-',
           paymentParts: parts,
         ));
 
         i = j;
       } else {
         // No DM number - show as individual transaction with category
-        double delta = 0;
-        switch (type) {
-          case 'credit':
-            delta = amount;
-            break;
-          case 'payment':
-          case 'advance':
-          case 'refund':
-          case 'debit':
-            delta = -amount;
-            break;
-          case 'adjustment':
-            delta = amount;
-            break;
-          default:
-            delta = amount;
-        }
+        final isCredit = type == 'credit';
+        final delta = isCredit ? amount : -amount;
         running += delta;
 
         final desc = (tx['description'] as String?)?.trim();
         rows.add(_LedgerRowModel(
           date: date,
           dmNumber: null,
-          credit: delta > 0 ? delta : 0,
-          debit: delta < 0 ? -delta : 0,
+          credit: isCredit ? amount : 0,
+          debit: isCredit ? 0 : amount,
           balanceAfter: running,
           type: _formatCategoryName(category ?? ''),
           remarks: (desc != null && desc.isNotEmpty) ? desc : '-',
@@ -1590,7 +1617,8 @@ class _LedgerTable extends StatelessWidget {
           decoration: BoxDecoration(
             color: AuthColors.surface,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+            border: Border.all(
+                color: AuthColors.textMainWithOpacity(0.1), width: 1),
           ),
           child: Column(
             children: [
@@ -1636,7 +1664,8 @@ class _LedgerTableHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(border: _cellBorder),
             alignment: Alignment.center,
-            child: Text('Date', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Date',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
         Expanded(
@@ -1645,7 +1674,8 @@ class _LedgerTableHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(border: _cellBorder),
             alignment: Alignment.center,
-            child: Text('DM No.', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Reference',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
         Expanded(
@@ -1654,7 +1684,8 @@ class _LedgerTableHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(border: _cellBorder),
             alignment: Alignment.center,
-            child: Text('Debit', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Debit',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
         Expanded(
@@ -1663,7 +1694,8 @@ class _LedgerTableHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(border: _cellBorder),
             alignment: Alignment.center,
-            child: Text('Credit', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Credit',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
         Expanded(
@@ -1672,7 +1704,8 @@ class _LedgerTableHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(border: _cellBorder),
             alignment: Alignment.center,
-            child: Text('Balance', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Balance',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
         Expanded(
@@ -1681,7 +1714,8 @@ class _LedgerTableHeader extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(border: _cellBorder),
             alignment: Alignment.center,
-            child: Text('Type', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Type',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
         Expanded(
@@ -1689,7 +1723,8 @@ class _LedgerTableHeader extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             alignment: Alignment.center,
-            child: Text('Remarks', style: _labelStyle, textAlign: TextAlign.center),
+            child: const Text('Remarks',
+                style: _labelStyle, textAlign: TextAlign.center),
           ),
         ),
       ],
@@ -1708,13 +1743,17 @@ class _LedgerTableRow extends StatelessWidget {
   final String Function(double) formatCurrency;
   final String Function(dynamic) formatDate;
 
-  static Future<void> _openPrintDm(BuildContext context, dynamic dmNumber) async {
+  static Future<void> _openPrintDm(
+      BuildContext context, dynamic dmNumber) async {
     final org = context.read<OrganizationContextCubit>().state.organization;
     if (org == null) {
-      DashSnackbar.show(context, message: 'Organization not found', isError: true);
+      DashSnackbar.show(context,
+          message: 'Organization not found', isError: true);
       return;
     }
-    final dmNum = dmNumber is int ? dmNumber : (dmNumber is num ? dmNumber.toInt() : null);
+    final dmNum = dmNumber is int
+        ? dmNumber
+        : (dmNumber is num ? dmNumber.toInt() : null);
     if (dmNum == null) return;
     final printService = context.read<DmPrintService>();
     try {
@@ -1724,7 +1763,8 @@ class _LedgerTableRow extends StatelessWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        DashSnackbar.show(context, message: 'Failed to open print: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to open print: $e', isError: true);
       }
     }
   }
@@ -1748,7 +1788,7 @@ class _LedgerTableRow extends StatelessWidget {
       case 'upi':
         return AuthColors.info;
       case 'bank':
-        return AuthColors.accentPurple;
+        return AuthColors.secondary;
       case 'cash':
         return AuthColors.success;
       default:
@@ -1784,10 +1824,12 @@ class _LedgerTableRow extends StatelessWidget {
             alignment: Alignment.center,
             child: row.dmNumber != null
                 ? InkWell(
-                    onTap: () => _LedgerTableRow._openPrintDm(context, row.dmNumber),
+                    onTap: () =>
+                        _LedgerTableRow._openPrintDm(context, row.dmNumber),
                     borderRadius: BorderRadius.circular(4),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: AuthColors.info.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(4),
@@ -1803,20 +1845,24 @@ class _LedgerTableRow extends StatelessWidget {
                   )
                 : row.category != null
                     ? Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AuthColors.accentPurple.withOpacity(0.15),
+                          color: AuthColors.secondary.withOpacity(0.15),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           _formatCategoryName(row.category!),
-                          style: _badgeStyle.copyWith(color: AuthColors.accentPurple),
+                          style:
+                              _badgeStyle.copyWith(color: AuthColors.secondary),
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       )
-                    : Text('-', style: _cellStyle.copyWith(color: AuthColors.textSub), textAlign: TextAlign.center),
+                    : Text('-',
+                        style: _cellStyle.copyWith(color: AuthColors.textSub),
+                        textAlign: TextAlign.center),
           ),
         ),
         Expanded(
@@ -1830,7 +1876,8 @@ class _LedgerTableRow extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(formatCurrency(row.debit), style: _cellStyle, textAlign: TextAlign.center),
+                      Text(formatCurrency(row.debit),
+                          style: _cellStyle, textAlign: TextAlign.center),
                       if (row.paymentParts.isNotEmpty)
                         Wrap(
                           spacing: 4,
@@ -1838,14 +1885,17 @@ class _LedgerTableRow extends StatelessWidget {
                           alignment: WrapAlignment.center,
                           children: row.paymentParts
                               .map((p) => Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: _accountColor(p.accountType).withOpacity(0.15),
+                                      color: _accountColor(p.accountType)
+                                          .withOpacity(0.15),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
                                       formatCurrency(p.amount),
-                                      style: _badgeStyle.copyWith(color: _accountColor(p.accountType)),
+                                      style: _badgeStyle.copyWith(
+                                          color: _accountColor(p.accountType)),
                                       textAlign: TextAlign.center,
                                     ),
                                   ))
@@ -1853,7 +1903,9 @@ class _LedgerTableRow extends StatelessWidget {
                         ),
                     ],
                   )
-                : Text('-', style: _cellStyle.copyWith(color: AuthColors.textSub), textAlign: TextAlign.center),
+                : Text('-',
+                    style: _cellStyle.copyWith(color: AuthColors.textSub),
+                    textAlign: TextAlign.center),
           ),
         ),
         Expanded(
@@ -1880,7 +1932,9 @@ class _LedgerTableRow extends StatelessWidget {
             child: Text(
               formatCurrency(row.balanceAfter),
               style: _cellStyle.copyWith(
-                color: row.balanceAfter >= 0 ? AuthColors.warning : AuthColors.success,
+                color: row.balanceAfter >= 0
+                    ? AuthColors.warning
+                    : AuthColors.success,
                 fontWeight: FontWeight.w600,
               ),
               textAlign: TextAlign.center,
@@ -1955,7 +2009,8 @@ class _LedgerSummaryFooter extends StatelessWidget {
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
+        border:
+            Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1964,36 +2019,48 @@ class _LedgerSummaryFooter extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Opening Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Opening Balance',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(openingBalance), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(openingBalance),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Debit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Total Debit',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(totalDebit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(totalDebit),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Total Credit', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Total Credit',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(totalCredit), style: _footerValueStyle.copyWith(color: AuthColors.info), textAlign: TextAlign.center),
+              Text(formatCurrency(totalCredit),
+                  style: _footerValueStyle.copyWith(color: AuthColors.info),
+                  textAlign: TextAlign.center),
             ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Current Balance', style: _footerLabelStyle, textAlign: TextAlign.center),
+              const Text('Current Balance',
+                  style: _footerLabelStyle, textAlign: TextAlign.center),
               const SizedBox(height: 4),
-              Text(formatCurrency(currentBalance), style: _footerValueStyle.copyWith(color: AuthColors.success), textAlign: TextAlign.center),
+              Text(formatCurrency(currentBalance),
+                  style: _footerValueStyle.copyWith(color: AuthColors.success),
+                  textAlign: TextAlign.center),
             ],
           ),
         ],
@@ -2021,7 +2088,7 @@ class _TabButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AuthColors.accentPurple : Colors.transparent,
+          color: isSelected ? AuthColors.secondary : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(

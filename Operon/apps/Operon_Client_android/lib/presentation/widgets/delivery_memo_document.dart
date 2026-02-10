@@ -12,13 +12,13 @@ class DashedLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF888888)
+      ..color = AuthColors.printGray
       ..strokeWidth = 1;
-    
+
     const dashWidth = 5.0;
     const dashSpace = 3.0;
     double startX = 0;
-    
+
     while (startX < size.width) {
       canvas.drawLine(
         Offset(startX, 0),
@@ -28,7 +28,7 @@ class DashedLinePainter extends CustomPainter {
       startX += dashWidth + dashSpace;
     }
   }
-  
+
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
@@ -68,10 +68,11 @@ class DeliveryMemoDocument extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Check if custom template is selected
-    final isCustomTemplate = payload.dmSettings.templateType == DmTemplateType.custom &&
-        payload.dmSettings.customTemplateId != null &&
-        payload.dmSettings.customTemplateId!.trim().isNotEmpty;
-    
+    final isCustomTemplate =
+        payload.dmSettings.templateType == DmTemplateType.custom &&
+            payload.dmSettings.customTemplateId != null &&
+            payload.dmSettings.customTemplateId!.trim().isNotEmpty;
+
     // If custom template, show custom template preview
     if (isCustomTemplate) {
       final customTemplateId = payload.dmSettings.customTemplateId!.trim();
@@ -120,7 +121,7 @@ class DeliveryMemoDocument extends StatelessWidget {
         ),
       );
     }
-    
+
     // Universal template preview
     final dmNumber = dmData['dmNumber'] as int? ??
         (dmData['dmNumber'] as num?)?.toInt() ??
@@ -135,14 +136,12 @@ class DeliveryMemoDocument extends StatelessWidget {
     final driverPhone = dmData['driverPhone'] as String?;
     final deliveryZone = dmData['deliveryZone'] as Map<String, dynamic>?;
     final itemsData = dmData['items'];
-    final items = itemsData is List
-        ? itemsData
-        : (itemsData != null ? [itemsData] : []);
+    final items =
+        itemsData is List ? itemsData : (itemsData != null ? [itemsData] : []);
     final tripPricing = dmData['tripPricing'] is Map<String, dynamic>
         ? dmData['tripPricing'] as Map<String, dynamic>
         : <String, dynamic>{};
-    final subtotal =
-        (tripPricing['subtotal'] as num?)?.toDouble() ?? 0.0;
+    final subtotal = (tripPricing['subtotal'] as num?)?.toDouble() ?? 0.0;
     final total = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
     final advanceDeducted =
         (tripPricing['advanceAmountDeducted'] as num?)?.toDouble();
@@ -369,7 +368,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               ),
             ],
           ),
-              const SizedBox(height: AppSpacing.gapSM),
+          const SizedBox(height: AppSpacing.gapSM),
           Row(
             children: [
               Expanded(
@@ -487,15 +486,13 @@ class DeliveryMemoDocument extends StatelessWidget {
                     (itemMap['totalQuantity'] as num?)?.toInt() ??
                     (itemMap['quantity'] as num?)?.toInt() ??
                     0;
-            final unitPrice =
-                (itemMap['unitPrice'] as num?)?.toDouble() ??
-                    (itemMap['price'] as num?)?.toDouble() ??
-                    0.0;
-            final lineTotal =
-                (itemMap['total'] as num?)?.toDouble() ??
-                    (itemMap['lineTotal'] as num?)?.toDouble() ??
-                    (itemMap['amount'] as num?)?.toDouble() ??
-                    (quantity * unitPrice);
+            final unitPrice = (itemMap['unitPrice'] as num?)?.toDouble() ??
+                (itemMap['price'] as num?)?.toDouble() ??
+                0.0;
+            final lineTotal = (itemMap['total'] as num?)?.toDouble() ??
+                (itemMap['lineTotal'] as num?)?.toDouble() ??
+                (itemMap['amount'] as num?)?.toDouble() ??
+                (quantity * unitPrice);
             final isEven = i % 2 == 0;
             return TableRow(
               decoration: BoxDecoration(
@@ -505,7 +502,8 @@ class DeliveryMemoDocument extends StatelessWidget {
               ),
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
                   child: Text(
                     productName,
                     style: const TextStyle(
@@ -516,7 +514,8 @@ class DeliveryMemoDocument extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
                   child: Text(
                     quantity.toString(),
                     style: const TextStyle(
@@ -527,7 +526,8 @@ class DeliveryMemoDocument extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
                   child: Text(
                     PdfBuilder.formatCurrency(unitPrice),
                     style: const TextStyle(
@@ -538,7 +538,8 @@ class DeliveryMemoDocument extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
                   child: Text(
                     PdfBuilder.formatCurrency(lineTotal),
                     style: const TextStyle(
@@ -557,10 +558,10 @@ class DeliveryMemoDocument extends StatelessWidget {
     );
   }
 
-  Widget _tableCell(String text,
-      {bool bold = false, Color? color}) {
+  Widget _tableCell(String text, {bool bold = false, Color? color}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.gapSM, vertical: AppSpacing.gapSM),
       child: Text(
         text,
         style: TextStyle(
@@ -604,7 +605,9 @@ class DeliveryMemoDocument extends StatelessWidget {
             const SizedBox(height: AppSpacing.gapSM),
           ],
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.paddingSM,
+                vertical: AppSpacing.paddingXS),
             decoration: BoxDecoration(
               color: AuthColors.info.withOpacity(0.2),
               borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
@@ -672,9 +675,7 @@ class DeliveryMemoDocument extends StatelessWidget {
     final accountName = paymentAccount['name'] as String? ?? '';
     final upiId = paymentAccount['upiId'] as String?;
 
-    if (showQrCode &&
-        qrCodeBytes != null &&
-        qrCodeBytes.isNotEmpty) {
+    if (showQrCode && qrCodeBytes != null && qrCodeBytes.isNotEmpty) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.paddingMD),
         decoration: BoxDecoration(
@@ -741,9 +742,7 @@ class DeliveryMemoDocument extends StatelessWidget {
       );
     }
 
-    if (showQrCode &&
-        upiId != null &&
-        upiId.isNotEmpty) {
+    if (showQrCode && upiId != null && upiId.isNotEmpty) {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.paddingMD),
         decoration: BoxDecoration(
@@ -830,11 +829,13 @@ class DeliveryMemoDocument extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.paddingSM),
           if (accountName.isNotEmpty) ...[
-            _labelValue('Account Name:', accountName, labelSize: 11, valueSize: 11),
+            _labelValue('Account Name:', accountName,
+                labelSize: 11, valueSize: 11),
             const SizedBox(height: AppSpacing.gapSM),
           ],
           if (accountNumber != null && accountNumber.isNotEmpty) ...[
-            _labelValue('Account Number:', accountNumber, labelSize: 11, valueSize: 11),
+            _labelValue('Account Number:', accountNumber,
+                labelSize: 11, valueSize: 11),
             const SizedBox(height: AppSpacing.gapSM),
           ],
           if (ifscCode != null && ifscCode.isNotEmpty) ...[
@@ -872,23 +873,23 @@ class DeliveryMemoDocument extends StatelessWidget {
         0;
     final deliveryDateData = dmData['deliveryDate'] ?? dmData['scheduledDate'];
     final deliveryDate = _parseDate(deliveryDateData);
-    
+
     final clientName = dmData['clientName'] as String? ?? 'N/A';
     final clientPhone = dmData['clientPhone'] as String? ??
         dmData['clientPhoneNumber'] as String? ??
         dmData['customerNumber'] as String? ??
         'N/A';
-    
+
     final vehicleNumber = dmData['vehicleNumber'] as String? ?? 'N/A';
     final driverName = dmData['driverName'] as String? ?? 'N/A';
-    
+
     final itemsData = dmData['items'];
-    final rawItems = itemsData is List
-        ? itemsData
-        : (itemsData != null ? [itemsData] : []);
-    final firstItem = rawItems.isNotEmpty && rawItems.first is Map<String, dynamic>
-        ? rawItems.first as Map<String, dynamic>
-        : <String, dynamic>{};
+    final rawItems =
+        itemsData is List ? itemsData : (itemsData != null ? [itemsData] : []);
+    final firstItem =
+        rawItems.isNotEmpty && rawItems.first is Map<String, dynamic>
+            ? rawItems.first as Map<String, dynamic>
+            : <String, dynamic>{};
     final productName = firstItem['productName'] as String? ??
         firstItem['name'] as String? ??
         'N/A';
@@ -899,7 +900,7 @@ class DeliveryMemoDocument extends StatelessWidget {
     final unitPrice = (firstItem['unitPrice'] as num?)?.toDouble() ??
         (firstItem['price'] as num?)?.toDouble() ??
         0.0;
-    
+
     double totalAmount = 0.0;
     final tripPricingData = dmData['tripPricing'];
     if (tripPricingData is Map<String, dynamic>) {
@@ -908,13 +909,14 @@ class DeliveryMemoDocument extends StatelessWidget {
     if (totalAmount == 0.0) {
       totalAmount = quantity * unitPrice;
     }
-    
+
     // Handle paymentStatus - could be bool or string
     final paymentStatusValue = dmData['paymentStatus'];
     final paymentStatus = paymentStatusValue is bool
         ? paymentStatusValue
         : (paymentStatusValue is String
-            ? paymentStatusValue.toLowerCase() == 'true' || paymentStatusValue.toLowerCase() == 'paid'
+            ? paymentStatusValue.toLowerCase() == 'true' ||
+                paymentStatusValue.toLowerCase() == 'paid'
             : false);
     // Use paymentType from trip/dmData - if pay_later show "Pay Later", if pay_on_delivery show "Pay Now"
     final paymentType = dmData['paymentType'] as String?;
@@ -942,18 +944,20 @@ class DeliveryMemoDocument extends StatelessWidget {
         paymentMode = paySchedule;
       }
     }
-    
+
     final paymentAccountName = payload.paymentAccount?['name'] as String?;
     final accountName = paymentAccountName ??
         (payload.dmSettings.header.name.isNotEmpty
             ? payload.dmSettings.header.name
             : 'Lakshmee Intelligent Technologies');
-    
+
     final address = dmData['address'] as String?;
     final regionName = dmData['regionName'] as String?;
     final formattedAddress = '${address ?? "-"}, ${regionName ?? ""}'.trim();
-    final displayAddress = (formattedAddress.isEmpty || formattedAddress == ',') ? 'N/A' : formattedAddress;
-    
+    final displayAddress = (formattedAddress.isEmpty || formattedAddress == ',')
+        ? 'N/A'
+        : formattedAddress;
+
     // Get company info from DM settings
     final companyTitle = payload.dmSettings.header.name.isNotEmpty
         ? payload.dmSettings.header.name.toUpperCase()
@@ -964,35 +968,38 @@ class DeliveryMemoDocument extends StatelessWidget {
     final companyPhone = payload.dmSettings.header.phone.isNotEmpty
         ? payload.dmSettings.header.phone
         : 'Ph: +91 8149448822 | +91 9420448822';
-    final jurisdictionNote = payload.dmSettings.footer.customText?.isNotEmpty == true
-        ? payload.dmSettings.footer.customText!
-        : 'Note: Subject to Chandrapur Jurisdiction';
-    
+    final jurisdictionNote =
+        payload.dmSettings.footer.customText?.isNotEmpty == true
+            ? payload.dmSettings.footer.customText!
+            : 'Note: Subject to Chandrapur Jurisdiction';
+
     // Format currency
     String formatCurrency(double amount) {
       return amount.toStringAsFixed(0).replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-        (Match m) => '${m[1]},',
-      );
+            RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+            (Match m) => '${m[1]},',
+          );
     }
-    
+
     // Format date
     String formatDate(DateTime date) {
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     }
-    
+
     // Show QR code if available and payment display is QR code
-    final showQrCode = payload.dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
+    final showQrCode =
+        payload.dmSettings.paymentDisplay == DmPaymentDisplay.qrCode;
     final qrCodeBytes = showQrCode ? payload.qrCodeBytes : null;
-    
+
     // Build a single ticket widget (reusable for original and duplicate)
     Widget buildTicket({required bool isDuplicate}) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.black, width: 1),
-          color: isDuplicate ? const Color(0xFFE0E0E0) : Colors.white,
+          border: Border.all(color: AuthColors.printBlack, width: 1),
+          color:
+              isDuplicate ? AuthColors.printLightGray : AuthColors.printWhite,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1005,7 +1012,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: AuthColors.printBlack,
                 ),
               ),
             ),
@@ -1015,8 +1022,8 @@ class DeliveryMemoDocument extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F1F1),
-                border: Border.all(color: const Color(0xFFBBBBBB), width: 1),
+                color: AuthColors.printLighterGray,
+                border: Border.all(color: AuthColors.printBorderGray, width: 1),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Column(
@@ -1027,7 +1034,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.8,
-                      color: Colors.black,
+                      color: AuthColors.printBlack,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1037,7 +1044,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black,
+                      color: AuthColors.printBlack,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1047,7 +1054,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black,
+                      color: AuthColors.printBlack,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -1058,7 +1065,7 @@ class DeliveryMemoDocument extends StatelessWidget {
             // Divider
             Container(
               height: 2,
-              color: Colors.black,
+              color: AuthColors.printBlack,
             ),
             const SizedBox(height: 6),
             // Title row
@@ -1066,11 +1073,13 @@ class DeliveryMemoDocument extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  isDuplicate ? '🚚 Delivery Memo (Duplicate)' : '🚚 Delivery Memo',
+                  isDuplicate
+                      ? '🚚 Delivery Memo (Duplicate)'
+                      : '🚚 Delivery Memo',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                    color: AuthColors.printBlack,
                   ),
                 ),
                 Text(
@@ -1082,178 +1091,232 @@ class DeliveryMemoDocument extends StatelessWidget {
                 ),
               ],
             ),
-          const SizedBox(height: 8),
-          // Main content
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Left column: QR Section
-              if (qrCodeBytes != null && qrCodeBytes.isNotEmpty) ...[
-                SizedBox(
-                  width: 180,
+            const SizedBox(height: 8),
+            // Main content
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left column: QR Section
+                if (qrCodeBytes != null && qrCodeBytes.isNotEmpty) ...[
+                  SizedBox(
+                    width: 180,
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 180,
+                          height: 180,
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: AuthColors.printBlack, width: 3),
+                            color: AuthColors.printPaper,
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          child: Image.memory(
+                            qrCodeBytes,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          accountName,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Scan to pay ₹${formatCurrency(totalAmount)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: AuthColors.printBlack,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                // Right column: Info + Table
+                Expanded(
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Info box
                       Container(
-                        width: 180,
-                        height: 180,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 4),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black, width: 3),
-                          color: const Color(0xFFF8F8F8),
+                          border: Border.all(
+                              color: AuthColors.printBorderLight, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                          color: AuthColors.printPaperAlt,
                         ),
-                        padding: const EdgeInsets.all(10),
-                        child: Image.memory(
-                          qrCodeBytes,
-                          fit: BoxFit.contain,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  RichText(
+                                    text: TextSpan(
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AuthColors.printBlack),
+                                      children: [
+                                        const TextSpan(
+                                            text: 'Client: ',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                        TextSpan(
+                                            text: clientName,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  RichText(
+                                    text: TextSpan(
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AuthColors.printBlack),
+                                      children: [
+                                        const TextSpan(
+                                            text: 'Address: ',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                        TextSpan(text: displayAddress),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  RichText(
+                                    text: TextSpan(
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AuthColors.printBlack),
+                                      children: [
+                                        const TextSpan(
+                                            text: 'Phone: ',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                        TextSpan(
+                                            text: clientPhone,
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  RichText(
+                                    text: TextSpan(
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AuthColors.printBlack),
+                                      children: [
+                                        const TextSpan(
+                                            text: 'Date: ',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                        TextSpan(
+                                            text: formatDate(deliveryDate)),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  RichText(
+                                    text: TextSpan(
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AuthColors.printBlack),
+                                      children: [
+                                        const TextSpan(
+                                            text: 'Vehicle: ',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                        TextSpan(text: vehicleNumber),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  RichText(
+                                    text: TextSpan(
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AuthColors.printBlack),
+                                      children: [
+                                        const TextSpan(
+                                            text: 'Driver: ',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold)),
+                                        TextSpan(text: driverName),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        accountName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                      // Product table
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 3, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                              color: AuthColors.printBlack, width: 1),
+                          borderRadius: BorderRadius.circular(4),
+                          color: AuthColors.printWhite,
                         ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Scan to pay ₹${formatCurrency(totalAmount)}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                        child: Column(
+                          children: [
+                            _buildLakshmeeTableRow('📦 Product', productName,
+                                isTotal: false),
+                            _buildLakshmeeTableRow(
+                                '🔢 Quantity', quantity.toString(),
+                                isTotal: false),
+                            _buildLakshmeeTableRow('💰 Unit Price',
+                                '₹${formatCurrency(unitPrice)}',
+                                isTotal: false),
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                    top: BorderSide(
+                                        color: AuthColors.printBlack,
+                                        width: 1)),
+                              ),
+                              child: _buildLakshmeeTableRow(
+                                  '🧾 Total', '₹${formatCurrency(totalAmount)}',
+                                  isTotal: true),
+                            ),
+                            _buildLakshmeeTableRow(
+                                '💳 Payment Mode', paymentMode,
+                                isTotal: false),
+                          ],
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
               ],
-              // Right column: Info + Table
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Info box
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFCCCCCC), width: 1),
-                        borderRadius: BorderRadius.circular(4),
-                        color: const Color(0xFFFAFAFA),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(fontSize: 14, color: Colors.black),
-                                    children: [
-                                      const TextSpan(text: 'Client: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                      TextSpan(text: clientName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(fontSize: 14, color: Colors.black),
-                                    children: [
-                                      const TextSpan(text: 'Address: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                      TextSpan(text: displayAddress),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(fontSize: 14, color: Colors.black),
-                                    children: [
-                                      const TextSpan(text: 'Phone: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                      TextSpan(text: clientPhone, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(fontSize: 14, color: Colors.black),
-                                    children: [
-                                      const TextSpan(text: 'Date: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                      TextSpan(text: formatDate(deliveryDate)),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(fontSize: 14, color: Colors.black),
-                                    children: [
-                                      const TextSpan(text: 'Vehicle: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                      TextSpan(text: vehicleNumber),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(fontSize: 14, color: Colors.black),
-                                    children: [
-                                      const TextSpan(text: 'Driver: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                                      TextSpan(text: driverName),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // Product table
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black, width: 1),
-                        borderRadius: BorderRadius.circular(4),
-                        color: Colors.white,
-                      ),
-                      child: Column(
-                        children: [
-                          _buildLakshmeeTableRow('📦 Product', productName, isTotal: false),
-                          _buildLakshmeeTableRow('🔢 Quantity', quantity.toString(), isTotal: false),
-                          _buildLakshmeeTableRow('💰 Unit Price', '₹${formatCurrency(unitPrice)}', isTotal: false),
-                          Container(
-                            margin: const EdgeInsets.only(top: 2),
-                            padding: const EdgeInsets.symmetric(vertical: 3),
-                            decoration: const BoxDecoration(
-                              border: Border(top: BorderSide(color: Colors.black, width: 1)),
-                            ),
-                            child: _buildLakshmeeTableRow('🧾 Total', '₹${formatCurrency(totalAmount)}', isTotal: true),
-                          ),
-                          _buildLakshmeeTableRow('💳 Payment Mode', paymentMode, isTotal: false),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
             const SizedBox(height: 8),
             // Jurisdiction note
             Center(
@@ -1261,7 +1324,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 jurisdictionNote,
                 style: const TextStyle(
                   fontSize: 14,
-                  color: Colors.black,
+                  color: AuthColors.printBlack,
                   fontStyle: FontStyle.italic,
                 ),
                 textAlign: TextAlign.center,
@@ -1284,7 +1347,9 @@ class DeliveryMemoDocument extends StatelessWidget {
                         height: 1,
                         width: double.infinity,
                         decoration: const BoxDecoration(
-                          border: Border(top: BorderSide(color: Colors.black, width: 1)),
+                          border: Border(
+                              top: BorderSide(
+                                  color: AuthColors.printBlack, width: 1)),
                         ),
                       ),
                     ],
@@ -1303,7 +1368,9 @@ class DeliveryMemoDocument extends StatelessWidget {
                         height: 1,
                         width: double.infinity,
                         decoration: const BoxDecoration(
-                          border: Border(top: BorderSide(color: Colors.black, width: 1)),
+                          border: Border(
+                              top: BorderSide(
+                                  color: AuthColors.printBlack, width: 1)),
                         ),
                       ),
                     ],
@@ -1315,7 +1382,7 @@ class DeliveryMemoDocument extends StatelessWidget {
         ),
       );
     }
-    
+
     // Return both tickets with cut line divider - wrapped in SingleChildScrollView to prevent overflow
     return SingleChildScrollView(
       child: Column(
@@ -1334,7 +1401,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: const Color(0xFF888888),
+                        color: AuthColors.printGray,
                         width: 1,
                         style: BorderStyle.solid,
                       ),
@@ -1350,7 +1417,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   '✂️ Cut Here',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF888888),
+                    color: AuthColors.printGray,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -1364,19 +1431,20 @@ class DeliveryMemoDocument extends StatelessWidget {
     );
   }
 
-  Widget _buildLakshmeeTableRow(String label, String value, {required bool isTotal}) {
+  Widget _buildLakshmeeTableRow(String label, String value,
+      {required bool isTotal}) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: isTotal ? 3 : 2),
       decoration: isTotal
           ? const BoxDecoration(
               border: Border(
-                top: BorderSide(color: Colors.black, width: 1),
+                top: BorderSide(color: AuthColors.printBlack, width: 1),
               ),
             )
           : BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: const Color(0xFFCCCCCC),
+                  color: AuthColors.printBorderLight,
                   width: 1,
                 ),
               ),

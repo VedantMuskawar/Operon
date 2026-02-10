@@ -42,6 +42,7 @@ const financial_year_1 = require("../shared/financial-year");
 const date_helpers_1 = require("../shared/date-helpers");
 const transaction_helpers_1 = require("../shared/transaction-helpers");
 const function_config_1 = require("../shared/function-config");
+const transaction_notifications_1 = require("../notifications/transaction-notifications");
 const db = (0, firestore_helpers_1.getFirestore)();
 /**
  * Get previous financial year label
@@ -145,6 +146,50 @@ function getFinancialYearDates(financialYear) {
     const start = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0));
     const end = new Date(Date.UTC(endYear, 3, 1, 0, 0, 0));
     return { start, end };
+}
+async function fetchEntityName(collection, entityId) {
+    if (!entityId)
+        return undefined;
+    const doc = await db.collection(collection).doc(entityId).get();
+    if (!doc.exists)
+        return undefined;
+    const data = doc.data() || {};
+    const name = data.name ||
+        data.clientName ||
+        data.vendorName ||
+        data.employeeName;
+    const trimmed = name === null || name === void 0 ? void 0 : name.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+async function buildTransactionNameUpdates(transaction) {
+    var _a, _b, _c, _d;
+    const updates = {};
+    const metadata = transaction.metadata || {};
+    const clientName = (_a = transaction.clientName) === null || _a === void 0 ? void 0 : _a.trim();
+    if (!clientName && transaction.clientId) {
+        const resolvedClientName = await fetchEntityName(constants_1.CLIENTS_COLLECTION, transaction.clientId);
+        if (resolvedClientName) {
+            updates.clientName = resolvedClientName;
+            if (!((_b = metadata.clientName) === null || _b === void 0 ? void 0 : _b.trim())) {
+                updates['metadata.clientName'] = resolvedClientName;
+            }
+        }
+    }
+    const vendorName = (_c = metadata.vendorName) === null || _c === void 0 ? void 0 : _c.trim();
+    if (!vendorName && transaction.vendorId) {
+        const resolvedVendorName = await fetchEntityName(constants_1.VENDORS_COLLECTION, transaction.vendorId);
+        if (resolvedVendorName) {
+            updates['metadata.vendorName'] = resolvedVendorName;
+        }
+    }
+    const employeeName = (_d = metadata.employeeName) === null || _d === void 0 ? void 0 : _d.trim();
+    if (!employeeName && transaction.employeeId) {
+        const resolvedEmployeeName = await fetchEntityName(constants_1.EMPLOYEES_COLLECTION, transaction.employeeId);
+        if (resolvedEmployeeName) {
+            updates['metadata.employeeName'] = resolvedEmployeeName;
+        }
+    }
+    return updates;
 }
 /**
  * Calculate ledger delta based on ledgerType and transaction type
@@ -1610,12 +1655,25 @@ exports.onTransactionCreated = (0, firestore_1.onDocumentCreated)(Object.assign(
             calculation: `${balanceBefore} + ${ledgerDelta} = ${balanceAfter}`,
         });
         // Update transaction document with balances
-        await snapshot.ref.update({
-            balanceBefore,
-            balanceAfter,
-        });
+        const nameUpdates = await buildTransactionNameUpdates(transaction);
+        const updatePayload = (0, transaction_helpers_1.removeUndefinedFields)(Object.assign({ balanceBefore,
+            balanceAfter }, nameUpdates));
+        if (Object.keys(updatePayload).length > 0) {
+            await snapshot.ref.update(updatePayload);
+        }
         // Update analytics
         await updateTransactionAnalytics(organizationId, financialYear, Object.assign(Object.assign({}, transaction), { balanceBefore, balanceAfter }), transactionDate, false);
+        try {
+            await (0, transaction_notifications_1.sendCashLedgerTransactionNotification)(transactionId, transaction);
+        }
+        catch (notificationError) {
+            console.error('[Transaction] Notification error', {
+                transactionId,
+                error: notificationError instanceof Error
+                    ? notificationError.message
+                    : String(notificationError),
+            });
+        }
         console.log('[Transaction] Successfully processed', {
             transactionId,
             balanceBefore,

@@ -62,7 +62,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
       backgroundColor: AuthColors.surface,
       title: const Text(
         'Upload Delivery Photo',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: double.maxFinite,
@@ -101,7 +101,8 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
             ),
           ),
         ElevatedButton(
-          onPressed: (_selectedImage == null || _isUploading) ? null : _handleUpload,
+          onPressed:
+              (_selectedImage == null || _isUploading) ? null : _handleUpload,
           style: ElevatedButton.styleFrom(
             backgroundColor: AuthColors.legacyAccent,
             foregroundColor: AuthColors.textMain,
@@ -113,7 +114,8 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                   ),
                 )
               : const Text('Upload & Mark Delivered'),
@@ -126,9 +128,9 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
+        Text(
           'Please select a photo to upload',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AuthColors.textMainWithOpacity(0.7)),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.paddingXXL),
@@ -164,8 +166,8 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
           icon: Icon(icon),
           label: Text(label),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6F4BFF),
-            foregroundColor: Colors.white,
+            backgroundColor: AuthColors.secondary,
+            foregroundColor: AuthColors.textMain,
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
           ),
         ),
@@ -184,7 +186,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
           ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
-            color: Colors.grey[900],
+            color: AuthColors.surface,
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
@@ -192,9 +194,10 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
           ),
         ),
         const SizedBox(height: AppSpacing.paddingLG),
-        const Text(
+        Text(
           'Photo selected. Tap "Upload & Mark Delivered" to proceed.',
-          style: TextStyle(color: Colors.white70, fontSize: 12),
+          style: TextStyle(
+              color: AuthColors.textMainWithOpacity(0.7), fontSize: 12),
           textAlign: TextAlign.center,
         ),
       ],
@@ -224,7 +227,7 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
         }
 
         final file = snapshot.data!;
-        
+
         // Use a more memory-efficient approach
         return Image.file(
           file,

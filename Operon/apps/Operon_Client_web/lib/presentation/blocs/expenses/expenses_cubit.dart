@@ -48,7 +48,8 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         limit: 100,
       );
 
-      final employeeExpenses = await _transactionsRepository.getEmployeeExpenses(
+      final employeeExpenses =
+          await _transactionsRepository.getEmployeeExpenses(
         organizationId: _organizationId,
         financialYear: fy,
         limit: 100,
@@ -62,9 +63,12 @@ class ExpensesCubit extends Cubit<ExpensesState> {
 
       // Load related data
       final vendors = await _vendorsRepository.fetchVendors(_organizationId);
-      final employees = await _employeesRepository.fetchEmployees(_organizationId);
-      final subCategories = await _subCategoriesRepository.fetchSubCategories(_organizationId);
-      final paymentAccounts = await _paymentAccountsDataSource.fetchAccounts(_organizationId);
+      final employees =
+          await _employeesRepository.fetchEmployees(_organizationId);
+      final subCategories =
+          await _subCategoriesRepository.fetchSubCategories(_organizationId);
+      final paymentAccounts =
+          await _paymentAccountsDataSource.fetchAccounts(_organizationId);
 
       // Combine all expenses
       final allExpenses = [
@@ -190,6 +194,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         id: '', // Will be set by data source
         organizationId: _organizationId,
         employeeId: employeeId,
+        splitGroupId: null,
         ledgerType: LedgerType.employeeLedger,
         type: TransactionType.debit,
         category: TransactionCategory.salaryDebit,
@@ -206,7 +211,8 @@ class ExpensesCubit extends Cubit<ExpensesState> {
             : null,
       );
 
-      final transactionId = await _transactionsRepository.createTransaction(transaction);
+      final transactionId =
+          await _transactionsRepository.createTransaction(transaction);
       await load();
       return transactionId;
     } catch (e) {
@@ -215,6 +221,70 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         message: 'Unable to create salary payment: $e',
       ));
       return null;
+    }
+  }
+
+  /// Create a split salary debit expense for multiple employees.
+  /// Returns the created transaction IDs, or an empty list on failure.
+  Future<List<String>> createSalaryDebitSplit({
+    required List<String> employeeIds,
+    required Map<String, String> employeeNames,
+    required double amount,
+    required String paymentAccountId,
+    required DateTime date,
+    String? description,
+    String? referenceNumber,
+  }) async {
+    emit(state.copyWith(status: ViewStatus.loading, message: null));
+    try {
+      if (employeeIds.isEmpty) return [];
+      final financialYear = FinancialYearUtils.getFinancialYear(date);
+      final splitGroupId = 'split_${DateTime.now().microsecondsSinceEpoch}';
+      final splitAmounts = _computeSplitAmounts(amount, employeeIds.length);
+      final transactionIds = <String>[];
+
+      for (var i = 0; i < employeeIds.length; i++) {
+        final employeeId = employeeIds[i];
+        final employeeName = employeeNames[employeeId];
+        final metadata = <String, dynamic>{
+          if (employeeName != null && employeeName.isNotEmpty)
+            'employeeName': employeeName,
+          'splitIndex': i + 1,
+          'splitCount': employeeIds.length,
+        };
+
+        final transaction = Transaction(
+          id: '',
+          organizationId: _organizationId,
+          employeeId: employeeId,
+          splitGroupId: splitGroupId,
+          ledgerType: LedgerType.employeeLedger,
+          type: TransactionType.debit,
+          category: TransactionCategory.salaryDebit,
+          amount: splitAmounts[i],
+          createdBy: _userId,
+          createdAt: date,
+          updatedAt: DateTime.now(),
+          financialYear: financialYear,
+          paymentAccountId: paymentAccountId,
+          description: description,
+          referenceNumber: referenceNumber,
+          metadata: metadata.isEmpty ? null : metadata,
+        );
+
+        final transactionId =
+            await _transactionsRepository.createTransaction(transaction);
+        transactionIds.add(transactionId);
+      }
+
+      await load();
+      return transactionIds;
+    } catch (e) {
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Unable to create salary split: $e',
+      ));
+      return [];
     }
   }
 
@@ -230,7 +300,8 @@ class ExpensesCubit extends Cubit<ExpensesState> {
     emit(state.copyWith(status: ViewStatus.loading, message: null));
     try {
       final financialYear = FinancialYearUtils.getFinancialYear(date);
-      final subCategory = state.subCategories.firstWhere((sc) => sc.id == subCategoryId);
+      final subCategory =
+          state.subCategories.firstWhere((sc) => sc.id == subCategoryId);
 
       final transaction = Transaction(
         id: '', // Will be set by data source
@@ -267,5 +338,14 @@ class ExpensesCubit extends Cubit<ExpensesState> {
   Future<void> refresh() async {
     await load();
   }
-}
 
+  List<double> _computeSplitAmounts(double amount, int count) {
+    final totalCents = (amount * 100).round();
+    final baseCents = totalCents ~/ count;
+    final remainder = totalCents % count;
+    return List<double>.generate(
+      count,
+      (index) => (baseCents + (index < remainder ? 1 : 0)) / 100,
+    );
+  }
+}

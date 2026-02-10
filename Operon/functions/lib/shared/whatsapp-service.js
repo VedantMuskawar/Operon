@@ -3,10 +3,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendWhatsappTemplateMessage = sendWhatsappTemplateMessage;
 exports.loadWhatsappSettings = loadWhatsappSettings;
 exports.sendWhatsappMessage = sendWhatsappMessage;
+exports.normalizePhoneE164 = normalizePhoneE164;
+exports.getWhatsappApiUrl = getWhatsappApiUrl;
 exports.checkWhatsappMessageStatus = checkWhatsappMessageStatus;
 const constants_1 = require("./constants");
 const firestore_helpers_1 = require("./firestore-helpers");
 const db = (0, firestore_helpers_1.getFirestore)();
+const SETTINGS_CACHE_TTL_MS = 60000;
+const settingsCache = new Map();
 /**
  * Send WhatsApp template message using Meta Graph API
  *
@@ -66,7 +70,10 @@ async function sendWhatsappTemplateMessage(url, token, to, templateName, languag
         const errorMessages = result.errors.map((e) => e.message || 'Unknown error').join(', ');
         throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
     }
-    console.log(`[WhatsApp Service] ${messageType} template message sent`, Object.assign(Object.assign({}, context), { to: to.substring(0, 4) + '****', templateName, messageId: (_b = (_a = result.messages) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id }));
+    const messageId = (_b = (_a = result.messages) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id;
+    console.log(`[WhatsApp Service] ${messageType} template message sent`, Object.assign(Object.assign({}, context), { to: to.substring(0, 4) + '****', templateName,
+        messageId }));
+    return messageId;
 }
 /**
  * Load WhatsApp settings for an organization
@@ -76,8 +83,15 @@ async function sendWhatsappTemplateMessage(url, token, to, templateName, languag
  * @param verbose - If true, logs detailed debug information
  * @returns WhatsApp settings or null if not enabled/configured
  */
-async function loadWhatsappSettings(organizationId, verbose = false) {
+async function loadWhatsappSettings(organizationId, verbose = false, useCache = true) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    const cacheKey = (organizationId === null || organizationId === void 0 ? void 0 : organizationId.trim()) || 'global';
+    if (useCache) {
+        const cached = settingsCache.get(cacheKey);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.settings;
+        }
+    }
     // First, try to load organization-specific settings
     if (organizationId) {
         const trimmedOrgId = organizationId.trim();
@@ -126,7 +140,7 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
                     }
                     return null;
                 }
-                return {
+                const settings = {
                     enabled: true,
                     token: data.token,
                     phoneId: data.phoneId,
@@ -136,6 +150,13 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
                     tripDispatchTemplateId: (_d = data.tripDispatchTemplateId) !== null && _d !== void 0 ? _d : 'lakshmee_trip_dispatch',
                     tripDeliveryTemplateId: (_e = data.tripDeliveryTemplateId) !== null && _e !== void 0 ? _e : 'lakshmee_trip_delivered',
                 };
+                if (useCache) {
+                    settingsCache.set(cacheKey, {
+                        settings,
+                        expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS,
+                    });
+                }
+                return settings;
             }
             else {
                 if (verbose) {
@@ -144,6 +165,12 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
                         trimmedOrgId,
                         enabled: data === null || data === void 0 ? void 0 : data.enabled,
                         enabledType: typeof (data === null || data === void 0 ? void 0 : data.enabled),
+                    });
+                }
+                if (useCache) {
+                    settingsCache.set(cacheKey, {
+                        settings: null,
+                        expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS,
                     });
                 }
                 return null;
@@ -184,7 +211,7 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
         if (verbose) {
             console.log('[WhatsApp Service] Using env fallback');
         }
-        return {
+        const settings = {
             enabled: true,
             token: envToken,
             phoneId: envPhoneId,
@@ -194,9 +221,22 @@ async function loadWhatsappSettings(organizationId, verbose = false) {
             tripDispatchTemplateId: (_j = process.env.WHATSAPP_TRIP_DISPATCH_TEMPLATE_ID) !== null && _j !== void 0 ? _j : 'lakshmee_trip_dispatch',
             tripDeliveryTemplateId: (_k = process.env.WHATSAPP_TRIP_DELIVERY_TEMPLATE_ID) !== null && _k !== void 0 ? _k : 'lakshmee_trip_delivered',
         };
+        if (useCache) {
+            settingsCache.set(cacheKey, {
+                settings,
+                expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS,
+            });
+        }
+        return settings;
     }
     if (verbose) {
         console.log('[WhatsApp Service] No settings found (neither org-specific nor global)');
+    }
+    if (useCache) {
+        settingsCache.set(cacheKey, {
+            settings: null,
+            expiresAt: Date.now() + SETTINGS_CACHE_TTL_MS,
+        });
     }
     return null;
 }
@@ -237,7 +277,26 @@ async function sendWhatsappMessage(url, token, to, messageBody, messageType, con
         const errorMessages = result.errors.map((e) => e.message || 'Unknown error').join(', ');
         throw new Error(`WhatsApp API returned errors: ${errorMessages}`);
     }
-    console.log(`[WhatsApp Service] ${messageType} message sent`, Object.assign(Object.assign({}, context), { to: to.substring(0, 4) + '****', messageId: (_b = (_a = result.messages) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id }));
+    const messageId = (_b = (_a = result.messages) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.id;
+    console.log(`[WhatsApp Service] ${messageType} message sent`, Object.assign(Object.assign({}, context), { to: to.substring(0, 4) + '****', messageId }));
+    return messageId;
+}
+function normalizePhoneE164(raw) {
+    if (!raw)
+        return null;
+    const trimmed = raw.trim();
+    if (!trimmed)
+        return null;
+    const normalized = trimmed.startsWith('+') ? trimmed : `+${trimmed}`;
+    const digitsOnly = normalized.replace(/\D/g, '');
+    if (digitsOnly.length < 8)
+        return null;
+    return normalized;
+}
+function getWhatsappApiUrl(phoneId) {
+    var _a;
+    const apiVersion = (_a = process.env.WHATSAPP_GRAPH_VERSION) !== null && _a !== void 0 ? _a : 'v19.0';
+    return `https://graph.facebook.com/${apiVersion}/${phoneId}/messages`;
 }
 /**
  * Check WhatsApp message delivery status using Meta Graph API

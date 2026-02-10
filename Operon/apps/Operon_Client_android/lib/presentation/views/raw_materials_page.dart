@@ -36,116 +36,126 @@ class RawMaterialsPage extends StatelessWidget {
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(AppSpacing.paddingLG),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.paddingLG),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
-                color: AuthColors.backgroundAlt,
-                border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
-              ),
-              child: const Text(
-                'Manage raw materials, stock levels, and purchase prices for this organization.',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.paddingXL),
-            if (cubit.canCreate)
-              SizedBox(
-                width: double.infinity,
-                child: DashButton(
-                  label: 'Add Raw Material',
-                  onPressed: () => _openRawMaterialDialog(context),
-                ),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.paddingMD),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                  color: AuthColors.textMainWithOpacity(0.13),
-                ),
-                child: const Text(
-                  'You have read-only access to raw materials.',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-            const SizedBox(height: AppSpacing.paddingXL),
-            BlocBuilder<RawMaterialsCubit, RawMaterialsState>(
-              builder: (context, state) {
-                if (state.status == ViewStatus.loading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (state.materials.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.paddingXXXL * 1.25),
-                    child: Text(
-                      cubit.canCreate
-                          ? 'No raw materials yet. Tap "Add Raw Material".'
-                          : 'No raw materials to display.',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.paddingLG),
+                        decoration: BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusXL),
+                          color: AuthColors.backgroundAlt,
+                          border: Border.all(
+                              color: AuthColors.textMainWithOpacity(0.12)),
+                        ),
+                        child: const Text(
+                          'Manage raw materials, stock levels, and purchase prices for this organization.',
+                          style: TextStyle(color: AuthColors.textSub),
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  );
-                }
-                return AnimationLimiter(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: state.materials.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.paddingMD),
-                    itemBuilder: (context, index) {
-                      final material = state.materials[index];
-                      return AnimationConfiguration.staggeredList(
-                        position: index,
-                        duration: const Duration(milliseconds: 200),
-                        child: SlideAnimation(
-                          verticalOffset: 50.0,
-                          child: FadeInAnimation(
-                            curve: Curves.easeOut,
-                            child: _RawMaterialTile(
-                              material: material,
-                              canEdit: cubit.canEdit,
-                              canDelete: cubit.canDelete,
-                              onEdit: () =>
-                                  _openRawMaterialDialog(context, material: material),
-                              onDelete: () => cubit.deleteRawMaterial(material.id),
-                              onViewHistory: () => _openStockHistoryDialog(context, material),
-                            ),
+                      const SizedBox(height: AppSpacing.paddingXL),
+                      if (cubit.canCreate)
+                        SizedBox(
+                          width: double.infinity,
+                          child: DashButton(
+                            label: 'Add Raw Material',
+                            onPressed: () => _openRawMaterialDialog(context),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.paddingMD),
+                          decoration: BoxDecoration(
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusMD),
+                            color: AuthColors.textMainWithOpacity(0.13),
+                          ),
+                          child: const Text(
+                            'You have read-only access to raw materials.',
+                            style: TextStyle(color: Colors.white70),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ],
-                ),
+                      const SizedBox(height: AppSpacing.paddingXL),
+                      BlocBuilder<RawMaterialsCubit, RawMaterialsState>(
+                        builder: (context, state) {
+                          if (state.status == ViewStatus.loading) {
+                            return const Center(
+                                child: CircularProgressIndicator());
+                          }
+                          if (state.materials.isEmpty) {
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                  top: AppSpacing.paddingXXXL * 1.25),
+                              child: Text(
+                                cubit.canCreate
+                                    ? 'No raw materials yet. Tap "Add Raw Material".'
+                                    : 'No raw materials to display.',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 16,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          }
+                          return AnimationLimiter(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: state.materials.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: AppSpacing.paddingMD),
+                              itemBuilder: (context, index) {
+                                final material = state.materials[index];
+                                return AnimationConfiguration.staggeredList(
+                                  position: index,
+                                  duration: const Duration(milliseconds: 200),
+                                  child: SlideAnimation(
+                                    verticalOffset: 50.0,
+                                    child: FadeInAnimation(
+                                      curve: Curves.easeOut,
+                                      child: _RawMaterialTile(
+                                        material: material,
+                                        canEdit: cubit.canEdit,
+                                        canDelete: cubit.canDelete,
+                                        onEdit: () => _openRawMaterialDialog(
+                                            context,
+                                            material: material),
+                                        onDelete: () => cubit
+                                            .deleteRawMaterial(material.id),
+                                        onViewHistory: () =>
+                                            _openStockHistoryDialog(
+                                                context, material),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
                       ),
-                    ),
-            FloatingNavBar(
-              items: const [
-                NavBarItem(
-                  icon: Icons.home_rounded,
-                  label: 'Home',
-                  heroTag: 'nav_home',
+                    ],
+                  ),
                 ),
-                NavBarItem(
-                  icon: Icons.pending_actions_rounded,
-                  label: 'Pending',
-                  heroTag: 'nav_pending',
-                ),
-                NavBarItem(
-                  icon: Icons.schedule_rounded,
-                  label: 'Schedule',
-                  heroTag: 'nav_schedule',
-                ),
+              ),
+              FloatingNavBar(
+                items: const [
+                  NavBarItem(
+                    icon: Icons.home_rounded,
+                    label: 'Home',
+                    heroTag: 'nav_home',
+                  ),
+                  NavBarItem(
+                    icon: Icons.pending_actions_rounded,
+                    label: 'Pending',
+                    heroTag: 'nav_pending',
+                  ),
+                  NavBarItem(
+                    icon: Icons.schedule_rounded,
+                    label: 'Schedule',
+                    heroTag: 'nav_schedule',
+                  ),
                   NavBarItem(
                     icon: Icons.map_rounded,
                     label: 'Map',
@@ -156,13 +166,13 @@ class RawMaterialsPage extends StatelessWidget {
                     label: 'Cash Ledger',
                     heroTag: 'nav_cash_ledger',
                   ),
-              ],
-              currentIndex: -1,
-              onItemTapped: (value) => context.go('/home', extra: value),
-            ),
-          ],
+                ],
+                currentIndex: -1,
+                onItemTapped: (value) => context.go('/home', extra: value),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -217,7 +227,10 @@ class _RawMaterialTile extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isLowStock
-              ? [AuthColors.error.withOpacity(0.2), AuthColors.error.withOpacity(0.1)]
+              ? [
+                  AuthColors.error.withOpacity(0.2),
+                  AuthColors.error.withOpacity(0.1)
+                ]
               : [AuthColors.surface, AuthColors.backgroundAlt],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -242,7 +255,9 @@ class _RawMaterialTile extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Icon(
-              isLowStock ? Icons.warning_amber_rounded : Icons.inventory_2_outlined,
+              isLowStock
+                  ? Icons.warning_amber_rounded
+                  : Icons.inventory_2_outlined,
               color: isLowStock ? Colors.orange : Colors.white,
             ),
           ),
@@ -270,7 +285,8 @@ class _RawMaterialTile extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: Colors.orange.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusSM),
                         ),
                         child: const Text(
                           'Low Stock',
@@ -288,21 +304,26 @@ class _RawMaterialTile extends StatelessWidget {
                   material.hasGst
                       ? '₹${material.purchasePrice.toStringAsFixed(2)}/unit • GST ${material.gstPercent!.toStringAsFixed(1)}%'
                       : '₹${material.purchasePrice.toStringAsFixed(2)}/unit • No GST',
-                  style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textSub),
+                  style: AppTypography.withColor(
+                      AppTypography.labelSmall, AuthColors.textSub),
                 ),
                 const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   'Stock: ${material.stock} ${material.unitOfMeasurement} • Min: ${material.minimumStockLevel} ${material.unitOfMeasurement}',
                   style: TextStyle(
-                    color: isLowStock ? AuthColors.warning : AuthColors.textDisabled,
+                    color: isLowStock
+                        ? AuthColors.warning
+                        : AuthColors.textDisabled,
                     fontSize: 12,
-                    fontWeight: isLowStock ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight:
+                        isLowStock ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.paddingXS),
                 Text(
                   'Status: ${material.status.name}',
-                  style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textDisabled),
+                  style: AppTypography.withColor(
+                      AppTypography.labelSmall, AuthColors.textDisabled),
                 ),
               ],
             ),
@@ -321,10 +342,12 @@ class _RawMaterialTile extends StatelessWidget {
                     icon: const Icon(Icons.edit, color: AuthColors.textSub),
                     onPressed: onEdit,
                   ),
-                if (canEdit && canDelete) const SizedBox(height: AppSpacing.paddingSM),
+                if (canEdit && canDelete)
+                  const SizedBox(height: AppSpacing.paddingSM),
                 if (canDelete)
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.redAccent),
                     onPressed: onDelete,
                   ),
               ],
@@ -412,19 +435,18 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Material name'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter material name'
-                        : null,
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Enter material name'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _purchasePriceController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Purchase Price (per unit)'),
                 validator: (value) {
                   final parsed = double.tryParse(value ?? '');
@@ -439,7 +461,7 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
                 controller: _gstController,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('GST (%) - Optional'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -455,18 +477,18 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
               const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _unitController,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('Unit of Measurement (e.g., kg, liters, pieces)'),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Enter unit of measurement'
-                        : null,
+                style: const TextStyle(color: AuthColors.textMain),
+                decoration: _inputDecoration(
+                    'Unit of Measurement (e.g., kg, liters, pieces)'),
+                validator: (value) => (value == null || value.trim().isEmpty)
+                    ? 'Enter unit of measurement'
+                    : null,
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               TextFormField(
                 controller: _stockController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Current Stock'),
                 validator: (value) {
                   final parsed = int.tryParse(value ?? '');
@@ -493,8 +515,8 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
               const SizedBox(height: AppSpacing.paddingMD),
               DropdownButtonFormField<RawMaterialStatus>(
                 initialValue: _status,
-                dropdownColor: const Color(0xFF1B1B2C),
-                style: const TextStyle(color: Colors.white),
+                dropdownColor: AuthColors.backgroundAlt,
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Status'),
                 onChanged: (value) {
                   if (value != null) setState(() => _status = value);
@@ -531,9 +553,8 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
 
                   // Parse GST (optional)
                   final gstText = _gstController.text.trim();
-                  final double? gstPercent = gstText.isEmpty
-                      ? null
-                      : double.tryParse(gstText);
+                  final double? gstPercent =
+                      gstText.isEmpty ? null : double.tryParse(gstText);
 
                   final material = RawMaterial(
                     id: widget.material?.id ??
@@ -568,8 +589,8 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
-      labelStyle: const TextStyle(color: Colors.white70),
+      fillColor: AuthColors.backgroundAlt,
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
@@ -577,4 +598,3 @@ class _RawMaterialDialogState extends State<_RawMaterialDialog> {
     );
   }
 }
-
