@@ -33,16 +33,44 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
+    _amountController.addListener(_onAmountChanged);
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     super.dispose();
   }
 
+  void _onAmountChanged() {
+    if (!mounted) return;
+    final cubit = context.read<PaymentsCubit>();
+    final splits = cubit.state.paymentAccountSplits;
+    if (splits.length == 1) {
+      final accountId = splits.keys.first;
+      final amount =
+          double.tryParse(_amountController.text.replaceAll(',', '')) ?? 0.0;
+      cubit.updatePaymentAccountSplit(accountId, amount);
+    }
+    setState(() {});
+  }
+
   String _getMonthName(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return months[month - 1];
   }
 
@@ -112,13 +140,16 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_library, color: AuthColors.textMain),
-              title: const Text('Choose from Gallery', style: TextStyle(color: AuthColors.textMain)),
+              leading:
+                  const Icon(Icons.photo_library, color: AuthColors.textMain),
+              title: const Text('Choose from Gallery',
+                  style: TextStyle(color: AuthColors.textMain)),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt, color: AuthColors.textMain),
-              title: const Text('Take Photo', style: TextStyle(color: AuthColors.textMain)),
+              title: const Text('Take Photo',
+                  style: TextStyle(color: AuthColors.textMain)),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
           ],
@@ -149,11 +180,13 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     // Validate payment account splits if any are selected
     final state = context.read<PaymentsCubit>().state;
     if (state.paymentAccountSplits.isNotEmpty) {
-      final totalSplit = state.paymentAccountSplits.values.fold<double>(0.0, (sum, amt) => sum + amt);
+      final totalSplit = state.paymentAccountSplits.values
+          .fold<double>(0.0, (sum, amt) => sum + amt);
       if ((totalSplit - amount).abs() > 0.01) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Split amounts (${_formatCurrency(totalSplit)}) must equal total amount (${_formatCurrency(amount)})'),
+            content: Text(
+                'Split amounts (${_formatCurrency(totalSplit)}) must equal total amount (${_formatCurrency(amount)})'),
             backgroundColor: AuthColors.error,
           ),
         );
@@ -194,7 +227,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               }
             });
           }
-        } else if (state.status == ViewStatus.failure && state.message != null) {
+        } else if (state.status == ViewStatus.failure &&
+            state.message != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message!),
@@ -216,76 +250,76 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Client Selection
-                _buildClientSelection(state),
-                const SizedBox(height: AppSpacing.paddingXL),
-
-                // Current Balance (if client selected)
-                if (state.selectedClientId != null && state.currentBalance != null)
-                  _buildCurrentBalance(state.currentBalance!),
-
-                // Payment Amount
-                _buildAmountField(),
-                const SizedBox(height: AppSpacing.paddingXL),
-
-                // Payment Accounts
-                _buildPaymentAccountsSection(state),
-                const SizedBox(height: AppSpacing.paddingXL),
-
-                // Payment Date
-                _buildDateField(),
-                const SizedBox(height: AppSpacing.paddingXL),
-
-                // Receipt Photo
-                _buildReceiptPhotoSection(state),
-                const SizedBox(height: 30),
-
-                // Submit Button
-                _buildSubmitButton(state),
-              ],
-                    ),
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _sectionTitle('Client'),
+                          const SizedBox(height: AppSpacing.paddingSM),
+                          _buildClientSelection(state),
+                          const SizedBox(height: AppSpacing.paddingXL),
+                          if (state.selectedClientId != null &&
+                              state.currentBalance != null) ...[
+                            _sectionTitle('Current Balance'),
+                            const SizedBox(height: AppSpacing.paddingSM),
+                            _buildCurrentBalance(state.currentBalance!),
+                            const SizedBox(height: AppSpacing.paddingXL),
+                          ],
+                          _sectionTitle('Amount'),
+                          const SizedBox(height: AppSpacing.paddingSM),
+                          _buildAmountField(),
+                          const SizedBox(height: AppSpacing.paddingXL),
+                          _buildPaymentAccountsSection(state),
+                          const SizedBox(height: AppSpacing.paddingXL),
+                          _sectionTitle('Payment Date'),
+                          const SizedBox(height: AppSpacing.paddingSM),
+                          _buildDateField(),
+                          const SizedBox(height: AppSpacing.paddingXL),
+                          _sectionTitle('Receipt Photo (Optional)'),
+                          const SizedBox(height: AppSpacing.paddingSM),
+                          _buildReceiptPhotoSection(state),
+                          const SizedBox(height: AppSpacing.paddingXXL),
+                          _buildSubmitButton(state),
+                        ],
                       ),
                     ),
-            ),
-            FloatingNavBar(
-              items: const [
-                NavBarItem(
-                  icon: Icons.home_rounded,
-                  label: 'Home',
-                  heroTag: 'nav_home',
+                  ),
                 ),
-                NavBarItem(
-                  icon: Icons.pending_actions_rounded,
-                  label: 'Pending',
-                  heroTag: 'nav_pending',
-                ),
-                NavBarItem(
-                  icon: Icons.schedule_rounded,
-                  label: 'Schedule',
-                  heroTag: 'nav_schedule',
-                ),
-                NavBarItem(
-                  icon: Icons.map_rounded,
-                  label: 'Map',
-                  heroTag: 'nav_map',
-                ),
-                NavBarItem(
-                  icon: Icons.event_available_rounded,
-                  label: 'Cash Ledger',
-                  heroTag: 'nav_cash_ledger',
+                FloatingNavBar(
+                  items: const [
+                    NavBarItem(
+                      icon: Icons.home_rounded,
+                      label: 'Home',
+                      heroTag: 'nav_home',
+                    ),
+                    NavBarItem(
+                      icon: Icons.pending_actions_rounded,
+                      label: 'Pending',
+                      heroTag: 'nav_pending',
+                    ),
+                    NavBarItem(
+                      icon: Icons.schedule_rounded,
+                      label: 'Schedule',
+                      heroTag: 'nav_schedule',
+                    ),
+                    NavBarItem(
+                      icon: Icons.map_rounded,
+                      label: 'Map',
+                      heroTag: 'nav_map',
+                    ),
+                    NavBarItem(
+                      icon: Icons.event_available_rounded,
+                      label: 'Cash Ledger',
+                      heroTag: 'nav_cash_ledger',
+                    ),
+                  ],
+                  currentIndex: 0,
+                  onItemTapped: (value) => context.go('/home', extra: value),
                 ),
               ],
-              currentIndex: 0,
-              onItemTapped: (value) => context.go('/home', extra: value),
             ),
-          ],
-        ),
-      ),
-    );
+          ),
+        );
       },
     );
   }
@@ -294,14 +328,16 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     final hasClient = state.selectedClientId != null;
     return InkWell(
       onTap: _selectClient,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.paddingLG),
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
-            color: hasClient ? AuthColors.textMainWithOpacity(0.24) : AuthColors.textMainWithOpacity(0.12),
+            color: hasClient
+                ? AuthColors.textMainWithOpacity(0.24)
+                : AuthColors.textMainWithOpacity(0.12),
           ),
         ),
         child: Row(
@@ -318,9 +354,11 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                   Text(
                     state.selectedClientName ?? 'Select Client',
                     style: TextStyle(
-                      color: hasClient ? AuthColors.textMain : AuthColors.textSub,
+                      color:
+                          hasClient ? AuthColors.textMain : AuthColors.textSub,
                       fontSize: 16,
-                      fontWeight: hasClient ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight:
+                          hasClient ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -337,10 +375,14 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
-        color: balance >= 0 ? AuthColors.success.withOpacity(0.1) : AuthColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+        color: balance >= 0
+            ? AuthColors.success.withOpacity(0.1)
+            : AuthColors.error.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
-          color: balance >= 0 ? AuthColors.success.withOpacity(0.3) : AuthColors.error.withOpacity(0.3),
+          color: balance >= 0
+              ? AuthColors.success.withOpacity(0.3)
+              : AuthColors.error.withOpacity(0.3),
         ),
       ),
       child: Row(
@@ -380,24 +422,9 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       controller: _amountController,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       style: const TextStyle(color: AuthColors.textMain, fontSize: 18),
-      decoration: InputDecoration(
-        labelText: 'Payment Amount',
-        labelStyle: const TextStyle(color: AuthColors.textSub),
-        prefixIcon: const Icon(Icons.currency_rupee, color: AuthColors.textSub),
-        filled: true,
-        fillColor: AuthColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-          borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-          borderSide: const BorderSide(color: AuthColors.primary, width: 2),
-        ),
+      decoration: _inputDecoration(
+        'Payment Amount',
+        prefixIcon: Icons.currency_rupee,
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -415,34 +442,26 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   Widget _buildDateField() {
     return InkWell(
       onTap: _selectDate,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.paddingLG),
         decoration: BoxDecoration(
           color: AuthColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, color: AuthColors.textSub),
+            const Icon(Icons.calendar_today,
+                color: AuthColors.textSub, size: 20),
             const SizedBox(width: AppSpacing.paddingMD),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Payment Date',
-                    style: TextStyle(color: AuthColors.textSub, fontSize: 12),
-                  ),
-                  const SizedBox(height: AppSpacing.paddingXS),
-                  Text(
-                    _selectedDate != null
-                        ? '${_selectedDate!.day} ${_getMonthName(_selectedDate!.month)} ${_selectedDate!.year}'
-                        : 'Select date',
-                    style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
-                  ),
-                ],
+              child: Text(
+                _selectedDate != null
+                    ? '${_selectedDate!.day} ${_getMonthName(_selectedDate!.month)} ${_selectedDate!.year}'
+                    : 'Select date',
+                style:
+                    const TextStyle(color: AuthColors.textMain, fontSize: 16),
               ),
             ),
             const Icon(Icons.chevron_right, color: AuthColors.textSub),
@@ -453,78 +472,72 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   }
 
   Widget _buildReceiptPhotoSection(PaymentsState state) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Receipt Photo (Optional)',
-          style: TextStyle(color: AuthColors.textSub, fontSize: 14),
-        ),
-        const SizedBox(height: AppSpacing.paddingMD),
-        if (state.receiptPhoto != null)
-          Stack(
-            children: [
-              Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                  border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                  child: Image.file(
-                    File(state.receiptPhoto!),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: AuthColors.textMain),
-                  style: IconButton.styleFrom(
-                    backgroundColor: AuthColors.background.withOpacity(0.54),
-                  ),
-                  onPressed: () => context.read<PaymentsCubit>().removeReceiptPhoto(),
-                ),
-              ),
-            ],
-          )
-        else
-          InkWell(
-            onTap: _pickReceiptPhoto,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-            child: Container(
-              height: 120,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AuthColors.surface,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-                border: Border.fromBorderSide(BorderSide(color: AuthColors.textMainWithOpacity(0.12))),
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_photo_alternate, color: AuthColors.textSub, size: 40),
-                  SizedBox(height: AppSpacing.paddingSM),
-                  Text(
-                    'Add Receipt Photo',
-                    style: TextStyle(color: AuthColors.textSub),
-                  ),
-                ],
+    if (state.receiptPhoto != null) {
+      return Stack(
+        children: [
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+              child: Image.file(
+                File(state.receiptPhoto!),
+                fit: BoxFit.cover,
               ),
             ),
           ),
-      ],
+          Positioned(
+            top: 8,
+            right: 8,
+            child: IconButton(
+              icon: const Icon(Icons.close, color: AuthColors.textMain),
+              style: IconButton.styleFrom(
+                backgroundColor: AuthColors.background.withOpacity(0.54),
+              ),
+              onPressed: () =>
+                  context.read<PaymentsCubit>().removeReceiptPhoto(),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return InkWell(
+      onTap: _pickReceiptPhoto,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+      child: Container(
+        height: 120,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+          border: Border.fromBorderSide(
+              BorderSide(color: AuthColors.textMainWithOpacity(0.12))),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_photo_alternate,
+                color: AuthColors.textSub, size: 40),
+            SizedBox(height: AppSpacing.paddingSM),
+            Text(
+              'Add Receipt Photo',
+              style: TextStyle(color: AuthColors.textSub),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildPaymentAccountsSection(PaymentsState state) {
     final orgContext = context.watch<OrganizationContextCubit>().state;
     final organization = orgContext.organization;
-    
+
     if (organization == null) return const SizedBox.shrink();
 
     return BlocProvider(
@@ -537,14 +550,18 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       )..loadAccounts(),
       child: BlocBuilder<PaymentAccountsCubit, PaymentAccountsState>(
         builder: (context, accountsState) {
-          final accounts = accountsState.accounts.where((a) => a.isActive).toList();
-          
+          final accounts =
+              accountsState.accounts.where((a) => a.isActive).toList();
+
           if (accounts.isEmpty) {
             return const SizedBox.shrink();
           }
 
-          final totalAmount = double.tryParse(_amountController.text.replaceAll(',', '')) ?? 0.0;
-          final totalSplit = state.paymentAccountSplits.values.fold<double>(0.0, (sum, amt) => sum + amt);
+          final totalAmount =
+              double.tryParse(_amountController.text.replaceAll(',', '')) ??
+                  0.0;
+          final totalSplit = state.paymentAccountSplits.values
+              .fold<double>(0.0, (sum, amt) => sum + amt);
           final remaining = totalAmount - totalSplit;
           final hasSplits = state.paymentAccountSplits.isNotEmpty;
 
@@ -555,8 +572,12 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Payment Accounts (Optional)',
-                    style: TextStyle(color: AuthColors.textSub, fontSize: 14),
+                    'Payment Account (Optional)',
+                    style: TextStyle(
+                      color: AuthColors.textSub,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (hasSplits && totalAmount > 0)
                     Text(
@@ -575,29 +596,41 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                     ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.paddingMD),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: accounts.map((account) {
-                  final isSelected = state.paymentAccountSplits.containsKey(account.id);
-                  return _PaymentAccountChip(
-                    account: account,
-                    isSelected: isSelected,
-                    amount: state.paymentAccountSplits[account.id] ?? 0.0,
-                    onTap: () {
-                      if (isSelected) {
-                        context.read<PaymentsCubit>().removePaymentAccountSplit(account.id);
-                      } else {
-                        context.read<PaymentsCubit>().updatePaymentAccountSplit(account.id, 0.0);
-                      }
-                    },
-                    onAmountChanged: (amount) {
-                      context.read<PaymentsCubit>().updatePaymentAccountSplit(account.id, amount);
-                    },
-                    formatCurrency: _formatCurrency,
-                  );
-                }).toList(),
+              const SizedBox(height: AppSpacing.paddingSM),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.paddingMD),
+                decoration: BoxDecoration(
+                  color: AuthColors.surface,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                  border:
+                      Border.all(color: AuthColors.textMainWithOpacity(0.12)),
+                ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: accounts.map((account) {
+                    final isSelected =
+                        state.paymentAccountSplits.containsKey(account.id);
+                    return _PaymentAccountChip(
+                      account: account,
+                      isSelected: isSelected,
+                      onTap: () {
+                        final cubit = context.read<PaymentsCubit>();
+                        if (isSelected) {
+                          cubit.removePaymentAccountSplit(account.id);
+                          return;
+                        }
+                        final selectedIds =
+                            cubit.state.paymentAccountSplits.keys.toList();
+                        for (final id in selectedIds) {
+                          cubit.removePaymentAccountSplit(id);
+                        }
+                        final amount = totalAmount > 0 ? totalAmount : 0.0;
+                        cubit.updatePaymentAccountSplit(account.id, amount);
+                      },
+                    );
+                  }).toList(),
+                ),
               ),
             ],
           );
@@ -612,29 +645,51 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         _selectedDate != null &&
         !state.isSubmitting;
 
-    return ElevatedButton(
-      onPressed: isEnabled ? _submitPayment : null,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AuthColors.primary,
-        disabledBackgroundColor: AuthColors.surface,
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        ),
+    return SizedBox(
+      width: double.infinity,
+      child: DashButton(
+        label: 'Record Payment',
+        onPressed: isEnabled ? _submitPayment : null,
+        isLoading: state.isSubmitting,
       ),
-      child: state.isSubmitting
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
-              ),
-            )
-          : const Text(
-              'Record Payment',
-              style: TextStyle(color: AuthColors.textMain, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: AuthColors.textSub,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(
+    String label, {
+    IconData? prefixIcon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: AuthColors.textSub),
+      prefixIcon: prefixIcon == null
+          ? null
+          : Icon(prefixIcon, color: AuthColors.textSub, size: 18),
+      filled: true,
+      fillColor: AuthColors.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        borderSide: const BorderSide(color: AuthColors.primary, width: 2),
+      ),
     );
   }
 }
@@ -688,7 +743,10 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
           ),
           const Text(
             'Select Client',
-            style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 18,
+                fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: AppSpacing.paddingXL),
           TextField(
@@ -747,13 +805,17 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
                       leading: CircleAvatar(
                         backgroundColor: AuthColors.primary,
                         child: Text(
-                          client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
+                          client.name.isNotEmpty
+                              ? client.name[0].toUpperCase()
+                              : '?',
                           style: const TextStyle(color: AuthColors.textMain),
                         ),
                       ),
-                      title: Text(client.name, style: const TextStyle(color: AuthColors.textMain)),
+                      title: Text(client.name,
+                          style: const TextStyle(color: AuthColors.textMain)),
                       subtitle: client.primaryPhone != null
-                          ? Text(client.primaryPhone!, style: const TextStyle(color: AuthColors.textSub))
+                          ? Text(client.primaryPhone!,
+                              style: const TextStyle(color: AuthColors.textSub))
                           : null,
                       onTap: () => Navigator.pop(context, client),
                     );
@@ -768,52 +830,16 @@ class _ClientSelectionSheetState extends State<_ClientSelectionSheet> {
   }
 }
 
-class _PaymentAccountChip extends StatefulWidget {
+class _PaymentAccountChip extends StatelessWidget {
   const _PaymentAccountChip({
     required this.account,
     required this.isSelected,
-    required this.amount,
     required this.onTap,
-    required this.onAmountChanged,
-    required this.formatCurrency,
   });
 
   final PaymentAccount account;
   final bool isSelected;
-  final double amount;
   final VoidCallback onTap;
-  final ValueChanged<double> onAmountChanged;
-  final String Function(double) formatCurrency;
-
-  @override
-  State<_PaymentAccountChip> createState() => _PaymentAccountChipState();
-}
-
-class _PaymentAccountChipState extends State<_PaymentAccountChip> {
-  late TextEditingController _amountController;
-
-  @override
-  void initState() {
-    super.initState();
-    _amountController = TextEditingController();
-    if (widget.isSelected && widget.amount > 0) {
-      _amountController.text = widget.amount.toStringAsFixed(0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(_PaymentAccountChip oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.isSelected && oldWidget.isSelected) {
-      _amountController.clear();
-    }
-  }
 
   String _getAccountTypeIcon(PaymentAccountType type) {
     switch (type) {
@@ -830,107 +856,51 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isSelected) {
-      return InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
-          decoration: BoxDecoration(
-            color: AuthColors.surface,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-            border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _getAccountTypeIcon(widget.account.type),
-                style: const TextStyle(fontSize: 18),
-              ),
-              const SizedBox(width: AppSpacing.paddingSM),
-              Text(
-                widget.account.name,
-                style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
-              ),
-            ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.paddingLG,
+          vertical: AppSpacing.paddingMD,
+        ),
+        decoration: BoxDecoration(
+          color: AuthColors.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+          border: Border.all(
+            color: isSelected
+                ? AuthColors.primaryWithOpacity(0.5)
+                : AuthColors.textMainWithOpacity(0.12),
+            width: isSelected ? 2 : 1,
           ),
         ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.paddingMD),
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(
-          color: AuthColors.primaryWithOpacity(0.5),
-          width: 2,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _getAccountTypeIcon(widget.account.type),
-                style: const TextStyle(fontSize: 18),
-              ),
-              const SizedBox(width: AppSpacing.paddingSM),
-              Expanded(
-                child: Text(
-                  widget.account.name,
-                  style: const TextStyle(color: AuthColors.textMain, fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, size: 18, color: AuthColors.textSub),
-                onPressed: widget.onTap,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.paddingSM),
-          SizedBox(
-            width: 150,
-            child: TextFormField(
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
-              decoration: InputDecoration(
-                labelText: 'Amount',
-                labelStyle: const TextStyle(color: AuthColors.textSub, fontSize: 12),
-                prefixIcon: const Icon(Icons.currency_rupee, color: AuthColors.textSub, size: 16),
-                filled: true,
-                fillColor: AuthColors.backgroundAlt,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                  borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.12)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                  borderSide: const BorderSide(color: AuthColors.primary, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
-              ),
-              onChanged: (value) {
-                final amount = double.tryParse(value.replaceAll(',', '')) ?? 0.0;
-                widget.onAmountChanged(amount);
-              },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _getAccountTypeIcon(account.type),
+              style: const TextStyle(fontSize: 18),
             ),
-          ),
-        ],
+            const SizedBox(width: AppSpacing.paddingSM),
+            Text(
+              account.name,
+              style: TextStyle(
+                color: isSelected ? AuthColors.textMain : AuthColors.textSub,
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: AppSpacing.paddingSM),
+              const Icon(
+                Icons.check_circle,
+                color: AuthColors.primary,
+                size: 18,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
-

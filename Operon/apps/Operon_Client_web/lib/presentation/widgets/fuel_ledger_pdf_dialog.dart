@@ -1,5 +1,4 @@
 import 'dart:html' as html;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:core_models/core_models.dart';
@@ -336,7 +335,7 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                 TextField(
                   controller: _fromVoucherController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'From voucher',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
@@ -349,7 +348,7 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                 TextField(
                   controller: _toVoucherController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'To voucher',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(

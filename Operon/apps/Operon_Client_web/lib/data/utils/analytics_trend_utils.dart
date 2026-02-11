@@ -29,7 +29,7 @@ TrendResult calculateTrend(num currentValue, num previousValue) {
   final curr = currentValue.toDouble();
   final prev = previousValue.toDouble();
   if (prev == 0) {
-    return TrendResult(
+    return const TrendResult(
       percentChange: 0,
       direction: TrendDirection.neutral,
     );

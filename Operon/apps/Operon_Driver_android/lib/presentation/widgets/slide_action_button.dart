@@ -1,6 +1,5 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:operon_auth_flow/operon_auth_flow.dart';
 
 /// Slide-to-confirm action button for driver interactions.
 /// 

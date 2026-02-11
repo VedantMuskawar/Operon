@@ -720,7 +720,7 @@ class DeliveriesAnalytics {
 
     List<TopClientEntry> parseTopClients(dynamic raw) {
       if (raw is! List) return [];
-      final list = raw as List;
+      final list = raw;
       return list.map((e) {
         final m = e as Map<String, dynamic>;
         return TopClientEntry(

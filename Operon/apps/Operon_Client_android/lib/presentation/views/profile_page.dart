@@ -3,8 +3,8 @@ import 'package:dash_mobile/data/repositories/users_repository.dart';
 import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/caller_id_switch_section.dart';
+import 'package:dash_mobile/presentation/widgets/whatsapp_messages_switch_section.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -83,7 +83,14 @@ class ProfilePage extends StatelessWidget {
                     context.go('/users');
                   }
                 : null,
-            extraActions: const [CallerIdSwitchSection()],
+            extraActions: [
+              const CallerIdSwitchSection(),
+              if (isAdminRole && organization?.id != null)
+                WhatsappMessagesSwitchSection(
+                  orgId: organization!.id,
+                  isAdmin: true,
+                ),
+            ],
           ),
         ),
       ),

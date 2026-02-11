@@ -50,7 +50,7 @@ class SearchPill extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.search,
                   color: AuthColors.textSub,
                   size: 20,

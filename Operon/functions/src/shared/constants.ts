@@ -30,4 +30,5 @@ export const VENDORS_SOURCE_KEY = 'vendors';
 export const DELIVERIES_SOURCE_KEY = 'deliveries';
 export const PRODUCTIONS_SOURCE_KEY = 'productions';
 export const TRIP_WAGES_ANALYTICS_SOURCE_KEY = 'tripWages';
+export const FUEL_ANALYTICS_SOURCE_KEY = 'fuel';
 

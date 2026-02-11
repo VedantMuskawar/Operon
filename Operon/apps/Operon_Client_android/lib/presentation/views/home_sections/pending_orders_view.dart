@@ -146,8 +146,9 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   }
 
   List<Map<String, dynamic>> _computeFilteredOrders() {
-    if (_selectedFixedQuantityFilter == null)
+    if (_selectedFixedQuantityFilter == null) {
       return _orders; // Return reference, no need to copy
+    }
     return _orders.where((order) {
       final items = order['items'] as List<dynamic>? ?? [];
       if (items.isEmpty) return false;

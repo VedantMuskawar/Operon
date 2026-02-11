@@ -327,7 +327,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
   Future<void> _openScheduleModal() async {
     final clientId = _currentOrder?['clientId'] as String?;
     final clientName = _currentOrder?['clientName'] as String? ?? 'N/A';
-    
+
     if (clientId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -348,7 +348,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
       final client = await clientService.findClientByPhone(
         _currentOrder?['clientPhone'] as String? ?? '',
       );
-      
+
       if (client == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -453,7 +453,8 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
     final items = order['items'] as List<dynamic>? ?? [];
     final totalTrips = _calculateTotalTrips();
     final totalScheduledTrips = _calculateTotalScheduledTrips();
-    final estimatedTrips = (totalTrips - totalScheduledTrips).clamp(0, totalTrips);
+    final estimatedTrips =
+        (totalTrips - totalScheduledTrips).clamp(0, totalTrips);
     final priorityColor = _getPriorityColor();
     final priority = order['priority'] as String? ?? 'normal';
     final pricing = order['pricing'] as Map<String, dynamic>?;
@@ -491,13 +492,14 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                   totalScheduledTrips: totalScheduledTrips,
                   orderAgeDays: orderAgeDays,
                 ),
-                
+
                 // Spacing between header and tab bar
                 const SizedBox(height: AppSpacing.paddingLG),
-                
+
                 // Tab Bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.paddingLG),
                   child: Container(
                     padding: const EdgeInsets.all(AppSpacing.paddingXS / 2),
                     decoration: BoxDecoration(
@@ -529,7 +531,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.paddingMD),
-                
+
                 // Tab Content
                 Expanded(
                   child: RefreshIndicator(
@@ -560,19 +562,22 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
             // FAB Menu - positioned at bottom right with safe padding
             QuickActionMenu(
               right: QuickActionMenu.standardRight,
-              bottom: MediaQuery.of(context).padding.bottom + AppSpacing.paddingLG,
+              bottom:
+                  MediaQuery.of(context).padding.bottom + AppSpacing.paddingLG,
               actions: [
                 QuickActionItem(
                   icon: Icons.schedule_outlined,
                   label: 'Schedule Trip',
-                  onTap: estimatedTrips > 0 ? _openScheduleModal : () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('All trips are scheduled'),
-                        backgroundColor: AuthColors.warning,
-                      ),
-                    );
-                  },
+                  onTap: estimatedTrips > 0
+                      ? _openScheduleModal
+                      : () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('All trips are scheduled'),
+                              backgroundColor: AuthColors.warning,
+                            ),
+                          );
+                        },
                 ),
                 QuickActionItem(
                   icon: Icons.edit_outlined,
@@ -590,7 +595,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                   onTap: () {
                     // TODO: Implement share functionality
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
+                      const SnackBar(
                         content: Text('Share functionality coming soon'),
                         backgroundColor: AuthColors.info,
                       ),
@@ -749,7 +754,8 @@ class _OrderHeader extends StatelessWidget {
                         height: 8,
                         decoration: BoxDecoration(
                           color: AuthColors.surface,
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusXS),
                         ),
                         child: Stack(
                           children: [
@@ -762,11 +768,13 @@ class _OrderHeader extends StatelessWidget {
                                       colors: progress == 1.0
                                           ? [
                                               AuthColors.success,
-                                              AuthColors.success.withOpacity(0.8),
+                                              AuthColors.success
+                                                  .withOpacity(0.8),
                                             ]
                                           : [
                                               AuthColors.primary,
-                                              AuthColors.primary.withOpacity(0.8),
+                                              AuthColors.primary
+                                                  .withOpacity(0.8),
                                             ],
                                     ),
                                   ),
@@ -903,7 +911,7 @@ class _ItemsTab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.inventory_2_outlined,
               size: 64,
               color: AuthColors.textDisabled,
@@ -960,14 +968,16 @@ class _ItemsTab extends StatelessWidget {
             final productName = item['productName'] as String? ?? 'N/A';
             final quantity = item['quantity'] as int? ?? 0;
             final unitPrice = (item['unitPrice'] as num?)?.toDouble() ?? 0.0;
-            final subtotal = (item['subtotal'] as num?)?.toDouble() ?? (quantity * unitPrice);
+            final subtotal = (item['subtotal'] as num?)?.toDouble() ??
+                (quantity * unitPrice);
             final gstAmount = (item['gstAmount'] as num?)?.toDouble() ?? 0.0;
             final gstPercent = (item['gstPercent'] as num?)?.toDouble() ?? 0.0;
             final itemTotal = subtotal + gstAmount;
             final estimatedTrips = item['estimatedTrips'] as int? ?? 0;
             final scheduledTrips = item['scheduledTrips'] as int? ?? 0;
             final remainingTrips = estimatedTrips - scheduledTrips;
-            final fixedQuantityPerTrip = item['fixedQuantityPerTrip'] as int? ?? 0;
+            final fixedQuantityPerTrip =
+                item['fixedQuantityPerTrip'] as int? ?? 0;
 
             totalSubtotal += subtotal;
             totalGst += gstAmount;
@@ -993,7 +1003,7 @@ class _ItemsTab extends StatelessWidget {
               ),
             );
           }),
-          
+
           // Pricing Summary
           const SizedBox(height: AppSpacing.paddingLG),
           _InfoCard(
@@ -1019,7 +1029,7 @@ class _ItemsTab extends StatelessWidget {
               ),
             ],
           ),
-          
+
           // Created Date
           const SizedBox(height: AppSpacing.paddingLG),
           _InfoCard(
@@ -1031,7 +1041,9 @@ class _ItemsTab extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom + AppSpacing.paddingXL),
+          SizedBox(
+              height:
+                  MediaQuery.of(context).padding.bottom + AppSpacing.paddingXL),
         ],
       ),
     );
@@ -1090,7 +1102,7 @@ class _ItemCard extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.inventory_2_outlined,
                   color: AuthColors.primary,
                   size: AppSpacing.iconMD,
@@ -1128,7 +1140,7 @@ class _ItemCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.paddingMD),
           const Divider(height: 1),
           const SizedBox(height: AppSpacing.paddingMD),
-          
+
           // Pricing Details
           _InfoRow(
             label: 'Unit Price',
@@ -1140,14 +1152,15 @@ class _ItemCard extends StatelessWidget {
           ),
           if (gstAmount > 0 || gstPercent > 0)
             _InfoRow(
-              label: 'GST ${gstPercent > 0 ? '(${gstPercent.toStringAsFixed(1)}%)' : ''}',
+              label:
+                  'GST ${gstPercent > 0 ? '(${gstPercent.toStringAsFixed(1)}%)' : ''}',
               value: formatCurrency(gstAmount),
             ),
-          
+
           const SizedBox(height: AppSpacing.paddingMD),
           const Divider(height: 1),
           const SizedBox(height: AppSpacing.paddingMD),
-          
+
           // Trip Information
           Row(
             children: [
@@ -1267,7 +1280,7 @@ class _TripsTab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.route_outlined,
               size: 64,
               color: AuthColors.textDisabled,
@@ -1297,7 +1310,7 @@ class _TripsTab extends StatelessWidget {
       final dateA = a['scheduledDate'];
       final dateB = b['scheduledDate'];
       if (dateA == null || dateB == null) return 0;
-      
+
       DateTime dateTimeA, dateTimeB;
       try {
         dateTimeA = dateA is DateTime ? dateA : (dateA as Timestamp).toDate();
@@ -1413,7 +1426,7 @@ class _ScheduledTripItem extends StatelessWidget {
             ],
           ),
           const SizedBox(width: AppSpacing.paddingMD),
-          
+
           // Trip details
           Expanded(
             child: Column(
@@ -1478,7 +1491,8 @@ class _ScheduledTripItem extends StatelessWidget {
                             statusColor.withOpacity(0.15),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusXS),
                         border: Border.all(
                           color: statusColor.withOpacity(0.4),
                         ),
@@ -1518,7 +1532,8 @@ class _ScheduledTripItem extends StatelessWidget {
                           AuthColors.primary.withOpacity(0.1),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusXS / 2),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusXS / 2),
                       border: Border.all(
                         color: AuthColors.primary.withOpacity(0.3),
                       ),
@@ -1642,27 +1657,22 @@ class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.label,
     required this.value,
-    this.isTappable = false,
-    this.onTap,
     this.valueColor,
     this.valueStyle,
   });
 
   final String label;
   final String value;
-  final bool isTappable;
-  final VoidCallback? onTap;
   final Color? valueColor;
   final TextStyle? valueStyle;
 
   @override
   Widget build(BuildContext context) {
-    final effectiveValueColor = valueColor ??
-        (isTappable ? AuthColors.primary : AuthColors.textSub);
+    final effectiveValueColor = valueColor ?? AuthColors.textSub;
     final effectiveValueStyle = valueStyle ??
         AppTypography.body.copyWith(
           color: effectiveValueColor,
-          fontWeight: isTappable ? FontWeight.w600 : FontWeight.normal,
+          fontWeight: FontWeight.normal,
         );
 
     final content = Row(
@@ -1682,31 +1692,8 @@ class _InfoRow extends StatelessWidget {
             style: effectiveValueStyle,
           ),
         ),
-        if (isTappable)
-          const Icon(
-            Icons.phone,
-            color: AuthColors.primary,
-            size: AppSpacing.iconSM,
-          ),
       ],
     );
-
-    if (isTappable && onTap != null) {
-      return Material(
-        color: AuthColors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onTap!();
-          },
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
-            child: content,
-          ),
-        ),
-      );
-    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),

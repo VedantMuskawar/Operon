@@ -237,6 +237,27 @@ exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALL
         }
         const financialYear = (0, financial_year_1.getFinancialContext)(parsedPaymentDate).fyLabel;
         const transactionIds = [];
+        const employeeNameMap = {};
+        if (employeeIds.length > 0) {
+            const nameBatches = [];
+            for (let i = 0; i < employeeIds.length; i += BATCH_WRITE_LIMIT) {
+                nameBatches.push(employeeIds.slice(i, i + BATCH_WRITE_LIMIT));
+            }
+            for (const batch of nameBatches) {
+                const refs = batch.map((employeeId) => db.collection(constants_1.EMPLOYEES_COLLECTION).doc(employeeId));
+                const docs = await db.getAll(...refs);
+                docs.forEach((doc) => {
+                    if (!doc.exists)
+                        return;
+                    const data = doc.data() || {};
+                    const name = data.name ||
+                        data.employeeName;
+                    if (name && name.trim().length > 0) {
+                        employeeNameMap[doc.id] = name.trim();
+                    }
+                });
+            }
+        }
         (0, logger_1.logInfo)('ProductionBatches', 'processProductionBatchWages', 'Processing batch', {
             batchId,
             employeeCount: employeeIds.length,
@@ -257,26 +278,10 @@ exports.processProductionBatchWages = (0, https_1.onCall)(function_config_1.CALL
             for (const employeeId of employeeBatch) {
                 const transactionRef = db.collection(constants_1.TRANSACTIONS_COLLECTION).doc();
                 const transactionId = transactionRef.id;
-                const transactionData = {
-                    transactionId,
+                const employeeName = employeeNameMap[employeeId];
+                const transactionData = Object.assign(Object.assign({ transactionId,
                     organizationId,
-                    employeeId,
-                    ledgerType: 'employeeLedger',
-                    type: 'credit',
-                    category: 'wageCredit',
-                    amount: wagePerEmployee,
-                    financialYear,
-                    paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate),
-                    description: `Production Batch #${batchId}`,
-                    metadata: {
-                        sourceType: 'productionBatch',
-                        sourceId: batchId,
-                        batchId,
-                    },
-                    createdBy,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                };
+                    employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: wagePerEmployee, financialYear, paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate), description: `Production Batch #${batchId}`, metadata: Object.assign({ sourceType: 'productionBatch', sourceId: batchId, batchId }, (employeeName ? { employeeName } : {})), createdBy, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
                 // Add batch details to metadata if available
                 if (productName) {
                     transactionData.metadata.productName = productName;

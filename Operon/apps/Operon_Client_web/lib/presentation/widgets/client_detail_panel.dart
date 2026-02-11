@@ -317,14 +317,14 @@ class _PanelHeader extends StatelessWidget {
           Row(
             children: [
               IconButton(
-                icon: Icon(Icons.close, color: AuthColors.textSub),
+                icon: const Icon(Icons.close, color: AuthColors.textSub),
                 onPressed: onClose,
                 tooltip: 'Close',
               ),
               Expanded(
                 child: Text(
                   client.name,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AuthColors.textMain,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -332,12 +332,12 @@ class _PanelHeader extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.edit, color: AuthColors.textSub),
+                icon: const Icon(Icons.edit, color: AuthColors.textSub),
                 onPressed: onEdit,
                 tooltip: 'Edit',
               ),
               IconButton(
-                icon: Icon(Icons.delete_outline, color: AuthColors.textSub),
+                icon: const Icon(Icons.delete_outline, color: AuthColors.textSub),
                 onPressed: onDelete,
                 tooltip: 'Delete',
               ),
@@ -356,7 +356,7 @@ class _PanelHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   primaryPhone,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -388,7 +388,7 @@ class _PanelHeader extends StatelessWidget {
                   ),
                   child: Text(
                     tag,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AuthColors.textSub,
                       fontSize: 11,
                     ),
@@ -477,7 +477,7 @@ class _PrimaryContactDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
+            const Text(
               'Select Primary Contact',
               style: TextStyle(
                 color: AuthColors.textMain,
@@ -505,19 +505,19 @@ class _PrimaryContactDialog extends StatelessWidget {
                           : AuthColors.background,
                       child: Text(
                         option.label.isNotEmpty ? option.label[0] : '?',
-                        style: TextStyle(color: AuthColors.textMain),
+                        style: const TextStyle(color: AuthColors.textMain),
                       ),
                     ),
                     title: Text(
                       option.label,
-                      style: TextStyle(color: AuthColors.textMain),
+                      style: const TextStyle(color: AuthColors.textMain),
                     ),
                     subtitle: Text(
                       option.phone,
-                      style: TextStyle(color: AuthColors.textDisabled),
+                      style: const TextStyle(color: AuthColors.textDisabled),
                     ),
                     trailing: isSelected
-                        ? Icon(Icons.check, color: AuthColors.textSub)
+                        ? const Icon(Icons.check, color: AuthColors.textSub)
                         : null,
                     onTap: () => Navigator.pop(context, option),
                   );
@@ -549,7 +549,7 @@ class _DeleteClientDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Delete client',
               style: TextStyle(
                 color: AuthColors.textMain,
@@ -560,7 +560,7 @@ class _DeleteClientDialog extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               'This will permanently remove $clientName and all related analytics. This action cannot be undone.',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 13,
               ),

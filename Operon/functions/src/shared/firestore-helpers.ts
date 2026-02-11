@@ -6,6 +6,7 @@ import {
   DELIVERIES_SOURCE_KEY,
   PRODUCTIONS_SOURCE_KEY,
   TRIP_WAGES_ANALYTICS_SOURCE_KEY,
+  FUEL_ANALYTICS_SOURCE_KEY,
 } from './constants';
 
 // Single Firestore instance at module load (global caching). Do not initialize DB inside handler bodies.
@@ -155,6 +156,31 @@ export async function seedTripWagesAnalyticsDoc(
       generatedAt: admin.firestore.FieldValue.serverTimestamp(),
       'metadata.sourceCollections':
         admin.firestore.FieldValue.arrayUnion('TRIP_WAGES', 'TRANSACTIONS'),
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Seed/initialize a fuel analytics document with default structure
+ */
+export async function seedFuelAnalyticsDoc(
+  docRef: FirebaseFirestore.DocumentReference,
+  fyLabel: string,
+  organizationId?: string,
+): Promise<void> {
+  await docRef.set(
+    {
+      source: FUEL_ANALYTICS_SOURCE_KEY,
+      financialYear: fyLabel,
+      ...(organizationId && { organizationId }),
+      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      'metadata.sourceCollections':
+        admin.firestore.FieldValue.arrayUnion('TRANSACTIONS', 'VENDORS'),
+      'metrics.totalUnpaidFuelBalance.type': 'monthly',
+      'metrics.totalUnpaidFuelBalance.unit': 'currency',
+      'metrics.fuelConsumptionByVehicle.type': 'monthly',
+      'metrics.fuelConsumptionByVehicle.unit': 'currency',
     },
     { merge: true },
   );

@@ -161,9 +161,9 @@ class ProfileView extends StatelessWidget {
                         ),
                       ),
                       if (isLoading)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: const SizedBox(
+                        const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
@@ -187,7 +187,7 @@ class ProfileView extends StatelessWidget {
                         Expanded(
                           child: Text(
                             orgName,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AuthColors.textSub,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,

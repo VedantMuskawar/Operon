@@ -6,8 +6,7 @@ import 'package:core_datasources/core_datasources.dart' as shared;
 /// This class extends the shared ScheduledTripsDataSource from core_datasources
 /// and adds Android-specific methods if needed.
 class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
-  ScheduledTripsDataSource({FirebaseFirestore? firestore})
-      : super(firestore: firestore);
+  ScheduledTripsDataSource({super.firestore});
 
   // All core methods (createScheduledTrip, getScheduledTripsForDayAndVehicle, 
   // deleteScheduledTrip, updateTripRescheduleReason, etc.) are inherited 
@@ -36,6 +35,7 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
   /// Update trip status (Android-specific version with additional payment fields)
   /// This method extends the shared updateTripStatus with payment-related parameters
   /// Note: This is NOT an override - it has a different signature with payment fields
+  @override
   Future<void> updateTripStatus({
     required String tripId,
     required String tripStatus,

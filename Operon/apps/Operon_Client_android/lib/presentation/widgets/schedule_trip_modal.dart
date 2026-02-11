@@ -1,5 +1,6 @@
 import 'package:core_models/core_models.dart';
-import 'package:core_ui/components/trip_scheduling/schedule_trip_modal.dart' as shared_modal;
+import 'package:core_ui/components/trip_scheduling/schedule_trip_modal.dart'
+    as shared_modal;
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
@@ -9,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Android wrapper for the shared ScheduleTripModal
-/// 
+///
 /// This wrapper provides Android-specific dependencies to the shared widget:
 /// - ScheduledTripsRepository (implements ScheduledTripsRepositoryInterface)
 /// - VehiclesRepository (implements VehiclesRepositoryInterface)
@@ -35,7 +36,7 @@ class ScheduleTripModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheduledTripsRepo = context.read<ScheduledTripsRepository>();
-      final vehiclesRepo = context.read<VehiclesRepository>();
+    final vehiclesRepo = context.read<VehiclesRepository>();
     final clientService = ClientService();
     final orgContextCubit = context.read<OrganizationContextCubit>();
 
@@ -46,7 +47,8 @@ class ScheduleTripModal extends StatelessWidget {
       clientName: clientName,
       clientPhones: clientPhones,
       onScheduled: onScheduled,
-      scheduledTripsRepository: _ScheduledTripsRepositoryAdapter(scheduledTripsRepo),
+      scheduledTripsRepository:
+          _ScheduledTripsRepositoryAdapter(scheduledTripsRepo),
       vehiclesRepository: _VehiclesRepositoryAdapter(vehiclesRepo),
       addPhoneNumber: ({
         required String clientId,
@@ -70,11 +72,13 @@ class ScheduleTripModal extends StatelessWidget {
 }
 
 /// Adapter that makes ScheduledTripsRepository implement ScheduledTripsRepositoryInterface
-class _ScheduledTripsRepositoryAdapter implements shared_modal.ScheduledTripsRepositoryInterface {
+class _ScheduledTripsRepositoryAdapter
+    implements shared_modal.ScheduledTripsRepositoryInterface {
   final ScheduledTripsRepository _repo;
 
   _ScheduledTripsRepositoryAdapter(this._repo);
 
+  @override
   Future<String> createScheduledTrip({
     required String organizationId,
     required String orderId,
@@ -101,6 +105,7 @@ class _ScheduledTripsRepositoryAdapter implements shared_modal.ScheduledTripsRep
     int? itemIndex,
     String? productId,
     String? meterType,
+    String? transportMode,
   }) {
     return _repo.createScheduledTrip(
       organizationId: organizationId,
@@ -128,9 +133,11 @@ class _ScheduledTripsRepositoryAdapter implements shared_modal.ScheduledTripsRep
       itemIndex: itemIndex,
       productId: productId,
       meterType: meterType,
+      transportMode: transportMode,
     );
   }
 
+  @override
   Future<List<Map<String, dynamic>>> getScheduledTripsForDayAndVehicle({
     required String organizationId,
     required String scheduledDay,
@@ -147,11 +154,13 @@ class _ScheduledTripsRepositoryAdapter implements shared_modal.ScheduledTripsRep
 }
 
 /// Adapter that makes VehiclesRepository implement VehiclesRepositoryInterface
-class _VehiclesRepositoryAdapter implements shared_modal.VehiclesRepositoryInterface {
+class _VehiclesRepositoryAdapter
+    implements shared_modal.VehiclesRepositoryInterface {
   final VehiclesRepository _repo;
 
   _VehiclesRepositoryAdapter(this._repo);
 
+  @override
   Future<List<Vehicle>> fetchVehicles(String organizationId) {
     return _repo.fetchVehicles(organizationId);
   }

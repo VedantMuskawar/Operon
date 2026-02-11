@@ -38,7 +38,7 @@ class WeeklyLedgerExcelGenerator {
         'weekly-ledger-${weekStart.year}${weekStart.month.toString().padLeft(2, '0')}${weekStart.day.toString().padLeft(2, '0')}.xlsx';
     final blob = html.Blob([Uint8List.fromList(bytes)]);
     final url = html.Url.createObjectUrlFromBlob(blob);
-    (html.AnchorElement(href: url)..setAttribute('download', filename))..click();
+    (html.AnchorElement(href: url)..setAttribute('download', filename)).click();
     html.Url.revokeObjectUrl(url);
   }
 

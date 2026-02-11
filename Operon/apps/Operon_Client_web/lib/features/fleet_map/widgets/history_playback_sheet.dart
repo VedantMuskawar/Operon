@@ -124,7 +124,7 @@ class _HistoryPlaybackSheetState extends State<HistoryPlaybackSheet> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.calendar_today,
                         size: 18,
                         color: LogisticsColors.navyBlue,
@@ -132,7 +132,7 @@ class _HistoryPlaybackSheetState extends State<HistoryPlaybackSheet> {
                       const SizedBox(width: 8),
                       Text(
                         DateFormat('MMM dd, yyyy').format(widget.selectedDate),
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: LogisticsColors.navyBlue,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -144,7 +144,7 @@ class _HistoryPlaybackSheetState extends State<HistoryPlaybackSheet> {
               ),
               // Close button
               IconButton(
-                icon: Icon(
+                icon: const Icon(
                   Icons.close,
                   color: LogisticsColors.navyBlue,
                 ),
@@ -177,7 +177,7 @@ class _HistoryPlaybackSheetState extends State<HistoryPlaybackSheet> {
               // Timestamp display (left)
               Text(
                 DateFormat('HH:mm:ss').format(currentTime),
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 14,
                   fontWeight: FontWeight.w600,

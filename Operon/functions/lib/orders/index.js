@@ -20,7 +20,6 @@ __exportStar(require("./order-whatsapp"), exports);
 __exportStar(require("./trip-scheduling"), exports);
 __exportStar(require("./trip-status-update"), exports);
 __exportStar(require("./delivery-memo"), exports);
-__exportStar(require("./trip-return-dm"), exports);
 __exportStar(require("./trip-dispatch-whatsapp"), exports);
 __exportStar(require("./trip-delivery-whatsapp"), exports);
 __exportStar(require("./cleanup-fully-scheduled-orders"), exports);

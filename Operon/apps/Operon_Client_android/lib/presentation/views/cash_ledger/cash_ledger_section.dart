@@ -94,6 +94,178 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
     return trimmed.isEmpty ? 'Unknown' : trimmed;
   }
 
+  List<PaymentAccountSummary> _filterActualPaymentAccounts(
+    List<PaymentAccountSummary> distribution,
+  ) {
+    if (_paymentAccountNames.isEmpty) {
+      return distribution;
+    }
+    final ids = _paymentAccountNames.keys
+        .map((id) => id.trim().toLowerCase())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final names = _paymentAccountNames.values
+        .map((name) => name.trim().toLowerCase())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+
+    return distribution.where((summary) {
+      final normalized = summary.displayName.trim().toLowerCase();
+      return ids.contains(normalized) || names.contains(normalized);
+    }).toList();
+  }
+
+  Widget _buildCreditTransactionsTable(CashLedgerState state) {
+    double totalFrom(List<Transaction> rows) {
+      var total = 0.0;
+      for (final tx in rows) {
+        final count = tx.metadata?['transactionCount'] as int?;
+        if (count != null && count > 1) {
+          total +=
+              (tx.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+        } else if (tx.type == TransactionType.credit) {
+          total += tx.amount;
+        }
+      }
+      return total;
+    }
+
+    final clientTotal = totalFrom(state.clientCreditRows);
+    final vendorTotal = totalFrom(state.vendorCreditRows);
+    final employeeTotal = totalFrom(state.employeeCreditRows);
+
+    if (clientTotal == 0 && vendorTotal == 0 && employeeTotal == 0) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Credit summary',
+            style: AppTypography.withColor(
+              AppTypography.withWeight(AppTypography.h3, FontWeight.w700),
+              AuthColors.textMain,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.paddingSM),
+          Container(
+            decoration: BoxDecoration(
+              color: AuthColors.surface.withOpacity(0.6),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AuthColors.surface.withOpacity(0.8),
+                width: 1,
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.paddingSM,
+                    horizontal: AppSpacing.paddingMD,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AuthColors.surface.withOpacity(0.4),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8),
+                      topRight: Radius.circular(8),
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          'Type',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AuthColors.textSub,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: AppSpacing.paddingSM),
+                      SizedBox(
+                        width: 100,
+                        child: Text(
+                          'Total',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AuthColors.success,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                          textAlign: TextAlign.end,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildCreditSummaryRow('Client Credit', clientTotal, false),
+                _buildCreditSummaryRow('Vendor Credit', vendorTotal, false),
+                _buildCreditSummaryRow('Employee Credit', employeeTotal, true),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreditSummaryRow(String label, double amount, bool isLast) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: isLast
+              ? BorderSide.none
+              : BorderSide(
+                  color: AuthColors.surface.withOpacity(0.3),
+                  width: 1,
+                ),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.paddingMD,
+          horizontal: AppSpacing.paddingMD,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Text(
+                label,
+                style: AppTypography.withColor(
+                  AppTypography.body,
+                  AuthColors.textMain,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              width: 100,
+              child: Text(
+                _formatCurrency(amount),
+                style: AppTypography.withColor(
+                  AppTypography.withWeight(AppTypography.body, FontWeight.w700),
+                  AuthColors.success,
+                ),
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
@@ -115,17 +287,17 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
   Future<void> _handleDateRangePicker() async {
     final cubit = context.read<CashLedgerCubit>();
     final state = cubit.state;
-    
+
     // Pass current date range from state, or default to today-today
     final currentRange = (state.startDate != null && state.endDate != null)
         ? DateTimeRange(start: state.startDate!, end: state.endDate!)
         : null;
-    
+
     final range = await showLedgerDateRangeModal(
       context,
       initialRange: currentRange,
     );
-    
+
     if (range != null && mounted) {
       await cubit.setDateRange(range.start, range.end);
     }
@@ -162,7 +334,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
               }
             });
           }
-          
+
           return RefreshIndicator(
             onRefresh: () => context.read<CashLedgerCubit>().refresh(),
             color: AuthColors.primary,
@@ -226,18 +398,23 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                 Expanded(
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      color: AuthColors.surface.withOpacity(0.6),
+                                      color:
+                                          AuthColors.surface.withOpacity(0.6),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
-                                        color: AuthColors.surface.withOpacity(0.8),
+                                        color:
+                                            AuthColors.surface.withOpacity(0.8),
                                         width: 1,
                                       ),
                                     ),
                                     child: StandardSearchBar(
                                       controller: _searchController,
-                                      hintText: 'Search by name, ref, amount...',
+                                      hintText:
+                                          'Search by name, ref, amount...',
                                       onChanged: (value) {
-                                        context.read<CashLedgerCubit>().search(value);
+                                        context
+                                            .read<CashLedgerCubit>()
+                                            .search(value);
                                       },
                                     ),
                                   ),
@@ -248,7 +425,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                     color: AuthColors.surface.withOpacity(0.6),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AuthColors.surface.withOpacity(0.8),
+                                      color:
+                                          AuthColors.surface.withOpacity(0.8),
                                       width: 1,
                                     ),
                                   ),
@@ -275,11 +453,11 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                               decoration: BoxDecoration(
                                 color: AuthColors.surface.withOpacity(0.4),
                               ),
-                              child: Row(
+                              child: const Row(
                                 children: [
                                   Expanded(
                                     child: Padding(
-                                      padding: const EdgeInsets.only(left: 4),
+                                      padding: EdgeInsets.only(left: 4),
                                       child: Text(
                                         'Transaction',
                                         style: TextStyle(
@@ -304,7 +482,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                       textAlign: TextAlign.end,
                                     ),
                                   ),
-                                  const SizedBox(width: AppSpacing.paddingSM),
+                                  SizedBox(width: AppSpacing.paddingSM),
                                   SizedBox(
                                     width: 80,
                                     child: Text(
@@ -327,7 +505,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                     ),
                   ),
                   // LinearProgressIndicator for stream updates when list is not empty
-                  if (state.status == ViewStatus.loading && state.allRows.isNotEmpty)
+                  if (state.status == ViewStatus.loading &&
+                      state.allRows.isNotEmpty)
                     const SliverToBoxAdapter(
                       child: LinearProgressIndicator(
                         color: AuthColors.primary,
@@ -335,7 +514,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                       ),
                     ),
                   // Loading state when empty
-                  if (state.status == ViewStatus.loading && state.allRows.isEmpty)
+                  if (state.status == ViewStatus.loading &&
+                      state.allRows.isEmpty)
                     const SliverFillRemaining(
                       child: Center(child: CircularProgressIndicator()),
                     )
@@ -359,7 +539,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                           previous.totalDebit != current.totalDebit,
                       builder: (context, state) {
                         final list = state.allRows;
-                        
+
                         return SliverPadding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           sliver: SliverList(
@@ -381,7 +561,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                   formatCurrency: _formatCurrency,
                                   isEven: isEven,
                                   paymentAccountNames: _paymentAccountNames,
-                                  getPaymentAccountDisplayName: _getPaymentAccountDisplayName,
+                                  getPaymentAccountDisplayName:
+                                      _getPaymentAccountDisplayName,
                                 );
                               },
                               childCount: list.length + 1, // +1 for footer
@@ -400,9 +581,24 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                   SliverToBoxAdapter(
                     child: BlocBuilder<CashLedgerCubit, CashLedgerState>(
                       buildWhen: (previous, current) =>
-                          previous.paymentAccountDistribution != current.paymentAccountDistribution,
+                          previous.clientCreditRows !=
+                              current.clientCreditRows ||
+                          previous.vendorCreditRows !=
+                              current.vendorCreditRows ||
+                          previous.employeeCreditRows !=
+                              current.employeeCreditRows,
+                      builder: (context, state) =>
+                          _buildCreditTransactionsTable(state),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: BlocBuilder<CashLedgerCubit, CashLedgerState>(
+                      buildWhen: (previous, current) =>
+                          previous.paymentAccountDistribution !=
+                          current.paymentAccountDistribution,
                       builder: (context, state) {
-                        final distribution = state.paymentAccountDistribution;
+                        final distribution = _filterActualPaymentAccounts(
+                            state.paymentAccountDistribution);
                         if (distribution.isEmpty) {
                           return const SizedBox(height: AppSpacing.paddingXXL);
                         }
@@ -414,7 +610,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                               Text(
                                 'Payment account distribution',
                                 style: AppTypography.withColor(
-                                  AppTypography.withWeight(AppTypography.h3, FontWeight.w700),
+                                  AppTypography.withWeight(
+                                      AppTypography.h3, FontWeight.w700),
                                   AuthColors.textMain,
                                 ),
                               ),
@@ -437,13 +634,14 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                         horizontal: AppSpacing.paddingMD,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AuthColors.surface.withOpacity(0.4),
+                                        color:
+                                            AuthColors.surface.withOpacity(0.4),
                                         borderRadius: const BorderRadius.only(
                                           topLeft: Radius.circular(8),
                                           topRight: Radius.circular(8),
                                         ),
                                       ),
-                                      child: Row(
+                                      child: const Row(
                                         children: [
                                           Expanded(
                                             flex: 2,
@@ -500,17 +698,22 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                       ),
                                     ),
                                     // Table Rows
-                                    ...distribution.asMap().entries.map((entry) {
+                                    ...distribution
+                                        .asMap()
+                                        .entries
+                                        .map((entry) {
                                       final index = entry.key;
                                       final s = entry.value;
-                                      final isLast = index == distribution.length - 1;
+                                      final isLast =
+                                          index == distribution.length - 1;
                                       return Container(
                                         decoration: BoxDecoration(
                                           border: Border(
                                             bottom: isLast
                                                 ? BorderSide.none
                                                 : BorderSide(
-                                                    color: AuthColors.surface.withOpacity(0.3),
+                                                    color: AuthColors.surface
+                                                        .withOpacity(0.3),
                                                     width: 1,
                                                   ),
                                           ),
@@ -526,21 +729,27 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                                 flex: 2,
                                                 child: Row(
                                                   children: [
-                                                    Icon(
-                                                      Icons.account_balance_wallet,
+                                                    const Icon(
+                                                      Icons
+                                                          .account_balance_wallet,
                                                       size: 16,
                                                       color: AuthColors.primary,
                                                     ),
-                                                    const SizedBox(width: AppSpacing.paddingSM),
+                                                    const SizedBox(
+                                                        width: AppSpacing
+                                                            .paddingSM),
                                                     Expanded(
                                                       child: Text(
-                                                        _getPaymentAccountDisplayName(s.displayName),
-                                                        style: AppTypography.withColor(
+                                                        _getPaymentAccountDisplayName(
+                                                            s.displayName),
+                                                        style: AppTypography
+                                                            .withColor(
                                                           AppTypography.body,
                                                           AuthColors.textMain,
                                                         ),
                                                         maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                       ),
                                                     ),
                                                   ],
@@ -550,26 +759,30 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                                 flex: 2,
                                                 child: Text(
                                                   _formatCurrency(s.income),
-                                                  style: AppTypography.withColor(
+                                                  style:
+                                                      AppTypography.withColor(
                                                     AppTypography.body,
                                                     AuthColors.success,
                                                   ),
                                                   textAlign: TextAlign.end,
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               Expanded(
                                                 flex: 2,
                                                 child: Text(
                                                   _formatCurrency(s.expense),
-                                                  style: AppTypography.withColor(
+                                                  style:
+                                                      AppTypography.withColor(
                                                     AppTypography.body,
                                                     AuthColors.error,
                                                   ),
                                                   textAlign: TextAlign.end,
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               Expanded(
@@ -585,7 +798,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                                   ),
                                                   textAlign: TextAlign.end,
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                             ],
@@ -629,7 +843,6 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
         return 'Expenses';
     }
   }
-
 }
 
 /// Summary card widget for displaying income/outcome/net stats
@@ -664,7 +877,7 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               color: AuthColors.textSub,
               fontWeight: FontWeight.w500,
@@ -759,7 +972,7 @@ class _TransactionTableFooter extends StatelessWidget {
               flex: 3,
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.calculate,
                     size: 18,
                     color: AuthColors.primary,
@@ -809,7 +1022,7 @@ class _TransactionTableFooter extends StatelessWidget {
                 children: [
                   Text(
                     formatCurrency(totalDebit),
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AuthColors.error,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -851,7 +1064,7 @@ class _TransactionTableRow extends StatelessWidget {
     final date = transaction.createdAt ?? DateTime.now();
     final dateStr =
         '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-    
+
     // Show client name instead of transaction title
     String clientName = '-';
     if (transaction.category == TransactionCategory.advance ||
@@ -859,32 +1072,31 @@ class _TransactionTableRow extends StatelessWidget {
         transaction.category == TransactionCategory.clientCredit ||
         transaction.category == TransactionCategory.clientPayment ||
         transaction.category == TransactionCategory.refund) {
-      clientName = transaction.clientName?.trim() ?? 
-                  transaction.metadata?['clientName']?.toString().trim() ?? 
-                  '-';
+      clientName = transaction.clientName?.trim() ??
+          transaction.metadata?['clientName']?.toString().trim() ??
+          '-';
     } else if (transaction.category == TransactionCategory.vendorPurchase ||
-               transaction.category == TransactionCategory.vendorPayment) {
+        transaction.category == TransactionCategory.vendorPayment) {
       // For vendor transactions, show vendor name
-      clientName = transaction.metadata?['vendorName']?.toString().trim() ?? 
-                  transaction.description?.trim() ?? 
-                  '-';
+      clientName = transaction.metadata?['vendorName']?.toString().trim() ??
+          transaction.description?.trim() ??
+          '-';
     } else if (transaction.category == TransactionCategory.salaryDebit) {
       // For salary transactions, show employee name
-      clientName = transaction.metadata?['employeeName']?.toString().trim() ?? 
-                  transaction.description?.trim() ?? 
-                  '-';
+      clientName = transaction.metadata?['employeeName']?.toString().trim() ??
+          transaction.description?.trim() ??
+          '-';
     } else {
       // For other transactions, show description or fallback
       clientName = transaction.description?.trim() ?? '-';
     }
-    
+
     final isCredit = transaction.type == TransactionType.credit;
-    
+
     return Container(
       decoration: BoxDecoration(
-        color: isEven
-            ? Colors.transparent
-            : AuthColors.surface.withOpacity(0.2),
+        color:
+            isEven ? Colors.transparent : AuthColors.surface.withOpacity(0.2),
         border: Border(
           bottom: BorderSide(
             color: AuthColors.surface.withOpacity(0.2),
@@ -924,7 +1136,7 @@ class _TransactionTableRow extends StatelessWidget {
                       ),
                       if (transaction.verified) ...[
                         const SizedBox(width: 6),
-                        Icon(
+                        const Icon(
                           Icons.verified,
                           size: 14,
                           color: AuthColors.success,
@@ -935,29 +1147,32 @@ class _TransactionTableRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Builder(
                     builder: (context) {
-                      final transactionCount = transaction.metadata?['transactionCount'] as int?;
+                      final transactionCount =
+                          transaction.metadata?['transactionCount'] as int?;
                       final dmNumber = transaction.metadata?['dmNumber'];
-                      final isGrouped = transactionCount != null && transactionCount > 1;
-                      
+                      final isGrouped =
+                          transactionCount != null && transactionCount > 1;
+
                       final parts = <String>[
                         typeLabel,
                         dateStr,
                       ];
-                      
+
                       if (isGrouped && dmNumber != null) {
                         parts.add('$transactionCount transactions');
                       }
-                      
+
                       // Show DM number instead of reference number
                       if (dmNumber != null) {
                         parts.add('DM-$dmNumber');
-                      } else if (transaction.referenceNumber != null && transaction.referenceNumber!.isNotEmpty) {
+                      } else if (transaction.referenceNumber != null &&
+                          transaction.referenceNumber!.isNotEmpty) {
                         parts.add(transaction.referenceNumber!);
                       }
-                      
+
                       return Text(
                         parts.join(' • '),
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textSub,
                           fontSize: 11,
                         ),
@@ -972,23 +1187,31 @@ class _TransactionTableRow extends StatelessWidget {
             // Credit column
             Builder(
               builder: (context) {
-                final transactionCount = transaction.metadata?['transactionCount'] as int?;
-                final isGrouped = transactionCount != null && transactionCount > 1;
-                
+                final transactionCount =
+                    transaction.metadata?['transactionCount'] as int?;
+                final isGrouped =
+                    transactionCount != null && transactionCount > 1;
+
                 double creditAmount = 0.0;
-                List<Map<String, dynamic>> paymentAccounts = []; // List of {name, amount}
-                
+                List<Map<String, dynamic>> paymentAccounts =
+                    []; // List of {name, amount}
+
                 if (isGrouped) {
                   // For grouped transactions, use cumulative credit from metadata
-                  creditAmount = (transaction.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+                  creditAmount =
+                      (transaction.metadata?['cumulativeCredit'] as num?)
+                              ?.toDouble() ??
+                          0.0;
                   // Get payment accounts with amounts from metadata
-                  final creditAccounts = transaction.metadata?['creditPaymentAccounts'] as List?;
+                  final creditAccounts =
+                      transaction.metadata?['creditPaymentAccounts'] as List?;
                   if (creditAccounts != null) {
                     paymentAccounts = creditAccounts
                         .map((acc) {
                           final accMap = acc as Map<String, dynamic>?;
                           var name = accMap?['name']?.toString().trim() ?? '';
-                          final amount = (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
+                          final amount =
+                              (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
                           if (name.isNotEmpty && amount > 0) {
                             // If name looks like an ID (exists in paymentAccountNames map), resolve it
                             if (paymentAccountNames.containsKey(name)) {
@@ -1018,18 +1241,23 @@ class _TransactionTableRow extends StatelessWidget {
                       name = getPaymentAccountDisplayName(accountId);
                     }
                     if (name != null && name.isNotEmpty) {
-                      paymentAccounts = [{'name': name, 'amount': creditAmount}];
+                      paymentAccounts = [
+                        {'name': name, 'amount': creditAmount}
+                      ];
                     }
                   }
                 }
-                
+
                 // Format amount string: "X+Y" if multiple accounts, otherwise just the total
-                String amountText = creditAmount > 0 ? formatCurrency(creditAmount) : '–';
+                String amountText =
+                    creditAmount > 0 ? formatCurrency(creditAmount) : '–';
                 if (creditAmount > 0 && paymentAccounts.length > 1) {
-                  final amounts = paymentAccounts.map((acc) => formatCurrency(acc['amount'] as double)).join('+');
+                  final amounts = paymentAccounts
+                      .map((acc) => formatCurrency(acc['amount'] as double))
+                      .join('+');
                   amountText = amounts;
                 }
-                
+
                 return SizedBox(
                   width: 80,
                   child: Column(
@@ -1040,7 +1268,9 @@ class _TransactionTableRow extends StatelessWidget {
                         amountText,
                         style: AppTypography.withColor(
                           AppTypography.body,
-                          creditAmount > 0 ? AuthColors.success : AuthColors.textSub,
+                          creditAmount > 0
+                              ? AuthColors.success
+                              : AuthColors.textSub,
                         ),
                         textAlign: TextAlign.end,
                         maxLines: 2,
@@ -1055,7 +1285,8 @@ class _TransactionTableRow extends StatelessWidget {
                           children: paymentAccounts.map((acc) {
                             final name = acc['name'] as String;
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: AuthColors.success.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(4),
@@ -1066,7 +1297,7 @@ class _TransactionTableRow extends StatelessWidget {
                               ),
                               child: Text(
                                 name,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: AuthColors.success,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w500,
@@ -1087,23 +1318,31 @@ class _TransactionTableRow extends StatelessWidget {
             // Debit column
             Builder(
               builder: (context) {
-                final transactionCount = transaction.metadata?['transactionCount'] as int?;
-                final isGrouped = transactionCount != null && transactionCount > 1;
-                
+                final transactionCount =
+                    transaction.metadata?['transactionCount'] as int?;
+                final isGrouped =
+                    transactionCount != null && transactionCount > 1;
+
                 double debitAmount = 0.0;
-                List<Map<String, dynamic>> paymentAccounts = []; // List of {name, amount}
-                
+                List<Map<String, dynamic>> paymentAccounts =
+                    []; // List of {name, amount}
+
                 if (isGrouped) {
                   // For grouped transactions, use cumulative debit from metadata
-                  debitAmount = (transaction.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0;
+                  debitAmount =
+                      (transaction.metadata?['cumulativeDebit'] as num?)
+                              ?.toDouble() ??
+                          0.0;
                   // Get payment accounts with amounts from metadata
-                  final debitAccounts = transaction.metadata?['debitPaymentAccounts'] as List?;
+                  final debitAccounts =
+                      transaction.metadata?['debitPaymentAccounts'] as List?;
                   if (debitAccounts != null) {
                     paymentAccounts = debitAccounts
                         .map((acc) {
                           final accMap = acc as Map<String, dynamic>?;
                           var name = accMap?['name']?.toString().trim() ?? '';
-                          final amount = (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
+                          final amount =
+                              (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
                           if (name.isNotEmpty && amount > 0) {
                             // If name looks like an ID (exists in paymentAccountNames map), resolve it
                             if (paymentAccountNames.containsKey(name)) {
@@ -1133,18 +1372,23 @@ class _TransactionTableRow extends StatelessWidget {
                       name = getPaymentAccountDisplayName(accountId);
                     }
                     if (name != null && name.isNotEmpty) {
-                      paymentAccounts = [{'name': name, 'amount': debitAmount}];
+                      paymentAccounts = [
+                        {'name': name, 'amount': debitAmount}
+                      ];
                     }
                   }
                 }
-                
+
                 // Format amount string: "X+Y" if multiple accounts, otherwise just the total
-                String amountText = debitAmount > 0 ? formatCurrency(debitAmount) : '–';
+                String amountText =
+                    debitAmount > 0 ? formatCurrency(debitAmount) : '–';
                 if (debitAmount > 0 && paymentAccounts.length > 1) {
-                  final amounts = paymentAccounts.map((acc) => formatCurrency(acc['amount'] as double)).join('+');
+                  final amounts = paymentAccounts
+                      .map((acc) => formatCurrency(acc['amount'] as double))
+                      .join('+');
                   amountText = amounts;
                 }
-                
+
                 return SizedBox(
                   width: 80,
                   child: Column(
@@ -1154,7 +1398,9 @@ class _TransactionTableRow extends StatelessWidget {
                       Text(
                         amountText,
                         style: TextStyle(
-                          color: debitAmount > 0 ? AuthColors.error : AuthColors.textSub,
+                          color: debitAmount > 0
+                              ? AuthColors.error
+                              : AuthColors.textSub,
                           fontSize: 14,
                         ),
                         textAlign: TextAlign.end,
@@ -1170,7 +1416,8 @@ class _TransactionTableRow extends StatelessWidget {
                           children: paymentAccounts.map((acc) {
                             final name = acc['name'] as String;
                             return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: AuthColors.error.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(4),
@@ -1181,7 +1428,7 @@ class _TransactionTableRow extends StatelessWidget {
                               ),
                               child: Text(
                                 name,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: AuthColors.error,
                                   fontSize: 9,
                                   fontWeight: FontWeight.w500,
@@ -1203,5 +1450,4 @@ class _TransactionTableRow extends StatelessWidget {
       ),
     );
   }
-
 }

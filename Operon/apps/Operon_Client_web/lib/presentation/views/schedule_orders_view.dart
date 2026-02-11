@@ -21,6 +21,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   late DateTime _selectedDate;
   late ScrollController _scrollController;
   StreamSubscription<List<Map<String, dynamic>>>? _tripsSubscription;
+  List<Map<String, dynamic>> _allTripsForDate = [];
   List<Map<String, dynamic>> _scheduledTrips = [];
   bool _isLoadingTrips = true;
   String? _currentOrgId;
@@ -69,7 +70,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       final vehiclesRepo = context.read<VehiclesRepository>();
       final allVehicles = await vehiclesRepo.fetchVehicles(organization.id);
       final activeVehicles = allVehicles.where((v) => v.isActive).toList();
-      
+
       if (mounted) {
         setState(() {
           _vehicles = activeVehicles;
@@ -107,33 +108,17 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     _tripsSubscription?.cancel();
     _tripsSubscription = repository
         .watchScheduledTripsForDate(
-          organizationId: orgId,
-          scheduledDate: _selectedDate,
-        )
+      organizationId: orgId,
+      scheduledDate: _selectedDate,
+    )
         .listen(
       (trips) {
         if (mounted) {
           setState(() {
-            debugPrint('ScheduleOrdersView: Received ${trips.length} trips for date $_selectedDate');
-            
-            if (_selectedVehicleId != null) {
-              final hasTripsForVehicle = trips.any((trip) {
-                final vehicleId = trip['vehicleId'] as String?;
-                return vehicleId == _selectedVehicleId;
-              });
-              if (!hasTripsForVehicle) {
-                _selectedVehicleId = null;
-              }
-            }
-
-            var filteredTrips = trips;
-            if (_selectedVehicleId != null) {
-              filteredTrips = trips.where((trip) {
-                final vehicleId = trip['vehicleId'] as String?;
-                return vehicleId == _selectedVehicleId;
-              }).toList();
-            }
-            _scheduledTrips = filteredTrips;
+            debugPrint(
+                'ScheduleOrdersView: Received ${trips.length} trips for date $_selectedDate');
+            _allTripsForDate = trips;
+            _scheduledTrips = _applyFilters(_allTripsForDate);
             _isLoadingTrips = false;
           });
         }
@@ -170,8 +155,20 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   void _onVehicleFilterChanged(String? vehicleId) {
     setState(() {
       _selectedVehicleId = vehicleId;
+      _scheduledTrips = _applyFilters(_allTripsForDate);
     });
-    _subscribeToTrips();
+  }
+
+  List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> trips) {
+    var filtered = trips;
+    if (_selectedVehicleId != null) {
+      filtered = filtered.where((trip) {
+        final vehicleId = trip['vehicleId'] as String?;
+        return vehicleId == _selectedVehicleId;
+      }).toList();
+    }
+
+    return filtered;
   }
 
   int _getTotalTrips() {
@@ -192,9 +189,10 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
           final unitPrice = (itemMap['unitPrice'] as num?)?.toDouble() ?? 0.0;
           final fixedQuantity = (itemMap['fixedQuantityPerTrip'] as int?) ?? 0;
           final gstPercent = (itemMap['gstPercent'] as num?)?.toDouble();
-          
+
           final subtotal = unitPrice * fixedQuantity;
-          final gstAmount = gstPercent != null ? subtotal * (gstPercent / 100) : 0.0;
+          final gstAmount =
+              gstPercent != null ? subtotal * (gstPercent / 100) : 0.0;
           total += subtotal + gstAmount;
         }
       }
@@ -252,7 +250,9 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
         .where((id) => id != null)
         .toSet()
         .toList();
-    return _vehicles.where((vehicle) => vehicleIds.contains(vehicle.id)).toList();
+    return _vehicles
+        .where((vehicle) => vehicleIds.contains(vehicle.id))
+        .toList();
   }
 
   void _scrollToCenter() {
@@ -264,20 +264,20 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       });
       return;
     }
-    
+
     const itemWidth = 70.0;
     final selectedIndex = _getDateIndex(_selectedDate);
     final screenWidth = MediaQuery.of(context).size.width;
     const padding = 12.0;
-    
-    final scrollPosition = (selectedIndex * itemWidth) - 
-        (screenWidth / 2) + 
+
+    final scrollPosition = (selectedIndex * itemWidth) -
+        (screenWidth / 2) +
         (itemWidth / 2) +
         padding;
-    
+
     final maxScroll = _scrollController.position.maxScrollExtent;
     final clampedPosition = scrollPosition.clamp(0.0, maxScroll);
-    
+
     if ((_scrollController.offset - clampedPosition).abs() > 2.0) {
       _scrollController.animateTo(
         clampedPosition,
@@ -307,7 +307,20 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   }
 
   String _getMonthAbbr(DateTime date) {
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
+    ];
     return months[date.month - 1];
   }
 
@@ -322,10 +335,10 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     final dateRange = _getDateRange();
     final datePickerWidth = dateRange.length * 76; // 70 width + 6 margin
     final availableWidth = screenWidth * 0.8;
-    final horizontalPadding = datePickerWidth < availableWidth 
-        ? (availableWidth - datePickerWidth) / 2 
+    final horizontalPadding = datePickerWidth < availableWidth
+        ? (availableWidth - datePickerWidth) / 2
         : 12.0;
-    
+
     return BlocListener<OrganizationContextCubit, OrganizationContextState>(
       listener: (context, state) {
         if (state.organization != null) {
@@ -357,7 +370,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     final isSelected = date.year == _selectedDate.year &&
                         date.month == _selectedDate.month &&
                         date.day == _selectedDate.day;
-                    
+
                     return GestureDetector(
                       onTap: () {
                         setState(() {
@@ -369,7 +382,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       child: Container(
                         width: 70,
                         margin: const EdgeInsets.only(right: 6),
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 8),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AuthColors.primary
@@ -398,7 +412,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                             const SizedBox(height: 4),
                             Text(
                               date.day.toString(),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: AuthColors.textMain,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -424,9 +438,9 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Summary Statistics - Compact
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -502,9 +516,9 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Vehicle Filter - Horizontal Scrollable Buttons
           SizedBox(
             height: 40,
@@ -542,9 +556,9 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               },
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Scheduled Trips Grid (with expandable location tracking)
           if (_isLoadingTrips)
             const Center(
@@ -559,7 +573,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
             EmptyState(
               icon: Icons.schedule_outlined,
               title: 'No Scheduled Trips',
-              message: 'No trips scheduled for ${_getDayAbbr(_selectedDate)}, ${_selectedDate.day} ${_getMonthAbbr(_selectedDate)}. Try selecting a different date.',
+              message:
+                  'No trips scheduled for ${_getDayAbbr(_selectedDate)}, ${_selectedDate.day} ${_getMonthAbbr(_selectedDate)}. Try selecting a different date.',
             )
           else
             Padding(
@@ -570,8 +585,11 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                   const crossAxisSpacing = 20.0;
                   const mainAxisSpacing = 20.0;
                   final contentWidth = constraints.maxWidth;
-                  final tileWidth = (contentWidth - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
-                  final rowCount = (_scheduledTrips.length / crossAxisCount).ceil();
+                  final tileWidth =
+                      (contentWidth - crossAxisSpacing * (crossAxisCount - 1)) /
+                          crossAxisCount;
+                  final rowCount =
+                      (_scheduledTrips.length / crossAxisCount).ceil();
 
                   return AnimationLimiter(
                     child: ListView.builder(
@@ -580,12 +598,14 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       itemCount: rowCount,
                       itemBuilder: (context, rowIndex) {
                         final start = rowIndex * crossAxisCount;
-                        final end = (start + crossAxisCount).clamp(0, _scheduledTrips.length);
+                        final end = (start + crossAxisCount)
+                            .clamp(0, _scheduledTrips.length);
                         final rowTrips = _scheduledTrips.sublist(start, end);
 
                         return Padding(
                           padding: EdgeInsets.only(
-                            bottom: rowIndex < rowCount - 1 ? mainAxisSpacing : 0,
+                            bottom:
+                                rowIndex < rowCount - 1 ? mainAxisSpacing : 0,
                           ),
                           child: AnimationConfiguration.staggeredList(
                             position: rowIndex,
@@ -596,9 +616,11 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                                 curve: Curves.easeOut,
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: List.generate(crossAxisCount * 2 - 1, (i) {
+                                  children: List.generate(
+                                      crossAxisCount * 2 - 1, (i) {
                                     if (i.isOdd) {
-                                      return const SizedBox(width: crossAxisSpacing);
+                                      return const SizedBox(
+                                          width: crossAxisSpacing);
                                     }
                                     final tileIndex = i ~/ 2;
                                     if (tileIndex >= rowTrips.length) {
@@ -618,7 +640,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                                           onTap: () {
                                             DashSnackbar.show(
                                               context,
-                                              message: 'Trip detail view coming soon',
+                                              message:
+                                                  'Trip detail view coming soon',
                                             );
                                           },
                                         ),
@@ -685,9 +708,7 @@ class _VehicleFilterButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AuthColors.primary
-              : AuthColors.surface,
+          color: isSelected ? AuthColors.primary : AuthColors.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected
@@ -708,5 +729,3 @@ class _VehicleFilterButton extends StatelessWidget {
     );
   }
 }
-
-

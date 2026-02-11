@@ -54,14 +54,14 @@ class _CreateOrderDialogState extends State<CreateOrderDialog> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [AuthColors.surface, AuthColors.background],
             ),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: Text(
+          child: const Text(
             'Please select an organization first',
             style: TextStyle(color: AuthColors.textSub),
           ),
@@ -85,7 +85,7 @@ class _CreateOrderDialogState extends State<CreateOrderDialog> {
           constraints: const BoxConstraints(maxWidth: 900, maxHeight: 800),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [AuthColors.surface, AuthColors.background],
@@ -121,7 +121,7 @@ class _CreateOrderDialogState extends State<CreateOrderDialog> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),

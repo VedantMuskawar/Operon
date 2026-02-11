@@ -163,9 +163,9 @@ class _DmPrintDialogState extends State<DmPrintDialog> {
 
     return Container(
       height: bottomSheetHeight,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AuthColors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SafeArea(
         child: Column(

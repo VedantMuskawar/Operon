@@ -273,7 +273,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                 initialValue: _selectedVendor,
                 decoration: _inputDecoration('Fuel Vendor'),
                 dropdownColor: AuthColors.surface,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 items: _fuelVendors.map((vendor) {
                   return DropdownMenuItem<Vendor>(
                     value: vendor,
@@ -283,14 +283,14 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                       children: [
                         Text(
                           vendor.name,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.textMain,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           'Balance: ₹${vendor.currentBalance.toStringAsFixed(2)}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.textSub,
                             fontSize: 12,
                           ),
@@ -318,9 +318,9 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                     children: [
                       Text(
                         _formatDate(_selectedDate),
-                        style: TextStyle(color: AuthColors.textMain),
+                        style: const TextStyle(color: AuthColors.textMain),
                       ),
-                      Icon(Icons.calendar_today, color: AuthColors.textSub, size: 20),
+                      const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 20),
                     ],
                   ),
                 ),
@@ -330,7 +330,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
               // Amount
               TextFormField(
                 controller: _amountController,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: _inputDecoration('Amount'),
                 validator: (value) {
@@ -356,13 +356,13 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                       initialValue: _selectedVehicle,
                       decoration: _inputDecoration('Vehicle'),
                       dropdownColor: AuthColors.surface,
-                      style: TextStyle(color: AuthColors.textMain),
+                      style: const TextStyle(color: AuthColors.textMain),
                       items: _vehicles.map((vehicle) {
                         return DropdownMenuItem<Vehicle>(
                           value: vehicle,
                           child: Text(
                             vehicle.vehicleNumber,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AuthColors.textMain,
                               fontWeight: FontWeight.w600,
                             ),
@@ -382,7 +382,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
               // Voucher Number
               TextFormField(
                 controller: _voucherNumberController,
-                style: TextStyle(color: AuthColors.textMain),
+                style: const TextStyle(color: AuthColors.textMain),
                 decoration: _inputDecoration('Voucher Number'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty)
@@ -399,11 +399,11 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
                     _linkTripsNow = value ?? false;
                   });
                 },
-                title: Text(
+                title: const Text(
                   'Link trips now (Optional)',
                   style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                 ),
-                subtitle: Text(
+                subtitle: const Text(
                   'Open trip selection dialog after recording',
                   style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
@@ -441,7 +441,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
@@ -450,20 +450,20 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.error,
           width: 2,
         ),

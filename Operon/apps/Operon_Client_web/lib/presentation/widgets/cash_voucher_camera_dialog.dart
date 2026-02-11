@@ -179,7 +179,7 @@ class _CashVoucherCameraDialogState extends State<_CashVoucherCameraDialog> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.videocam_off, size: 48, color: Colors.white70),
+                            const Icon(Icons.videocam_off, size: 48, color: Colors.white70),
                             const SizedBox(height: 16),
                             Text(
                               _errorMessage!,

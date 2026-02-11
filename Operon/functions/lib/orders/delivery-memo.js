@@ -250,6 +250,7 @@ exports.generateDM = (0, https_1.onCall)(Object.assign({}, function_config_1.CAL
                         transactionId, // Include transactionId field for consistency
                         organizationId,
                         clientId: tripDataAny.clientId || '',
+                        clientName: tripDataAny.clientName || '',
                         ledgerType: 'clientLedger',
                         type: 'credit', // Credit = client owes us (increases receivable)
                         category: 'clientCredit', // Client owes (PayLater order)

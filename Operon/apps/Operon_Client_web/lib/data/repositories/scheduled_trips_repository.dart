@@ -31,6 +31,7 @@ class ScheduledTripsRepository {
     int? itemIndex,
     String? productId,
     String? meterType,
+    String? transportMode,
   }) {
     return _dataSource.createScheduledTrip(
       organizationId: organizationId,
@@ -57,6 +58,7 @@ class ScheduledTripsRepository {
       itemIndex: itemIndex,
       productId: productId,
       meterType: meterType,
+      transportMode: transportMode,
     );
   }
 

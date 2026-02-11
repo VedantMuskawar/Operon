@@ -267,11 +267,12 @@ class _FleetMapScreenState extends State<FleetMapScreen>
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _geofenceCircles = {};
           _geofencePolygons = {};
         });
+      }
     }
   }
 
@@ -365,7 +366,7 @@ class _FleetMapScreenState extends State<FleetMapScreen>
   @override
   Widget build(BuildContext context) {
     if (!kIsWeb) {
-      return Center(child: Text('Map available only on Web'));
+      return const Center(child: Text('Map available only on Web'));
     }
 
     return BlocProvider.value(
@@ -556,18 +557,18 @@ class _FleetMapScreenState extends State<FleetMapScreen>
 
                         // 5. Fleet Legend (Top Right below Mode Toggle)
                         if (state.isLiveMode)
-                          Positioned(
+                          const Positioned(
                             top: 80,
                             right: 16,
                             child: GlassPanel(
-                              padding: const EdgeInsets.symmetric(
+                              padding: EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
                               child: Row(
                                 children: [
                                   _StatusDot(
                                       color: AuthColors.success,
                                       label: 'Online'),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12),
                                   _StatusDot(
                                       color: AuthColors.textDisabled,
                                       label: 'Offline'),
@@ -601,13 +602,13 @@ class _FleetMapScreenState extends State<FleetMapScreen>
 
                         // 7. Loading Indicator
                         if (state.status == ViewStatus.loading)
-                          Positioned(
+                          const Positioned(
                             top: 16,
                             left: 0,
                             right: 0,
                             child: Center(
                               child: GlassPanel(
-                                padding: const EdgeInsets.symmetric(
+                                padding: EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 8),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,

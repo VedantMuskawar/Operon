@@ -166,8 +166,8 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Bonus recorded successfully'),
+          const SnackBar(
+            content: Text('Bonus recorded successfully'),
             backgroundColor: AuthColors.success,
           ),
         );
@@ -392,12 +392,12 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
                   ),
                   child: _isLoading
-                      ? SizedBox(
+                      ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.textMain),
+                            valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                           ),
                         )
                       : const Text(

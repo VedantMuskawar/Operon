@@ -413,6 +413,7 @@ exports.onPendingOrderCreated = (0, firestore_1.onDocumentCreated)(Object.assign
         (totalAmount ? totalAmount - advanceAmount : undefined);
     const advancePaymentAccountId = orderData.advancePaymentAccountId || 'cash';
     const createdBy = orderData.createdBy || 'system';
+    const clientName = orderData.clientName || undefined;
     // Validate required fields
     if (!organizationId || !clientId) {
         console.error('[Order Created] Missing required fields for advance transaction', {
@@ -505,27 +506,8 @@ exports.onPendingOrderCreated = (0, firestore_1.onDocumentCreated)(Object.assign
         const maxRetries = 3;
         let transactionCreated = false;
         let transactionRef = null;
-        const transactionData = {
-            organizationId,
-            clientId,
-            ledgerType: 'clientLedger',
-            type: 'debit', // Debit = client paid upfront (decreases receivable)
-            category: 'advance', // Advance payment on order
-            amount: advanceAmount,
-            paymentAccountId: advancePaymentAccountId,
-            paymentAccountType: paymentAccountType,
-            orderId: orderId,
-            description: `Advance payment for order ${orderNumber || orderId}`,
-            metadata: {
-                orderTotal: totalAmount || 0,
-                advanceAmount,
-                remainingAmount: remainingAmount || 0,
-            },
-            createdBy: createdBy,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            financialYear: financialYear,
-        };
+        const transactionData = Object.assign(Object.assign({ organizationId,
+            clientId }, (clientName ? { clientName } : {})), { ledgerType: 'clientLedger', type: 'debit', category: 'advance', amount: advanceAmount, paymentAccountId: advancePaymentAccountId, paymentAccountType: paymentAccountType, orderId: orderId, description: `Advance payment for order ${orderNumber || orderId}`, metadata: Object.assign({ orderTotal: totalAmount || 0, advanceAmount, remainingAmount: remainingAmount || 0 }, (clientName ? { clientName } : {})), createdBy: createdBy, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp(), financialYear: financialYear });
         while (retries < maxRetries && !transactionCreated) {
             try {
                 transactionRef = db.collection(constants_1.TRANSACTIONS_COLLECTION).doc();

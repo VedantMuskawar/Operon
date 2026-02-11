@@ -334,7 +334,7 @@ class _ActionButton extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 label,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AuthColors.textMain,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,

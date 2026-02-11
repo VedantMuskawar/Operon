@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:core_models/core_models.dart';
@@ -193,8 +192,9 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     final boundary = _repaintKey.currentContext?.findRenderObject()
         as RenderRepaintBoundary?;
     if (boundary == null) {
-      if (mounted)
+      if (mounted) {
         DashSnackbar.show(context, message: 'Could not capture', isError: true);
+      }
       return;
     }
     try {
@@ -208,9 +208,10 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
       await Share.shareXFiles([XFile(file.path)],
           text: 'Fuel Ledger ${widget.vendor.name}');
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         DashSnackbar.show(context,
             message: 'Failed to share: $e', isError: true);
+      }
     }
   }
 
@@ -333,7 +334,7 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                   style: const TextStyle(color: AuthColors.textMain),
                   decoration: InputDecoration(
                     labelText: 'From voucher',
-                    labelStyle: TextStyle(color: AuthColors.textSub),
+                    labelStyle: const TextStyle(color: AuthColors.textSub),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(
                           color: AuthColors.textSubWithOpacity(0.38)),
@@ -349,7 +350,7 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                   style: const TextStyle(color: AuthColors.textMain),
                   decoration: InputDecoration(
                     labelText: 'To voucher',
-                    labelStyle: TextStyle(color: AuthColors.textSub),
+                    labelStyle: const TextStyle(color: AuthColors.textSub),
                     enabledBorder: OutlineInputBorder(
                       borderSide: BorderSide(
                           color: AuthColors.textSubWithOpacity(0.38)),
@@ -494,7 +495,7 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
         TextButton(
           onPressed:
               _isGeneratingPdf ? null : () => Navigator.of(context).pop(),
-          child: Text('Close', style: TextStyle(color: AuthColors.textSub)),
+          child: const Text('Close', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: 'Share',

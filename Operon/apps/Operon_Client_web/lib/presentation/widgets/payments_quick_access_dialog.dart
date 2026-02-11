@@ -17,7 +17,7 @@ class PaymentsQuickAccessDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 400),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [AuthColors.surface, AuthColors.background],
@@ -53,7 +53,7 @@ class PaymentsQuickAccessDialog extends StatelessWidget {
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: Icon(Icons.close, color: AuthColors.textSub),
+                  icon: const Icon(Icons.close, color: AuthColors.textSub),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -162,7 +162,7 @@ class _PaymentOptionState extends State<_PaymentOption> {
                     children: [
                       Text(
                         widget.title,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textMain,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,

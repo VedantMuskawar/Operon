@@ -126,10 +126,10 @@ class PaymentsCubit extends Cubit<PaymentsState> {
   /// Update payment account split
   void updatePaymentAccountSplit(String accountId, double? amount) {
     final splits = Map<String, double>.from(state.paymentAccountSplits);
-    if (amount == null || amount <= 0) {
+    if (amount == null) {
       splits.remove(accountId);
     } else {
-      splits[accountId] = amount;
+      splits[accountId] = amount < 0 ? 0.0 : amount;
     }
     emit(state.copyWith(paymentAccountSplits: splits));
   }
@@ -155,7 +155,7 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       if (state.selectedClientId == null) {
         throw Exception('Client ID is required for photo upload');
       }
-      
+
       final storageRef = FirebaseStorage.instance
           .ref()
           .child('payments')
@@ -219,8 +219,10 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         organizationId: _organizationId,
         clientId: state.selectedClientId!,
         ledgerType: LedgerType.clientLedger,
-        type: TransactionType.debit, // Debit = client paid us (decreases receivable)
-        category: TransactionCategory.clientPayment, // General payment recorded manually
+        type: TransactionType
+            .debit, // Debit = client paid us (decreases receivable)
+        category: TransactionCategory
+            .clientPayment, // General payment recorded manually
         amount: state.paymentAmount!,
         financialYear: financialYear,
         createdAt: now,
@@ -230,32 +232,36 @@ class PaymentsCubit extends Cubit<PaymentsState> {
           'recordedVia': 'quick-action',
           'photoUploaded': state.receiptPhoto != null,
           if (state.paymentAccountSplits.isNotEmpty)
-            'paymentAccounts': state.paymentAccountSplits.entries.map((e) => {
-                  'accountId': e.key,
-                  'amount': e.value,
-                }).toList(),
+            'paymentAccounts': state.paymentAccountSplits.entries
+                .map((e) => {
+                      'accountId': e.key,
+                      'amount': e.value,
+                    })
+                .toList(),
         },
       );
 
       // Create transaction first to get ID for photo upload
-      final transactionId = await _transactionsRepository.createTransaction(transaction);
+      final transactionId =
+          await _transactionsRepository.createTransaction(transaction);
 
       // Upload photo if provided (optional - payment is already recorded)
       String? photoUrl;
       bool photoUploadFailed = false;
       String? photoUploadError;
-      
+
       if (state.receiptPhoto != null && state.selectedClientId != null) {
         try {
           photoUrl = await _uploadPhoto(state.receiptPhoto!, transactionId);
-          
+
           // Update transaction with photo URL in metadata
           final updatedMetadata = {
             ...transaction.metadata ?? {},
             'receiptPhotoUrl': photoUrl,
-            'receiptPhotoPath': 'payments/$_organizationId/${state.selectedClientId}/$transactionId/receipt.jpg',
+            'receiptPhotoPath':
+                'payments/$_organizationId/${state.selectedClientId}/$transactionId/receipt.jpg',
           };
-          
+
           // Update the transaction document directly with photo URL
           await FirebaseFirestore.instance
               .collection('TRANSACTIONS')
@@ -301,16 +307,20 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     try {
       // Load ALL transactions for the organization (not just payments)
       // Temporarily removed financialYear filter to debug
-      debugPrint('[PaymentsCubit] Loading transactions for org: $_organizationId');
-      
-      final transactions = await _transactionsRepository.getOrganizationTransactions(
+      debugPrint(
+          '[PaymentsCubit] Loading transactions for org: $_organizationId');
+
+      final transactions =
+          await _transactionsRepository.getOrganizationTransactions(
         organizationId: _organizationId,
-        financialYear: null, // Temporarily removed to see if there are any transactions at all
+        financialYear:
+            null, // Temporarily removed to see if there are any transactions at all
         limit: limit,
       );
 
       debugPrint('[PaymentsCubit] Loaded ${transactions.length} transactions');
-      debugPrint('[PaymentsCubit] Transaction types: ${transactions.map((t) => t.runtimeType).toList()}');
+      debugPrint(
+          '[PaymentsCubit] Transaction types: ${transactions.map((t) => t.runtimeType).toList()}');
 
       final newState = state.copyWith(
         recentPayments: transactions,
@@ -318,8 +328,9 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         status: ViewStatus.success,
         clearMessage: true,
       );
-      
-      debugPrint('[PaymentsCubit] New state recentPayments.length: ${newState.recentPayments.length}');
+
+      debugPrint(
+          '[PaymentsCubit] New state recentPayments.length: ${newState.recentPayments.length}');
       emit(newState);
     } catch (e, stackTrace) {
       debugPrint('[PaymentsCubit] Error loading transactions: $e');
@@ -332,4 +343,3 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     }
   }
 }
-

@@ -4,7 +4,6 @@ import 'package:core_ui/theme/auth_colors.dart';
 import 'package:core_utils/core_utils.dart' show PdfBuilder;
 import 'package:dash_web/data/services/dm_print_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 /// Helper class for dashed line painter
 class DashedLinePainter extends CustomPainter {
@@ -107,7 +106,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               'Preview is not available for this custom template.\nThe PDF will use the custom template when you print.',
               style: TextStyle(
                 fontSize: 14,
@@ -286,7 +285,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     header.address,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       color: AuthColors.textSub,
                     ),
@@ -296,7 +295,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     header.phone,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       color: AuthColors.textSub,
                     ),
@@ -306,7 +305,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     'GST: ${header.gstNo}',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 10,
                       color: AuthColors.textSub,
                     ),
@@ -361,7 +360,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               ),
               Text(
                 'Date: ${PdfBuilder.formatDate(date)}',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 10,
                   color: AuthColors.textSub,
                 ),
@@ -383,7 +382,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               if (zoneText.isNotEmpty)
                 Text(
                   'Zone: $zoneText',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 10,
                     color: AuthColors.textSub,
                   ),
@@ -427,7 +426,7 @@ class DeliveryMemoDocument extends StatelessWidget {
           border: Border.all(color: AuthColors.textSub.withOpacity(0.4)),
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Center(
+        child: const Center(
           child: Text(
             'No items',
             style: TextStyle(
@@ -710,7 +709,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 accountName,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 10,
                   color: AuthColors.textSub,
                   fontWeight: FontWeight.bold,
@@ -722,7 +721,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 upiId,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 8,
                   color: AuthColors.textSub,
                 ),
@@ -782,7 +781,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 accountName,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 9,
                   color: AuthColors.textSub,
                 ),
@@ -849,7 +848,7 @@ class DeliveryMemoDocument extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8),
       child: Text(
         footer.customText!,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 9,
           color: AuthColors.textSub,
         ),
@@ -992,10 +991,10 @@ class DeliveryMemoDocument extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Flag text
-            Center(
+            const Center(
               child: Text(
                 '🚩 जय श्री राम 🚩',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
@@ -1324,10 +1323,10 @@ class DeliveryMemoDocument extends StatelessWidget {
               children: [
                 Container(
                   height: 1,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: const Color(0xFF888888),
+                        color: Color(0xFF888888),
                         width: 1,
                         style: BorderStyle.solid,
                       ),
@@ -1366,10 +1365,10 @@ class DeliveryMemoDocument extends StatelessWidget {
                 top: BorderSide(color: Colors.black, width: 1),
               ),
             )
-          : BoxDecoration(
+          : const BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: const Color(0xFFCCCCCC),
+                  color: Color(0xFFCCCCCC),
                   width: 1,
                 ),
               ),

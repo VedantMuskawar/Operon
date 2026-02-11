@@ -121,7 +121,7 @@ class CashVoucherView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
+            const Text(
               'Salary Payment',
               style: TextStyle(
                 color: AuthColors.primary,
@@ -180,7 +180,7 @@ class CashVoucherView extends StatelessWidget {
                     height: 160,
                     alignment: Alignment.center,
                     color: AuthColors.surface,
-                    child: Text(
+                    child: const Text(
                       'Failed to load image',
                       style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                     ),

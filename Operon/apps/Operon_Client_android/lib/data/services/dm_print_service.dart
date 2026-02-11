@@ -61,10 +61,12 @@ class DmPrintService {
     var tripPricingData = tripData['tripPricing'] as Map<String, dynamic>?;
     if (tripPricingData == null) {
       tripPricingData = <String, dynamic>{};
-      if (tripData['total'] != null)
+      if (tripData['total'] != null) {
         tripPricingData['total'] = tripData['total'];
-      if (tripData['subtotal'] != null)
+      }
+      if (tripData['subtotal'] != null) {
         tripPricingData['subtotal'] = tripData['subtotal'];
+      }
       if (tripPricingData['total'] == null && items.isNotEmpty) {
         double calculatedTotal = 0.0;
         for (final item in items) {
@@ -87,8 +89,9 @@ class DmPrintService {
     var deliveryZone = tripData['deliveryZone'] as Map<String, dynamic>?;
     if (deliveryZone == null) {
       deliveryZone = <String, dynamic>{};
-      if (tripData['region'] != null)
+      if (tripData['region'] != null) {
         deliveryZone['region'] = tripData['region'];
+      }
       if (tripData['city'] != null || tripData['cityName'] != null) {
         deliveryZone['city_name'] = tripData['cityName'] ?? tripData['city'];
       }

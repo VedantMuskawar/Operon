@@ -1,6 +1,5 @@
 import 'package:core_models/core_models.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/presentation/blocs/production_batch_templates/production_batch_templates_cubit.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart';

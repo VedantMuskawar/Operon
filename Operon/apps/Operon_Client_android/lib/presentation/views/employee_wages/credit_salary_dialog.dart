@@ -146,8 +146,8 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
 
       if (mounted && alreadyCredited) {
           ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Salary already credited for this month'),
+          const SnackBar(
+            content: Text('Salary already credited for this month'),
             backgroundColor: AuthColors.warning,
           ),
         );
@@ -224,8 +224,8 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Salary credited successfully'),
+          const SnackBar(
+            content: Text('Salary credited successfully'),
             backgroundColor: AuthColors.success,
           ),
         );
@@ -452,12 +452,12 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.radiusMD)),
                   ),
                   child: _isLoading
-                      ? SizedBox(
+                      ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.textMain),
+                            valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                           ),
                         )
                       : const Text(

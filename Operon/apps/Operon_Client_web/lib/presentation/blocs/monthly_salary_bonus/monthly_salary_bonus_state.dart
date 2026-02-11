@@ -83,6 +83,7 @@ class MonthlySalaryBonusState extends BaseState {
     return '$selectedYear-${selectedMonth!.toString().padLeft(2, '0')}';
   }
 
+  @override
   MonthlySalaryBonusState copyWith({
     ViewStatus? status,
     String? message,

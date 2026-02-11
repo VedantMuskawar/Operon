@@ -277,17 +277,17 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                             ),
                           )
                         : _historyEntries.isEmpty
-                            ? Center(
+                            ? const Center(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.history,
                                       color: AuthColors.textDisabled,
                                       size: 48,
                                     ),
-                                    const SizedBox(height: 16),
-                                    const Text(
+                                    SizedBox(height: 16),
+                                    Text(
                                       'No stock history yet',
                                       style: TextStyle(
                                         color: AuthColors.textSub,

@@ -42,7 +42,7 @@ class OrdersSectionEmptyState extends StatelessWidget {
                 width: 1,
               ),
             ),
-            child: Icon(
+            child: const Icon(
               Icons.inbox_outlined,
               size: 64,
               color: AuthColors.textDisabled,
@@ -88,7 +88,7 @@ class OrdersSectionLoadingState extends StatelessWidget {
           height: 40,
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
-            valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
+            valueColor: const AlwaysStoppedAnimation<Color>(AuthColors.primary),
             backgroundColor: AuthColors.textMainWithOpacity(0.1),
           ),
         ),

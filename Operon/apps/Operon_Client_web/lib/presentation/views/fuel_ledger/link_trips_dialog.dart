@@ -216,14 +216,14 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                     const SizedBox(height: 4),
                     Text(
                       'Voucher: ${widget.voucherNumber}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textSub,
                         fontSize: 12,
                       ),
                     ),
                     Text(
                       'Vehicle: ${widget.vehicleNumber}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textSub,
                         fontSize: 12,
                       ),
@@ -246,7 +246,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                 children: [
                                   Text(
                                     _error!,
-                                    style: TextStyle(color: AuthColors.error),
+                                    style: const TextStyle(color: AuthColors.error),
                                     textAlign: TextAlign.center,
                                   ),
                                 const SizedBox(height: 16),
@@ -259,9 +259,9 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                           ),
                         )
                       : _availableTrips.isEmpty
-                          ? Center(
+                          ? const Center(
                               child: Padding(
-                                padding: const EdgeInsets.all(24),
+                                padding: EdgeInsets.all(24),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -270,7 +270,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                       size: 64,
                                       color: AuthColors.textDisabled,
                                     ),
-                                    const SizedBox(height: 16),
+                                    SizedBox(height: 16),
                                     Text(
                                       'No trips found',
                                       style: TextStyle(
@@ -278,7 +278,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                         fontSize: 16,
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
+                                    SizedBox(height: 8),
                                     Text(
                                       'No returned trips found for this vehicle in the past 3 days',
                                       style: TextStyle(
@@ -343,7 +343,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                         Expanded(
                                           child: Text(
                                             clientName,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               color: AuthColors.textMain,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -357,7 +357,7 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                               borderRadius: BorderRadius.circular(4),
                                               border: Border.all(color: AuthColors.warning.withValues(alpha: 0.5)),
                                             ),
-                                            child: Text(
+                                            child: const Text(
                                               'Linked',
                                               style: TextStyle(
                                                 color: AuthColors.warning,
@@ -374,11 +374,11 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Icon(Icons.calendar_today, size: 12, color: AuthColors.textSub),
+                                            const Icon(Icons.calendar_today, size: 12, color: AuthColors.textSub),
                                             const SizedBox(width: 4),
                                             Text(
                                               _formatDate(scheduledDate),
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 color: AuthColors.textSub,
                                                 fontSize: 12,
                                               ),
@@ -388,12 +388,12 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                         const SizedBox(height: 4),
                                         Row(
                                           children: [
-                                            Icon(Icons.location_on, size: 12, color: AuthColors.textSub),
+                                            const Icon(Icons.location_on, size: 12, color: AuthColors.textSub),
                                             const SizedBox(width: 4),
                                             Expanded(
                                               child: Text(
                                                 '$city${region.isNotEmpty ? ', $region' : ''}',
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                   color: AuthColors.textSub,
                                                   fontSize: 12,
                                                 ),
@@ -407,11 +407,11 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [
-                                              Icon(Icons.straighten, size: 12, color: AuthColors.textSub),
+                                              const Icon(Icons.straighten, size: 12, color: AuthColors.textSub),
                                               const SizedBox(width: 4),
                                               Text(
                                                 '${distance.toStringAsFixed(1)} KM',
-                                                style: TextStyle(
+                                                style: const TextStyle(
                                                   color: AuthColors.textSub,
                                                   fontSize: 12,
                                                 ),
@@ -434,9 +434,9 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
             // Summary and Actions
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AuthColors.surface,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(16),
                   bottomRight: Radius.circular(16),
                 ),
@@ -450,14 +450,14 @@ class _LinkTripsDialogState extends State<LinkTripsDialog> {
                       children: [
                         Text(
                           '${_selectedDmIds.length} trip${_selectedDmIds.length > 1 ? 's' : ''} selected',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.textSub,
                             fontSize: 14,
                           ),
                         ),
                         Text(
                           'Total Distance: ${_getTotalDistance().toStringAsFixed(1)} KM',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AuthColors.primary,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,

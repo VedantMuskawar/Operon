@@ -131,9 +131,9 @@ class _ProductionBatchesContentState extends State<_ProductionBatchesContent> {
           ),
           _sectionIndex == 0
               ? _BatchesSection(organization: organization)
-              : Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                  child: const _WeeklyLedgerBlock(),
+              : const Padding(
+                  padding: EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: _WeeklyLedgerBlock(),
                 ),
         ],
       ),

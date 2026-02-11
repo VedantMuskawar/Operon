@@ -977,9 +977,9 @@ class _AccountsLedgerCreateDialogState
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Select Accounts (2 or more)',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AuthColors.textSub,
                   fontWeight: FontWeight.w600,
                 ),

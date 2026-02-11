@@ -339,14 +339,14 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [AuthColors.surface, AuthColors.background],
             ),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: Text(
+          child: const Text(
             'Please select an organization first',
             style: TextStyle(color: AuthColors.textSub),
           ),
@@ -418,7 +418,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                 ),
               ),
             ),
-            Icon(Icons.chevron_right, color: AuthColors.textSub),
+            const Icon(Icons.chevron_right, color: AuthColors.textSub),
           ],
         ),
       ),
@@ -446,7 +446,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Current Balance',
                   style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
@@ -471,11 +471,11 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
     return TextFormField(
       controller: _amountController,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: TextStyle(color: AuthColors.textMain, fontSize: 18),
+      style: const TextStyle(color: AuthColors.textMain, fontSize: 18),
       decoration: InputDecoration(
         labelText: 'Payment Amount',
-        labelStyle: TextStyle(color: AuthColors.textSub),
-        prefixIcon: Icon(Icons.currency_rupee, color: AuthColors.textSub),
+        labelStyle: const TextStyle(color: AuthColors.textSub),
+        prefixIcon: const Icon(Icons.currency_rupee, color: AuthColors.textSub),
         filled: true,
         fillColor: AuthColors.surface,
         border: OutlineInputBorder(
@@ -488,7 +488,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AuthColors.primary, width: 2),
+          borderSide: const BorderSide(color: AuthColors.primary, width: 2),
         ),
       ),
       validator: (value) {
@@ -537,7 +537,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
+                  const Text(
                     'Payment Accounts (Optional)',
                     style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                   ),
@@ -610,13 +610,13 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
         ),
         child: Row(
           children: [
-            Icon(Icons.calendar_today, color: AuthColors.textSub),
+            const Icon(Icons.calendar_today, color: AuthColors.textSub),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Payment Date',
                     style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                   ),
@@ -625,12 +625,12 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                     _selectedDate != null
                         ? '${_selectedDate!.day} ${_getMonthName(_selectedDate!.month)} ${_selectedDate!.year}'
                         : 'Select date',
-                    style: TextStyle(color: AuthColors.textMain, fontSize: 16),
+                    style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AuthColors.textSub),
+            const Icon(Icons.chevron_right, color: AuthColors.textSub),
           ],
         ),
       ),
@@ -641,7 +641,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Receipt Photo (Optional)',
           style: TextStyle(color: AuthColors.textSub, fontSize: 14),
         ),
@@ -734,7 +734,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                 top: 8,
                 right: 8,
                 child: IconButton(
-                  icon: Icon(Icons.close, color: AuthColors.textMain),
+                  icon: const Icon(Icons.close, color: AuthColors.textMain),
                   style: IconButton.styleFrom(
                     backgroundColor: AuthColors.background.withOpacity(0.54),
                   ),
@@ -755,11 +755,11 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
               ),
-              child: Column(
+              child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_photo_alternate, color: AuthColors.textSub, size: 40),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Text(
                     'Add Receipt Photo',
                     style: TextStyle(color: AuthColors.textSub),
@@ -799,7 +799,7 @@ class _ClientSelectionDialog extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [AuthColors.surface, AuthColors.background],
@@ -816,12 +816,12 @@ class _ClientSelectionDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Select Client',
                   style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 IconButton(
-                  icon: Icon(Icons.close, color: AuthColors.textSub),
+                  icon: const Icon(Icons.close, color: AuthColors.textSub),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -838,7 +838,7 @@ class _ClientSelectionDialog extends StatelessWidget {
                   }
 
                   if (clients.isEmpty) {
-                    return Center(
+                    return const Center(
                       child: Text(
                         'No clients found',
                         style: TextStyle(color: AuthColors.textSub),
@@ -855,12 +855,12 @@ class _ClientSelectionDialog extends StatelessWidget {
                           backgroundColor: AuthColors.primary,
                           child: Text(
                             client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
-                            style: TextStyle(color: AuthColors.textMain),
+                            style: const TextStyle(color: AuthColors.textMain),
                           ),
                         ),
-                        title: Text(client.name, style: TextStyle(color: AuthColors.textMain)),
+                        title: Text(client.name, style: const TextStyle(color: AuthColors.textMain)),
                         subtitle: client.primaryPhone != null
-                            ? Text(client.primaryPhone!, style: TextStyle(color: AuthColors.textSub))
+                            ? Text(client.primaryPhone!, style: const TextStyle(color: AuthColors.textSub))
                             : null,
                         onTap: () => Navigator.of(context).pop({
                           'id': client.id,
@@ -966,7 +966,7 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
               const SizedBox(width: 8),
               Text(
                 widget.account.name,
-                style: TextStyle(color: AuthColors.textSub, fontSize: 14),
+                style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
               ),
             ],
           ),
@@ -999,11 +999,11 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
               Expanded(
                 child: Text(
                   widget.account.name,
-                  style: TextStyle(color: AuthColors.textMain, fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(color: AuthColors.textMain, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.close, size: 18, color: AuthColors.textSub),
+                icon: const Icon(Icons.close, size: 18, color: AuthColors.textSub),
                 onPressed: widget.onTap,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -1016,11 +1016,11 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
             child: TextFormField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: TextStyle(color: AuthColors.textMain, fontSize: 14),
+              style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
               decoration: InputDecoration(
                 labelText: 'Amount',
-                labelStyle: TextStyle(color: AuthColors.textSub, fontSize: 12),
-                prefixIcon: Icon(Icons.currency_rupee, color: AuthColors.textSub, size: 16),
+                labelStyle: const TextStyle(color: AuthColors.textSub, fontSize: 12),
+                prefixIcon: const Icon(Icons.currency_rupee, color: AuthColors.textSub, size: 16),
                 filled: true,
                 fillColor: AuthColors.backgroundAlt,
                 border: OutlineInputBorder(
@@ -1033,7 +1033,7 @@ class _PaymentAccountChipState extends State<_PaymentAccountChip> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AuthColors.primary, width: 2),
+                  borderSide: const BorderSide(color: AuthColors.primary, width: 2),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),

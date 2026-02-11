@@ -165,9 +165,9 @@ class _LedgerDateRangeModalDialogState extends State<_LedgerDateRangeModalDialog
             // Header
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AuthColors.background,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
@@ -234,7 +234,7 @@ class _LedgerDateRangeModalDialogState extends State<_LedgerDateRangeModalDialog
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'From Date',
                                   style: TextStyle(
                                     color: AuthColors.textSub,
@@ -291,7 +291,7 @@ class _LedgerDateRangeModalDialogState extends State<_LedgerDateRangeModalDialog
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'To Date',
                                   style: TextStyle(
                                     color: AuthColors.textSub,

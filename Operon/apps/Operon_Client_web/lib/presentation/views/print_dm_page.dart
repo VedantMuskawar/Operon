@@ -8,7 +8,6 @@ import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';
-import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:flutter/material.dart';
 
 /// Print page for Delivery Memos that opens in a new window and triggers browser print.
@@ -380,7 +379,7 @@ class _PrintDMPageState extends State<PrintDMPage> {
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage ?? 'Failed to load DM',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 14,
                   ),

@@ -77,7 +77,7 @@ class _WeeklyLedgerWeekDialogState extends State<WeeklyLedgerWeekDialog> {
         constraints: const BoxConstraints(maxWidth: 400),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [AuthColors.surface, AuthColors.background],
@@ -144,7 +144,7 @@ class _WeeklyLedgerWeekDialogState extends State<WeeklyLedgerWeekDialog> {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 4),
-                          Text(
+                          const Text(
                             'Tap to select date',
                             style: TextStyle(
                               color: AuthColors.textSub,

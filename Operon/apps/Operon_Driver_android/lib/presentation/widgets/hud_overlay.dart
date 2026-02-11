@@ -1,7 +1,6 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:operon_auth_flow/operon_auth_flow.dart';
 
 /// Heads-Up Display overlay for Driver Map.
 /// 
@@ -26,7 +25,7 @@ class HudOverlay extends StatelessWidget {
 
   String _formatSpeed(double? speed) {
     if (speed == null) return '--';
-    return '${speed.toStringAsFixed(1)}';
+    return speed.toStringAsFixed(1);
   }
 
   String _formatEta(Duration? eta) {
@@ -44,7 +43,7 @@ class HudOverlay extends StatelessWidget {
     if (distance < 1.0) {
       return '${(distance * 1000).toStringAsFixed(0)}m';
     }
-    return '${distance.toStringAsFixed(1)}';
+    return distance.toStringAsFixed(1);
   }
 
   @override

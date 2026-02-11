@@ -163,7 +163,7 @@ class AuthRepository {
       try { File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log').writeAsStringSync('${File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log').readAsStringSync()}${File('/Users/vedantreddymuskawar/Operon/.cursor/debug.log').existsSync() ? '\n' : ''}{"sessionId":"debug-session","runId":"run1","hypothesisId":"B","location":"auth_repository.dart:104","message":"Exception in verifyPhoneNumber","data":{"error":"$e"},"timestamp":${DateTime.now().millisecondsSinceEpoch}}\n', mode: FileMode.append); } catch (_) {}
       // #endregion
       debugPrint('[AuthRepository] Exception in verifyPhoneNumber: $e');
-      timeoutTimer?.cancel();
+      timeoutTimer.cancel();
       if (!completer.isCompleted) {
         completer.completeError(e);
       }

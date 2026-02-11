@@ -89,7 +89,7 @@ Future<void> showSalaryVoucherModal(BuildContext context, String transactionId) 
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.error_outline,
+                                  const Icon(Icons.error_outline,
                                       size: 48, color: AuthColors.error),
                                   const SizedBox(height: 16),
                                   Text(

@@ -1,6 +1,5 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/material.dart';
-import 'package:operon_auth_flow/operon_auth_flow.dart';
 import 'package:operon_driver_android/core/services/dm_print_helper.dart';
 
 /// Bottom sheet for printing or sharing DM PDF in the Driver app.

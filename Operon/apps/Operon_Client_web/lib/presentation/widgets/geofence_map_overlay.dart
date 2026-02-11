@@ -1,6 +1,5 @@
 import 'package:core_models/core_models.dart' hide LatLng;
 import 'package:core_ui/core_ui.dart' show AuthColors;
-import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class GeofenceMapOverlay {

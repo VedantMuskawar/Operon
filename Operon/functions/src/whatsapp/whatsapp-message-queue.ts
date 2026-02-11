@@ -122,31 +122,53 @@ export const onWhatsappMessageJobCreated = onDocumentCreated(
     if (!snapshot) return;
 
     const jobRef = db.collection(WHATSAPP_MESSAGE_JOBS_COLLECTION).doc(jobId);
-    const jobSnapshot = await jobRef.get();
-    const job = jobSnapshot.data() as WhatsappMessageJob | undefined;
+    const { job, claimed, reason } = await db.runTransaction(async (tx) => {
+      const jobSnapshot = await tx.get(jobRef);
+      const jobData = jobSnapshot.data() as WhatsappMessageJob | undefined;
+
+      if (!jobData) {
+        return { job: undefined, claimed: false, reason: 'missing' } as const;
+      }
+
+      if (jobData.messageId) {
+        return { job: jobData, claimed: false, reason: 'already-sent' } as const;
+      }
+
+      if (jobData.status !== 'pending' && jobData.status !== 'retry') {
+        return { job: jobData, claimed: false, reason: 'status' } as const;
+      }
+
+      if (jobData.attemptCount >= MAX_ATTEMPTS) {
+        return { job: jobData, claimed: false, reason: 'attempts' } as const;
+      }
+
+      tx.update(jobRef, {
+        status: 'processing',
+        attemptCount: admin.firestore.FieldValue.increment(1),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return { job: jobData, claimed: true, reason: 'claimed' } as const;
+    });
+
     if (!job) return;
 
-    if (job.status !== 'pending' && job.status !== 'retry') {
+    if (!claimed) {
+      if (reason === 'attempts') {
+        logWarning('WhatsApp/Queue', 'onWhatsappMessageJobCreated', 'Job exceeded max attempts, skipping', {
+          jobId,
+          attemptCount: job.attemptCount,
+        });
+        return;
+      }
+
       logInfo('WhatsApp/Queue', 'onWhatsappMessageJobCreated', 'Job already processed, skipping', {
         jobId,
         status: job.status,
+        reason,
       });
       return;
     }
-
-    if (job.attemptCount >= MAX_ATTEMPTS) {
-      logWarning('WhatsApp/Queue', 'onWhatsappMessageJobCreated', 'Job exceeded max attempts, skipping', {
-        jobId,
-        attemptCount: job.attemptCount,
-      });
-      return;
-    }
-
-    await jobRef.update({
-      status: 'processing',
-      attemptCount: admin.firestore.FieldValue.increment(1),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
 
     const settings = await loadWhatsappSettings(job.organizationId);
     if (!settings) {

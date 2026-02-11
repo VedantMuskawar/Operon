@@ -100,8 +100,8 @@ class _AttendanceViewContent extends StatelessWidget {
     return BlocBuilder<AttendanceCubit, AttendanceState>(
       builder: (context, state) {
         if (state.status == ViewStatus.loading && state.roleGroups == null) {
-          return SizedBox.expand(
-            child: const Center(
+          return const SizedBox.expand(
+            child: Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(AuthColors.primary),
               ),
@@ -245,7 +245,7 @@ class _MonthPicker extends StatelessWidget {
               onPrimary: Colors.white,
               surface: AuthColors.surface,
               onSurface: AuthColors.textMain,
-            ), dialogTheme: DialogThemeData(backgroundColor: AuthColors.surface),
+            ), dialogTheme: const DialogThemeData(backgroundColor: AuthColors.surface),
           ),
           child: child!,
         );

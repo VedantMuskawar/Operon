@@ -278,7 +278,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                  borderSide: BorderSide(color: AuthColors.secondary, width: 2),
+                  borderSide: const BorderSide(color: AuthColors.secondary, width: 2),
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -306,7 +306,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                  borderSide: BorderSide(color: AuthColors.secondary, width: 2),
+                  borderSide: const BorderSide(color: AuthColors.secondary, width: 2),
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),

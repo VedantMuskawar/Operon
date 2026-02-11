@@ -43,7 +43,7 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'City',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AuthColors.textSub,
                           fontWeight: FontWeight.w600,
                         ),
@@ -52,7 +52,7 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Region',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AuthColors.textSub,
                           fontWeight: FontWeight.w600,
                         ),

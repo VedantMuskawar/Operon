@@ -177,9 +177,9 @@ class _GeofenceEditorPageState extends State<GeofenceEditorPage> {
     final organization = orgState.organization;
 
     if (organization == null) {
-      return Scaffold(
+      return const Scaffold(
         backgroundColor: AuthColors.background,
-        body: const Center(child: Text('No organization selected')),
+        body: Center(child: Text('No organization selected')),
       );
     }
 
@@ -267,9 +267,9 @@ class _GeofenceEditorPageState extends State<GeofenceEditorPage> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'The specified location could not be found. Please go back and try again.',
-            style: const TextStyle(color: AuthColors.textSub, fontSize: 14),
+            style: TextStyle(color: AuthColors.textSub, fontSize: 14),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),

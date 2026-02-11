@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
-import 'package:core_models/core_models.dart';
 import 'package:core_utils/core_utils.dart' as pdf_template;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;

@@ -1,7 +1,6 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/services/recently_viewed_employees_service.dart';
-import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/presentation/blocs/employees/employees_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';

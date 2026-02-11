@@ -195,7 +195,7 @@ class _HistorySearchPanelState extends State<HistorySearchPanel> {
               ),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.calendar_today,
                     size: 18,
                     color: AuthColors.textSub,
@@ -220,7 +220,7 @@ class _HistorySearchPanelState extends State<HistorySearchPanel> {
         const SizedBox(height: 12),
         // Vehicle dropdown
         DropdownButtonFormField<String>(
-          value: _selectedVehicleNumber,
+          initialValue: _selectedVehicleNumber,
           decoration: InputDecoration(
             labelText: 'Vehicle Number',
             labelStyle: const TextStyle(color: AuthColors.textSub),

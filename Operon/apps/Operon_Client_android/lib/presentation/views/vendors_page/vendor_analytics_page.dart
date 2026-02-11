@@ -273,16 +273,12 @@ class _StatCard extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
-    this.subtitle,
-    this.subtitleColor,
   });
 
   final IconData icon;
   final String label;
   final String value;
   final Color color;
-  final String? subtitle;
-  final Color? subtitleColor;
 
   @override
   Widget build(BuildContext context) {
@@ -345,17 +341,6 @@ class _StatCard extends StatelessWidget {
               fontWeight: FontWeight.w500,
             ),
           ),
-          if (subtitle != null) ...[
-            const SizedBox(height: AppSpacing.paddingXS),
-            Text(
-              subtitle!,
-              style: TextStyle(
-                color: subtitleColor ?? AuthColors.textSub,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -632,7 +617,9 @@ class _PurchasesLineChartPainter extends CustomPainter {
           if (offsetX.isNaN ||
               offsetY.isNaN ||
               !offsetX.isFinite ||
-              !offsetY.isFinite) continue;
+              !offsetY.isFinite) {
+            continue;
+          }
 
           valueText.paint(
             canvas,
@@ -685,7 +672,9 @@ class _PurchasesLineChartPainter extends CustomPainter {
           if (offsetX.isNaN ||
               offsetY.isNaN ||
               !offsetX.isFinite ||
-              !offsetY.isFinite) continue;
+              !offsetY.isFinite) {
+            continue;
+          }
 
           labelText.paint(
             canvas,

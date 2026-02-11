@@ -49,7 +49,7 @@ class DashDialogHeader extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -61,7 +61,7 @@ class DashDialogHeader extends StatelessWidget {
                 )
               : Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textMain,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -70,7 +70,7 @@ class DashDialogHeader extends StatelessWidget {
         ),
         IconButton(
           onPressed: onClose,
-          icon: Icon(Icons.close, color: AuthColors.textSub),
+          icon: const Icon(Icons.close, color: AuthColors.textSub),
         ),
       ],
     );

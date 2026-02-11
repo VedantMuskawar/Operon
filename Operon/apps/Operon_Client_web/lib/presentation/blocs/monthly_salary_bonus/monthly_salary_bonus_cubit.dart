@@ -6,7 +6,6 @@ import 'package:dash_web/data/datasources/bonus_settings_data_source.dart' show 
 import 'package:dash_web/data/repositories/bonus_settings_repository.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/job_roles_repository.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'monthly_salary_bonus_state.dart';
@@ -80,11 +79,11 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
         return false;
       }).toList();
 
-      final defaultSalary = (OrganizationEmployee e) {
+      double defaultSalary(OrganizationEmployee e) {
         if (e.wage.type == WageType.perMonth) return e.wage.baseAmount ?? 0.0;
         if (e.wage.hybridStructure != null) return e.wage.hybridStructure!.baseAmount;
         return 0.0;
-      };
+      }
 
       final roleIdByTitle = <String, String>{};
       for (final r in jobRoles) {
@@ -131,7 +130,7 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
 
       emit(state.copyWith(
         status: ViewStatus.success,
-        bonusSettings: bonusSettings ?? BonusSettings(roleSettings: {}),
+        bonusSettings: bonusSettings ?? const BonusSettings(roleSettings: {}),
         rows: rows,
         jobRoles: jobRoles,
         message: null,
@@ -149,7 +148,7 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
   Future<void> loadBonusSettings() async {
     try {
       final settings = await _bonusSettingsRepository.fetch(_organizationId);
-      emit(state.copyWith(bonusSettings: settings ?? BonusSettings(roleSettings: {})));
+      emit(state.copyWith(bonusSettings: settings ?? const BonusSettings(roleSettings: {})));
     } catch (e) {
       debugPrint('[MonthlySalaryBonusCubit] loadBonusSettings error: $e');
     }
@@ -157,7 +156,7 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
 
   /// Set a role's bonus tiers (draft in state). Call saveBonusSettings to persist.
   void updateBonusRoleTiers(String roleId, List<BonusTier> tiers) {
-    final current = state.bonusSettings ?? BonusSettings(roleSettings: {});
+    final current = state.bonusSettings ?? const BonusSettings(roleSettings: {});
     final newMap = Map<String, RoleBonusSetting>.from(current.roleSettings);
     newMap[roleId] = RoleBonusSetting(tiers: tiers);
     emit(state.copyWith(bonusSettings: BonusSettings(roleSettings: newMap)));
@@ -165,7 +164,7 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
 
   /// Add a tier to a role (minDays: 0, amount: 0).
   void addBonusTier(String roleId) {
-    final current = state.bonusSettings ?? BonusSettings(roleSettings: {});
+    final current = state.bonusSettings ?? const BonusSettings(roleSettings: {});
     final existing = current.roleSettings[roleId]?.tiers ?? [];
     final updated = List<BonusTier>.from(existing)..add(const BonusTier(minDays: 0, amount: 0));
     updateBonusRoleTiers(roleId, updated);
@@ -173,7 +172,7 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
 
   /// Remove a tier at index.
   void removeBonusTier(String roleId, int index) {
-    final current = state.bonusSettings ?? BonusSettings(roleSettings: {});
+    final current = state.bonusSettings ?? const BonusSettings(roleSettings: {});
     final existing = current.roleSettings[roleId]?.tiers ?? [];
     if (index < 0 || index >= existing.length) return;
     final updated = List<BonusTier>.from(existing)..removeAt(index);
@@ -182,7 +181,7 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
 
   /// Update a tier at index.
   void updateBonusTierAt(String roleId, int index, int minDays, double amount) {
-    final current = state.bonusSettings ?? BonusSettings(roleSettings: {});
+    final current = state.bonusSettings ?? const BonusSettings(roleSettings: {});
     final existing = current.roleSettings[roleId]?.tiers ?? [];
     if (index < 0 || index >= existing.length) return;
     final updated = List<BonusTier>.from(existing);

@@ -41,7 +41,6 @@ export const orders = {
   onOrderUpdatedSendWhatsapp: ordersNs.onOrderUpdatedSendWhatsapp,
   onTripDispatchedSendWhatsapp: ordersNs.onTripDispatchedSendWhatsapp,
   onTripDeliveredSendWhatsapp: ordersNs.onTripDeliveredSendWhatsapp,
-  onTripReturnedCreateDM: ordersNs.onTripReturnedCreateDM,
   deleteFullyScheduledOrdersWeekly: ordersNs.deleteFullyScheduledOrdersWeekly,
 };
 

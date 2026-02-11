@@ -273,6 +273,10 @@ class ScheduledTripTile extends StatelessWidget {
     final clientName = trip['clientName'] as String? ?? 'N/A';
     final vehicleNumber = trip['vehicleNumber'] as String? ?? 'N/A';
     final slot = trip['slot'] as int? ?? 0;
+    final transportMode = trip['transportMode'] as String?;
+    final isSelfTransport = transportMode == 'self';
+    final vehicleLabel = isSelfTransport ? 'Self Transport' : vehicleNumber;
+    final slotLabel = isSelfTransport ? 'Self' : 'Slot $slot';
     final orderStatus = trip['orderStatus'] as String? ?? 'pending';
     final deliveryZone = trip['deliveryZone'] as Map<String, dynamic>?;
     final zoneText = deliveryZone != null
@@ -383,7 +387,7 @@ class ScheduledTripTile extends StatelessWidget {
                               ),
                               const SizedBox(width: AppSpacing.paddingXS),
                               Text(
-                                vehicleNumber,
+                                vehicleLabel,
                                 style: const TextStyle(
                                   color: AuthColors.textSub,
                                   fontSize: 11,
@@ -403,7 +407,7 @@ class ScheduledTripTile extends StatelessWidget {
                               ),
                               const SizedBox(width: AppSpacing.paddingXS),
                               Text(
-                                'Slot $slot',
+                                slotLabel,
                                 style: const TextStyle(
                                   color: AuthColors.textSub,
                                   fontSize: 11,

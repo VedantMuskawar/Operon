@@ -171,30 +171,48 @@ async function buildTransactionNameUpdates(transaction: FirebaseFirestore.Docume
   const updates: Record<string, unknown> = {};
   const metadata = (transaction.metadata as Record<string, unknown> | undefined) || {};
 
-  const clientName = (transaction.clientName as string | undefined)?.trim();
+  const clientNameFromTransaction = (transaction.clientName as string | undefined)?.trim();
+  const clientNameFromMetadata = (metadata.clientName as string | undefined)?.trim();
+  let clientName = clientNameFromTransaction || clientNameFromMetadata;
   if (!clientName && transaction.clientId) {
-    const resolvedClientName = await fetchEntityName(CLIENTS_COLLECTION, transaction.clientId as string);
-    if (resolvedClientName) {
-      updates.clientName = resolvedClientName;
-      if (!(metadata.clientName as string | undefined)?.trim()) {
-        updates['metadata.clientName'] = resolvedClientName;
-      }
+    clientName = await fetchEntityName(CLIENTS_COLLECTION, transaction.clientId as string);
+  }
+  if (clientName) {
+    if (!clientNameFromTransaction) {
+      updates.clientName = clientName;
+    }
+    if (!clientNameFromMetadata) {
+      updates['metadata.clientName'] = clientName;
     }
   }
 
-  const vendorName = (metadata.vendorName as string | undefined)?.trim();
+  const vendorNameFromTransaction = (transaction.vendorName as string | undefined)?.trim();
+  const vendorNameFromMetadata = (metadata.vendorName as string | undefined)?.trim();
+  let vendorName = vendorNameFromTransaction || vendorNameFromMetadata;
   if (!vendorName && transaction.vendorId) {
-    const resolvedVendorName = await fetchEntityName(VENDORS_COLLECTION, transaction.vendorId as string);
-    if (resolvedVendorName) {
-      updates['metadata.vendorName'] = resolvedVendorName;
+    vendorName = await fetchEntityName(VENDORS_COLLECTION, transaction.vendorId as string);
+  }
+  if (vendorName) {
+    if (!vendorNameFromTransaction) {
+      updates.vendorName = vendorName;
+    }
+    if (!vendorNameFromMetadata) {
+      updates['metadata.vendorName'] = vendorName;
     }
   }
 
-  const employeeName = (metadata.employeeName as string | undefined)?.trim();
+  const employeeNameFromTransaction = (transaction.employeeName as string | undefined)?.trim();
+  const employeeNameFromMetadata = (metadata.employeeName as string | undefined)?.trim();
+  let employeeName = employeeNameFromTransaction || employeeNameFromMetadata;
   if (!employeeName && transaction.employeeId) {
-    const resolvedEmployeeName = await fetchEntityName(EMPLOYEES_COLLECTION, transaction.employeeId as string);
-    if (resolvedEmployeeName) {
-      updates['metadata.employeeName'] = resolvedEmployeeName;
+    employeeName = await fetchEntityName(EMPLOYEES_COLLECTION, transaction.employeeId as string);
+  }
+  if (employeeName) {
+    if (!employeeNameFromTransaction) {
+      updates.employeeName = employeeName;
+    }
+    if (!employeeNameFromMetadata) {
+      updates['metadata.employeeName'] = employeeName;
     }
   }
 

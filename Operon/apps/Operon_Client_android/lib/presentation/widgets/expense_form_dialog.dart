@@ -1,6 +1,7 @@
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/core_ui.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:dash_mobile/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
@@ -90,19 +91,54 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         _paymentAccounts = state.paymentAccounts;
       } catch (_) {
         // Cubit not available, fetch from repositories
+        // Handled below with fallback fetches.
+      }
+
+      // If cubit data is empty/stale, fallback to repositories per list
+      if (_vendors.isEmpty) {
         final vendorsRepo = context.read<VendorsRepository>();
+        _vendors = await vendorsRepo.fetchVendors(organizationId);
+      }
+      if (_employees.isEmpty) {
         final employeesRepo = context.read<EmployeesRepository>();
+        _employees = await employeesRepo.fetchEmployees(organizationId);
+      }
+      final ledgerEmployees =
+          await _fetchEmployeeAccountsFromLedgers(organizationId);
+      if (ledgerEmployees.isNotEmpty) {
+        final byId = <String, OrganizationEmployee>{
+          for (final employee in _employees) employee.id: employee,
+        };
+        for (final employee in ledgerEmployees) {
+          if (employee.id.isEmpty) continue;
+          byId.putIfAbsent(employee.id, () => employee);
+        }
+        final merged = byId.values.toList();
+        merged.sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        _employees = merged;
+      }
+      if (_subCategories.isEmpty) {
         final subCategoriesRepo =
             context.read<ExpenseSubCategoriesRepository>();
-        final paymentAccountsDataSource =
-            context.read<PaymentAccountsDataSource>();
-
-        _vendors = await vendorsRepo.fetchVendors(organizationId);
-        _employees = await employeesRepo.fetchEmployees(organizationId);
         _subCategories =
             await subCategoriesRepo.fetchSubCategories(organizationId);
+      }
+      if (_paymentAccounts.isEmpty) {
+        final paymentAccountsDataSource =
+            context.read<PaymentAccountsDataSource>();
         _paymentAccounts =
             await paymentAccountsDataSource.fetchAccounts(organizationId);
+      }
+
+      // Show only active payment accounts
+      _paymentAccounts =
+          _paymentAccounts.where((account) => account.isActive).toList();
+
+      if (_selectedPaymentAccount == null && _paymentAccounts.isNotEmpty) {
+        final primary = _paymentAccounts.where((a) => a.isPrimary).toList();
+        _selectedPaymentAccount =
+            primary.isNotEmpty ? primary.first : _paymentAccounts.first;
       }
 
       // Initialize selections from widget parameters
@@ -133,6 +169,58 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<List<OrganizationEmployee>> _fetchEmployeeAccountsFromLedgers(
+    String organizationId,
+  ) async {
+    try {
+      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
+        final snapshot = await firestore.FirebaseFirestore.instance
+          .collection('ACCOUNTS_LEDGERS')
+          .where('organizationId', isEqualTo: organizationId)
+          .where('financialYear', isEqualTo: financialYear)
+          .orderBy('updatedAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isEmpty) return [];
+      final data = snapshot.docs.first.data();
+      final accountsData = (data['accounts'] as List<dynamic>?) ?? [];
+      final employees = <OrganizationEmployee>[];
+      for (final account in accountsData) {
+        if (account is! Map<String, dynamic>) continue;
+        final typeRaw = (account['type'] as String? ?? '').toLowerCase();
+        if (typeRaw != 'employee' && typeRaw != 'employees') continue;
+
+        final id = (account['id'] as String?) ??
+            (account['accountId'] as String?) ??
+            (account['employeeId'] as String?) ??
+            '';
+        final name = (account['name'] as String?) ??
+            (account['employeeName'] as String?) ??
+            (account['accountName'] as String?) ??
+            '';
+        if (id.isEmpty && name.isEmpty) continue;
+
+        employees.add(
+          OrganizationEmployee(
+            id: id.isNotEmpty ? id : name,
+            organizationId: organizationId,
+            name: name.isNotEmpty ? name : id,
+            jobRoleIds: const [],
+            jobRoles: const {},
+            wage: const EmployeeWage(type: WageType.perMonth),
+            openingBalance: 0,
+            currentBalance: 0,
+          ),
+        );
+      }
+
+      return employees;
+    } catch (_) {
+      return [];
     }
   }
 
@@ -224,7 +312,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     final transactionsDataSource = context.read<TransactionsDataSource>();
 
     try {
-      Transaction transaction;
+      Transaction? transaction;
 
       switch (_selectedType) {
         case ExpenseFormType.vendorPayment:
@@ -238,6 +326,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
             id: '',
             organizationId: organizationId,
             vendorId: _selectedVendor!.id,
+            vendorName: _selectedVendor!.name,
             ledgerType: LedgerType.vendorLedger,
             type: TransactionType.debit,
             category: TransactionCategory.vendorPayment,
@@ -277,6 +366,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
               id: '',
               organizationId: organizationId,
               employeeId: employee.id,
+              employeeName: employee.name,
               splitGroupId: splitGroupId,
               ledgerType: LedgerType.employeeLedger,
               type: TransactionType.debit,
@@ -339,7 +429,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
           break;
       }
 
-      if (_selectedType != ExpenseFormType.salaryDebit) {
+      if (_selectedType != ExpenseFormType.salaryDebit && transaction != null) {
         await transactionsDataSource.createTransaction(transaction);
       }
 
@@ -410,7 +500,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
             // Header
             Container(
               padding: const EdgeInsets.all(AppSpacing.paddingXL),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
                       color: AuthColors.textMainWithOpacity(0.12), width: 1),
@@ -551,7 +641,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
             // Actions
             Container(
               padding: const EdgeInsets.all(AppSpacing.paddingXL),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
                       color: AuthColors.textMainWithOpacity(0.12), width: 1),
@@ -714,126 +804,14 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
 
   Future<void> _openEmployeeSelectorDialog() async {
     if (_employees.isEmpty) return;
-    final searchController = TextEditingController();
-    final selectedIds = _selectedEmployees.map((e) => e.id).toSet();
-    List<OrganizationEmployee> filtered = List.of(_employees);
-
     final result = await showDialog<Set<String>>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            void updateFilter(String value) {
-              final query = value.trim().toLowerCase();
-              setDialogState(() {
-                if (query.isEmpty) {
-                  filtered = List.of(_employees);
-                } else {
-                  filtered = _employees
-                      .where(
-                        (employee) =>
-                            employee.name.toLowerCase().contains(query),
-                      )
-                      .toList();
-                }
-              });
-            }
-
-            final availableHeight = MediaQuery.of(context).size.height -
-                MediaQuery.of(context).viewInsets.bottom;
-            var dialogHeight = availableHeight * 0.7;
-            if (dialogHeight < 280) dialogHeight = 280;
-            if (dialogHeight > 520) dialogHeight = 520;
-
-            return AlertDialog(
-              backgroundColor: AuthColors.surface,
-              title: const Text(
-                'Select Employees',
-                style: TextStyle(color: AuthColors.textMain),
-              ),
-              content: SizedBox(
-                width: 520,
-                height: dialogHeight,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: searchController,
-                      onChanged: updateFilter,
-                      style: const TextStyle(color: AuthColors.textMain),
-                      decoration: InputDecoration(
-                        labelText: 'Search employees',
-                        labelStyle: const TextStyle(color: AuthColors.textSub),
-                        filled: true,
-                        fillColor: AuthColors.backgroundAlt,
-                        prefixIcon:
-                            const Icon(Icons.search, color: AuthColors.textSub),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: AuthColors.textMainWithOpacity(0.12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: filtered.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No employees found.',
-                                style: TextStyle(color: AuthColors.textSub),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: filtered.length,
-                              itemBuilder: (context, index) {
-                                final employee = filtered[index];
-                                final isSelected =
-                                    selectedIds.contains(employee.id);
-                                return CheckboxListTile(
-                                  value: isSelected,
-                                  onChanged: (selected) {
-                                    setDialogState(() {
-                                      if (selected == true) {
-                                        selectedIds.add(employee.id);
-                                      } else {
-                                        selectedIds.remove(employee.id);
-                                      }
-                                    });
-                                  },
-                                  title: Text(
-                                    employee.name,
-                                    style: const TextStyle(
-                                        color: AuthColors.textMain),
-                                  ),
-                                  controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                DashButton(
-                  label: 'Cancel',
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  variant: DashButtonVariant.text,
-                ),
-                DashButton(
-                  label: 'Apply',
-                  onPressed: () => Navigator.of(dialogContext).pop(selectedIds),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (dialogContext) => _EmployeeMultiSelectDialog(
+        employees: _employees,
+        initialSelectedIds: _selectedEmployees.map((e) => e.id).toSet(),
+        searchFillColor: AuthColors.backgroundAlt,
+      ),
     );
-
-    searchController.dispose();
 
     if (result != null && mounted) {
       setState(() {
@@ -1024,6 +1002,147 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
+    );
+  }
+}
+
+class _EmployeeMultiSelectDialog extends StatefulWidget {
+  const _EmployeeMultiSelectDialog({
+    required this.employees,
+    required this.initialSelectedIds,
+    required this.searchFillColor,
+  });
+
+  final List<OrganizationEmployee> employees;
+  final Set<String> initialSelectedIds;
+  final Color searchFillColor;
+
+  @override
+  State<_EmployeeMultiSelectDialog> createState() =>
+      _EmployeeMultiSelectDialogState();
+}
+
+class _EmployeeMultiSelectDialogState
+    extends State<_EmployeeMultiSelectDialog> {
+  late final TextEditingController _searchController;
+  late List<OrganizationEmployee> _filtered;
+  late Set<String> _selectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _filtered = List.of(widget.employees);
+    _selectedIds = Set.of(widget.initialSelectedIds);
+    _searchController.addListener(_applyFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_applyFilter)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filtered = List.of(widget.employees);
+      } else {
+        _filtered = widget.employees
+            .where((employee) => employee.name.toLowerCase().contains(query))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final availableHeight = MediaQuery.of(context).size.height -
+        MediaQuery.of(context).viewInsets.bottom;
+    var dialogHeight = availableHeight * 0.7;
+    if (dialogHeight < 280) dialogHeight = 280;
+    if (dialogHeight > 520) dialogHeight = 520;
+
+    return AlertDialog(
+      backgroundColor: AuthColors.surface,
+      title: const Text(
+        'Select Employees',
+        style: TextStyle(color: AuthColors.textMain),
+      ),
+      content: SizedBox(
+        width: 520,
+        height: dialogHeight,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _searchController,
+              style: const TextStyle(color: AuthColors.textMain),
+              decoration: InputDecoration(
+                labelText: 'Search employees',
+                labelStyle: const TextStyle(color: AuthColors.textSub),
+                filled: true,
+                fillColor: widget.searchFillColor,
+                prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: AuthColors.textMainWithOpacity(0.12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _filtered.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No employees found.',
+                        style: TextStyle(color: AuthColors.textSub),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _filtered.length,
+                      itemBuilder: (context, index) {
+                        final employee = _filtered[index];
+                        final isSelected = _selectedIds.contains(employee.id);
+                        return CheckboxListTile(
+                          value: isSelected,
+                          onChanged: (selected) {
+                            setState(() {
+                              if (selected == true) {
+                                _selectedIds.add(employee.id);
+                              } else {
+                                _selectedIds.remove(employee.id);
+                              }
+                            });
+                          },
+                          title: Text(
+                            employee.name,
+                            style: const TextStyle(color: AuthColors.textMain),
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        DashButton(
+          label: 'Cancel',
+          onPressed: () => Navigator.of(context).pop(),
+          variant: DashButtonVariant.text,
+        ),
+        DashButton(
+          label: 'Apply',
+          onPressed: () => Navigator.of(context).pop(_selectedIds),
+        ),
+      ],
     );
   }
 }

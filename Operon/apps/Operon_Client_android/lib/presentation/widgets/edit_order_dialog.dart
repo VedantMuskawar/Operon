@@ -177,7 +177,7 @@ class _EditOrderDialogState extends State<EditOrderDialog> {
                     size: AppSpacing.iconMD,
                   ),
                   const SizedBox(width: AppSpacing.paddingSM),
-                  Expanded(
+                  const Expanded(
                     child: Text(
                       'Edit Order',
                       style: AppTypography.h3,
@@ -275,7 +275,7 @@ class _EditOrderDialogState extends State<EditOrderDialog> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                          borderSide: BorderSide(
+                          borderSide: const BorderSide(
                             color: AppColors.primary,
                             width: 2,
                           ),

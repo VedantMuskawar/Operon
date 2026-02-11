@@ -48,9 +48,9 @@ import 'package:dash_web/presentation/widgets/select_client_dialog.dart';
 import 'package:dash_web/presentation/widgets/record_payment_dialog.dart';
 import 'package:dash_web/presentation/widgets/record_purchase_dialog.dart';
 import 'package:dash_web/presentation/widgets/record_expense_dialog.dart';
+import 'package:dash_web/presentation/widgets/whatsapp_messages_switch_section.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -283,6 +283,14 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                         setState(() => _isProfileOpen = false);
                         _contentPage = ContentPage.users;
                       }
+                    : null,
+                extraActions: isAdminRole && organization?.id != null
+                    ? [
+                        WhatsappMessagesSwitchSection(
+                          orgId: organization!.id,
+                          isAdmin: true,
+                        ),
+                      ]
                     : null,
               ),
             ),
@@ -2006,7 +2014,7 @@ class _ContentSideSheet extends StatelessWidget {
                 )..load(),
               ),
             ],
-            child: DefaultTabController(
+            child: const DefaultTabController(
               length: 2,
               initialIndex: 0,
               child: Column(
@@ -2017,7 +2025,7 @@ class _ContentSideSheet extends StatelessWidget {
                     labelColor: AuthColors.textMain,
                     unselectedLabelColor: AuthColors.textSub,
                     indicatorColor: AuthColors.primary,
-                    tabs: const [
+                    tabs: [
                       Tab(text: 'Locations'),
                       Tab(text: 'Geofences'),
                     ],
@@ -2027,12 +2035,12 @@ class _ContentSideSheet extends StatelessWidget {
                     child: TabBarView(
                       children: [
                         SingleChildScrollView(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: const OrganizationLocationsPageContent(),
+                          padding: EdgeInsets.only(top: 16),
+                          child: OrganizationLocationsPageContent(),
                         ),
                         SingleChildScrollView(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: const GeofencesPageContent(),
+                          padding: EdgeInsets.only(top: 16),
+                          child: GeofencesPageContent(),
                         ),
                       ],
                     ),

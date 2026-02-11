@@ -49,6 +49,7 @@ import 'package:dash_mobile/presentation/views/expenses/expense_sub_categories_p
 import 'package:dash_mobile/presentation/views/expenses/record_expense_page.dart'
     show ExpenseFormType, RecordExpensePage;
 import 'package:dash_mobile/presentation/views/accounts_ledger_page.dart';
+import 'package:dash_mobile/presentation/views/account_detail_page.dart';
 import 'package:dash_mobile/presentation/blocs/expense_sub_categories/expense_sub_categories_cubit.dart';
 import 'package:dash_mobile/presentation/views/financial_transactions/unified_financial_transactions_page.dart';
 import 'package:dash_mobile/presentation/views/financial_transactions/salary_voucher_page.dart';
@@ -793,6 +794,17 @@ GoRouter buildRouter() {
           return _buildTransitionPage(
             key: state.pageKey,
             child: const AccountsLedgerPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/account-detail',
+        name: 'account-detail',
+        pageBuilder: (context, state) {
+          final ledger = state.extra;
+          return _buildTransitionPage(
+            key: state.pageKey,
+            child: AccountDetailPage(ledger: ledger),
           );
         },
       ),

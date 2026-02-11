@@ -295,7 +295,7 @@ class _DmExportDialogState extends State<DmExportDialog> {
                 TextField(
                   controller: _fromDmController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'From DM #',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
@@ -312,7 +312,7 @@ class _DmExportDialogState extends State<DmExportDialog> {
                 TextField(
                   controller: _toDmController,
                   style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'To DM #',
                     labelStyle: TextStyle(color: Colors.white70),
                     enabledBorder: OutlineInputBorder(

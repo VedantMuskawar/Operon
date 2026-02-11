@@ -24,9 +24,9 @@ class EmployeeWagesAnalyticsPage extends StatelessWidget {
                 children: [
                   Icon(Icons.analytics_outlined, size: 64, color: AuthColors.textSub.withValues(alpha: 0.5)),
                   const SizedBox(height: AppSpacing.paddingLG),
-                  Text(
+                  const Text(
                     'No analytics data available',
-                    style: const TextStyle(color: AuthColors.textSub, fontSize: 18, fontWeight: FontWeight.w600),
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: AppSpacing.paddingSM),
                   const Text(

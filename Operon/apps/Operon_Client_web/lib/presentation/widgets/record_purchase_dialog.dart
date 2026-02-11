@@ -529,14 +529,14 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         color: AuthColors.primaryWithOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.shopping_cart,
                         color: AuthColors.primary,
                         size: 20,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
+                    const Expanded(
                       child: Text(
                         'Record Purchase',
                         style: TextStyle(
@@ -548,7 +548,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.close, color: AuthColors.textSub),
+                      icon: const Icon(Icons.close, color: AuthColors.textSub),
                     ),
                   ],
                 ),
@@ -556,7 +556,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                 
                 // Vendor Type Selection (Option Buttons)
                 if (_availableTypes.isNotEmpty) ...[
-                  Text(
+                  const Text(
                     'Vendor Type',
                     style: TextStyle(
                       color: AuthColors.textSub,
@@ -593,13 +593,13 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   initialValue: _selectedVendor,
                   decoration: _inputDecoration('Vendor'),
                   dropdownColor: AuthColors.surface,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   items: _filteredVendors.map((vendor) {
                     return DropdownMenuItem<Vendor>(
                       value: vendor,
                       child: Text(
                         vendor.name,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textMain,
                           fontWeight: FontWeight.w600,
                         ),
@@ -646,9 +646,9 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       children: [
                         Text(
                           _formatDate(_selectedDate),
-                          style: TextStyle(color: AuthColors.textMain),
+                          style: const TextStyle(color: AuthColors.textMain),
                         ),
-                        Icon(Icons.calendar_today, color: AuthColors.textSub, size: 20),
+                        const Icon(Icons.calendar_today, color: AuthColors.textSub, size: 20),
                       ],
                     ),
                   ),
@@ -661,7 +661,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   label: _selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel
                       ? 'Voucher Number'
                       : 'Invoice/Voucher Number',
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   validator: (value) =>
                       (value == null || value.trim().isEmpty)
                           ? 'Enter ${_selectedVendor != null && _selectedVendor!.vendorType == VendorType.fuel ? "voucher" : "invoice/voucher"} number'
@@ -750,8 +750,8 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             ),
                           )
                         else if (_assignedMaterials.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
                             child: Text(
                               'No materials assigned to this vendor. Assign materials in vendor settings.',
                               style: TextStyle(
@@ -775,7 +775,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                   children: [
                                     Text(
                                       material.name,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: AuthColors.textMain,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -790,7 +790,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                             hintText: '0',
                                             suffixText: material.unitOfMeasurement,
                                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                            style: TextStyle(color: AuthColors.textMain),
+                                            style: const TextStyle(color: AuthColors.textMain),
                                             onChanged: (_) {
                                               setState(() {
                                                 _updateTotalAmount();
@@ -806,7 +806,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                             hintText: '0.00',
                                             prefixText: '₹',
                                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                            style: TextStyle(color: AuthColors.textMain),
+                                            style: const TextStyle(color: AuthColors.textMain),
                                             onChanged: (_) {
                                               setState(() {
                                                 _updateTotalAmount();
@@ -860,14 +860,14 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
                           Icon(
                             Icons.local_shipping_outlined,
                             color: AuthColors.textSub,
                             size: 20,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Text(
                             'Additional Charges',
                             style: TextStyle(
@@ -889,7 +889,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                               hintText: '0.00',
                               prefixText: '₹',
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              style: TextStyle(color: AuthColors.textMain),
+                              style: const TextStyle(color: AuthColors.textMain),
                               onChanged: (_) {
                                 setState(() {
                                   _updateTotalAmount();
@@ -911,7 +911,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                   },
                                   activeColor: AuthColors.primary,
                                 ),
-                                Text(
+                                const Text(
                                   'GST',
                                   style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                                 ),
@@ -927,7 +927,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                 hintText: '18',
                                 suffixText: '%',
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: TextStyle(color: AuthColors.textMain),
+                                style: const TextStyle(color: AuthColors.textMain),
                                 onChanged: (_) {
                                   setState(() {
                                     _updateTotalAmount();
@@ -998,7 +998,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   controller: _amountController,
                   label: 'Total Amount',
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                   readOnly: _selectedVendor != null &&
                       _selectedVendor!.vendorType == VendorType.rawMaterial &&
                       (_assignedMaterials.isNotEmpty ||
@@ -1021,7 +1021,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   controller: _descriptionController,
                   label: 'Description (Optional)',
                   maxLines: 3,
-                  style: TextStyle(color: AuthColors.textMain),
+                  style: const TextStyle(color: AuthColors.textMain),
                 ),
                 const SizedBox(height: 24),
                 
@@ -1054,7 +1054,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
@@ -1063,20 +1063,20 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.primary,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AuthColors.error,
           width: 2,
         ),

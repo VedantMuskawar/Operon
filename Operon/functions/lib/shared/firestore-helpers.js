@@ -40,6 +40,7 @@ exports.seedVendorAnalyticsDoc = seedVendorAnalyticsDoc;
 exports.seedDeliveriesAnalyticsDoc = seedDeliveriesAnalyticsDoc;
 exports.seedProductionsAnalyticsDoc = seedProductionsAnalyticsDoc;
 exports.seedTripWagesAnalyticsDoc = seedTripWagesAnalyticsDoc;
+exports.seedFuelAnalyticsDoc = seedFuelAnalyticsDoc;
 exports.getFirestore = getFirestore;
 const admin = __importStar(require("firebase-admin"));
 const constants_1 = require("./constants");
@@ -91,6 +92,12 @@ async function seedProductionsAnalyticsDoc(docRef, fyLabel, organizationId) {
  */
 async function seedTripWagesAnalyticsDoc(docRef, fyLabel, organizationId) {
     await docRef.set(Object.assign(Object.assign({ source: constants_1.TRIP_WAGES_ANALYTICS_SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('TRIP_WAGES', 'TRANSACTIONS') }), { merge: true });
+}
+/**
+ * Seed/initialize a fuel analytics document with default structure
+ */
+async function seedFuelAnalyticsDoc(docRef, fyLabel, organizationId) {
+    await docRef.set(Object.assign(Object.assign({ source: constants_1.FUEL_ANALYTICS_SOURCE_KEY, financialYear: fyLabel }, (organizationId && { organizationId })), { generatedAt: admin.firestore.FieldValue.serverTimestamp(), 'metadata.sourceCollections': admin.firestore.FieldValue.arrayUnion('TRANSACTIONS', 'VENDORS'), 'metrics.totalUnpaidFuelBalance.type': 'monthly', 'metrics.totalUnpaidFuelBalance.unit': 'currency', 'metrics.fuelConsumptionByVehicle.type': 'monthly', 'metrics.fuelConsumptionByVehicle.unit': 'currency' }), { merge: true });
 }
 /**
  * Get Firestore database instance

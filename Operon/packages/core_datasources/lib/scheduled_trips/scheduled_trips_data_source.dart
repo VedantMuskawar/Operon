@@ -319,6 +319,7 @@ class ScheduledTripsDataSource {
     int? itemIndex,
     String? productId,
     String? meterType,
+    String? transportMode,
   }) async {
     // Pre-transaction validation and preparation
     // Validate slot availability before transaction (for fast feedback)
@@ -552,6 +553,10 @@ class ScheduledTripsDataSource {
       'createdBy': createdBy,
       'updatedAt': FieldValue.serverTimestamp(),
     };
+
+    if (transportMode != null && transportMode.isNotEmpty) {
+      tripDocData['transportMode'] = transportMode;
+    }
 
     // Only include driver fields if they're not null (Firestore doesn't allow null values)
     if (driverId != null && driverId.isNotEmpty) {

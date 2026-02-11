@@ -4,7 +4,6 @@ import 'dart:isolate';
 
 import 'package:call_log/call_log.dart' as device_log;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_contacts/flutter_contacts.dart' as device_contacts;
 import 'package:permission_handler/permission_handler.dart';

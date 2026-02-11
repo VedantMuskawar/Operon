@@ -4,6 +4,7 @@ import * as admin from 'firebase-admin';
 import {
   TRANSACTIONS_COLLECTION,
   EMPLOYEE_LEDGERS_COLLECTION,
+  EMPLOYEES_COLLECTION,
 } from '../shared/constants';
 import { getFinancialContext } from '../shared/financial-year';
 import { getYearMonth, normalizeDate } from '../shared/date-helpers';
@@ -169,6 +170,31 @@ export const processTripWages = onCall(
       // Combine all employee IDs (unique set for attendance)
       const allEmployeeIds = Array.from(new Set([...loadingEmployeeIds, ...unloadingEmployeeIds]));
 
+      const employeeNameMap: Record<string, string> = {};
+      if (allEmployeeIds.length > 0) {
+        const nameBatches: string[][] = [];
+        for (let i = 0; i < allEmployeeIds.length; i += BATCH_WRITE_LIMIT) {
+          nameBatches.push(allEmployeeIds.slice(i, i + BATCH_WRITE_LIMIT));
+        }
+
+        for (const batch of nameBatches) {
+          const refs = batch.map((employeeId) =>
+            db.collection(EMPLOYEES_COLLECTION).doc(employeeId)
+          );
+          const docs = await db.getAll(...refs);
+          docs.forEach((doc) => {
+            if (!doc.exists) return;
+            const data = doc.data() || {};
+            const name =
+              (data.name as string | undefined) ||
+              (data.employeeName as string | undefined);
+            if (name && name.trim().length > 0) {
+              employeeNameMap[doc.id] = name.trim();
+            }
+          });
+        }
+      }
+
       logInfo('TripWages', 'processTripWages', 'Processing trip wage', {
         tripWageId,
         loadingEmployeeCount: loadingEmployeeIds.length,
@@ -194,11 +220,13 @@ export const processTripWages = onCall(
           for (const employeeId of employeeBatch) {
             const transactionRef = db.collection(TRANSACTIONS_COLLECTION).doc();
             const transactionId = transactionRef.id;
+            const employeeName = employeeNameMap[employeeId];
 
             const transactionData: any = {
               transactionId,
               organizationId,
               employeeId,
+              ...(employeeName ? { employeeName } : {}),
               ledgerType: 'employeeLedger',
               type: 'credit',
               category: 'wageCredit',
@@ -212,6 +240,7 @@ export const processTripWages = onCall(
                 tripWageId,
                 dmId,
                 taskType: 'loading',
+                ...(employeeName ? { employeeName } : {}),
               },
               createdBy,
               createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -251,11 +280,13 @@ export const processTripWages = onCall(
           for (const employeeId of employeeBatch) {
             const transactionRef = db.collection(TRANSACTIONS_COLLECTION).doc();
             const transactionId = transactionRef.id;
+            const employeeName = employeeNameMap[employeeId];
 
             const transactionData: any = {
               transactionId,
               organizationId,
               employeeId,
+              ...(employeeName ? { employeeName } : {}),
               ledgerType: 'employeeLedger',
               type: 'credit',
               category: 'wageCredit',
@@ -269,6 +300,7 @@ export const processTripWages = onCall(
                 tripWageId,
                 dmId,
                 taskType: 'unloading',
+                ...(employeeName ? { employeeName } : {}),
               },
               createdBy,
               createdAt: admin.firestore.FieldValue.serverTimestamp(),

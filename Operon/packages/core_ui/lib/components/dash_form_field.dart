@@ -52,10 +52,10 @@ class DashFormField extends StatelessWidget {
       hintText: hintText,
       prefixText: prefixText,
       suffixText: suffixText,
-      labelStyle: TextStyle(color: AuthColors.textSub),
-      hintStyle: TextStyle(color: AuthColors.textSub),
-      prefixStyle: TextStyle(color: AuthColors.textSub),
-      suffixStyle: TextStyle(color: AuthColors.textSub),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
+      hintStyle: const TextStyle(color: AuthColors.textSub),
+      prefixStyle: const TextStyle(color: AuthColors.textSub),
+      suffixStyle: const TextStyle(color: AuthColors.textSub),
       prefixIcon: prefixIcon,
       filled: true,
       fillColor: AuthColors.surface,
@@ -69,17 +69,17 @@ class DashFormField extends StatelessWidget {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AuthColors.primary, width: 2),
+        borderSide: const BorderSide(color: AuthColors.primary, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AuthColors.error),
+        borderSide: const BorderSide(color: AuthColors.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: AuthColors.error, width: 2),
+        borderSide: const BorderSide(color: AuthColors.error, width: 2),
       ),
-      errorStyle: TextStyle(color: AuthColors.error),
+      errorStyle: const TextStyle(color: AuthColors.error),
     );
   }
 
@@ -96,7 +96,7 @@ class DashFormField extends StatelessWidget {
       readOnly: readOnly,
       maxLines: maxLines,
       inputFormatters: inputFormatters,
-      style: style ?? TextStyle(color: AuthColors.textMain),
+      style: style ?? const TextStyle(color: AuthColors.textMain),
       decoration: _defaultDecoration(
         labelText: label,
         prefixIcon: prefix,

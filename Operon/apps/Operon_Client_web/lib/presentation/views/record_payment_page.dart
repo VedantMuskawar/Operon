@@ -394,7 +394,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AuthColors.textSub),
+            const Icon(Icons.chevron_right, color: AuthColors.textSub),
           ],
         ),
       ),
@@ -448,8 +448,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       controller: _amountController,
       label: 'Payment Amount',
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      prefix: Icon(Icons.currency_rupee, color: AuthColors.textSub),
-      style: TextStyle(color: AuthColors.textMain, fontSize: 18),
+      prefix: const Icon(Icons.currency_rupee, color: AuthColors.textSub),
+      style: const TextStyle(color: AuthColors.textMain, fontSize: 18),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'Please enter payment amount';
@@ -476,7 +476,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         ),
         child: Row(
           children: [
-            Icon(Icons.calendar_today, color: AuthColors.textSub),
+            const Icon(Icons.calendar_today, color: AuthColors.textSub),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -491,12 +491,12 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                     _selectedDate != null
                         ? '${_selectedDate!.day} ${_getMonthName(_selectedDate!.month)} ${_selectedDate!.year}'
                         : 'Select date',
-                    style: TextStyle(color: AuthColors.textMain, fontSize: 16),
+                    style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AuthColors.textSub),
+            const Icon(Icons.chevron_right, color: AuthColors.textSub),
           ],
         ),
       ),
@@ -600,7 +600,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 top: 8,
                 right: 8,
                 child: IconButton(
-                  icon: Icon(Icons.close, color: AuthColors.textMain),
+                  icon: const Icon(Icons.close, color: AuthColors.textMain),
                   style: IconButton.styleFrom(
                     backgroundColor: AuthColors.background.withOpacity(0.54),
                   ),
@@ -676,7 +676,7 @@ class _ClientSelectionDialog extends StatelessWidget {
                     style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   IconButton(
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -710,12 +710,12 @@ class _ClientSelectionDialog extends StatelessWidget {
                           backgroundColor: AuthColors.primary,
                           child: Text(
                             client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
-                            style: TextStyle(color: AuthColors.textMain),
+                            style: const TextStyle(color: AuthColors.textMain),
                           ),
                         ),
-                        title: Text(client.name, style: TextStyle(color: AuthColors.textMain)),
+                        title: Text(client.name, style: const TextStyle(color: AuthColors.textMain)),
                         subtitle: client.primaryPhone != null
-                            ? Text(client.primaryPhone!, style: TextStyle(color: AuthColors.textSub))
+                            ? Text(client.primaryPhone!, style: const TextStyle(color: AuthColors.textSub))
                             : null,
                         onTap: () => Navigator.of(context).pop({
                           'id': client.id,

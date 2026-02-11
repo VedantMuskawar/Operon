@@ -182,9 +182,9 @@ class _ScheduleMapViewState extends State<ScheduleMapView> {
         minChildSize: 0.5,
         maxChildSize: 0.95,
         builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AuthColors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
@@ -233,7 +233,7 @@ class _ScheduleMapViewState extends State<ScheduleMapView> {
             'Map view is only available on web.\n'
             'Current platform: ${defaultTargetPlatform.name}',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AuthColors.textMain),
+            style: const TextStyle(color: AuthColors.textMain),
           ),
         ),
       );
@@ -288,7 +288,7 @@ class _ScheduleMapViewState extends State<ScheduleMapView> {
                   color: AuthColors.textMainWithOpacity(0.1),
                 ),
               ),
-              child: Column(
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -300,22 +300,22 @@ class _ScheduleMapViewState extends State<ScheduleMapView> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   _LegendItem(
                     color: AuthColors.error,
                     label: 'Scheduled',
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   _LegendItem(
                     color: AuthColors.info,
                     label: 'Dispatched',
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   _LegendItem(
                     color: AuthColors.success,
                     label: 'Delivered',
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   _LegendItem(
                     color: AuthColors.warning,
                     label: 'Returned',
@@ -341,7 +341,7 @@ class _ScheduleMapViewState extends State<ScheduleMapView> {
                 ),
                 child: Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.warning_amber_rounded,
                       color: AuthColors.textMain,
                       size: 16,
@@ -350,7 +350,7 @@ class _ScheduleMapViewState extends State<ScheduleMapView> {
                     Expanded(
                       child: Text(
                         '${widget.scheduledTrips.length - tripsWithCoords} trip(s) without location data',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textMain,
                           fontSize: 12,
                         ),
@@ -391,7 +391,7 @@ class _LegendItem extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: AuthColors.textSub,
             fontSize: 11,
           ),

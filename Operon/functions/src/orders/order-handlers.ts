@@ -420,6 +420,7 @@ export const onPendingOrderCreated = onDocumentCreated(
       (totalAmount ? totalAmount - advanceAmount : undefined);
     const advancePaymentAccountId = (orderData.advancePaymentAccountId as string | undefined) || 'cash';
     const createdBy = (orderData.createdBy as string | undefined) || 'system';
+    const clientName = (orderData.clientName as string | undefined) || undefined;
 
     // Validate required fields
     if (!organizationId || !clientId) {
@@ -529,6 +530,7 @@ export const onPendingOrderCreated = onDocumentCreated(
       const transactionData = {
         organizationId,
         clientId,
+        ...(clientName ? { clientName } : {}),
         ledgerType: 'clientLedger',
         type: 'debit', // Debit = client paid upfront (decreases receivable)
         category: 'advance', // Advance payment on order
@@ -541,6 +543,7 @@ export const onPendingOrderCreated = onDocumentCreated(
           orderTotal: totalAmount || 0,
           advanceAmount,
           remainingAmount: remainingAmount || 0,
+          ...(clientName ? { clientName } : {}),
         },
         createdBy: createdBy,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),

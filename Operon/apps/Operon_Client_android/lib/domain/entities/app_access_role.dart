@@ -2,4 +2,5 @@
 ///
 /// This role defines what a user can access and do in the app.
 /// Separate from job roles which describe organizational positions.
+library;
 export 'package:operon_auth_flow/operon_auth_flow.dart' show AppAccessRole;

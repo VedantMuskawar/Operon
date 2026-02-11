@@ -9,7 +9,6 @@ import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dar
 import 'package:dash_mobile/presentation/widgets/empty/empty_state_widget.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
 import 'package:dash_mobile/presentation/widgets/standard_search_bar.dart';
-import 'package:core_ui/components/ledger_date_range_modal.dart';
 import 'package:dash_mobile/presentation/views/employee_wages/employee_wages_analytics_page.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/app_typography.dart';
@@ -521,7 +520,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                       decoration: BoxDecoration(
                                         color: AuthColors.surface.withOpacity(0.4),
                                       ),
-                                      child: Row(
+                                      child: const Row(
                                         children: [
                                           Expanded(
                                             flex: 2,
@@ -618,7 +617,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                         ),
                       ),
                     FloatingNavBar(
-                    items: [
+                    items: const [
                       NavBarItem(
                         icon: Icons.home_rounded,
                         label: 'Home',
@@ -697,7 +696,7 @@ class _WagesSummaryCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
               color: AuthColors.textSub,
               fontWeight: FontWeight.w500,
@@ -776,7 +775,7 @@ class _WagesTransactionTableRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${formatDate(date)}${transaction.referenceNumber != null ? ' • ${transaction.referenceNumber}' : ''}',
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AuthColors.textSub,
                       fontSize: 11,
                     ),
@@ -873,7 +872,7 @@ class _WagesTableFooter extends StatelessWidget {
               flex: 2,
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.calculate,
                     size: 18,
                     color: AuthColors.primary,
@@ -967,7 +966,7 @@ class _LoadingState extends StatelessWidget {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: AppSpacing.paddingXXL),
-            const Text(
+            Text(
               'Loading employee wages...',
               style: TextStyle(color: AuthColors.textSub, fontSize: 16),
             ),

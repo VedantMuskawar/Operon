@@ -4,10 +4,8 @@ import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
 import 'package:dash_web/data/repositories/users_repository.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/vehicles/vehicles_cubit.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -83,7 +81,7 @@ class VehiclesPageContent extends StatelessWidget {
                 );
               }
               if (state.vehicles.isEmpty) {
-                return EmptyState(
+                return const EmptyState(
                   icon: Icons.directions_car_outlined,
                   title: 'No vehicles yet',
                   message: 'Tap "Add Vehicle" to get started',

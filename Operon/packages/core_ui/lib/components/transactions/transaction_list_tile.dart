@@ -277,10 +277,10 @@ class TransactionListTile extends StatelessWidget {
                       ],
                     ),
                     // Row 2: Subtitle (if available)
-                    if (subtitleText != null && subtitleText!.isNotEmpty) ...[
+                    if (subtitleText != null && subtitleText.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
-                        subtitleText!,
+                        subtitleText,
                         style: const TextStyle(
                           color: AuthColors.textSub,
                           fontSize: 13,

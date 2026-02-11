@@ -2,7 +2,6 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/domain/entities/weekly_ledger_entry.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

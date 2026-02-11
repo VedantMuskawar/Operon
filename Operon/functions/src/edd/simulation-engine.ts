@@ -84,7 +84,7 @@ function buildInitialTimeline(vehicle: VehicleInput): Map<string, number> {
   const timeline = new Map<string, number>();
   const start = new Date();
   start.setUTCHours(0, 0, 0, 0);
-  start.setUTCDate(start.getUTCDate() + 1); // start from tomorrow
+  // Start from today to avoid immediate overdue flags on fresh recalcs.
 
   for (let i = 0; i < FORECAST_DAYS; i++) {
     const d = new Date(start);

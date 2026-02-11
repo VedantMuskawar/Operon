@@ -28,6 +28,10 @@ class CashLedgerState extends BaseState {
     this.payments = const [],
     this.purchases = const [],
     this.expenses = const [],
+    this.allRows = const [],
+    this.clientCreditRows = const [],
+    this.vendorCreditRows = const [],
+    this.employeeCreditRows = const [],
     this.selectedTab = CashLedgerTabType.orderTransactions,
     this.searchQuery = '',
     this.startDate,
@@ -40,6 +44,10 @@ class CashLedgerState extends BaseState {
   final List<Transaction> payments;
   final List<Transaction> purchases;
   final List<Transaction> expenses;
+  final List<Transaction> allRows;
+  final List<Transaction> clientCreditRows;
+  final List<Transaction> vendorCreditRows;
+  final List<Transaction> employeeCreditRows;
   final CashLedgerTabType selectedTab;
   final String searchQuery;
   final DateTime? startDate;
@@ -61,22 +69,8 @@ class CashLedgerState extends BaseState {
     }
   }
 
-  /// All transactions in one list, sorted by date (newest first).
-  /// Each transaction carries a row type for display (Orders, Payments, Purchases, Expenses).
-  List<Transaction> get allRows {
-    final list = <Transaction>[
-      ...orderTransactions,
-      ...payments,
-      ...purchases,
-      ...expenses,
-    ];
-    list.sort((a, b) {
-      final aDate = a.createdAt ?? DateTime(1970);
-      final bDate = b.createdAt ?? DateTime(1970);
-      return bDate.compareTo(aDate);
-    });
-    return list;
-  }
+  /// All transactions in one list for display, sorted by date (newest first).
+  List<Transaction> get displayRows => allRows;
 
   double get totalOrderTransactions =>
       orderTransactions.fold(0.0, (sum, tx) => sum + tx.amount);
@@ -190,6 +184,10 @@ class CashLedgerState extends BaseState {
     List<Transaction>? payments,
     List<Transaction>? purchases,
     List<Transaction>? expenses,
+    List<Transaction>? allRows,
+    List<Transaction>? clientCreditRows,
+    List<Transaction>? vendorCreditRows,
+    List<Transaction>? employeeCreditRows,
     CashLedgerTabType? selectedTab,
     String? searchQuery,
     DateTime? startDate,
@@ -203,6 +201,10 @@ class CashLedgerState extends BaseState {
       payments: payments ?? this.payments,
       purchases: purchases ?? this.purchases,
       expenses: expenses ?? this.expenses,
+      allRows: allRows ?? this.allRows,
+      clientCreditRows: clientCreditRows ?? this.clientCreditRows,
+      vendorCreditRows: vendorCreditRows ?? this.vendorCreditRows,
+      employeeCreditRows: employeeCreditRows ?? this.employeeCreditRows,
       selectedTab: selectedTab ?? this.selectedTab,
       searchQuery: searchQuery ?? this.searchQuery,
       startDate: startDate ?? this.startDate,

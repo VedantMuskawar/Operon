@@ -1,10 +1,7 @@
 import 'package:core_bloc/core_bloc.dart';
-import 'package:core_bloc/home/home_state.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/repositories/profile_stats_repository_adapter.dart';
-import 'package:dash_mobile/data/repositories/users_repository.dart';
-import 'package:dash_mobile/presentation/blocs/auth/auth_bloc.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/home_sections/home_overview_view.dart';
 import 'package:dash_mobile/presentation/views/home_sections/pending_orders_view.dart';
@@ -14,9 +11,7 @@ import 'package:dash_mobile/presentation/views/home_sections/attendance_view.dar
 import 'package:dash_mobile/presentation/views/cash_ledger/cash_ledger_section.dart';
 import 'package:dash_mobile/shared/utils/responsive_layout.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
-import 'package:dash_mobile/presentation/widgets/caller_id_switch_section.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 

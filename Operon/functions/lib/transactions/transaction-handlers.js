@@ -162,31 +162,49 @@ async function fetchEntityName(collection, entityId) {
     return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 async function buildTransactionNameUpdates(transaction) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f;
     const updates = {};
     const metadata = transaction.metadata || {};
-    const clientName = (_a = transaction.clientName) === null || _a === void 0 ? void 0 : _a.trim();
+    const clientNameFromTransaction = (_a = transaction.clientName) === null || _a === void 0 ? void 0 : _a.trim();
+    const clientNameFromMetadata = (_b = metadata.clientName) === null || _b === void 0 ? void 0 : _b.trim();
+    let clientName = clientNameFromTransaction || clientNameFromMetadata;
     if (!clientName && transaction.clientId) {
-        const resolvedClientName = await fetchEntityName(constants_1.CLIENTS_COLLECTION, transaction.clientId);
-        if (resolvedClientName) {
-            updates.clientName = resolvedClientName;
-            if (!((_b = metadata.clientName) === null || _b === void 0 ? void 0 : _b.trim())) {
-                updates['metadata.clientName'] = resolvedClientName;
-            }
+        clientName = await fetchEntityName(constants_1.CLIENTS_COLLECTION, transaction.clientId);
+    }
+    if (clientName) {
+        if (!clientNameFromTransaction) {
+            updates.clientName = clientName;
+        }
+        if (!clientNameFromMetadata) {
+            updates['metadata.clientName'] = clientName;
         }
     }
-    const vendorName = (_c = metadata.vendorName) === null || _c === void 0 ? void 0 : _c.trim();
+    const vendorNameFromTransaction = (_c = transaction.vendorName) === null || _c === void 0 ? void 0 : _c.trim();
+    const vendorNameFromMetadata = (_d = metadata.vendorName) === null || _d === void 0 ? void 0 : _d.trim();
+    let vendorName = vendorNameFromTransaction || vendorNameFromMetadata;
     if (!vendorName && transaction.vendorId) {
-        const resolvedVendorName = await fetchEntityName(constants_1.VENDORS_COLLECTION, transaction.vendorId);
-        if (resolvedVendorName) {
-            updates['metadata.vendorName'] = resolvedVendorName;
+        vendorName = await fetchEntityName(constants_1.VENDORS_COLLECTION, transaction.vendorId);
+    }
+    if (vendorName) {
+        if (!vendorNameFromTransaction) {
+            updates.vendorName = vendorName;
+        }
+        if (!vendorNameFromMetadata) {
+            updates['metadata.vendorName'] = vendorName;
         }
     }
-    const employeeName = (_d = metadata.employeeName) === null || _d === void 0 ? void 0 : _d.trim();
+    const employeeNameFromTransaction = (_e = transaction.employeeName) === null || _e === void 0 ? void 0 : _e.trim();
+    const employeeNameFromMetadata = (_f = metadata.employeeName) === null || _f === void 0 ? void 0 : _f.trim();
+    let employeeName = employeeNameFromTransaction || employeeNameFromMetadata;
     if (!employeeName && transaction.employeeId) {
-        const resolvedEmployeeName = await fetchEntityName(constants_1.EMPLOYEES_COLLECTION, transaction.employeeId);
-        if (resolvedEmployeeName) {
-            updates['metadata.employeeName'] = resolvedEmployeeName;
+        employeeName = await fetchEntityName(constants_1.EMPLOYEES_COLLECTION, transaction.employeeId);
+    }
+    if (employeeName) {
+        if (!employeeNameFromTransaction) {
+            updates.employeeName = employeeName;
+        }
+        if (!employeeNameFromMetadata) {
+            updates['metadata.employeeName'] = employeeName;
         }
     }
     return updates;

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
-import 'package:core_ui/theme/auth_colors.dart';
 import 'package:core_ui/components/data_table.dart' as custom_table;
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
@@ -488,7 +487,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sort, size: 16, color: AuthColors.textSub),
+                        const Icon(Icons.sort, size: 16, color: AuthColors.textSub),
                         const SizedBox(width: 6),
                         DropdownButtonHideUnderline(
                           child: DropdownButton<_FuelSortOption>(
@@ -580,7 +579,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                     ),
                     child: Text(
                       '${filtered.length} ${filtered.length == 1 ? 'purchase' : 'purchases'}',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textSub,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -783,7 +782,7 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -810,12 +809,12 @@ class _StatCard extends StatelessWidget {
 class _LoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 24),
+          CircularProgressIndicator(),
+          SizedBox(height: 24),
           Text(
             'Loading fuel purchases...',
             style: TextStyle(
@@ -870,7 +869,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               message,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 14,
               ),
@@ -923,7 +922,7 @@ class _EmptyPurchasesState extends StatelessWidget {
                 color: AuthColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.local_gas_station_outlined,
                 size: 40,
                 color: AuthColors.primary,
@@ -939,7 +938,7 @@ class _EmptyPurchasesState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Start by recording your first fuel purchase',
               style: TextStyle(
                 color: AuthColors.textSub,
@@ -973,7 +972,7 @@ class _EmptySearchState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.search_off,
               size: 64,
               color: AuthColors.textDisabled,
@@ -990,7 +989,7 @@ class _EmptySearchState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'No purchases match "$query"',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 14,
               ),
@@ -1135,7 +1134,7 @@ class _FuelPurchaseTable extends StatelessWidget {
                   ),
                   child: Text(
                     linkedTripsCount.toString(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AuthColors.primary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
@@ -1144,9 +1143,9 @@ class _FuelPurchaseTable extends StatelessWidget {
                   ),
                 );
               }
-              return Text(
+              return const Text(
                 '0',
-                style: const TextStyle(
+                style: TextStyle(
                   color: AuthColors.textMain,
                   fontSize: 14,
                 ),
@@ -1213,7 +1212,7 @@ class _PaginationControls extends StatelessWidget {
             // Items info
             Text(
               'Showing $startItem-$endItem of $totalItems',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 14,
               ),

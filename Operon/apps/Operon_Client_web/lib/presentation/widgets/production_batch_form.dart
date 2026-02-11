@@ -3,7 +3,6 @@ import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashButtonVariant, DashFormField, DashSnackbar, DashTheme;
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/repositories/products_repository.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/presentation/blocs/production_batches/production_batches_cubit.dart';
 import 'package:dash_web/presentation/widgets/production_batch_selector.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -398,9 +397,9 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
+                                const Text(
                                   'Record production data and calculate wages',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: AuthColors.textSub,
                                     fontSize: 13,
                                   ),
@@ -439,8 +438,8 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       controller: _batchDateController,
                                       label: 'Batch Date',
                                       readOnly: true,
-                                      prefix: Icon(Icons.calendar_today, color: AuthColors.textSub),
-                                      style: TextStyle(color: AuthColors.textMain),
+                                      prefix: const Icon(Icons.calendar_today, color: AuthColors.textSub),
+                                      style: const TextStyle(color: AuthColors.textMain),
                                     ),
                                   ),
                                 ),
@@ -484,7 +483,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       value: null,
                                       child: Text(
                                         'Loading wage settings...',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: AuthColors.textSub,
                                           fontStyle: FontStyle.italic,
                                         ),
@@ -520,7 +519,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       value: null,
                                       child: Text(
                                         'No production methods available',
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: AuthColors.textSub,
                                           fontStyle: FontStyle.italic,
                                         ),
@@ -700,7 +699,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                       return const Center(
                                         child: Padding(
                                           padding: EdgeInsets.all(16.0),
-                                          child: const Text(
+                                          child: Text(
                                             'No employees found',
                                             style: TextStyle(color: AuthColors.textSub),
                                           ),
@@ -765,7 +764,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                     controller: _bricksProducedController,
                                     label: 'Bricks Produced (Y) *',
                                     keyboardType: TextInputType.number,
-                                    style: TextStyle(color: AuthColors.textMain),
+                                    style: const TextStyle(color: AuthColors.textMain),
                                     validator: (value) {
                                       if (value == null || value.isEmpty) {
                                         return 'Please enter bricks produced';
@@ -784,7 +783,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                                     controller: _bricksStackedController,
                                     label: 'Bricks Stacked (Z) *',
                                     keyboardType: TextInputType.number,
-                                    style: TextStyle(color: AuthColors.textMain),
+                                    style: const TextStyle(color: AuthColors.textMain),
                                     validator: (value) {
                                       if (value == null || value.isEmpty) {
                                         return 'Please enter bricks stacked';
@@ -976,7 +975,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                               controller: _notesController,
                               label: 'Notes (Optional)',
                               maxLines: 3,
-                              style: TextStyle(color: AuthColors.textMain),
+                              style: const TextStyle(color: AuthColors.textMain),
                             ),
                           ],
                         ),
@@ -1000,7 +999,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
                           if (_totalWages != null && _wagePerEmployee != null)
                             Row(
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.info_outline,
                                   size: 16,
                                   color: AuthColors.textSub,

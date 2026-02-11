@@ -20,6 +20,36 @@ class TransactionsDataSource {
     final docRef = _transactionsRef().doc();
     final transactionData = transaction.toJson();
     transactionData['transactionId'] = docRef.id;
+
+    final metadata = Map<String, dynamic>.from(
+      transactionData['metadata'] as Map<String, dynamic>? ?? {},
+    );
+
+    void syncName({required String idKey, required String nameKey}) {
+      final idValue = transactionData[idKey];
+      if (idValue is! String || idValue.trim().isEmpty) return;
+
+      final nameFromData = (transactionData[nameKey] as String?)?.trim();
+      final nameFromMetadata = (metadata[nameKey] as String?)?.trim();
+      final resolvedName =
+          (nameFromData != null && nameFromData.isNotEmpty)
+              ? nameFromData
+              : (nameFromMetadata != null && nameFromMetadata.isNotEmpty)
+                  ? nameFromMetadata
+                  : null;
+      if (resolvedName == null) return;
+
+      transactionData[nameKey] = resolvedName;
+      metadata[nameKey] = resolvedName;
+    }
+
+    syncName(idKey: 'clientId', nameKey: 'clientName');
+    syncName(idKey: 'vendorId', nameKey: 'vendorName');
+    syncName(idKey: 'employeeId', nameKey: 'employeeName');
+
+    if (metadata.isNotEmpty) {
+      transactionData['metadata'] = metadata;
+    }
     
     await docRef.set(transactionData);
     return docRef.id;

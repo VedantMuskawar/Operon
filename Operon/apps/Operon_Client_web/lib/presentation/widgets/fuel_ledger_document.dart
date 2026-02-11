@@ -49,7 +49,7 @@ class FuelLedgerDocument extends StatelessWidget {
 
   Widget _buildHeader() {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           top: BorderSide(color: AuthColors.info, width: 2),
         ),
@@ -86,14 +86,14 @@ class FuelLedgerDocument extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     companyHeader.address,
-                    style: TextStyle(fontSize: 10, color: AuthColors.textSub),
+                    style: const TextStyle(fontSize: 10, color: AuthColors.textSub),
                   ),
                 ],
                 if (companyHeader.phone.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     companyHeader.phone,
-                    style: TextStyle(fontSize: 10, color: AuthColors.textSub),
+                    style: const TextStyle(fontSize: 10, color: AuthColors.textSub),
                   ),
                 ],
               ],
@@ -118,7 +118,7 @@ class FuelLedgerDocument extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: AuthColors.textSub.withOpacity(0.15),
-        border: Border(
+        border: const Border(
           left: BorderSide(color: AuthColors.textSub, width: 3),
         ),
       ),
@@ -264,7 +264,7 @@ class FuelLedgerDocument extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Payment Mode',
                   style: TextStyle(fontSize: 9, color: AuthColors.textSub),
                 ),
@@ -283,7 +283,7 @@ class FuelLedgerDocument extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Payment Date',
                   style: TextStyle(fontSize: 9, color: AuthColors.textSub),
                 ),

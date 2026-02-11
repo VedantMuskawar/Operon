@@ -1,11 +1,9 @@
-import 'dart:typed_data';
 
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/datasources/payment_accounts_data_source.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/domain/entities/payment_account.dart';
 import 'package:dash_web/presentation/blocs/expenses/expenses_cubit.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
@@ -692,8 +690,9 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           _selectedVendor = null;
           _selectedEmployees = [];
           _selectedSubCategory = null;
-          if (type != ExpenseFormType.salaryDebit)
+          if (type != ExpenseFormType.salaryDebit) {
             _cashVoucherPhotoBytes = null;
+          }
         });
       },
       child: Container(

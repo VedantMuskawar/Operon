@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart';
@@ -214,14 +213,14 @@ class _DateRangeBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.date_range, size: 18, color: AuthColors.primary),
+          const Icon(Icons.date_range, size: 18, color: AuthColors.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'Selected period',
                   style: TextStyle(
                     color: AuthColors.textSub,
@@ -249,7 +248,7 @@ class _DateRangeBanner extends StatelessWidget {
             ),
             child: Text(
               '$daysCount days',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.primary,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -280,7 +279,7 @@ class _DataTimestamp extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.update, size: 14, color: AuthColors.textSub),
+          const Icon(Icons.update, size: 14, color: AuthColors.textSub),
           const SizedBox(width: 8),
           Text(
             'Last updated: $formatted',
@@ -318,7 +317,7 @@ class _StatCards extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (startDate != null && endDate != null) ...[
-          Text(
+          const Text(
             'Summary for selected period',
             style: TextStyle(
               color: AuthColors.textSub,
@@ -410,7 +409,7 @@ class _StatCard extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -564,7 +563,7 @@ class _MonthlyLineChart extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         '${filteredMonths.length} months in selected range',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.textSub,
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
@@ -768,7 +767,7 @@ class _MonthlyLineChart extends StatelessWidget {
                       return [
                         LineTooltipItem(
                           monthLabel,
-                          TextStyle(
+                          const TextStyle(
                             color: AuthColors.textMain,
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -919,7 +918,7 @@ class _DailyTrendsChart extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${filteredDays.length} days in selected range',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textSub,
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -1264,7 +1263,7 @@ class _ReceivableAgingDonut extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             'As of ${DateFormat('MMM d, yyyy').format(endDate!)}',
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AuthColors.textSub,
                               fontSize: 12,
                               fontWeight: FontWeight.w400,

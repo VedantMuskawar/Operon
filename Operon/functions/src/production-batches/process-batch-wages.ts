@@ -4,6 +4,7 @@ import * as admin from 'firebase-admin';
 import {
   TRANSACTIONS_COLLECTION,
   EMPLOYEE_LEDGERS_COLLECTION,
+  EMPLOYEES_COLLECTION,
   PRODUCTION_BATCHES_COLLECTION,
 } from '../shared/constants';
 import { getFinancialContext } from '../shared/financial-year';
@@ -253,6 +254,31 @@ export const processProductionBatchWages = onCall(
 
       const financialYear = getFinancialContext(parsedPaymentDate).fyLabel;
       const transactionIds: string[] = [];
+      const employeeNameMap: Record<string, string> = {};
+
+      if (employeeIds.length > 0) {
+        const nameBatches: string[][] = [];
+        for (let i = 0; i < employeeIds.length; i += BATCH_WRITE_LIMIT) {
+          nameBatches.push(employeeIds.slice(i, i + BATCH_WRITE_LIMIT));
+        }
+
+        for (const batch of nameBatches) {
+          const refs = batch.map((employeeId) =>
+            db.collection(EMPLOYEES_COLLECTION).doc(employeeId)
+          );
+          const docs = await db.getAll(...refs);
+          docs.forEach((doc) => {
+            if (!doc.exists) return;
+            const data = doc.data() || {};
+            const name =
+              (data.name as string | undefined) ||
+              (data.employeeName as string | undefined);
+            if (name && name.trim().length > 0) {
+              employeeNameMap[doc.id] = name.trim();
+            }
+          });
+        }
+      }
 
       logInfo('ProductionBatches', 'processProductionBatchWages', 'Processing batch', {
         batchId,
@@ -277,11 +303,13 @@ export const processProductionBatchWages = onCall(
         for (const employeeId of employeeBatch) {
           const transactionRef = db.collection(TRANSACTIONS_COLLECTION).doc();
           const transactionId = transactionRef.id;
+          const employeeName = employeeNameMap[employeeId];
 
           const transactionData: any = {
             transactionId,
             organizationId,
             employeeId,
+            ...(employeeName ? { employeeName } : {}),
             ledgerType: 'employeeLedger',
             type: 'credit',
             category: 'wageCredit',
@@ -293,6 +321,7 @@ export const processProductionBatchWages = onCall(
               sourceType: 'productionBatch',
               sourceId: batchId,
               batchId,
+              ...(employeeName ? { employeeName } : {}),
             },
             createdBy,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),

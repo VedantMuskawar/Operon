@@ -416,7 +416,7 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
         final items = dm['items'] as List<dynamic>? ?? [];
         final first = items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
         final qty = (first?['fixedQuantityPerTrip'] ?? first?['quantity']) as num?;
-        if (qty == null) return Text('—', style: TextStyle(color: AuthColors.textSub, fontSize: 13));
+        if (qty == null) return const Text('—', style: TextStyle(color: AuthColors.textSub, fontSize: 13));
         return Text(qty.toString(), style: const TextStyle(color: AuthColors.textMain, fontSize: 13));
       },
     ),
@@ -429,7 +429,7 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
         final first = items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
         final price = first != null ? (first['unitPrice'] as num?)?.toDouble() : null;
         if (price == null || price <= 0) {
-          return Text('—', style: TextStyle(color: AuthColors.textSub, fontSize: 13));
+          return const Text('—', style: TextStyle(color: AuthColors.textSub, fontSize: 13));
         }
         return Text(
           '₹${price.toStringAsFixed(2)}',
@@ -455,7 +455,7 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
       flex: 2,
       cellBuilder: (_, dm, __) {
         final zone = dm['deliveryZone'] as Map<String, dynamic>?;
-        if (zone == null) return Text('—', style: TextStyle(color: AuthColors.textSub, fontSize: 13));
+        if (zone == null) return const Text('—', style: TextStyle(color: AuthColors.textSub, fontSize: 13));
         final region = zone['region'] as String? ?? '';
         final city = zone['city_name'] as String? ?? zone['city'] as String? ?? '';
         final text = [region, city].where((s) => s.isNotEmpty).join(', ');
@@ -486,7 +486,7 @@ class _DeliveryMemosViewState extends State<DeliveryMemosView> {
         final tp = dm['tripPricing'] as Map<String, dynamic>?;
         final total = tp != null ? (tp['total'] as num?)?.toDouble() ?? 0.0 : 0.0;
         if (total <= 0) {
-          return Text('—', style: TextStyle(color: AuthColors.textSub, fontSize: 13));
+          return const Text('—', style: TextStyle(color: AuthColors.textSub, fontSize: 13));
         }
         return Text(
           '₹${total.toStringAsFixed(2)}',

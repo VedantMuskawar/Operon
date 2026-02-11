@@ -78,14 +78,14 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [AuthColors.surface, AuthColors.background],
             ),
             borderRadius: BorderRadius.circular(24),
           ),
-          child: Text(
+          child: const Text(
             'Please select an organization first',
             style: TextStyle(color: AuthColors.textSub),
           ),
@@ -113,7 +113,7 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
               constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [AuthColors.surface, AuthColors.background],
@@ -149,7 +149,7 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: Icon(Icons.close, color: AuthColors.textSub),
+                        icon: const Icon(Icons.close, color: AuthColors.textSub),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
@@ -191,17 +191,17 @@ class _SelectClientDialogState extends State<SelectClientDialog> {
         return TextField(
           controller: _searchController,
           autofocus: true,
-          style: TextStyle(color: AuthColors.textMain),
+          style: const TextStyle(color: AuthColors.textMain),
           decoration: InputDecoration(
-            prefixIcon: Icon(Icons.search, color: AuthColors.textSub),
+            prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
             suffixIcon: state.searchQuery.isNotEmpty
                 ? IconButton(
-                    icon: Icon(Icons.close, color: AuthColors.textSub),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: () => _clearSearch(providerContext),
                   )
                 : null,
             hintText: 'Search clients by name or phone',
-            hintStyle: TextStyle(color: AuthColors.textDisabled),
+            hintStyle: const TextStyle(color: AuthColors.textDisabled),
             filled: true,
             fillColor: AuthColors.surface,
             border: OutlineInputBorder(
@@ -241,7 +241,7 @@ class _SearchResultsSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Text(
                   'Search Results',
                   style: TextStyle(
@@ -271,7 +271,7 @@ class _SearchResultsSection extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Text(
                 'No clients found for "${state.searchQuery}".',
-                style: TextStyle(color: AuthColors.textSub),
+                style: const TextStyle(color: AuthColors.textSub),
               ),
             )
           else
@@ -393,7 +393,7 @@ class _ClientTile extends StatelessWidget {
                   color: AuthColors.primaryWithOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.person,
                   color: AuthColors.primary,
                   size: 24,
@@ -406,7 +406,7 @@ class _ClientTile extends StatelessWidget {
                   children: [
                     Text(
                       client.name,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textMain,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -415,7 +415,7 @@ class _ClientTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       phoneLabel,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AuthColors.textSub,
                         fontSize: 14,
                       ),
@@ -423,7 +423,7 @@ class _ClientTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
+              const Icon(
                 Icons.chevron_right,
                 color: AuthColors.textSub,
               ),

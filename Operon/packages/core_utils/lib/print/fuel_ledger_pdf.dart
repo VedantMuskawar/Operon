@@ -63,7 +63,7 @@ Future<Uint8List> generateFuelLedgerPdf({
 pw.Widget _buildVendorTitle(String vendorName) {
   return pw.Container(
     padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-    decoration: pw.BoxDecoration(
+    decoration: const pw.BoxDecoration(
       color: PdfColors.grey50,
       border: pw.Border(
         left: pw.BorderSide(color: PdfColors.grey700, width: 3),
@@ -192,7 +192,7 @@ pw.Widget _buildFooter(
             children: [
               pw.Text(
                 'Payment Mode',
-                style: pw.TextStyle(
+                style: const pw.TextStyle(
                   fontSize: 9,
                   color: PdfColors.grey700,
                 ),
@@ -214,7 +214,7 @@ pw.Widget _buildFooter(
             children: [
               pw.Text(
                 'Payment Date',
-                style: pw.TextStyle(
+                style: const pw.TextStyle(
                   fontSize: 9,
                   color: PdfColors.grey700,
                 ),

@@ -5,7 +5,6 @@ import 'package:dash_mobile/data/repositories/employees_repository.dart';
 import 'package:dash_mobile/data/repositories/products_repository.dart';
 import 'package:dash_mobile/data/repositories/users_repository.dart';
 import 'package:dash_mobile/data/repositories/vehicles_repository.dart';
-import 'package:dash_mobile/domain/entities/organization_employee.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/vehicles/vehicles_cubit.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';

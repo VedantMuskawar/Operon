@@ -68,7 +68,7 @@ class _DriverMapState extends State<DriverMap> {
 
     // Otherwise, listen to live location stream
     _currentTripId = widget.tripId;
-    DateTime? _lastCameraUpdate;
+    DateTime? lastCameraUpdate;
     _locationSub = widget.locationService.currentLocationStream.listen((loc) async {
       final controller = _controller;
       if (controller == null) return;
@@ -121,9 +121,9 @@ class _DriverMapState extends State<DriverMap> {
       // Throttle camera updates to reduce BLASTBufferQueue warnings
       // Update camera max once per second to prevent rendering overload
       final now = DateTime.now();
-      if (_lastCameraUpdate == null ||
-          now.difference(_lastCameraUpdate!).inMilliseconds >= 1000) {
-        _lastCameraUpdate = now;
+      if (lastCameraUpdate == null ||
+          now.difference(lastCameraUpdate!).inMilliseconds >= 1000) {
+        lastCameraUpdate = now;
         final camera = CameraUpdate.newCameraPosition(
           CameraPosition(
             target: point,

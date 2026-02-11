@@ -43,7 +43,9 @@ class Transaction {
     this.clientId,
     this.clientName,
     this.vendorId,
+    this.vendorName,
     this.employeeId,
+    this.employeeName,
     this.splitGroupId,
     required this.ledgerType,
     required this.type,
@@ -72,7 +74,9 @@ class Transaction {
   final String? clientId; // Optional for general expenses
   final String? clientName; // Display name for client (denormalized)
   final String? vendorId; // For vendor ledger transactions
+  final String? vendorName; // Display name for vendor (denormalized)
   final String? employeeId; // For employee ledger transactions
+  final String? employeeName; // Display name for employee (denormalized)
   final String? splitGroupId; // Shared identifier for split transactions
   final LedgerType ledgerType;
   final TransactionType type;
@@ -103,7 +107,9 @@ class Transaction {
       if (clientId != null) 'clientId': clientId,
       if (clientName != null) 'clientName': clientName,
       if (vendorId != null) 'vendorId': vendorId,
+      if (vendorName != null) 'vendorName': vendorName,
       if (employeeId != null) 'employeeId': employeeId,
+      if (employeeName != null) 'employeeName': employeeName,
       if (splitGroupId != null) 'splitGroupId': splitGroupId,
       'ledgerType': ledgerType.name,
       'type': type.name,
@@ -146,7 +152,9 @@ class Transaction {
       clientId: json['clientId'] as String?,
       clientName: json['clientName'] as String?,
       vendorId: json['vendorId'] as String?,
+      vendorName: json['vendorName'] as String?,
       employeeId: json['employeeId'] as String?,
+      employeeName: json['employeeName'] as String?,
       splitGroupId: json['splitGroupId'] as String?,
       ledgerType: LedgerType.values.firstWhere(
         (l) => l.name == json['ledgerType'],
@@ -187,7 +195,9 @@ class Transaction {
     String? clientId,
     String? clientName,
     String? vendorId,
+    String? vendorName,
     String? employeeId,
+    String? employeeName,
     String? splitGroupId,
     LedgerType? ledgerType,
     TransactionType? type,
@@ -216,7 +226,9 @@ class Transaction {
       clientId: clientId ?? this.clientId,
       clientName: clientName ?? this.clientName,
       vendorId: vendorId ?? this.vendorId,
+      vendorName: vendorName ?? this.vendorName,
       employeeId: employeeId ?? this.employeeId,
+      employeeName: employeeName ?? this.employeeName,
       splitGroupId: splitGroupId ?? this.splitGroupId,
       ledgerType: ledgerType ?? this.ledgerType,
       type: type ?? this.type,

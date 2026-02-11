@@ -1,16 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
-import 'package:core_datasources/core_datasources.dart' hide ScheduledTripsRepository, ScheduledTripsDataSource;
+import 'package:core_datasources/core_datasources.dart'
+    hide ScheduledTripsRepository, ScheduledTripsDataSource;
 import 'package:dash_mobile/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_mobile/data/repositories/scheduled_trips_repository.dart';
-import 'package:dash_mobile/data/services/storage_service.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
 import 'package:dash_mobile/domain/entities/payment_account.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_mobile/data/services/dm_print_service.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
-import 'package:dash_mobile/presentation/widgets/delivery_photo_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/dm_print_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/return_payment_dialog.dart';
 import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
@@ -55,7 +53,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     // Use WidgetsBinding to ensure context is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      
+
       final orgContext = context.read<OrganizationContextCubit>().state;
       final organization = orgContext.organization;
       if (organization == null) return;
@@ -72,7 +70,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             final updatedTrip = <String, dynamic>{
               'id': snapshot.id,
             };
-            
+
             data.forEach((key, value) {
               if (value is Timestamp) {
                 updatedTrip[key] = value.toDate();
@@ -80,7 +78,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                 updatedTrip[key] = value;
               }
             });
-            
+
             setState(() {
               _trip = updatedTrip;
             });
@@ -128,87 +126,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     );
   }
 
-  Future<void> _showInitialReadingDialog(BuildContext context) async {
-    final readingController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    final result = await showDialog<double>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AuthColors.surface,
-        title: const Text(
-          'Enter Initial Reading',
-          style: TextStyle(color: AuthColors.textMain),
-        ),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Please enter the odometer reading',
-                style: TextStyle(color: AuthColors.textSub),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: readingController,
-                keyboardType: TextInputType.number,
-                style: TextStyle(color: AuthColors.textMain),
-                decoration: InputDecoration(
-                  labelText: 'Odometer Reading',
-                  labelStyle: TextStyle(color: AuthColors.textSub),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AuthColors.textMain.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AuthColors.info),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter odometer reading';
-                  }
-                  final reading = double.tryParse(value);
-                  if (reading == null || reading < 0) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                final reading = double.tryParse(readingController.text);
-                if (reading != null) {
-                  Navigator.of(context).pop(reading);
-                }
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AuthColors.info,
-            ),
-            child: const Text('Submit'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      await _dispatchTrip(context, result);
-    }
-  }
-
-  Future<void> _dispatchTrip(BuildContext context, double? initialReading) async {
+  Future<void> _dispatchTrip(
+      BuildContext context, double? initialReading) async {
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
       if (context.mounted) {
@@ -297,123 +216,13 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
   }
 
-  Future<void> _showDeliveryPhotoDialog(BuildContext context) async {
-    final result = await showDialog<File?>(
-      context: context,
-      builder: (context) => const DeliveryPhotoDialog(),
-    );
-
-    // result can be null (skip), or File (upload photo)
-    await _markAsDelivered(context, result);
-  }
-
-  Future<void> _markAsDelivered(BuildContext context, File? photoFile) async {
-    final tripId = _trip['id'] as String?;
-    if (tripId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Trip ID not found')),
-        );
-      }
-      return;
-    }
-
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User not found')),
-        );
-      }
-      return;
-    }
-
-    final orgContext = context.read<OrganizationContextCubit>().state;
-    final organization = orgContext.organization;
-    if (organization == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Organization not found')),
-        );
-      }
-      return;
-    }
-
-    final userRole = orgContext.appAccessRole?.name ?? 'unknown';
-    final orderId = _trip['orderId'] as String? ?? '';
-
-    try {
-      if (!context.mounted) return;
-      
-      String? photoUrl;
-      
-      // Upload photo only if provided
-      if (photoFile != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Uploading photo and marking as delivered...')),
-        );
-
-        final storageService = StorageService();
-        final file = photoFile!; // Non-null assertion since we checked above
-        photoUrl = await storageService.uploadDeliveryPhoto(
-          imageFile: file,
-          organizationId: organization.id,
-          orderId: orderId,
-          tripId: tripId,
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Marking as delivered...')),
-        );
-      }
-
-      // Update trip status to delivered (with optional photo URL)
-      final repository = context.read<ScheduledTripsRepository>();
-      await repository.updateTripStatus(
-        tripId: tripId,
-        tripStatus: 'delivered',
-        deliveryPhotoUrl: photoUrl,
-        deliveredBy: currentUser.uid,
-        deliveredByRole: userRole,
-        source: 'client',
-      );
-
-      // Update local state
-      setState(() {
-        _trip['orderStatus'] = 'delivered';
-        _trip['tripStatus'] = 'delivered';
-        if (photoUrl != null) {
-          _trip['deliveryPhotoUrl'] = photoUrl;
-        } else {
-          _trip.remove('deliveryPhotoUrl');
-        }
-        _trip['deliveredAt'] = DateTime.now();
-        _trip['deliveredBy'] = currentUser.uid;
-        _trip['deliveredByRole'] = userRole;
-      });
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(photoUrl != null
-              ? 'Trip marked as delivered successfully'
-              : 'Trip marked as delivered (no photo uploaded)'),
-        ),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to mark as delivered: $e')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
-    final tripStatus = (_trip['orderStatus'] ?? _trip['tripStatus'] ?? 'pending')
-        .toString()
-        .toLowerCase();
+    final tripStatus =
+        (_trip['orderStatus'] ?? _trip['tripStatus'] ?? 'pending')
+            .toString()
+            .toLowerCase();
     final statusColor = () {
       switch (tripStatus) {
         case 'delivered':
@@ -435,7 +244,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final driverName = _trip['driverName'] as String?;
     final vehicleNumber = _trip['vehicleNumber'] as String? ?? 'Not assigned';
     final scheduledDate = _trip['scheduledDate'];
-    
+
     return Scaffold(
       backgroundColor: AuthColors.background,
       body: SafeArea(
@@ -455,13 +264,14 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                   dmNumber: dmNumber,
                   formatDate: _formatDate,
                 ),
-                
+
                 // Spacing between header and tab bar
                 const SizedBox(height: AppSpacing.paddingLG),
-                
+
                 // Tab Bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.paddingLG),
                   child: Container(
                     padding: const EdgeInsets.all(AppSpacing.paddingXS / 2),
                     decoration: BoxDecoration(
@@ -500,7 +310,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.paddingMD),
-                
+
                 // Tab Content
                 Expanded(
                   child: RefreshIndicator(
@@ -519,46 +329,42 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                           dmNumber: dmNumber,
                           onCallDriver: () {
                             final driverPhone = _trip['driverPhone'] as String?;
-                            if (driverPhone != null) _callNumber(driverPhone, 'Driver');
+                            if (driverPhone != null)
+                              _callNumber(driverPhone, 'Driver');
                           },
                           onCallCustomer: () {
-                            final clientPhone = _trip['clientPhone'] as String? ?? _trip['customerNumber'] as String?;
-                            if (clientPhone != null) _callNumber(clientPhone, 'Customer');
+                            final clientPhone =
+                                _trip['clientPhone'] as String? ??
+                                    _trip['customerNumber'] as String?;
+                            if (clientPhone != null)
+                              _callNumber(clientPhone, 'Customer');
                           },
-                          onPrintDM: dmNumber != null ? () => _openPrintDialog(context) : null,
+                          onPrintDM: dmNumber != null
+                              ? () => _openPrintDialog(context)
+                              : null,
                           onDispatch: (value) async {
-                            final meterType = _trip['meterType'] as String?;
-                            final askMeterReadings = meterType == 'KM';
                             if (value) {
-                              if (askMeterReadings) {
-                                await _showInitialReadingDialog(context);
-                              } else {
-                                await _dispatchTrip(context, null);
-                              }
+                              await _dispatchTrip(context, null);
                             } else {
                               await _revertDispatch(context);
                             }
                           },
                           onDelivery: (value) async {
                             if (value) {
-                              await _showDeliveryPhotoDialog(context);
+                              await _markAsDelivered(context);
                             } else {
                               await _revertDelivery(context);
                             }
                           },
                           onReturn: (value) async {
-                            final meterType = _trip['meterType'] as String?;
-                            final askMeterReadings = meterType == 'KM';
                             if (value) {
-                              if (askMeterReadings) {
-                                await _showFinalReadingDialog(context);
-                              } else {
-                                await _markAsReturned(context, null);
-                              }
+                              await _markAsReturned(context, null);
                             } else {
                               await _revertReturn(context);
                             }
                           },
+                          onRecordPayment: (context) =>
+                              _recordPaymentManually(context),
                         ),
                         _ItemsTab(
                           items: items,
@@ -570,7 +376,6 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                         _PaymentsTab(
                           trip: _trip,
                           tripPricing: tripPricing,
-                          onRecordPayment: _recordPaymentManually,
                         ),
                       ],
                     ),
@@ -581,7 +386,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             // FAB Menu - positioned at bottom right with safe padding
             QuickActionMenu(
               right: QuickActionMenu.standardRight,
-              bottom: MediaQuery.of(context).padding.bottom + AppSpacing.paddingLG,
+              bottom:
+                  MediaQuery.of(context).padding.bottom + AppSpacing.paddingLG,
               actions: [
                 QuickActionItem(
                   icon: Icons.call_outlined,
@@ -592,7 +398,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                       _callNumber(driverPhone, 'Driver');
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        const SnackBar(
                           content: Text('Driver phone not available'),
                           backgroundColor: AuthColors.warning,
                         ),
@@ -604,12 +410,13 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                   icon: Icons.call_outlined,
                   label: 'Call Customer',
                   onTap: () {
-                    final clientPhone = _trip['clientPhone'] as String? ?? _trip['customerNumber'] as String?;
+                    final clientPhone = _trip['clientPhone'] as String? ??
+                        _trip['customerNumber'] as String?;
                     if (clientPhone != null && clientPhone.isNotEmpty) {
                       _callNumber(clientPhone, 'Customer');
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        const SnackBar(
                           content: Text('Customer phone not available'),
                           backgroundColor: AuthColors.warning,
                         ),
@@ -636,7 +443,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Revert Dispatch', style: TextStyle(color: AuthColors.textMain)),
+        title: const Text('Revert Dispatch',
+            style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to revert dispatch? This will change the trip status back to scheduled.',
           style: TextStyle(color: AuthColors.textSub),
@@ -648,7 +456,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Revert', style: TextStyle(color: AuthColors.info)),
+            child:
+                const Text('Revert', style: TextStyle(color: AuthColors.info)),
           ),
         ],
       ),
@@ -701,149 +510,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
   }
 
-  Future<void> _revertDelivery(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AuthColors.surface,
-        title: const Text('Revert Delivery', style: TextStyle(color: AuthColors.textMain)),
-        content: const Text(
-          'Are you sure you want to revert delivery? This will change the trip status back to dispatched.',
-          style: TextStyle(color: AuthColors.textSub),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Revert', style: TextStyle(color: AuthColors.success)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    final tripId = _trip['id'] as String?;
-    if (tripId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Trip ID not found')),
-        );
-      }
-      return;
-    }
-
-    try {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reverting delivery...')),
-      );
-
-      final repository = context.read<ScheduledTripsRepository>();
-      await repository.updateTripStatus(
-        tripId: tripId,
-        tripStatus: 'dispatched',
-        source: 'client',
-      );
-
-      // Update local state - remove delivery fields but keep dispatch fields
-      setState(() {
-        _trip['orderStatus'] = 'dispatched';
-        _trip['tripStatus'] = 'dispatched';
-        _trip.remove('deliveryPhotoUrl');
-        _trip.remove('deliveredAt');
-        _trip.remove('deliveredBy');
-        _trip.remove('deliveredByRole');
-      });
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delivery reverted successfully')),
-      );
-    } catch (e) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to revert delivery: $e')),
-      );
-    }
-  }
-
-  Future<void> _showFinalReadingDialog(BuildContext context) async {
-    final readingController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    final result = await showDialog<double>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AuthColors.surface,
-        title: const Text(
-          'Final Meter Reading',
-          style: TextStyle(color: AuthColors.textMain),
-        ),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: readingController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: TextStyle(color: AuthColors.textMain),
-            decoration: InputDecoration(
-              labelText: 'Final Reading',
-              labelStyle: const TextStyle(color: AuthColors.textSub),
-              hintText: 'Enter final meter reading',
-              hintStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: AuthColors.textMain.withOpacity(0.3)),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AuthColors.info),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter final reading';
-              }
-              final reading = double.tryParse(value);
-              if (reading == null || reading < 0) {
-                return 'Please enter a valid reading';
-              }
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                final reading = double.tryParse(readingController.text);
-                if (reading != null) {
-                  Navigator.of(context).pop(reading);
-                }
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: AuthColors.info,
-                ),
-            child: const Text('Submit'),
-            ),
-          ],
-        ),
-    );
-
-    if (result != null) {
-      await _markAsReturned(context, result);
-    }
-  }
-
-  Future<void> _markAsReturned(BuildContext context, double? finalReading) async {
+  Future<void> _markAsReturned(
+      BuildContext context, double? finalReading) async {
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
       if (context.mounted) {
@@ -883,7 +551,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       if (initialReading == null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Initial reading not found. Cannot calculate distance.')),
+            const SnackBar(
+                content: Text(
+                    'Initial reading not found. Cannot calculate distance.')),
           );
         }
         return;
@@ -893,7 +563,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       if (d < 0) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Final reading cannot be less than initial reading')),
+            const SnackBar(
+                content:
+                    Text('Final reading cannot be less than initial reading')),
           );
         }
         return;
@@ -904,9 +576,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final paymentType = (_trip['paymentType'] as String?)?.toLowerCase() ?? '';
     final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    final existingPayments =
-        (_trip['paymentDetails'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
-            [];
+    final existingPayments = (_trip['paymentDetails'] as List<dynamic>?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
     final alreadyPaid = existingPayments.fold<double>(
       0,
       (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
@@ -983,6 +655,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
     final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Order Payment';
     final clientId = _trip['clientId'] as String? ?? '';
+    final clientName = _trip['clientName'] as String?;
 
     final List<String> transactionIds =
         (_trip['returnTransactions'] as List<dynamic>?)
@@ -1000,9 +673,12 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           id: '',
           organizationId: organization.id,
           clientId: clientId,
+          clientName: clientName,
           ledgerType: LedgerType.clientLedger,
-          type: TransactionType.debit, // Debit = client paid on delivery (decreases receivable)
-          category: TransactionCategory.tripPayment, // Payment collected on delivery
+          type: TransactionType
+              .debit, // Debit = client paid on delivery (decreases receivable)
+          category:
+              TransactionCategory.tripPayment, // Payment collected on delivery
           amount: amount,
           paymentAccountId: payment['paymentAccountId'] as String?,
           paymentAccountType: payment['paymentAccountType'] as String?,
@@ -1038,7 +714,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       // For pay_on_delivery: Order Credit transaction was created at DM generation (dispatch)
       // Trip Payment (debit) transactions are created above when payment is received on return
       // If partial payment, the remaining amount is already covered by the credit transaction
-      
+
       // For pay_later: Order Credit transaction was created at DM generation (dispatch)
       // No additional transactions needed at return (customer pays later via manual Debit Payment)
 
@@ -1056,7 +732,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         paymentDetails: combinedPayments,
         totalPaidOnReturn: totalPaidAfter,
         paymentStatus: paymentStatus,
-        remainingAmount: paymentType == 'pay_on_delivery' ? remainingAmount : null,
+        remainingAmount:
+            paymentType == 'pay_on_delivery' ? remainingAmount : null,
         source: 'client',
         returnTransactions: transactionIds,
       );
@@ -1066,7 +743,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         _trip['orderStatus'] = 'returned';
         _trip['tripStatus'] = 'returned';
         if (finalReading != null) _trip['finalReading'] = finalReading;
-        if (distanceTravelled != null) _trip['distanceTravelled'] = distanceTravelled;
+        if (distanceTravelled != null)
+          _trip['distanceTravelled'] = distanceTravelled;
         _trip['returnedAt'] = DateTime.now();
         _trip['returnedBy'] = currentUser.uid;
         _trip['returnedByRole'] = userRole;
@@ -1095,6 +773,135 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to mark as returned: $e')),
+      );
+    }
+  }
+
+  Future<void> _markAsDelivered(BuildContext context) async {
+    final tripId = _trip['id'] as String?;
+    if (tripId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trip ID not found')),
+        );
+      }
+      return;
+    }
+
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User not found')),
+        );
+      }
+      return;
+    }
+
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final userRole = orgContext.appAccessRole?.name ?? 'unknown';
+
+    try {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Marking trip as delivered...')),
+      );
+
+      final repository = context.read<ScheduledTripsRepository>();
+      await repository.updateTripStatus(
+        tripId: tripId,
+        tripStatus: 'delivered',
+        deliveredBy: currentUser.uid,
+        deliveredByRole: userRole,
+        source: 'client',
+      );
+
+      setState(() {
+        _trip['orderStatus'] = 'delivered';
+        _trip['tripStatus'] = 'delivered';
+        _trip['deliveredAt'] = DateTime.now();
+        _trip['deliveredBy'] = currentUser.uid;
+        _trip['deliveredByRole'] = userRole;
+      });
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Trip marked as delivered')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to mark as delivered: $e')),
+      );
+    }
+  }
+
+  Future<void> _revertDelivery(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AuthColors.surface,
+        title: const Text('Revert Delivery',
+            style: TextStyle(color: AuthColors.textMain)),
+        content: const Text(
+          'Are you sure you want to revert delivery? This will change the trip status back to dispatched.',
+          style: TextStyle(color: AuthColors.textSub),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child:
+                const Text('Revert', style: TextStyle(color: AuthColors.info)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final tripId = _trip['id'] as String?;
+    if (tripId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trip ID not found')),
+        );
+      }
+      return;
+    }
+
+    try {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reverting delivery...')),
+      );
+
+      final repository = context.read<ScheduledTripsRepository>();
+      await repository.updateTripStatus(
+        tripId: tripId,
+        tripStatus: 'dispatched',
+        source: 'client',
+      );
+
+      setState(() {
+        _trip['orderStatus'] = 'dispatched';
+        _trip['tripStatus'] = 'dispatched';
+        _trip.remove('deliveredAt');
+        _trip.remove('deliveredBy');
+        _trip.remove('deliveredByRole');
+      });
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Delivery reverted successfully')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to revert delivery: $e')),
       );
     }
   }
@@ -1133,9 +940,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
     final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    final existingPayments =
-        (_trip['paymentDetails'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
-            [];
+    final existingPayments = (_trip['paymentDetails'] as List<dynamic>?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
     final alreadyPaid = existingPayments.fold<double>(
       0,
       (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
@@ -1196,11 +1003,13 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       final transactionsRepo = context.read<TransactionsRepository>();
       final financialYear = FinancialYearUtils.getFinancialYear(DateTime.now());
       final clientId = _trip['clientId'] as String?;
+      final clientName = _trip['clientName'] as String?;
       final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
       final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Trip';
       final List<String> transactionIds = [];
 
-      Future<void> createPaymentTransaction(Map<String, dynamic> payment, int index) async {
+      Future<void> createPaymentTransaction(
+          Map<String, dynamic> payment, int index) async {
         final amount = (payment['amount'] as num?)?.toDouble() ?? 0.0;
         if (amount <= 0) return;
 
@@ -1209,8 +1018,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             id: '', // Will be generated
             organizationId: organization.id,
             clientId: clientId,
+            clientName: clientName,
             ledgerType: LedgerType.clientLedger,
-            type: TransactionType.debit, // Debit = client paid (decreases receivable)
+            type: TransactionType
+                .debit, // Debit = client paid (decreases receivable)
             category: TransactionCategory.clientPayment, // Manual payment
             amount: amount,
             paymentAccountId: payment['paymentAccountId'] as String?,
@@ -1246,7 +1057,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         // Update trip with payment info
         final repository = context.read<ScheduledTripsRepository>();
         final combinedPayments = [...existingPayments, ...newPayments];
-        final currentTripStatus = (_trip['tripStatus'] as String?) ?? 'scheduled';
+        final currentTripStatus =
+            (_trip['tripStatus'] as String?) ?? 'scheduled';
 
         await repository.updateTripStatus(
           tripId: tripId,
@@ -1294,7 +1106,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AuthColors.surface,
-        title: const Text('Revert Return', style: TextStyle(color: AuthColors.textMain)),
+        title: const Text('Revert Return',
+            style: TextStyle(color: AuthColors.textMain)),
         content: const Text(
           'Are you sure you want to revert return? This will change the trip status back to delivered.',
           style: TextStyle(color: AuthColors.textSub),
@@ -1306,7 +1119,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Revert', style: TextStyle(color: AuthColors.info)),
+            child:
+                const Text('Revert', style: TextStyle(color: AuthColors.info)),
           ),
         ],
       ),
@@ -1392,7 +1206,6 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
   }
 
-
   Future<void> _callNumber(String? phone, String label) async {
     if (phone == null || phone.isEmpty) {
       if (!mounted) return;
@@ -1450,28 +1263,20 @@ class _InfoRow extends StatelessWidget {
   const _InfoRow({
     required this.label,
     required this.value,
-    this.isTappable = false,
-    this.onTap,
     this.valueColor,
-    this.valueStyle,
   });
 
   final String label;
   final String value;
-  final bool isTappable;
-  final VoidCallback? onTap;
   final Color? valueColor;
-  final TextStyle? valueStyle;
 
   @override
   Widget build(BuildContext context) {
-    final effectiveValueColor = valueColor ??
-        (isTappable ? AuthColors.primary : AuthColors.textSub);
-    final effectiveValueStyle = valueStyle ??
-        AppTypography.body.copyWith(
-          color: effectiveValueColor,
-          fontWeight: isTappable ? FontWeight.w600 : FontWeight.normal,
-        );
+    final effectiveValueColor = valueColor ?? AuthColors.textSub;
+    final effectiveValueStyle = AppTypography.body.copyWith(
+      color: effectiveValueColor,
+      fontWeight: FontWeight.normal,
+    );
 
     final content = Row(
       children: [
@@ -1490,31 +1295,8 @@ class _InfoRow extends StatelessWidget {
             style: effectiveValueStyle,
           ),
         ),
-        if (isTappable)
-          Icon(
-            Icons.phone,
-            color: AuthColors.primary,
-            size: AppSpacing.iconSM,
-          ),
       ],
     );
-
-    if (isTappable && onTap != null) {
-      return Material(
-        color: AuthColors.transparent,
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onTap!();
-          },
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
-            child: content,
-          ),
-        ),
-      );
-    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingXS),
@@ -1543,7 +1325,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDisabled = onTap == null;
-    
+
     return Material(
       color: AuthColors.transparent,
       child: InkWell(
@@ -1590,7 +1372,9 @@ class _ActionButton extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
-                        color: isDisabled ? AuthColors.textSub : AuthColors.textMain,
+                        color: isDisabled
+                            ? AuthColors.textSub
+                            : AuthColors.textMain,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1649,7 +1433,7 @@ class _StatusToggleRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: TextStyle(
+                style: const TextStyle(
                   color: AuthColors.textMain,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -1677,7 +1461,6 @@ class _StatusToggleRow extends StatelessWidget {
     );
   }
 }
-
 
 extension StringExtension on String {
   String capitalizeFirst() {
@@ -1767,18 +1550,21 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                     initialValue: selectedAccount,
                     decoration: InputDecoration(
                       labelText: 'Payment Account',
-                      labelStyle: TextStyle(color: AuthColors.textSub),
+                      labelStyle: const TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AuthColors.textMain.withOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        borderSide: BorderSide(
+                            color: AuthColors.textMain.withOpacity(0.3)),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AuthColors.info),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        borderSide: const BorderSide(color: AuthColors.info),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                     ),
                     dropdownColor: AuthColors.surface,
-                    style: TextStyle(color: AuthColors.textMain),
+                    style: const TextStyle(color: AuthColors.textMain),
                     items: _paymentAccounts!.map((account) {
                       return DropdownMenuItem<PaymentAccount>(
                         value: account,
@@ -1798,18 +1584,22 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: amountController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: TextStyle(color: AuthColors.textMain),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(color: AuthColors.textMain),
                     decoration: InputDecoration(
                       labelText: 'Amount (₹)',
-                      labelStyle: TextStyle(color: AuthColors.textSub),
+                      labelStyle: const TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AuthColors.textMain.withOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        borderSide: BorderSide(
+                            color: AuthColors.textMain.withOpacity(0.3)),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AuthColors.info),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        borderSide: const BorderSide(color: AuthColors.info),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                     ),
                     validator: (value) {
@@ -1867,9 +1657,11 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
     final organization = orgContext.organization;
     if (organization == null) return;
 
-    final tripPricing = widget.trip['tripPricing'] as Map<String, dynamic>? ?? {};
+    final tripPricing =
+        widget.trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final totalAmount = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    final existingPayments = (widget.trip['paymentDetails'] as List<dynamic>?) ?? [];
+    final existingPayments =
+        (widget.trip['paymentDetails'] as List<dynamic>?) ?? [];
     final paidAmount = existingPayments.fold<double>(
       0.0,
       (sum, payment) {
@@ -1881,7 +1673,9 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
     if (paidAmount + amount > totalAmount) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment amount exceeds total. Remaining: ₹${(totalAmount - paidAmount).toStringAsFixed(2)}')),
+          SnackBar(
+              content: Text(
+                  'Payment amount exceeds total. Remaining: ₹${(totalAmount - paidAmount).toStringAsFixed(2)}')),
         );
       }
       return;
@@ -1903,6 +1697,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
       final transactionsRepo = context.read<TransactionsRepository>();
       final financialYear = FinancialYearUtils.getFinancialYear(DateTime.now());
       final clientId = widget.trip['clientId'] as String? ?? '';
+      final clientName = widget.trip['clientName'] as String?;
       final dmNumber = (widget.trip['dmNumber'] as num?)?.toInt();
       final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Order Payment';
 
@@ -1911,9 +1706,12 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
           id: '',
           organizationId: organization.id,
           clientId: clientId,
+          clientName: clientName,
           ledgerType: LedgerType.clientLedger,
-          type: TransactionType.debit, // Debit = client paid on delivery (decreases receivable)
-          category: TransactionCategory.tripPayment, // Payment collected on delivery
+          type: TransactionType
+              .debit, // Debit = client paid on delivery (decreases receivable)
+          category:
+              TransactionCategory.tripPayment, // Payment collected on delivery
           amount: amount,
           createdBy: currentUser.uid,
           createdAt: DateTime.now(),
@@ -1955,9 +1753,11 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
 
   @override
   Widget build(BuildContext context) {
-    final tripPricing = widget.trip['tripPricing'] as Map<String, dynamic>? ?? {};
+    final tripPricing =
+        widget.trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final totalAmount = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    final existingPayments = (widget.trip['paymentDetails'] as List<dynamic>?) ?? [];
+    final existingPayments =
+        (widget.trip['paymentDetails'] as List<dynamic>?) ?? [];
     final paidAmount = existingPayments.fold<double>(
       0.0,
       (sum, payment) {
@@ -1980,11 +1780,11 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
             ),
             Text(
               '₹${totalAmount.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+              style: const TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -2019,7 +1819,9 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
             Text(
               '₹${remainingAmount.toStringAsFixed(2)}',
               style: TextStyle(
-                color: remainingAmount > 0 ? AuthColors.warning : AuthColors.success,
+                color: remainingAmount > 0
+                    ? AuthColors.warning
+                    : AuthColors.success,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -2033,8 +1835,10 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
           ...existingPayments.map((payment) {
             final paymentMap = payment as Map<String, dynamic>;
             final amount = (paymentMap['amount'] as num?)?.toDouble() ?? 0.0;
-            final accountName = paymentMap['paymentAccountName'] as String? ?? 'Unknown';
-            final accountType = paymentMap['paymentAccountType'] as String? ?? '';
+            final accountName =
+                paymentMap['paymentAccountName'] as String? ?? 'Unknown';
+            final accountType =
+                paymentMap['paymentAccountType'] as String? ?? '';
 
             return Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
@@ -2083,7 +1887,8 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
               onPressed: _isLoading ? null : _showAddPaymentDialog,
               style: FilledButton.styleFrom(
                 backgroundColor: AuthColors.info,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
+                padding:
+                    const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
               ),
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Add Payment'),
@@ -2306,7 +2111,7 @@ class _InfoPill extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 11,
                   ),
@@ -2314,7 +2119,7 @@ class _InfoPill extends StatelessWidget {
                 const SizedBox(height: AppSpacing.paddingXS / 4),
                 Text(
                   value,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textMain,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -2387,6 +2192,7 @@ class _OverviewTab extends StatelessWidget {
     required this.onDispatch,
     required this.onDelivery,
     required this.onReturn,
+    required this.onRecordPayment,
   });
 
   final Map<String, dynamic> trip;
@@ -2400,18 +2206,39 @@ class _OverviewTab extends StatelessWidget {
   final ValueChanged<bool> onDispatch;
   final ValueChanged<bool> onDelivery;
   final ValueChanged<bool> onReturn;
+  final Future<void> Function(BuildContext) onRecordPayment;
 
   @override
   Widget build(BuildContext context) {
     final driverPhone = trip['driverPhone'] as String?;
-    final clientPhone = trip['clientPhone'] as String? ?? trip['customerNumber'] as String?;
+    final clientPhone =
+        trip['clientPhone'] as String? ?? trip['customerNumber'] as String?;
     final tripPricing = trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final totalAmount = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    
+    final paymentType = (trip['paymentType'] as String?)?.toLowerCase() ?? '';
+    final paymentDetails = (trip['paymentDetails'] as List<dynamic>?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
+    final totalPaidStored = (trip['totalPaidOnReturn'] as num?)?.toDouble();
+    final computedPaid = paymentDetails.fold<double>(
+      0,
+      (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+    );
+    final totalPaid = totalPaidStored ?? computedPaid;
+    final remainingStored = (trip['remainingAmount'] as num?)?.toDouble();
+    final remaining = remainingStored ?? (totalAmount - totalPaid);
+    final status = (trip['paymentStatus'] as String?) ??
+        (remaining <= 0.001
+            ? 'full'
+            : totalPaid > 0
+                ? 'partial'
+                : 'pending');
+
     final isDispatched = tripStatus.toLowerCase() == 'dispatched';
     final isDelivered = tripStatus.toLowerCase() == 'delivered';
     final isReturned = tripStatus.toLowerCase() == 'returned';
-    final isPending = tripStatus.toLowerCase() == 'pending' || tripStatus.toLowerCase() == 'scheduled';
+    final isPending = tripStatus.toLowerCase() == 'pending' ||
+        tripStatus.toLowerCase() == 'scheduled';
     final hasDM = dmNumber != null;
 
     return SingleChildScrollView(
@@ -2462,7 +2289,7 @@ class _OverviewTab extends StatelessWidget {
             ),
           ],
           const SizedBox(height: AppSpacing.paddingXL),
-          
+
           // Trip Status
           _InfoCard(
             title: 'Trip Status',
@@ -2497,7 +2324,8 @@ class _OverviewTab extends StatelessWidget {
                 _StatusToggleRow(
                   label: 'Delivery',
                   value: isDelivered,
-                  enabled: (isDispatched && !isDelivered && !isReturned) || (isDelivered && !isReturned),
+                  enabled: (isDispatched && !isDelivered && !isReturned) ||
+                      (isDelivered && !isReturned),
                   activeColor: AuthColors.success,
                   onChanged: onDelivery,
                 ),
@@ -2520,8 +2348,27 @@ class _OverviewTab extends StatelessWidget {
               ],
             ],
           ),
+          if (paymentType.isNotEmpty && status.toLowerCase() == 'pending') ...[
+            const SizedBox(height: AppSpacing.paddingMD),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => onRecordPayment(context),
+                icon: const Icon(Icons.payment, size: 18),
+                label: const Text('Record Payment'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AuthColors.primary,
+                  foregroundColor: AuthColors.textMain,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.paddingMD,
+                    horizontal: AppSpacing.paddingLG,
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.paddingMD),
-          
+
           // Quick Stats
           Row(
             children: [
@@ -2535,7 +2382,9 @@ class _OverviewTab extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom + AppSpacing.paddingXL),
+          SizedBox(
+              height:
+                  MediaQuery.of(context).padding.bottom + AppSpacing.paddingXL),
         ],
       ),
     );
@@ -2563,7 +2412,7 @@ class _ItemsTab extends StatelessWidget {
     final subtotal = (tripPricing['subtotal'] as num?)?.toDouble() ?? 0.0;
     final gstAmount = (tripPricing['gstAmount'] as num?)?.toDouble() ?? 0.0;
     final total = includeGstInTotal ? subtotal + gstAmount : subtotal;
-    
+
     final scheduledDate = trip['scheduledDate'];
     final slot = trip['slot'] as int?;
     final deliveryZone = trip['deliveryZone'] as Map<String, dynamic>? ?? {};
@@ -2584,161 +2433,172 @@ class _ItemsTab extends StatelessWidget {
             children: [
               // Product rows
               ...items.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value as Map<String, dynamic>;
-            final productName = item['productName'] as String? ?? item['name'] as String? ?? 'Unknown';
-            final qty = (item['fixedQuantityPerTrip'] as num?)?.toInt() ?? 0;
-            final unitPrice = (item['unitPrice'] as num?)?.toDouble() ??
-                (item['unit_price'] as num?)?.toDouble() ??
-                0.0;
-            final itemTotal = qty * unitPrice;
-            
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: index < items.length - 1 ? AppSpacing.paddingMD : 0,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          productName,
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                        ),
-                        const SizedBox(height: AppSpacing.paddingXS / 2),
-                        Row(
+                final index = entry.key;
+                final item = entry.value as Map<String, dynamic>;
+                final productName = item['productName'] as String? ??
+                    item['name'] as String? ??
+                    'Unknown';
+                final qty =
+                    (item['fixedQuantityPerTrip'] as num?)?.toInt() ?? 0;
+                final unitPrice = (item['unitPrice'] as num?)?.toDouble() ??
+                    (item['unit_price'] as num?)?.toDouble() ??
+                    0.0;
+                final itemTotal = qty * unitPrice;
+
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index < items.length - 1 ? AppSpacing.paddingMD : 0,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Qty: $qty',
-                              style: TextStyle(
-                                color: AuthColors.textMain.withOpacity(0.6),
-                                fontSize: 12,
+                              productName,
+                              style: const TextStyle(
+                                color: AuthColors.textMain,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(width: AppSpacing.paddingSM),
-                            Text(
-                              '× ₹${unitPrice.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                color: AuthColors.textMain.withOpacity(0.6),
-                                fontSize: 12,
-                              ),
+                            const SizedBox(height: AppSpacing.paddingXS / 2),
+                            Row(
+                              children: [
+                                Text(
+                                  'Qty: $qty',
+                                  style: TextStyle(
+                                    color: AuthColors.textMain.withOpacity(0.6),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.paddingSM),
+                                Text(
+                                  '× ₹${unitPrice.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    color: AuthColors.textMain.withOpacity(0.6),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
+                      Text(
+                        '₹${itemTotal.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: AuthColors.textMain,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: AppSpacing.paddingMD),
+              Divider(
+                color: AuthColors.textMain.withOpacity(0.1),
+                height: AppSpacing.paddingLG,
+                thickness: 1,
+              ),
+              const SizedBox(height: AppSpacing.paddingMD),
+              // Subtotal
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Subtotal',
+                        style: TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '₹${subtotal.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: AuthColors.textMain,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // GST
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'GST ${includeGstInTotal ? "(Included)" : "(Excluded)"}',
+                        style: TextStyle(
+                          color: includeGstInTotal
+                              ? AuthColors.success
+                              : AuthColors.textSub,
+                          fontSize: 13,
+                          fontWeight: includeGstInTotal
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '₹${gstAmount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: includeGstInTotal
+                            ? AuthColors.success
+                            : AuthColors.textSub,
+                        fontSize: 14,
+                        fontWeight: includeGstInTotal
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.paddingMD),
+              Divider(
+                color: AuthColors.textMain.withOpacity(0.1),
+                height: AppSpacing.paddingLG,
+                thickness: 1,
+              ),
+              const SizedBox(height: AppSpacing.paddingMD),
+              // Total
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Total',
+                      style: TextStyle(
+                        color: AuthColors.textMain,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   Text(
-                    '₹${itemTotal.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                    '₹${total.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: AuthColors.textMain,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
-            );
-          }),
-          const SizedBox(height: AppSpacing.paddingMD),
-          Divider(
-            color: AuthColors.textMain.withOpacity(0.1),
-            height: AppSpacing.paddingLG,
-            thickness: 1,
-          ),
-          const SizedBox(height: AppSpacing.paddingMD),
-          // Subtotal
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Subtotal',
-                    style: TextStyle(
-                      color: AuthColors.textSub,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                Text(
-                  '₹${subtotal.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                ),
-              ],
-            ),
-          ),
-          // GST
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.paddingSM),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'GST ${includeGstInTotal ? "(Included)" : "(Excluded)"}',
-                    style: TextStyle(
-                      color: includeGstInTotal ? AuthColors.success : AuthColors.textSub,
-                      fontSize: 13,
-                      fontWeight: includeGstInTotal ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                  ),
-                ),
-                Text(
-                  '₹${gstAmount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: includeGstInTotal ? AuthColors.success : AuthColors.textSub,
-                    fontSize: 14,
-                    fontWeight: includeGstInTotal ? FontWeight.w600 : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.paddingMD),
-          Divider(
-            color: AuthColors.textMain.withOpacity(0.1),
-            height: AppSpacing.paddingLG,
-            thickness: 1,
-          ),
-          const SizedBox(height: AppSpacing.paddingMD),
-          // Total
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Total',
-                  style: TextStyle(
-                    color: AuthColors.textMain,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Text(
-                '₹${total.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
             ],
           ),
           const SizedBox(height: AppSpacing.paddingLG),
-          
+
           // Trip Information
           _InfoCard(
             title: 'Trip Information',
@@ -2763,7 +2623,9 @@ class _ItemsTab extends StatelessWidget {
                 ),
             ],
           ),
-          SizedBox(height: MediaQuery.of(context).padding.bottom + AppSpacing.paddingXL),
+          SizedBox(
+              height:
+                  MediaQuery.of(context).padding.bottom + AppSpacing.paddingXL),
         ],
       ),
     );
@@ -2775,12 +2637,10 @@ class _PaymentsTab extends StatelessWidget {
   const _PaymentsTab({
     required this.trip,
     required this.tripPricing,
-    this.onRecordPayment,
   });
 
   final Map<String, dynamic> trip;
   final Map<String, dynamic> tripPricing;
-  final Future<void> Function(BuildContext)? onRecordPayment;
 
   @override
   Widget build(BuildContext context) {
@@ -2793,12 +2653,12 @@ class _PaymentsTab extends StatelessWidget {
   Widget _buildPaymentSummary(BuildContext context) {
     final paymentType = (trip['paymentType'] as String?)?.toLowerCase() ?? '';
     if (paymentType.isEmpty) {
-      return _InfoCard(
+      return const _InfoCard(
         title: 'Payments',
         children: [
           Center(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.paddingXL),
+              padding: EdgeInsets.all(AppSpacing.paddingXL),
               child: Text(
                 'No payment information available',
                 style: TextStyle(
@@ -2813,9 +2673,9 @@ class _PaymentsTab extends StatelessWidget {
     }
 
     final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    final paymentDetails =
-        (trip['paymentDetails'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
-            [];
+    final paymentDetails = (trip['paymentDetails'] as List<dynamic>?)
+            ?.cast<Map<String, dynamic>>() ??
+        [];
     final totalPaidStored = (trip['totalPaidOnReturn'] as num?)?.toDouble();
     final computedPaid = paymentDetails.fold<double>(
       0,
@@ -2908,26 +2768,6 @@ class _PaymentsTab extends StatelessWidget {
             value: '₹${remaining.toStringAsFixed(2)}',
             valueColor: AuthColors.warning,
           ),
-        // Show "Record Payment" button if status is pending
-        if (status.toLowerCase() == 'pending' && onRecordPayment != null) ...[
-          const SizedBox(height: AppSpacing.paddingMD),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => onRecordPayment!(context),
-              icon: const Icon(Icons.payment, size: 18),
-              label: const Text('Record Payment'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AuthColors.primary,
-                foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(
-                  vertical: AppSpacing.paddingMD,
-                  horizontal: AppSpacing.paddingLG,
-                ),
-              ),
-            ),
-          ),
-        ],
         if (paymentDetails.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.paddingMD),
           Divider(
@@ -2947,13 +2787,15 @@ class _PaymentsTab extends StatelessWidget {
           const SizedBox(height: AppSpacing.paddingMD),
           ...paymentDetails.asMap().entries.map((entry) {
             final index = entry.key;
-            final p = entry.value as Map<String, dynamic>;
+            final p = entry.value;
             final name = p['paymentAccountName'] as String? ?? 'Account';
             final amount = (p['amount'] as num?)?.toDouble() ?? 0.0;
             final type = (p['paymentAccountType'] as String?) ?? '';
             return Padding(
               padding: EdgeInsets.only(
-                bottom: index < paymentDetails.length - 1 ? AppSpacing.paddingMD : 0,
+                bottom: index < paymentDetails.length - 1
+                    ? AppSpacing.paddingMD
+                    : 0,
               ),
               child: Row(
                 children: [
@@ -2984,11 +2826,11 @@ class _PaymentsTab extends StatelessWidget {
                   ),
                   Text(
                     '₹${amount.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: AuthColors.textMain,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+                    style: const TextStyle(
+                      color: AuthColors.textMain,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -3064,5 +2906,3 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
-
-

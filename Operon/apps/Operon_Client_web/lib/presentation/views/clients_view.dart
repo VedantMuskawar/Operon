@@ -1303,7 +1303,7 @@ class _ClientListView extends StatelessWidget {
           final subtitle = subtitleParts.join(' • ');
 
           // Animate only first 20 items to keep frame rate smooth with large datasets
-          const int _maxAnimatedItems = 20;
+          const int maxAnimatedItems = 20;
           final content = Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
@@ -1375,7 +1375,7 @@ class _ClientListView extends StatelessWidget {
             onTap: () => onTap(client),
           ),
           );
-          if (index < _maxAnimatedItems) {
+          if (index < maxAnimatedItems) {
             return AnimationConfiguration.staggeredList(
               position: index,
               duration: const Duration(milliseconds: 200),

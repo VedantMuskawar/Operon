@@ -31,7 +31,7 @@ class WeeklyLedgerTable extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (productionEntries.isNotEmpty) ...[
-            _SectionHeader(title: 'Productions'),
+            const _SectionHeader(title: 'Productions'),
             const SizedBox(height: 8),
             _ProductionsTable(
               entries: productionEntries,
@@ -41,7 +41,7 @@ class WeeklyLedgerTable extends StatelessWidget {
             const SizedBox(height: 32),
           ],
           if (tripEntries.isNotEmpty) ...[
-            _SectionHeader(title: 'Trips'),
+            const _SectionHeader(title: 'Trips'),
             const SizedBox(height: 8),
             _TripsTable(
               entries: tripEntries,
@@ -50,8 +50,8 @@ class WeeklyLedgerTable extends StatelessWidget {
             ),
           ],
           if (productionEntries.isEmpty && tripEntries.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(24),
+            const Padding(
+              padding: EdgeInsets.all(24),
               child: Text(
                 'No data for this week. Click Generate Weekly Ledger to load data.',
                 style: TextStyle(color: AuthColors.textSub, fontSize: 14),
@@ -127,7 +127,7 @@ class _ProductionsTable extends StatelessWidget {
         children: [
           // Header row
           TableRow(
-            decoration: BoxDecoration(color: AuthColors.background),
+            decoration: const BoxDecoration(color: AuthColors.background),
             children: [
               _cell('Date', isHeader: true),
               _cell('Batch No.', isHeader: true),
@@ -252,7 +252,7 @@ class _TripsTable extends StatelessWidget {
         },
         children: [
           TableRow(
-            decoration: BoxDecoration(color: AuthColors.background),
+            decoration: const BoxDecoration(color: AuthColors.background),
             children: [
               _cell('Date', isHeader: true),
               _cell('Vehicle No. (Trips)', isHeader: true),

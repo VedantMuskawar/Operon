@@ -641,9 +641,9 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       const SizedBox(height: 16),
                       
                       // Job Roles Multi-Select
-                      Text(
+                      const Text(
                         'Job Roles *',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AuthColors.textSub,
                           fontSize: 14,
                           fontWeight: FontWeight.w500,

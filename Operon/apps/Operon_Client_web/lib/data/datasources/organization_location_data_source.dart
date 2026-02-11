@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_models/core_models.dart';
-import 'package:flutter/foundation.dart';
 
 /// Data source for organization locations (LOCATIONS subcollection).
 /// Queries are capped at 500; document count per org is expected to be low (<50). Monitor if growth is possible.

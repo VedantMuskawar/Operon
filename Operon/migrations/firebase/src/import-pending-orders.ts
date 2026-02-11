@@ -3,6 +3,7 @@ import admin from 'firebase-admin';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { v4 as uuidv4 } from 'uuid';
 
 const require = createRequire(import.meta.url);
 const XLSX = require('xlsx');
@@ -69,6 +70,8 @@ interface OrderAggregate {
   deliveryZoneRegion: string;
   items: Array<Record<string, any>>;
 }
+
+type PendingOrderDocument = Record<string, any>;
 
 const HEADER_MAP: Record<string, keyof OrderRow> = {
   orderid: 'orderId',
@@ -164,7 +167,7 @@ function resolveConfig(): ImportConfig {
     projectId: process.env.PROJECT_ID,
     orgId,
     inputPath,
-    sheetName: process.env.SHEET_NAME || 'PENDING_ORDERS',
+    sheetName: process.env.SHEET_NAME || 'PENDING ORDERS',
     dryRun: parseBoolean(process.env.DRY_RUN, false),
     allowUpdates: parseBoolean(process.env.ALLOW_UPDATES, true),
     updateMode: updateMode as 'replace' | 'merge',
@@ -274,264 +277,240 @@ function normalizePhone(input: string | undefined): string {
   return input.replace(/[^0-9+]/g, '');
 }
 
-async function importPendingOrders() {
-  const config = resolveConfig();
-  const app = initApp(config);
-  const db = app.firestore();
+function buildPendingOrderDocument(order: OrderRow, config: ImportConfig): PendingOrderDocument {
+  const normalizedPhone = normalizePhone(order.clientPhone);
+  const nameLc = (order.clientName || '').trim().toLowerCase();
 
-  console.log('=== Importing Pending Orders ===');
-  console.log('Org ID:', config.orgId);
-  console.log('Input:', config.inputPath);
-  console.log('Sheet:', config.sheetName);
-  console.log('Dry run:', config.dryRun);
-  console.log('Allow updates:', config.allowUpdates);
-  console.log('Update mode:', config.updateMode);
-  console.log('');
+  const estimatedTrips = order.estimatedTrips ?? 0;
+  const fixedQty = order.fixedQuantityPerTrip ?? 0;
+  const unitPrice = order.unitPrice ?? 0;
+  const subtotal = estimatedTrips * fixedQty * unitPrice;
 
-  const workbook = XLSX.readFile(config.inputPath);
-  const sheet = workbook.Sheets[config.sheetName] || workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet) {
-    throw new Error('No worksheet found in Excel file.');
-  }
+  const hasGst = order.gstPercent !== undefined && order.gstPercent > 0;
+  const gstAmount = hasGst
+    ? subtotal * (order.gstPercent! / 100)
+    : order.gstAmount ?? 0;
+  const total = subtotal + (hasGst ? gstAmount : 0);
 
-  const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as RawRow[];
-  if (rows.length === 0) {
-    console.log('No rows found in the Excel sheet.');
-    return;
-  }
-
-  const parsedRows = rows
-    .map(toOrderRow)
-    .filter((row): row is OrderRow => row !== null);
-
-  if (parsedRows.length === 0) {
-    console.log('No valid rows found after parsing.');
-    return;
-  }
-
-  const ordersRef = db.collection('PENDING_ORDERS');
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  const aggregates = new Map<string, OrderAggregate>();
-
-  for (const row of parsedRows) {
-    if (!row.clientId) {
-      errors.push('Row missing client_id.');
-      continue;
-    }
-    if (!row.clientName) {
-      errors.push(`Row missing client_name for client_id: ${row.clientId}`);
-      continue;
-    }
-    if (!row.deliveryZoneCity) {
-      errors.push(`Row missing delivery_zone_city for client_id: ${row.clientId}`);
-      continue;
-    }
-    if (!row.deliveryZoneRegion) {
-      errors.push(`Row missing delivery_zone_region for client_id: ${row.clientId}`);
-      continue;
-    }
-    if (!row.productId) {
-      errors.push(`Row missing product_id for client_id: ${row.clientId}`);
-      continue;
-    }
-    if (row.estimatedTrips <= 0) {
-      errors.push(`Row has invalid estimated_trips for product_id: ${row.productId}`);
-      continue;
-    }
-    if (row.fixedQuantityPerTrip <= 0) {
-      errors.push(`Row has invalid fixed_quantity_per_trip for product_id: ${row.productId}`);
-      continue;
-    }
-    if (row.unitPrice < 0) {
-      errors.push(`Row has invalid unit_price for product_id: ${row.productId}`);
-      continue;
-    }
-
-    const orderKey = row.orderId || row.orderKey || `${row.clientId}:${row.deliveryZoneCity}:${row.deliveryZoneRegion}`;
-
-    let aggregate = aggregates.get(orderKey);
-    if (!aggregate) {
-      aggregate = {
-        orderId: row.orderId,
-        orderKey,
-        orderNumber: row.orderNumber,
-        organizationId: row.organizationId || config.orgId,
-        clientId: row.clientId,
-        clientName: row.clientName,
-        clientPhone: row.clientPhone,
-        priority: row.priority || 'normal',
-        status: row.status || 'pending',
-        createdBy: row.createdBy || 'migration',
-        createdAt: parseDate(row.createdAt),
-        updatedAt: parseDate(row.updatedAt),
-        advanceAmount: row.advanceAmount,
-        advancePaymentAccountId: row.advancePaymentAccountId,
-        deliveryZoneId: row.deliveryZoneId,
-        deliveryZoneCity: row.deliveryZoneCity,
-        deliveryZoneRegion: row.deliveryZoneRegion,
-        items: [],
-      };
-      aggregates.set(orderKey, aggregate);
-    }
-
-    if (row.orderNumber && aggregate.orderNumber && row.orderNumber !== aggregate.orderNumber) {
-      warnings.push(`Order number mismatch for order_key ${orderKey}`);
-    }
-
-    const subtotal = row.estimatedTrips * row.fixedQuantityPerTrip * row.unitPrice;
-    let gstAmount = row.gstAmount ?? 0;
-    if (row.gstPercent && gstAmount === 0) {
-      gstAmount = subtotal * (row.gstPercent / 100);
-    }
-    const total = subtotal + gstAmount;
-
-    aggregate.items.push({
-      productId: row.productId,
-      productName: row.productName || '',
-      estimatedTrips: Math.round(row.estimatedTrips),
-      fixedQuantityPerTrip: row.fixedQuantityPerTrip,
-      scheduledTrips: 0,
-      unitPrice: row.unitPrice,
-      subtotal,
-      total,
-      ...(row.gstPercent ? { gstPercent: row.gstPercent } : {}),
-      ...(gstAmount > 0 ? { gstAmount } : {}),
-    });
-  }
-
-  if (errors.length > 0) {
-    console.error('Errors found while parsing rows:');
-    for (const err of errors) {
-      console.error(`- ${err}`);
-    }
-    throw new Error('Import aborted due to errors.');
-  }
-
-  if (warnings.length > 0) {
-    console.warn('Warnings while parsing rows:');
-    for (const warning of warnings) {
-      console.warn(`- ${warning}`);
-    }
-  }
-
-  console.log(`\nOrders to process: ${aggregates.size}`);
-
-  if (config.dryRun) {
-    console.log('\n[Dry run] No data will be written.');
-    return;
-  }
-
-  let batch = db.batch();
-  let writeCount = 0;
-  let batchCount = 0;
-  let createdCount = 0;
-  let updatedCount = 0;
-
-  const commitBatch = async () => {
-    if (writeCount === 0) return;
-    await batch.commit();
-    batchCount += 1;
-    console.log(`Committed batch ${batchCount} (${writeCount} writes)`);
-    batch = db.batch();
-    writeCount = 0;
+  const item: Record<string, any> = {
+    productId: order.productId,
+    productName: order.productName,
+    estimatedTrips,
+    scheduledTrips: 0,
+    fixedQuantityPerTrip: fixedQty,
+    unitPrice,
+    subtotal,
+    total,
   };
 
-  for (const aggregate of aggregates.values()) {
-    const orderRef = aggregate.orderId ? ordersRef.doc(aggregate.orderId) : ordersRef.doc();
-    const existing = aggregate.orderId ? await orderRef.get() : null;
+  if (hasGst) {
+    item.gstPercent = order.gstPercent;
+    item.gstAmount = gstAmount;
+  }
 
-    if (existing?.exists && !config.allowUpdates) {
-      console.log(`Skipping existing order (updates disabled): ${orderRef.id}`);
-      continue;
-    }
+  const createdAt = parseDate(order.createdAt) ?? admin.firestore.FieldValue.serverTimestamp();
+  const updatedAt = parseDate(order.updatedAt) ?? admin.firestore.FieldValue.serverTimestamp();
 
-    const normalizedPhone = normalizePhone(aggregate.clientPhone);
+  const pricing: Record<string, any> = {
+    subtotal,
+    totalAmount: total,
+  };
+  if (hasGst) {
+    pricing.totalGst = gstAmount;
+  }
 
-    const subtotal = aggregate.items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
-    const totalGst = aggregate.items.reduce((sum, item) => sum + (item.gstAmount || 0), 0);
-    const totalAmount = subtotal + totalGst;
+  return {
+    orderId: order.orderId,
+    orderKey: order.orderKey,
+    orderNumber: order.orderNumber,
+    organizationId: config.orgId,
+    clientId: order.clientId,
+    clientName: order.clientName,
+    clientPhone: normalizedPhone || order.clientPhone,
+    name_lc: nameLc,
+    priority: order.priority || 'normal',
+    status: order.status || 'pending',
+    createdBy: order.createdBy || 'migration',
+    createdAt,
+    updatedAt,
+    advanceAmount: order.advanceAmount ?? 0,
+    advancePaymentAccountId: order.advancePaymentAccountId,
+    deliveryZone: {
+      zone_id: order.deliveryZoneId,
+      city_name: order.deliveryZoneCity,
+      region: order.deliveryZoneRegion,
+    },
+    items: [item],
+    tripIds: [],
+    totalScheduledTrips: 0,
+    pricing,
+  };
+}
 
-    const pricing: Record<string, any> = {
-      subtotal,
-      totalAmount,
-      currency: 'INR',
-    };
-    if (totalGst > 0) {
-      pricing.totalGst = totalGst;
-    }
+async function ensureCityAndRegion(cityName: string, regionName: string, db: FirebaseFirestore.Firestore, config: ImportConfig): Promise<{ cityId: string; regionId: string }> {
+  const citiesRef = db.collection('ORGANIZATIONS').doc(config.orgId).collection('DELIVERY_CITIES');
+  const zonesRef = db.collection('ORGANIZATIONS').doc(config.orgId).collection('DELIVERY_ZONES');
 
-    const remainingAmount =
-      aggregate.advanceAmount && aggregate.advanceAmount > 0
-        ? totalAmount - aggregate.advanceAmount
-        : undefined;
+  const citySnapshot = await citiesRef.where('name', '==', cityName).limit(1).get();
+  let cityId = citySnapshot.empty ? null : citySnapshot.docs[0].id;
 
-    const orderData: Record<string, any> = {
-      orderId: orderRef.id,
-      orderNumber: aggregate.orderNumber || '',
-      organizationId: aggregate.organizationId,
-      clientId: aggregate.clientId,
-      clientName: aggregate.clientName,
-      name_lc: aggregate.clientName.toLowerCase(),
-      clientPhone: normalizedPhone || aggregate.clientPhone || '',
-      items: aggregate.items,
-      deliveryZone: {
-        zone_id: aggregate.deliveryZoneId || '',
-        city_name: aggregate.deliveryZoneCity,
-        region: aggregate.deliveryZoneRegion,
-      },
-      pricing,
-      priority: aggregate.priority,
-      status: aggregate.status,
-      scheduledTrips: [],
-      totalScheduledTrips: 0,
-      createdBy: aggregate.createdBy,
-      updatedAt: aggregate.updatedAt || admin.firestore.FieldValue.serverTimestamp(),
-    };
-
-    if (aggregate.createdAt) {
-      orderData.createdAt = aggregate.createdAt;
+  if (!cityId) {
+    if (config.dryRun) {
+      console.log(`[Dry Run] Would create city: ${cityName}`);
+      cityId = `dry-run-city-${cityName.toLowerCase().replace(/\s+/g, '-')}`;
     } else {
-      orderData.createdAt = admin.firestore.FieldValue.serverTimestamp();
-    }
-
-    if (aggregate.advanceAmount && aggregate.advanceAmount > 0) {
-      orderData.advanceAmount = aggregate.advanceAmount;
-    }
-    if (aggregate.advancePaymentAccountId) {
-      orderData.advancePaymentAccountId = aggregate.advancePaymentAccountId;
-    }
-    if (remainingAmount !== undefined) {
-      orderData.remainingAmount = remainingAmount;
-    }
-
-    if (existing?.exists) {
-      if (config.updateMode === 'merge') {
-        batch.set(orderRef, orderData, { merge: true });
-      } else {
-        batch.set(orderRef, orderData, { merge: false });
-      }
-      updatedCount += 1;
-    } else {
-      batch.set(orderRef, orderData, { merge: false });
-      createdCount += 1;
-    }
-    writeCount += 1;
-
-    if (writeCount >= 400) {
-      await commitBatch();
+      const newCityRef = citiesRef.doc();
+      await newCityRef.set({
+        name: cityName,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      cityId = newCityRef.id;
     }
   }
 
-  await commitBatch();
+  const zoneKey = `${cityId}::${regionName.toLowerCase()}`;
+  const zoneSnapshot = await zonesRef.where('key', '==', zoneKey).limit(1).get();
+  let regionId = zoneSnapshot.empty ? null : zoneSnapshot.docs[0].id;
 
-  console.log('\n=== Import Complete ===');
-  console.log(`Created orders: ${createdCount}`);
-  console.log(`Updated orders: ${updatedCount}`);
+  if (!regionId) {
+    if (config.dryRun) {
+      console.log(`[Dry Run] Would create region: ${regionName} in city: ${cityName}`);
+      regionId = `dry-run-region-${regionName.toLowerCase().replace(/\s+/g, '-')}`;
+    } else {
+      const newZoneRef = zonesRef.doc();
+      await newZoneRef.set({
+        key: zoneKey,
+        city_id: cityId,
+        region: regionName,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      regionId = newZoneRef.id;
+    }
+  }
+
+  return { cityId, regionId };
 }
 
-importPendingOrders().catch((error) => {
-  console.error('Import failed:', error);
-  process.exitCode = 1;
+async function processOrderRow(row: RawRow, db: FirebaseFirestore.Firestore, config: ImportConfig): Promise<OrderRow | null> {
+  const order = toOrderRow(row);
+  if (!order) return null;
+
+  if (order.deliveryZoneCity && order.deliveryZoneRegion) {
+    const { cityId, regionId } = await ensureCityAndRegion(order.deliveryZoneCity, order.deliveryZoneRegion, db, config);
+    order.deliveryZoneId = regionId;
+    order.organizationId = config.orgId;
+  }
+
+  return order;
+}
+
+async function importPendingOrders(config: ImportConfig, appInstance: admin.app.App): Promise<void> {
+  const db = appInstance.firestore();
+  db.settings({ ignoreUndefinedProperties: true });
+  const workbook = XLSX.readFile(config.inputPath);
+  const sheetNames = workbook.SheetNames || [];
+  console.log(`Input file: ${config.inputPath}`);
+  console.log(`Requested sheet: ${config.sheetName}`);
+  console.log(`Available sheets: ${sheetNames.join(', ') || '(none)'}`);
+
+  let sheetNameToUse = config.sheetName;
+  if (!process.env.SHEET_NAME && sheetNames.length > 0 && !workbook.Sheets[sheetNameToUse]) {
+    sheetNameToUse = sheetNames[0];
+    console.log(`Falling back to first sheet: ${sheetNameToUse}`);
+  }
+
+  const sheet = workbook.Sheets[sheetNameToUse];
+  if (!sheet) {
+    throw new Error(
+      `Sheet not found: ${sheetNameToUse}. ` +
+        `Available sheets: ${sheetNames.join(', ') || '(none)'}`,
+    );
+  }
+  const rows = XLSX.utils.sheet_to_json(sheet) as RawRow[];
+
+  if (!config.dryRun) {
+    console.log('Deleting existing pending orders for org before import...');
+    await deleteExistingPendingOrders(db, config.orgId);
+  } else {
+    console.log('[Dry Run] Would delete existing pending orders for org before import.');
+  }
+
+  // Add logging for processed rows, skipped rows, and successful writes
+  console.log(`Starting import of pending orders...`);
+
+  let processedCount = 0;
+  let skippedCount = 0;
+
+  for (const rawRow of rows) {
+    const order = await processOrderRow(rawRow, db, config);
+    if (!order) {
+      skippedCount++;
+      console.log(`Skipped row: ${JSON.stringify(rawRow)}`);
+      continue;
+    }
+
+    const orderDocId = order.orderId || uuidv4();
+    if (!order.orderId) {
+      order.orderId = orderDocId;
+      console.log(`Missing orderId; generated: ${orderDocId}`);
+    }
+
+    const orderDocument = buildPendingOrderDocument(order, config);
+
+    if (config.dryRun) {
+      processedCount++;
+      console.log(`[Dry Run] Would import order: ${order.orderId}`);
+      continue;
+    }
+
+    const orderRef = db.collection('PENDING_ORDERS').doc(orderDocId);
+    await orderRef.set(orderDocument, { merge: config.updateMode === 'merge' });
+    processedCount++;
+    console.log(`Successfully imported order: ${order.orderId}`);
+  }
+
+  console.log(`Import completed. Processed: ${processedCount}, Skipped: ${skippedCount}`);
+}
+
+async function deleteExistingPendingOrders(
+  db: FirebaseFirestore.Firestore,
+  orgId: string,
+): Promise<void> {
+  const batchSize = 400;
+  let deletedTotal = 0;
+
+  while (true) {
+    const snapshot = await db
+      .collection('PENDING_ORDERS')
+      .where('organizationId', '==', orgId)
+      .limit(batchSize)
+      .get();
+
+    if (snapshot.empty) {
+      break;
+    }
+
+    const batch = db.batch();
+    for (const doc of snapshot.docs) {
+      batch.delete(doc.ref);
+    }
+
+    await batch.commit();
+    deletedTotal += snapshot.size;
+    console.log(`Deleted ${deletedTotal} pending orders so far...`);
+  }
+
+  console.log(`Deleted ${deletedTotal} pending orders total.`);
+}
+
+// Initialize Firebase app at the top of the script
+const config = resolveConfig();
+const app = initApp(config);
+
+// Ensure initApp() is used consistently
+
+importPendingOrders(config, app).catch((error) => {
+  console.error('Error importing pending orders:', error);
 });

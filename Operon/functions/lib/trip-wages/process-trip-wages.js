@@ -186,6 +186,27 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
         const transactionIds = [];
         // Combine all employee IDs (unique set for attendance)
         const allEmployeeIds = Array.from(new Set([...loadingEmployeeIds, ...unloadingEmployeeIds]));
+        const employeeNameMap = {};
+        if (allEmployeeIds.length > 0) {
+            const nameBatches = [];
+            for (let i = 0; i < allEmployeeIds.length; i += BATCH_WRITE_LIMIT) {
+                nameBatches.push(allEmployeeIds.slice(i, i + BATCH_WRITE_LIMIT));
+            }
+            for (const batch of nameBatches) {
+                const refs = batch.map((employeeId) => db.collection(constants_1.EMPLOYEES_COLLECTION).doc(employeeId));
+                const docs = await db.getAll(...refs);
+                docs.forEach((doc) => {
+                    if (!doc.exists)
+                        return;
+                    const data = doc.data() || {};
+                    const name = data.name ||
+                        data.employeeName;
+                    if (name && name.trim().length > 0) {
+                        employeeNameMap[doc.id] = name.trim();
+                    }
+                });
+            }
+        }
         (0, logger_1.logInfo)('TripWages', 'processTripWages', 'Processing trip wage', {
             tripWageId,
             loadingEmployeeCount: loadingEmployeeIds.length,
@@ -208,28 +229,11 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
                 for (const employeeId of employeeBatch) {
                     const transactionRef = db.collection(constants_1.TRANSACTIONS_COLLECTION).doc();
                     const transactionId = transactionRef.id;
-                    const transactionData = {
-                        transactionId,
+                    const employeeName = employeeNameMap[employeeId];
+                    const transactionData = Object.assign(Object.assign({ transactionId,
                         organizationId,
-                        employeeId,
-                        ledgerType: 'employeeLedger',
-                        type: 'credit',
-                        category: 'wageCredit',
-                        amount: loadingWagePerEmployee,
-                        financialYear,
-                        paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate),
-                        description: `Trip Wage - Loading (DM: ${dmId})`,
-                        metadata: {
-                            sourceType: 'tripWage',
-                            sourceId: tripWageId,
-                            tripWageId,
-                            dmId,
-                            taskType: 'loading',
-                        },
-                        createdBy,
-                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    };
+                        employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: loadingWagePerEmployee, financialYear, paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate), description: `Trip Wage - Loading (DM: ${dmId})`, metadata: Object.assign({ sourceType: 'tripWage', sourceId: tripWageId, tripWageId,
+                            dmId, taskType: 'loading' }, (employeeName ? { employeeName } : {})), createdBy, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
                     // Add vehicle number to metadata if available
                     if (vehicleNumber) {
                         transactionData.metadata.vehicleNumber = vehicleNumber;
@@ -257,28 +261,11 @@ exports.processTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTI
                 for (const employeeId of employeeBatch) {
                     const transactionRef = db.collection(constants_1.TRANSACTIONS_COLLECTION).doc();
                     const transactionId = transactionRef.id;
-                    const transactionData = {
-                        transactionId,
+                    const employeeName = employeeNameMap[employeeId];
+                    const transactionData = Object.assign(Object.assign({ transactionId,
                         organizationId,
-                        employeeId,
-                        ledgerType: 'employeeLedger',
-                        type: 'credit',
-                        category: 'wageCredit',
-                        amount: unloadingWagePerEmployee,
-                        financialYear,
-                        paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate),
-                        description: `Trip Wage - Unloading (DM: ${dmId})`,
-                        metadata: {
-                            sourceType: 'tripWage',
-                            sourceId: tripWageId,
-                            tripWageId,
-                            dmId,
-                            taskType: 'unloading',
-                        },
-                        createdBy,
-                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    };
+                        employeeId }, (employeeName ? { employeeName } : {})), { ledgerType: 'employeeLedger', type: 'credit', category: 'wageCredit', amount: unloadingWagePerEmployee, financialYear, paymentDate: admin.firestore.Timestamp.fromDate(parsedPaymentDate), description: `Trip Wage - Unloading (DM: ${dmId})`, metadata: Object.assign({ sourceType: 'tripWage', sourceId: tripWageId, tripWageId,
+                            dmId, taskType: 'unloading' }, (employeeName ? { employeeName } : {})), createdBy, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() });
                     // Add vehicle number to metadata if available
                     if (vehicleNumber) {
                         transactionData.metadata.vehicleNumber = vehicleNumber;

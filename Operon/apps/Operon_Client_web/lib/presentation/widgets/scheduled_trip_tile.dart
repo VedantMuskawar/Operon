@@ -57,17 +57,17 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
         curve: Curves.easeInOut,
       ),
     );
-    
+
     _expansionController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    
+
     // Start pulsing if trip is overdue
     if (_isOverdue()) {
       _pulseController.repeat(reverse: true);
     }
-    
+
     // Check for location tracking
     _checkLocationTracking();
   }
@@ -80,10 +80,10 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
     _mapController?.dispose();
     super.dispose();
   }
-  
+
   void _updateMapLocation() {
     if (!mounted || _mapController == null || _currentLocation == null) return;
-    
+
     _mapController!.animateCamera(
       CameraUpdate.newLatLng(
         LatLng(
@@ -105,13 +105,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
       final app = Firebase.app();
       final db = FirebaseDatabase.instanceFor(
         app: app,
-        databaseURL: app.options.databaseURL ?? 'https://operonappsuite-default-rtdb.firebaseio.com',
+        databaseURL: app.options.databaseURL ??
+            'https://operonappsuite-default-rtdb.firebaseio.com',
       );
 
       final ref = db.ref('active_drivers/$driverId');
       _locationSubscription = ref.onValue.listen((event) {
         if (!mounted) return;
-        
+
         final value = event.snapshot.value;
         if (value != null && value is Map) {
           if (!mounted) return;
@@ -158,9 +159,9 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
   }
 
   Color _getStatusColor() {
-    final tripStatus = widget.trip['tripStatus'] as String? ?? 
-                       widget.trip['orderStatus'] as String? ?? 
-                       'scheduled';
+    final tripStatus = widget.trip['tripStatus'] as String? ??
+        widget.trip['orderStatus'] as String? ??
+        'scheduled';
     switch (tripStatus.toLowerCase()) {
       case 'pending':
         return AuthColors.error;
@@ -178,9 +179,9 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
   }
 
   int _getActiveStepCount() {
-    final tripStatus = widget.trip['tripStatus'] as String? ?? 
-                       widget.trip['orderStatus'] as String? ?? 
-                       'scheduled';
+    final tripStatus = widget.trip['tripStatus'] as String? ??
+        widget.trip['orderStatus'] as String? ??
+        'scheduled';
     switch (tripStatus.toLowerCase()) {
       case 'scheduled':
         return 1;
@@ -196,12 +197,17 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
   }
 
   bool _isOverdue() {
-    final tripStatus = widget.trip['tripStatus'] as String? ?? 
-                       widget.trip['orderStatus'] as String? ?? 
-                       'scheduled';
-    
+    final tripStatus = widget.trip['tripStatus'] as String? ??
+        widget.trip['orderStatus'] as String? ??
+        'scheduled';
+
     // Only check overdue for scheduled trips
     if (tripStatus.toLowerCase() != 'scheduled') {
+      return false;
+    }
+
+    final transportMode = widget.trip['transportMode'] as String?;
+    if (transportMode == 'self') {
       return false;
     }
 
@@ -226,7 +232,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
 
     // Get slot number (assuming slots are hourly, starting from 0 or 1)
     final slot = widget.trip['slot'] as int? ?? 0;
-    
+
     // Calculate slot time (assuming 8 AM start, each slot is 1 hour)
     // Adjust this logic based on your actual slot system
     // For now, we'll use a simple approach: scheduled date + slot hours
@@ -236,7 +242,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
       scheduledDateTime.day,
       8 + slot, // Start at 8 AM, add slot hours
     );
-    
+
     // Check if current time is past slot time
     return DateTime.now().isAfter(slotTime);
   }
@@ -247,7 +253,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
     final currentUser = FirebaseAuth.instance.currentUser;
 
     if (organization == null || currentUser == null) {
-      DashSnackbar.show(context, message: 'Organization or user not found', isError: true);
+      DashSnackbar.show(context,
+          message: 'Organization or user not found', isError: true);
       return;
     }
 
@@ -255,13 +262,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
     final scheduleTripId = widget.trip['scheduleTripId'] as String?;
 
     if (tripId == null || scheduleTripId == null) {
-      DashSnackbar.show(context, message: 'Trip ID or Schedule Trip ID not found', isError: true);
+      DashSnackbar.show(context,
+          message: 'Trip ID or Schedule Trip ID not found', isError: true);
       return;
     }
 
     try {
       final dmRepo = context.read<DeliveryMemoRepository>();
-      
+
       if (!mounted) return;
       DashSnackbar.show(context, message: 'Generating DM...', isError: false);
 
@@ -274,14 +282,16 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
       );
 
       if (!mounted) return;
-      DashSnackbar.show(context, message: 'DM generated: $dmId', isError: false);
-      
+      DashSnackbar.show(context,
+          message: 'DM generated: $dmId', isError: false);
+
       if (widget.onTripsUpdated != null) {
         widget.onTripsUpdated!();
       }
     } catch (e) {
       if (!mounted) return;
-      DashSnackbar.show(context, message: 'Failed to generate DM: $e', isError: true);
+      DashSnackbar.show(context,
+          message: 'Failed to generate DM: $e', isError: true);
     }
   }
 
@@ -332,7 +342,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
 
     try {
       final dmRepo = context.read<DeliveryMemoRepository>();
-      
+
       if (!mounted) return;
       DashSnackbar.show(context, message: 'Cancelling DM...', isError: false);
 
@@ -342,14 +352,16 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
       );
 
       if (!mounted) return;
-      DashSnackbar.show(context, message: 'DM cancelled successfully', isError: false);
-      
+      DashSnackbar.show(context,
+          message: 'DM cancelled successfully', isError: false);
+
       if (widget.onTripsUpdated != null) {
         widget.onTripsUpdated!();
       }
     } catch (e) {
       if (!mounted) return;
-      DashSnackbar.show(context, message: 'Failed to cancel DM: $e', isError: true);
+      DashSnackbar.show(context,
+          message: 'Failed to cancel DM: $e', isError: true);
     }
   }
 
@@ -437,9 +449,11 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                       labelText: 'Reason for rescheduling *',
                       labelStyle: const TextStyle(color: AuthColors.textSub),
                       hintText: 'Enter reason...',
-                      hintStyle: TextStyle(color: AuthColors.textMainWithOpacity(0.3)),
+                      hintStyle:
+                          TextStyle(color: AuthColors.textMainWithOpacity(0.3)),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
+                        borderSide: BorderSide(
+                            color: AuthColors.textMainWithOpacity(0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       focusedBorder: OutlineInputBorder(
@@ -496,19 +510,19 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
       }
 
       final scheduledTripsRepo = context.read<ScheduledTripsRepository>();
-      
+
       await scheduledTripsRepo.updateTripRescheduleReason(
         tripId: tripId,
         reason: rescheduleReason,
       );
-      
+
       await scheduledTripsRepo.deleteScheduledTrip(tripId);
 
       final orderId = widget.trip['orderId'] as String?;
       final clientId = widget.trip['clientId'] as String?;
       final clientName = widget.trip['clientName'] as String? ?? 'N/A';
-      final customerNumber = widget.trip['customerNumber'] as String? ?? 
-                             widget.trip['clientPhone'] as String?;
+      final customerNumber = widget.trip['customerNumber'] as String? ??
+          widget.trip['clientPhone'] as String?;
 
       if (orderId == null || clientId == null) {
         DashSnackbar.show(
@@ -521,11 +535,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
 
       final clientsRepo = context.read<ClientsRepository>();
       List<Map<String, dynamic>> clientPhones = [];
-      
+
       if (customerNumber != null && customerNumber.isNotEmpty) {
         try {
-          final orgId = context.read<OrganizationContextCubit>().state.organization?.id ?? '';
-          final client = await clientsRepo.findClientByPhone(orgId, customerNumber);
+          final orgId =
+              context.read<OrganizationContextCubit>().state.organization?.id ??
+                  '';
+          final client =
+              await clientsRepo.findClientByPhone(orgId, customerNumber);
           if (client != null) {
             clientPhones = client.phones;
             if (clientPhones.isEmpty && client.primaryPhone != null) {
@@ -551,7 +568,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
         'clientName': clientName,
         'clientPhone': customerNumber,
         'items': widget.trip['items'] as List<dynamic>? ?? [],
-        'deliveryZone': widget.trip['deliveryZone'] as Map<String, dynamic>? ?? {},
+        'deliveryZone':
+            widget.trip['deliveryZone'] as Map<String, dynamic>? ?? {},
         'pricing': widget.trip['pricing'] as Map<String, dynamic>? ?? {},
         'priority': widget.trip['priority'] as String? ?? 'normal',
       };
@@ -575,7 +593,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
       );
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Failed to reschedule trip: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to reschedule trip: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -591,32 +610,39 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
     final clientName = widget.trip['clientName'] as String? ?? 'N/A';
     final vehicleNumber = widget.trip['vehicleNumber'] as String? ?? 'N/A';
     final slot = widget.trip['slot'] as int? ?? 0;
+    final transportMode = widget.trip['transportMode'] as String?;
+    final isSelfTransport = transportMode == 'self';
+    final vehicleLabel = isSelfTransport ? 'Self Transport' : vehicleNumber;
+    final slotLabel = isSelfTransport ? 'Self' : 'Slot $slot';
     final deliveryZone = widget.trip['deliveryZone'] as Map<String, dynamic>?;
     final zoneText = deliveryZone != null
         ? '${deliveryZone['region'] ?? ''}, ${deliveryZone['city_name'] ?? deliveryZone['city'] ?? ''}'
         : 'N/A';
-    
+
     final items = widget.trip['items'] as List<dynamic>? ?? [];
-    final firstItem = items.isNotEmpty ? items.first as Map<String, dynamic> : null;
+    final firstItem =
+        items.isNotEmpty ? items.first as Map<String, dynamic> : null;
     final productName = firstItem?['productName'] as String? ?? 'N/A';
-    final fixedQuantityPerTrip = firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
+    final fixedQuantityPerTrip =
+        firstItem?['fixedQuantityPerTrip'] as int? ?? 0;
 
     final tripPricing = widget.trip['tripPricing'] as Map<String, dynamic>?;
     final tripSubtotal = (tripPricing?['subtotal'] as num?)?.toDouble() ?? 0.0;
-    final tripGstAmount = (tripPricing?['gstAmount'] as num?)?.toDouble() ?? 0.0;
+    final tripGstAmount =
+        (tripPricing?['gstAmount'] as num?)?.toDouble() ?? 0.0;
     final tripTotal = (tripPricing?['total'] as num?)?.toDouble() ?? 0.0;
     final paymentType = widget.trip['paymentType'] as String? ?? 'pay_later';
 
     final dmNumber = widget.trip['dmNumber'] as int?;
     final hasDM = dmNumber != null;
 
-    final tripStatus = widget.trip['tripStatus'] as String? ?? 
-                       widget.trip['orderStatus'] as String? ?? 
-                       'scheduled';
+    final tripStatus = widget.trip['tripStatus'] as String? ??
+        widget.trip['orderStatus'] as String? ??
+        'scheduled';
 
-    final showActions = tripStatus.toLowerCase() == 'scheduled' || 
-                        tripStatus.toLowerCase() == 'dispatched';
-    
+    final showActions = tripStatus.toLowerCase() == 'scheduled' ||
+        tripStatus.toLowerCase() == 'dispatched';
+
     // DM generation should only be available for scheduled trips (DM required before dispatch)
     final canGenerateDM = tripStatus.toLowerCase() == 'scheduled' && !hasDM;
 
@@ -634,7 +660,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
           child: Container(
-            padding: const EdgeInsets.only(left: 20, top: 20, right: 20, bottom: 16),
+            padding:
+                const EdgeInsets.only(left: 20, top: 20, right: 20, bottom: 16),
             decoration: BoxDecoration(
               color: statusColor,
               borderRadius: BorderRadius.circular(16),
@@ -661,14 +688,15 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                   pulseAnimation: isOverdue ? _pulseAnimation : null,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Location Tracking Expand Button (if active)
                 if (_hasLocationTracking)
                   InkWell(
                     onTap: _toggleExpansion,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: AuthColors.success.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -679,13 +707,13 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.location_on,
                             size: 16,
                             color: AuthColors.success,
                           ),
                           const SizedBox(width: 8),
-                          Text(
+                          const Text(
                             'Location Tracking Active',
                             style: TextStyle(
                               color: AuthColors.success,
@@ -697,7 +725,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                           AnimatedRotation(
                             turns: _isExpanded ? 0.5 : 0,
                             duration: const Duration(milliseconds: 300),
-                            child: Icon(
+                            child: const Icon(
                               Icons.expand_more,
                               size: 20,
                               color: AuthColors.success,
@@ -708,13 +736,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                     ),
                   ),
                 if (_hasLocationTracking) const SizedBox(height: 12),
-                
+
                 // Overdue Badge
                 if (isOverdue)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: AuthColors.error.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -722,7 +751,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                           color: AuthColors.error.withOpacity(0.3),
                         ),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -730,7 +759,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                             size: 14,
                             color: AuthColors.error,
                           ),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           Text(
                             'Overdue',
                             style: TextStyle(
@@ -743,7 +772,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                       ),
                     ),
                   ),
-                
+
                 // Header: Client Name and Vehicle & Slot
                 Row(
                   children: [
@@ -786,7 +815,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                     ),
                     const SizedBox(width: 12),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: AuthColors.surface,
                         borderRadius: BorderRadius.circular(8),
@@ -807,7 +837,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                vehicleNumber,
+                                vehicleLabel,
                                 style: const TextStyle(
                                   color: AuthColors.textSub,
                                   fontSize: 11,
@@ -827,7 +857,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                               ),
                               const SizedBox(width: 4),
                               Text(
-                                'Slot $slot',
+                                slotLabel,
                                 style: const TextStyle(
                                   color: AuthColors.textSub,
                                   fontSize: 11,
@@ -841,14 +871,15 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 12),
-                
+
                 // Product and Quantity
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: AuthColors.surface.withOpacity(0.6),
                         borderRadius: BorderRadius.circular(8),
@@ -875,7 +906,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
                         color: AuthColors.success.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
@@ -894,9 +926,9 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 12),
-                
+
                 // Pricing Information
                 if (tripTotal > 0) ...[
                   Container(
@@ -982,16 +1014,16 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                         Row(
                           children: [
                             Icon(
-                              paymentType == 'pay_on_delivery' 
-                                  ? Icons.money_outlined 
+                              paymentType == 'pay_on_delivery'
+                                  ? Icons.money_outlined
                                   : Icons.credit_card_outlined,
                               size: 12,
                               color: AuthColors.textSub,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              paymentType == 'pay_on_delivery' 
-                                  ? 'Pay on Delivery' 
+                              paymentType == 'pay_on_delivery'
+                                  ? 'Pay on Delivery'
                                   : 'Pay Later',
                               style: const TextStyle(
                                 color: AuthColors.textSub,
@@ -1005,14 +1037,15 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                   ),
                   const SizedBox(height: 12),
                 ],
-                
+
                 // DM Information - Clickable DM Number (access point for printing)
                 if (hasDM) ...[
                   InkWell(
                     onTap: () => _showPrintDialog(context),
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: AuthColors.info.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
@@ -1043,7 +1076,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                   ),
                   const SizedBox(height: 12),
                 ],
-                
+
                 // Divider before action buttons
                 if (showActions) ...[
                   Divider(
@@ -1053,7 +1086,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                   ),
                   const SizedBox(height: 12),
                 ],
-                
+
                 // Action Buttons
                 if (showActions) ...[
                   if (hasDM)
@@ -1064,7 +1097,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                             icon: Icons.visibility_outlined,
                             label: 'View DM',
                             color: AuthColors.info.withOpacity(0.3),
-                            onTap: () => DashSnackbar.show(context, message: 'Feature under development'),
+                            onTap: () => DashSnackbar.show(context,
+                                message: 'Feature under development'),
                           ),
                         ),
                         // Only allow canceling DM if trip is still scheduled (DM required before dispatch)
@@ -1113,7 +1147,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                       isFullWidth: true,
                     ),
                 ],
-                
+
                 // Expanded Location Map
                 if (_hasLocationTracking)
                   SizeTransition(
@@ -1134,7 +1168,8 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                           clipBehavior: Clip.antiAlias,
                           child: _currentLocation != null && kIsWeb
                               ? GoogleMap(
-                                  key: ValueKey('map_${_currentLocation!.lat}_${_currentLocation!.lng}'),
+                                  key: ValueKey(
+                                      'map_${_currentLocation!.lat}_${_currentLocation!.lng}'),
                                   initialCameraPosition: CameraPosition(
                                     target: LatLng(
                                       _currentLocation!.lat,
@@ -1144,12 +1179,14 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                                   ),
                                   markers: {
                                     Marker(
-                                      markerId: const MarkerId('current_location'),
+                                      markerId:
+                                          const MarkerId('current_location'),
                                       position: LatLng(
                                         _currentLocation!.lat,
                                         _currentLocation!.lng,
                                       ),
-                                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                                      icon:
+                                          BitmapDescriptor.defaultMarkerWithHue(
                                         BitmapDescriptor.hueGreen,
                                       ),
                                     ),
@@ -1176,16 +1213,17 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                                 )
                               : Container(
                                   color: AuthColors.surface,
-                                  child: Center(
+                                  child: const Center(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.location_off,
                                           size: 48,
                                           color: AuthColors.textSub,
                                         ),
-                                        const SizedBox(height: 8),
+                                        SizedBox(height: 8),
                                         Text(
                                           'Waiting for location...',
                                           style: TextStyle(
@@ -1250,7 +1288,8 @@ class _ActionButton extends StatelessWidget {
                 height: 14,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(AuthColors.textMain),
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(AuthColors.textMain),
                 ),
               )
             else
@@ -1295,7 +1334,7 @@ class _TripStatusStepper extends StatelessWidget {
     ];
 
     // Use white tones so stepper is readable on any status card (red/orange/blue/green)
-    final activeColor = Colors.white;
+    const activeColor = Colors.white;
     final inactiveColor = Colors.white.withOpacity(0.35);
 
     Widget stepperWidget = Row(
@@ -1364,9 +1403,7 @@ class _TripStatusStepper extends StatelessWidget {
               child: Text(
                 steps[index],
                 style: TextStyle(
-                  color: isActive
-                      ? activeColor
-                      : Colors.white.withOpacity(0.7),
+                  color: isActive ? activeColor : Colors.white.withOpacity(0.7),
                   fontSize: 10,
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                 ),

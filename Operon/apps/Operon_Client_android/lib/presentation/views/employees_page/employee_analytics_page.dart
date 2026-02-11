@@ -644,7 +644,9 @@ class _WagesLineChartPainter extends CustomPainter {
           if (offsetX.isNaN ||
               offsetY.isNaN ||
               !offsetX.isFinite ||
-              !offsetY.isFinite) continue;
+              !offsetY.isFinite) {
+            continue;
+          }
 
           valueText.paint(
             canvas,
@@ -697,7 +699,9 @@ class _WagesLineChartPainter extends CustomPainter {
           if (offsetX.isNaN ||
               offsetY.isNaN ||
               !offsetX.isFinite ||
-              !offsetY.isFinite) continue;
+              !offsetY.isFinite) {
+            continue;
+          }
 
           labelText.paint(
             canvas,

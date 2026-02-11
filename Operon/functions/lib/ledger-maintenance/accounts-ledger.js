@@ -49,6 +49,11 @@ const ledgerTypeMap = {
     vendor: 'vendorLedger',
     employee: 'employeeLedger',
 };
+const ledgerCollectionMap = {
+    client: constants_1.CLIENT_LEDGERS_COLLECTION,
+    vendor: constants_1.VENDOR_LEDGERS_COLLECTION,
+    employee: constants_1.EMPLOYEE_LEDGERS_COLLECTION,
+};
 const idFieldMap = {
     client: 'clientId',
     vendor: 'vendorId',
@@ -60,6 +65,21 @@ function chunkIds(ids, size) {
         chunks.push(ids.slice(i, i + size));
     }
     return chunks;
+}
+async function getCombinedOpeningBalance(accounts, financialYear) {
+    if (!accounts || accounts.length === 0)
+        return 0;
+    const balances = await Promise.all(accounts.map(async (account) => {
+        const collection = ledgerCollectionMap[account.type];
+        if (!collection || !account.id)
+            return 0;
+        const ledgerId = `${account.id}_${financialYear}`;
+        const ledgerDoc = await db.collection(collection).doc(ledgerId).get();
+        if (!ledgerDoc.exists)
+            return 0;
+        return ledgerDoc.get('openingBalance') || 0;
+    }));
+    return balances.reduce((sum, value) => sum + value, 0);
 }
 async function fetchTransactionsForAccounts(organizationId, financialYear, type, ids) {
     if (ids.length === 0)
@@ -125,7 +145,8 @@ exports.generateAccountsLedger = (0, https_1.onCall)(function_config_1.CALLABLE_
         const ledgerId = `${accountsLedgerId}_${financialYear}`;
         const ledgerRef = db.collection(constants_1.ACCOUNTS_LEDGERS_COLLECTION).doc(ledgerId);
         const fyDates = (0, ledger_helpers_1.getFinancialYearDates)(financialYear);
-        let currentBalance = 0;
+        const openingBalance = await getCombinedOpeningBalance(accounts, financialYear);
+        let currentBalance = openingBalance;
         const monthlyBuckets = new Map();
         const transactionIds = [];
         let firstTransactionDate = null;
@@ -214,14 +235,17 @@ exports.generateAccountsLedger = (0, https_1.onCall)(function_config_1.CALLABLE_
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             }, { merge: true });
         });
-        const totalCredits = transactions.reduce((sum, snapshot) => {
+        const totals = transactions.reduce((acc, snapshot) => {
             const amount = snapshot.get('amount') || 0;
-            return snapshot.get('type') === 'credit' ? sum + amount : sum;
-        }, 0);
-        const totalDebits = transactions.reduce((sum, snapshot) => {
-            const amount = snapshot.get('amount') || 0;
-            return snapshot.get('type') === 'debit' ? sum + amount : sum;
-        }, 0);
+            const type = snapshot.get('type') || 'debit';
+            if (type === 'credit') {
+                acc.totalCredits += amount;
+            }
+            else {
+                acc.totalDebits += amount;
+            }
+            return acc;
+        }, { totalCredits: 0, totalDebits: 0 });
         batch.set(ledgerRef, {
             ledgerId,
             accountsLedgerId,
@@ -232,10 +256,10 @@ exports.generateAccountsLedger = (0, https_1.onCall)(function_config_1.CALLABLE_
             accounts,
             fyStartDate: admin.firestore.Timestamp.fromDate(fyDates.start),
             fyEndDate: admin.firestore.Timestamp.fromDate(fyDates.end),
-            openingBalance: 0,
+            openingBalance,
             currentBalance,
-            totalCredits,
-            totalDebits,
+            totalCredits: totals.totalCredits,
+            totalDebits: totals.totalDebits,
             transactionCount: transactionIds.length,
             transactionIds,
             lastTransactionId: lastTransactionId !== null && lastTransactionId !== void 0 ? lastTransactionId : null,

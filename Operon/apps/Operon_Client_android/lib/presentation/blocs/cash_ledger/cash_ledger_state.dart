@@ -45,6 +45,9 @@ class CashLedgerState extends BaseState {
     this.paymentAccountDistribution = const [],
     this.totalCredit = 0.0,
     this.totalDebit = 0.0,
+    this.clientCreditRows = const [],
+    this.vendorCreditRows = const [],
+    this.employeeCreditRows = const [],
   }) : super(message: message);
 
   final List<Transaction> orderTransactions;
@@ -71,6 +74,9 @@ class CashLedgerState extends BaseState {
   final List<PaymentAccountSummary> paymentAccountDistribution;
   final double totalCredit;
   final double totalDebit;
+  final List<Transaction> clientCreditRows;
+  final List<Transaction> vendorCreditRows;
+  final List<Transaction> employeeCreditRows;
 
   List<Transaction> get currentList {
     switch (selectedTab) {
@@ -109,6 +115,9 @@ class CashLedgerState extends BaseState {
     List<PaymentAccountSummary>? paymentAccountDistribution,
     double? totalCredit,
     double? totalDebit,
+    List<Transaction>? clientCreditRows,
+    List<Transaction>? vendorCreditRows,
+    List<Transaction>? employeeCreditRows,
   }) {
     return CashLedgerState(
       status: status ?? this.status,
@@ -133,6 +142,9 @@ class CashLedgerState extends BaseState {
       paymentAccountDistribution: paymentAccountDistribution ?? this.paymentAccountDistribution,
       totalCredit: totalCredit ?? this.totalCredit,
       totalDebit: totalDebit ?? this.totalDebit,
+      clientCreditRows: clientCreditRows ?? this.clientCreditRows,
+      vendorCreditRows: vendorCreditRows ?? this.vendorCreditRows,
+      employeeCreditRows: employeeCreditRows ?? this.employeeCreditRows,
     );
   }
 }

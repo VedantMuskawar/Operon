@@ -27,6 +27,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   late DateTime _selectedDate;
   late ScrollController _scrollController;
   StreamSubscription<List<Map<String, dynamic>>>? _tripsSubscription;
+
   /// All trips for the selected date (unfiltered). Used for local vehicle filtering.
   List<Map<String, dynamic>> _allTripsForDate = [];
   List<Map<String, dynamic>> _scheduledTrips = [];
@@ -118,7 +119,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     }
 
     final orgId = organization.id;
-    final selectedDateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    final selectedDateOnly =
+        DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final sameOrg = _currentOrgId == orgId;
     final sameDate = _currentDate != null &&
         _currentDate!.year == _selectedDate.year &&
@@ -135,27 +137,15 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     _tripsSubscription?.cancel();
     _tripsSubscription = repository
         .watchScheduledTripsForDate(
-          organizationId: orgId,
-          scheduledDate: _selectedDate,
-        )
+      organizationId: orgId,
+      scheduledDate: _selectedDate,
+    )
         .listen(
       (trips) {
         if (mounted) {
           setState(() {
             _allTripsForDate = trips;
-            if (_selectedVehicleId != null) {
-              final hasTripsForVehicle = trips.any((trip) {
-                final vehicleId = trip['vehicleId'] as String?;
-                return vehicleId == _selectedVehicleId;
-              });
-              if (!hasTripsForVehicle) {
-                _selectedVehicleId = null;
-              }
-            }
-            final selId = _selectedVehicleId;
-            _scheduledTrips = selId == null
-                ? List.from(trips)
-                : trips.where((trip) => (trip['vehicleId'] as String?) == selId).toList();
+            _scheduledTrips = _applyFilters(_allTripsForDate);
             _isLoadingTrips = false;
             _updateCachedValues();
           });
@@ -183,11 +173,20 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   void _onVehicleFilterChanged(String? vehicleId) {
     setState(() {
       _selectedVehicleId = vehicleId;
-      _scheduledTrips = vehicleId == null
-          ? List.from(_allTripsForDate)
-          : _allTripsForDate.where((trip) => (trip['vehicleId'] as String?) == vehicleId).toList();
+      _scheduledTrips = _applyFilters(_allTripsForDate);
       _updateCachedValues();
     });
+  }
+
+  List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> trips) {
+    var filtered = trips;
+    if (_selectedVehicleId != null) {
+      filtered = filtered
+          .where((trip) => (trip['vehicleId'] as String?) == _selectedVehicleId)
+          .toList();
+    }
+
+    return filtered;
   }
 
   Future<void> _onReschedule(Map<String, dynamic> trip) async {
@@ -201,7 +200,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
             backgroundColor: AuthColors.surface,
             title: Text(
               'Reschedule Trip',
-              style: AppTypography.withColor(AppTypography.h3, AuthColors.textMain),
+              style: AppTypography.withColor(
+                  AppTypography.h3, AuthColors.textMain),
             ),
             content: SizedBox(
               width: double.maxFinite,
@@ -211,24 +211,31 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                 children: [
                   Text(
                     'This will delete the current scheduled trip and allow you to reschedule it.',
-                    style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
+                    style: AppTypography.withColor(
+                        AppTypography.body, AuthColors.textSub),
                   ),
                   const SizedBox(height: AppSpacing.paddingLG),
                   TextField(
                     controller: reasonController,
-                    style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
+                    style: AppTypography.withColor(
+                        AppTypography.body, AuthColors.textMain),
                     decoration: InputDecoration(
                       labelText: 'Reason for rescheduling *',
-                      labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
+                      labelStyle: AppTypography.withColor(
+                          AppTypography.label, AuthColors.textSub),
                       hintText: 'Enter reason...',
-                      hintStyle: TextStyle(color: AuthColors.textMainWithOpacity(0.3)),
+                      hintStyle:
+                          TextStyle(color: AuthColors.textMainWithOpacity(0.3)),
                       enabledBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: AuthColors.textMainWithOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        borderSide: BorderSide(
+                            color: AuthColors.textMainWithOpacity(0.3)),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderSide: const BorderSide(color: AuthColors.warning),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSM),
                       ),
                       filled: true,
                       fillColor: AuthColors.surface,
@@ -253,7 +260,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                         }),
                 child: Text(
                   'Reschedule',
-                  style: AppTypography.withColor(AppTypography.buttonSmall, AuthColors.warning),
+                  style: AppTypography.withColor(
+                      AppTypography.buttonSmall, AuthColors.warning),
                 ),
               ),
             ],
@@ -280,14 +288,14 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       }
 
       final scheduledTripsRepo = context.read<ScheduledTripsRepository>();
-      
+
       // Update trip with reschedule reason before deleting
       // This allows Cloud Functions to access it if needed for audit/logging
       await scheduledTripsRepo.updateTripRescheduleReason(
         tripId: tripId,
         reason: rescheduleReason,
       );
-      
+
       // Delete the trip - Cloud Functions will automatically update PENDING_ORDERS:
       // - Decrements totalScheduledTrips
       // - Increments estimatedTrips
@@ -298,11 +306,13 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       final orderId = trip['orderId'] as String?;
       final clientId = trip['clientId'] as String?;
       final clientName = trip['clientName'] as String? ?? 'N/A';
-      final customerNumber = trip['customerNumber'] as String? ?? trip['clientPhone'] as String?;
+      final customerNumber =
+          trip['customerNumber'] as String? ?? trip['clientPhone'] as String?;
 
       if (orderId == null || clientId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Order or client information not available')),
+          const SnackBar(
+              content: Text('Order or client information not available')),
         );
         return;
       }
@@ -310,7 +320,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       // Fetch client phones
       final clientService = ClientService();
       List<Map<String, dynamic>> clientPhones = [];
-      
+
       if (customerNumber != null && customerNumber.isNotEmpty) {
         try {
           final client = await clientService.findClientByPhone(customerNumber);
@@ -382,23 +392,23 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       });
       return;
     }
-    
+
     const itemWidth = 70.0; // Width of each date card (64 + 6 margin)
     final selectedIndex = _getDateIndex(_selectedDate);
     final screenWidth = MediaQuery.of(context).size.width;
     const padding = 12.0; // Horizontal padding of ListView
-    
+
     // Calculate the position to center the selected item
     // Position of selected item - half screen width + half item width
     // Account for padding on the left
-    final scrollPosition = (selectedIndex * itemWidth) - 
-        (screenWidth / 2) + 
+    final scrollPosition = (selectedIndex * itemWidth) -
+        (screenWidth / 2) +
         (itemWidth / 2) +
         padding;
-    
+
     final maxScroll = _scrollController.position.maxScrollExtent;
     final clampedPosition = scrollPosition.clamp(0.0, maxScroll);
-    
+
     // Only animate if the position is significantly different
     if ((_scrollController.offset - clampedPosition).abs() > 2.0) {
       _scrollController.animateTo(
@@ -416,24 +426,38 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     final selectedDate = DateTime(date.year, date.month, date.day);
-    return selectedDate.difference(todayDate).inDays + 4; // Offset by 4 to center today
+    return selectedDate.difference(todayDate).inDays +
+        4; // Offset by 4 to center today
   }
 
   List<DateTime> _getDateRange() {
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     final dates = <DateTime>[];
-    
+
     // 4 days back, today, 4 days forward = 9 days total
     for (int i = -4; i <= 4; i++) {
       dates.add(todayDate.add(Duration(days: i)));
     }
-    
+
     return dates;
   }
 
   String _getMonthAbbr(DateTime date) {
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
+    ];
     return months[date.month - 1];
   }
 
@@ -456,7 +480,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
           final fixedQuantity = (itemMap['fixedQuantityPerTrip'] as int?) ?? 0;
           final gstPercent = (itemMap['gstPercent'] as num?)?.toDouble();
           final subtotal = unitPrice * fixedQuantity;
-          final gstAmount = gstPercent != null ? subtotal * (gstPercent / 100) : 0.0;
+          final gstAmount =
+              gstPercent != null ? subtotal * (gstPercent / 100) : 0.0;
           total += subtotal + gstAmount;
         }
       }
@@ -524,9 +549,11 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
           // Summary — primary (burgundy) for main, secondary (gold) for high-priority
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
+                padding:
+                    const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
                 decoration: BoxDecoration(
                   color: AuthColors.surface,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -543,7 +570,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.paddingMD),
                   child: Row(
                     children: [
                       Expanded(
@@ -556,7 +584,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       Container(
                         width: 1,
                         height: 40,
-                        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.paddingSM),
                         color: AuthColors.textMainWithOpacity(0.1),
                       ),
                       Expanded(
@@ -569,7 +598,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       Container(
                         width: 1,
                         height: 40,
-                        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.paddingSM),
                         color: AuthColors.textMainWithOpacity(0.1),
                       ),
                       Expanded(
@@ -585,7 +615,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingMD)),
+          const SliverToBoxAdapter(
+              child: SizedBox(height: AppSpacing.paddingMD)),
           // Date picker
           SliverToBoxAdapter(
             child: SizedBox(
@@ -594,7 +625,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.paddingMD),
                 itemCount: dates.length,
                 itemBuilder: (context, index) {
                   final date = dates[index];
@@ -610,10 +642,15 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     child: Container(
                       width: 64,
                       margin: const EdgeInsets.only(right: AppSpacing.gapSM),
-                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingSM, horizontal: AppSpacing.gapSM),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.paddingSM,
+                          horizontal: AppSpacing.gapSM),
                       decoration: BoxDecoration(
-                        color: isSelected ? AuthColors.primary : AuthColors.surface,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                        color: isSelected
+                            ? AuthColors.primary
+                            : AuthColors.surface,
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMD),
                         border: Border.all(
                           color: isSelected
                               ? AuthColors.primary
@@ -627,15 +664,21 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                           Text(
                             _getMonthAbbr(date),
                             style: AppTypography.withColor(
-                              AppTypography.withWeight(AppTypography.withSize(AppTypography.captionSmall, 9), FontWeight.w500),
-                              isSelected ? AuthColors.textMain : AuthColors.textSub,
+                              AppTypography.withWeight(
+                                  AppTypography.withSize(
+                                      AppTypography.captionSmall, 9),
+                                  FontWeight.w500),
+                              isSelected
+                                  ? AuthColors.textMain
+                                  : AuthColors.textSub,
                             ),
                           ),
                           const SizedBox(height: AppSpacing.paddingXS),
                           Text(
                             date.day.toString(),
                             style: AppTypography.withColor(
-                              AppTypography.withWeight(AppTypography.h4, FontWeight.w700),
+                              AppTypography.withWeight(
+                                  AppTypography.h4, FontWeight.w700),
                               AuthColors.textMain,
                             ),
                           ),
@@ -643,8 +686,13 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                           Text(
                             _getDayAbbr(date),
                             style: AppTypography.withColor(
-                              AppTypography.withWeight(AppTypography.withSize(AppTypography.captionSmall, 9), FontWeight.w500),
-                              isSelected ? AuthColors.textMain : AuthColors.textSub,
+                              AppTypography.withWeight(
+                                  AppTypography.withSize(
+                                      AppTypography.captionSmall, 9),
+                                  FontWeight.w500),
+                              isSelected
+                                  ? AuthColors.textMain
+                                  : AuthColors.textSub,
                             ),
                           ),
                         ],
@@ -655,19 +703,22 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingMD)),
+          const SliverToBoxAdapter(
+              child: SizedBox(height: AppSpacing.paddingMD)),
           // Vehicle filter
           SliverToBoxAdapter(
             child: SizedBox(
               height: 40,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.paddingMD),
                 itemCount: _cachedFilteredVehicles.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
+                      padding:
+                          const EdgeInsets.only(right: AppSpacing.paddingSM),
                       child: _VehicleFilterButton(
                         label: 'All',
                         isSelected: _selectedVehicleId == null,
@@ -688,16 +739,17 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.paddingMD)),
+          const SliverToBoxAdapter(
+              child: SizedBox(height: AppSpacing.paddingMD)),
           if (_isLoadingTrips)
             const SliverFillRemaining(
               hasScrollBody: false,
               child: OrdersSectionLoadingState(),
             )
           else if (_scheduledTrips.isEmpty)
-            SliverToBoxAdapter(
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.paddingXL),
+                padding: EdgeInsets.all(AppSpacing.paddingXL),
                 child: OrdersSectionEmptyState(
                   title: 'No scheduled trips',
                   message: 'No scheduled trips for this date',
@@ -710,7 +762,10 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                 (context, index) {
                   final trip = _scheduledTrips[index];
                   final tile = Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD, left: AppSpacing.paddingLG, right: AppSpacing.paddingLG),
+                    padding: const EdgeInsets.only(
+                        bottom: AppSpacing.paddingMD,
+                        left: AppSpacing.paddingLG,
+                        right: AppSpacing.paddingLG),
                     child: ScheduledTripTile(
                       trip: trip,
                       onReschedule: () => _onReschedule(trip),
@@ -762,7 +817,8 @@ class _SummaryItem extends StatelessWidget {
     return Text(
       value,
       style: AppTypography.withColor(
-        AppTypography.withWeight(AppTypography.h4, FontWeight.w700).copyWith(letterSpacing: 0.5),
+        AppTypography.withWeight(AppTypography.h4, FontWeight.w700)
+            .copyWith(letterSpacing: 0.5),
         color,
       ),
       textAlign: TextAlign.center,
@@ -787,11 +843,10 @@ class _VehicleFilterButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingSM),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingSM),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AuthColors.primary
-              : AuthColors.surface,
+          color: isSelected ? AuthColors.primary : AuthColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
           border: Border.all(
             color: isSelected
@@ -803,9 +858,11 @@ class _VehicleFilterButton extends StatelessWidget {
         child: Text(
           label,
           style: AppTypography.withColor(
-            isSelected 
-                ? AppTypography.withWeight(AppTypography.labelSmall, FontWeight.w600)
-                : AppTypography.withWeight(AppTypography.labelSmall, FontWeight.w500),
+            isSelected
+                ? AppTypography.withWeight(
+                    AppTypography.labelSmall, FontWeight.w600)
+                : AppTypography.withWeight(
+                    AppTypography.labelSmall, FontWeight.w500),
             isSelected ? AuthColors.textMain : AuthColors.textSub,
           ),
         ),
@@ -813,4 +870,3 @@ class _VehicleFilterButton extends StatelessWidget {
     );
   }
 }
-

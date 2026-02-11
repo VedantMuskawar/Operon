@@ -374,6 +374,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             id: '',
             organizationId: organizationId,
             vendorId: _selectedVendor!.id,
+            vendorName: _selectedVendor!.name,
             ledgerType: LedgerType.vendorLedger,
             type: TransactionType.debit,
             category: TransactionCategory.vendorPayment,
@@ -415,6 +416,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               id: '',
               organizationId: organizationId,
               employeeId: employee.id,
+              employeeName: employee.name,
               splitGroupId: splitGroupId,
               ledgerType: LedgerType.employeeLedger,
               type: TransactionType.debit,
@@ -1295,126 +1297,14 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
 
   Future<void> _openEmployeeSelectorDialog() async {
     if (_employees.isEmpty) return;
-    final searchController = TextEditingController();
-    final selectedIds = _selectedEmployees.map((e) => e.id).toSet();
-    List<OrganizationEmployee> filtered = List.of(_employees);
-
     final result = await showDialog<Set<String>>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            void updateFilter(String value) {
-              final query = value.trim().toLowerCase();
-              setDialogState(() {
-                if (query.isEmpty) {
-                  filtered = List.of(_employees);
-                } else {
-                  filtered = _employees
-                      .where(
-                        (employee) =>
-                            employee.name.toLowerCase().contains(query),
-                      )
-                      .toList();
-                }
-              });
-            }
-
-            final availableHeight = MediaQuery.of(context).size.height -
-                MediaQuery.of(context).viewInsets.bottom;
-            var dialogHeight = availableHeight * 0.7;
-            if (dialogHeight < 280) dialogHeight = 280;
-            if (dialogHeight > 520) dialogHeight = 520;
-
-            return AlertDialog(
-              backgroundColor: AuthColors.surface,
-              title: const Text(
-                'Select Employees',
-                style: TextStyle(color: AuthColors.textMain),
-              ),
-              content: SizedBox(
-                width: 520,
-                height: dialogHeight,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: searchController,
-                      onChanged: updateFilter,
-                      style: const TextStyle(color: AuthColors.textMain),
-                      decoration: InputDecoration(
-                        labelText: 'Search employees',
-                        labelStyle: const TextStyle(color: AuthColors.textSub),
-                        filled: true,
-                        fillColor: AuthColors.background,
-                        prefixIcon:
-                            const Icon(Icons.search, color: AuthColors.textSub),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: AuthColors.textMainWithOpacity(0.12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: filtered.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'No employees found.',
-                                style: TextStyle(color: AuthColors.textSub),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: filtered.length,
-                              itemBuilder: (context, index) {
-                                final employee = filtered[index];
-                                final isSelected =
-                                    selectedIds.contains(employee.id);
-                                return CheckboxListTile(
-                                  value: isSelected,
-                                  onChanged: (selected) {
-                                    setDialogState(() {
-                                      if (selected == true) {
-                                        selectedIds.add(employee.id);
-                                      } else {
-                                        selectedIds.remove(employee.id);
-                                      }
-                                    });
-                                  },
-                                  title: Text(
-                                    employee.name,
-                                    style: const TextStyle(
-                                        color: AuthColors.textMain),
-                                  ),
-                                  controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                DashButton(
-                  label: 'Cancel',
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  variant: DashButtonVariant.text,
-                ),
-                DashButton(
-                  label: 'Apply',
-                  onPressed: () => Navigator.of(dialogContext).pop(selectedIds),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (dialogContext) => _EmployeeMultiSelectDialog(
+        employees: _employees,
+        initialSelectedIds: _selectedEmployees.map((e) => e.id).toSet(),
+        searchFillColor: AuthColors.background,
+      ),
     );
-
-    searchController.dispose();
 
     if (result != null && mounted) {
       setState(() {
@@ -1763,6 +1653,147 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide.none,
       ),
+    );
+  }
+}
+
+class _EmployeeMultiSelectDialog extends StatefulWidget {
+  const _EmployeeMultiSelectDialog({
+    required this.employees,
+    required this.initialSelectedIds,
+    required this.searchFillColor,
+  });
+
+  final List<OrganizationEmployee> employees;
+  final Set<String> initialSelectedIds;
+  final Color searchFillColor;
+
+  @override
+  State<_EmployeeMultiSelectDialog> createState() =>
+      _EmployeeMultiSelectDialogState();
+}
+
+class _EmployeeMultiSelectDialogState
+    extends State<_EmployeeMultiSelectDialog> {
+  late final TextEditingController _searchController;
+  late List<OrganizationEmployee> _filtered;
+  late Set<String> _selectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _filtered = List.of(widget.employees);
+    _selectedIds = Set.of(widget.initialSelectedIds);
+    _searchController.addListener(_applyFilter);
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_applyFilter)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    final query = _searchController.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filtered = List.of(widget.employees);
+      } else {
+        _filtered = widget.employees
+            .where((employee) => employee.name.toLowerCase().contains(query))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final availableHeight = MediaQuery.of(context).size.height -
+        MediaQuery.of(context).viewInsets.bottom;
+    var dialogHeight = availableHeight * 0.7;
+    if (dialogHeight < 280) dialogHeight = 280;
+    if (dialogHeight > 520) dialogHeight = 520;
+
+    return AlertDialog(
+      backgroundColor: AuthColors.surface,
+      title: const Text(
+        'Select Employees',
+        style: TextStyle(color: AuthColors.textMain),
+      ),
+      content: SizedBox(
+        width: 520,
+        height: dialogHeight,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _searchController,
+              style: const TextStyle(color: AuthColors.textMain),
+              decoration: InputDecoration(
+                labelText: 'Search employees',
+                labelStyle: const TextStyle(color: AuthColors.textSub),
+                filled: true,
+                fillColor: widget.searchFillColor,
+                prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: AuthColors.textMainWithOpacity(0.12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: _filtered.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No employees found.',
+                        style: TextStyle(color: AuthColors.textSub),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _filtered.length,
+                      itemBuilder: (context, index) {
+                        final employee = _filtered[index];
+                        final isSelected = _selectedIds.contains(employee.id);
+                        return CheckboxListTile(
+                          value: isSelected,
+                          onChanged: (selected) {
+                            setState(() {
+                              if (selected == true) {
+                                _selectedIds.add(employee.id);
+                              } else {
+                                _selectedIds.remove(employee.id);
+                              }
+                            });
+                          },
+                          title: Text(
+                            employee.name,
+                            style: const TextStyle(color: AuthColors.textMain),
+                          ),
+                          controlAffinity: ListTileControlAffinity.leading,
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        DashButton(
+          label: 'Cancel',
+          onPressed: () => Navigator.of(context).pop(),
+          variant: DashButtonVariant.text,
+        ),
+        DashButton(
+          label: 'Apply',
+          onPressed: () => Navigator.of(context).pop(_selectedIds),
+        ),
+      ],
     );
   }
 }

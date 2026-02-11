@@ -45,6 +45,7 @@ abstract class ScheduledTripsRepositoryInterface {
     int? itemIndex,
     String? productId,
     String? meterType,
+    String? transportMode,
   });
 
   Future<List<Map<String, dynamic>>> getScheduledTripsForDayAndVehicle({
@@ -61,7 +62,7 @@ abstract class VehiclesRepositoryInterface {
 }
 
 /// Shared ScheduleTripModal widget that works on both Android and Web
-/// 
+///
 /// This widget is platform-adaptive:
 /// - Android: Uses AuthColors, Material design, haptic feedback
 /// - Web: Uses custom colors, no haptic feedback
@@ -96,12 +97,16 @@ class ScheduleTripModal extends StatefulWidget {
 }
 
 class _ScheduleTripModalState extends State<ScheduleTripModal> {
+  static const String _transportCompany = 'company';
+  static const String _transportSelf = 'self';
+
   String? _selectedPhoneNumber;
   String _paymentType = 'pay_later';
   DateTime? _selectedDate;
   Vehicle? _selectedVehicle;
   int? _selectedSlot;
   int? _selectedItemIndex;
+  String _transportMode = _transportCompany;
   bool _isAddingNewPhone = false;
   final TextEditingController _newPhoneController = TextEditingController();
   bool _isLoading = false;
@@ -118,6 +123,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   // Platform detection
   bool get _isAndroid => !kIsWeb;
   bool get _isWeb => kIsWeb;
+  bool get _isSelfTransport => _transportMode == _transportSelf;
 
   // Use AuthColors consistently across all platforms
   Color get _primaryColor => AuthColors.legacyAccent;
@@ -126,7 +132,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   Color get _textSubColor => AuthColors.textSub;
   Color get _errorColor => AuthColors.error;
   Color get _successColor => AuthColors.success;
-  Color get _whiteColor => AuthColors.textMain; // Use textMain for white text on dark backgrounds
+  Color get _whiteColor =>
+      AuthColors.textMain; // Use textMain for white text on dark backgrounds
 
   @override
   void initState() {
@@ -146,7 +153,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       _selectedItemIndex = null;
     }
     _loadEligibleVehicles();
-    
+
     // Reload vehicles when item selection changes (for multi-product orders)
     // This is handled in the product selection UI
   }
@@ -176,10 +183,10 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         return;
       }
 
-      final allVehicles = await widget.vehiclesRepository.fetchVehicles(organization.id);
-      final List<Vehicle> eligible = allVehicles
-          .where((v) => v.isActive && v.tag == 'Delivery')
-          .toList();
+      final allVehicles =
+          await widget.vehiclesRepository.fetchVehicles(organization.id);
+      final List<Vehicle> eligible =
+          allVehicles.where((v) => v.isActive && v.tag == 'Delivery').toList();
 
       if (mounted) {
         setState(() {
@@ -214,8 +221,9 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   Future<void> _loadAvailableSlots({bool immediate = false}) async {
     if (_selectedVehicle == null || _selectedDate == null) return;
 
-    final cacheKey = '${_selectedVehicle!.id}_${_selectedDate!.toIso8601String()}';
-    
+    final cacheKey =
+        '${_selectedVehicle!.id}_${_selectedDate!.toIso8601String()}';
+
     if (_lastSlotLoadKey == cacheKey && _availableSlots.isNotEmpty) {
       return; // Use cached data
     }
@@ -250,12 +258,13 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
 
       final dayName = _getDayName(_selectedDate!);
       final weeklyCapacity = _selectedVehicle!.weeklyCapacity;
-      
+
       if (weeklyCapacity == null || weeklyCapacity.isEmpty) {
         if (mounted) {
           setState(() {
             _isLoadingSlots = false;
-            _slotsError = 'Vehicle does not have weekly capacity configured. Please configure capacity for each day in vehicle settings.';
+            _slotsError =
+                'Vehicle does not have weekly capacity configured. Please configure capacity for each day in vehicle settings.';
             _availableSlots = [];
             _slotBookedStatus = {};
             _selectedSlot = null;
@@ -263,12 +272,13 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         }
         return;
       }
-      
+
       if (!weeklyCapacity.containsKey(dayName)) {
         if (mounted) {
           setState(() {
             _isLoadingSlots = false;
-            _slotsError = 'No capacity configured for $dayName. Available days: ${weeklyCapacity.keys.join(", ")}';
+            _slotsError =
+                'No capacity configured for $dayName. Available days: ${weeklyCapacity.keys.join(", ")}';
             _availableSlots = [];
             _slotBookedStatus = {};
             _selectedSlot = null;
@@ -278,12 +288,13 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       }
 
       final dayCapacity = (weeklyCapacity[dayName] as num?)?.toInt() ?? 0;
-      
+
       if (dayCapacity <= 0) {
         if (mounted) {
           setState(() {
             _isLoadingSlots = false;
-            _slotsError = 'Capacity for $dayName is 0. Please configure a valid capacity in vehicle settings.';
+            _slotsError =
+                'Capacity for $dayName is 0. Please configure a valid capacity in vehicle settings.';
             _availableSlots = [];
             _slotBookedStatus = {};
             _selectedSlot = null;
@@ -291,8 +302,9 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         }
         return;
       }
-      
-      final scheduledTrips = await widget.scheduledTripsRepository.getScheduledTripsForDayAndVehicle(
+
+      final scheduledTrips = await widget.scheduledTripsRepository
+          .getScheduledTripsForDayAndVehicle(
         organizationId: organization.id,
         scheduledDay: dayName,
         scheduledDate: _selectedDate!,
@@ -305,7 +317,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           .toList();
 
       final allSlots = List.generate(dayCapacity, (index) => index + 1);
-      final availableSlots = allSlots.where((slot) => !bookedSlots.contains(slot)).toList();
+      final availableSlots =
+          allSlots.where((slot) => !bookedSlots.contains(slot)).toList();
       final slotBookedStatus = Map.fromEntries(
         allSlots.map((slot) => MapEntry(slot, bookedSlots.contains(slot))),
       );
@@ -334,7 +347,15 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
     // Use lowercase day names to match Cloud Functions and vehicle weeklyCapacity format
     // Cloud Functions use: ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     // DateTime.weekday: 1=Monday, 2=Tuesday, ..., 7=Sunday
-    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday'
+    ];
     // Adjust index: weekday 1 (Monday) -> index 0, weekday 7 (Sunday) -> index 6
     final dayIndex = date.weekday - 1;
     return days[dayIndex];
@@ -346,16 +367,26 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
   }
 
   bool _canSchedule() {
-    if (_selectedPhoneNumber == null || _selectedPhoneNumber!.isEmpty) return false;
+    if (_selectedPhoneNumber == null || _selectedPhoneNumber!.isEmpty)
+      return false;
     if (_selectedDate == null) return false;
-    if (_selectedVehicle == null) return false;
-    if (_selectedSlot == null) return false;
-    if (_shouldShowProductSelection() && _selectedItemIndex == null) return false;
+    if (!_isSelfTransport) {
+      if (_selectedVehicle == null) return false;
+      if (_selectedSlot == null) return false;
+    }
+    if (_shouldShowProductSelection() && _selectedItemIndex == null)
+      return false;
     return true;
   }
 
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  int _generateSelfTransportSlot() {
+    final now = DateTime.now().toUtc();
+    final slot = now.microsecondsSinceEpoch % 1000000000;
+    return slot == 0 ? 1 : slot;
   }
 
   void _triggerHapticFeedback() {
@@ -382,23 +413,25 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       return;
     }
 
-    if (_selectedVehicle == null) {
-      _showSnackBar('Please select a vehicle', isError: true);
-      return;
-    }
+    if (!_isSelfTransport) {
+      if (_selectedVehicle == null) {
+        _showSnackBar('Please select a vehicle', isError: true);
+        return;
+      }
 
-    if (_selectedSlot == null) {
-      _showSnackBar('Please select a slot', isError: true);
-      return;
+      if (_selectedSlot == null) {
+        _showSnackBar('Please select a slot', isError: true);
+        return;
+      }
     }
 
     final orderItems = widget.order['items'] as List<dynamic>? ?? [];
-    
+
     // Ensure itemIndex is set for single-product orders
     if (orderItems.length == 1 && _selectedItemIndex == null) {
       _selectedItemIndex = 0;
     }
-    
+
     if (orderItems.length > 1 && _selectedItemIndex == null) {
       _showSnackBar('Please select a product to schedule', isError: true);
       return;
@@ -414,7 +447,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       if (organization == null) {
         throw Exception('Organization not selected');
       }
-      
+
       if (organization.id == null || organization.id.isEmpty) {
         throw Exception('Organization ID is invalid');
       }
@@ -423,7 +456,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
       if (currentUser == null) {
         throw Exception('User not authenticated');
       }
-      
+
       if (currentUser.uid.isEmpty) {
         throw Exception('User ID is invalid');
       }
@@ -445,43 +478,56 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
 
       final dayName = _getDayName(_selectedDate!);
       final itemIndex = _selectedItemIndex ?? 0;
-      
+
       if (orderItems.isEmpty) {
         throw Exception('Order has no items. Cannot schedule trip.');
       }
-      
+
       if (itemIndex < 0 || itemIndex >= orderItems.length) {
-        throw Exception('Invalid item index: $itemIndex (order has ${orderItems.length} items)');
+        throw Exception(
+            'Invalid item index: $itemIndex (order has ${orderItems.length} items)');
       }
-      
+
       final item = orderItems[itemIndex];
       if (item == null) {
         throw Exception('Item at index $itemIndex is null');
       }
       if (item is! Map<String, dynamic>) {
-        throw Exception('Invalid item data at index $itemIndex: expected Map, got ${item.runtimeType}');
+        throw Exception(
+            'Invalid item data at index $itemIndex: expected Map, got ${item.runtimeType}');
       }
-      
+
       final productId = item['productId'] as String?;
       if (productId == null || productId.isEmpty) {
-        throw Exception('Product ID not found for selected item at index $itemIndex');
+        throw Exception(
+            'Product ID not found for selected item at index $itemIndex');
       }
-      
+
+      final resolvedVehicleId =
+          _isSelfTransport ? 'SELF_TRANSPORT' : _selectedVehicle!.id;
+      final resolvedVehicleNumber =
+          _isSelfTransport ? 'Self Transport' : _selectedVehicle!.vehicleNumber;
+      final resolvedSlot =
+          _isSelfTransport ? _generateSelfTransportSlot() : _selectedSlot!;
+      final resolvedSlotName =
+          _isSelfTransport ? 'Self Transport' : 'Slot ${_selectedSlot!}';
+
       // Validate vehicle data
-      if (_selectedVehicle!.id.isEmpty) {
+      if (resolvedVehicleId.isEmpty) {
         throw Exception('Vehicle ID is invalid');
       }
-      
-      if (_selectedVehicle!.vehicleNumber.isEmpty) {
+
+      if (resolvedVehicleNumber.isEmpty) {
         throw Exception('Vehicle number is invalid');
       }
 
       // Get orderId - could be in 'id', 'orderId', or document ID
-      final orderId = widget.order['id'] as String? ?? 
-                      widget.order['orderId'] as String?;
-      
+      final orderId =
+          widget.order['id'] as String? ?? widget.order['orderId'] as String?;
+
       if (orderId == null || orderId.isEmpty) {
-        throw Exception('Order ID not found. Order data may be incomplete. Please refresh and try again.');
+        throw Exception(
+            'Order ID not found. Order data may be incomplete. Please refresh and try again.');
       }
 
       await widget.scheduledTripsRepository.createScheduledTrip(
@@ -494,20 +540,22 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         paymentType: _paymentType,
         scheduledDate: _selectedDate!,
         scheduledDay: dayName,
-        vehicleId: _selectedVehicle!.id,
-        vehicleNumber: _selectedVehicle!.vehicleNumber,
-        driverId: _selectedVehicle!.driver?.id,
-        driverName: _selectedVehicle!.driver?.name,
-        driverPhone: _selectedVehicle!.driver?.phone,
-        slot: _selectedSlot!,
-        slotName: 'Slot ${_selectedSlot!}',
-        deliveryZone: widget.order['deliveryZone'] as Map<String, dynamic>? ?? {},
+        vehicleId: resolvedVehicleId,
+        vehicleNumber: resolvedVehicleNumber,
+        driverId: _isSelfTransport ? null : _selectedVehicle!.driver?.id,
+        driverName: _isSelfTransport ? null : _selectedVehicle!.driver?.name,
+        driverPhone: _isSelfTransport ? null : _selectedVehicle!.driver?.phone,
+        slot: resolvedSlot,
+        slotName: resolvedSlotName,
+        deliveryZone:
+            widget.order['deliveryZone'] as Map<String, dynamic>? ?? {},
         items: orderItems,
         priority: widget.order['priority'] as String? ?? 'normal',
         createdBy: currentUser.uid,
         itemIndex: itemIndex,
         productId: productId,
-        meterType: _selectedVehicle!.meterType,
+        meterType: _isSelfTransport ? null : _selectedVehicle!.meterType,
+        transportMode: _isSelfTransport ? _transportSelf : _transportCompany,
       );
 
       if (mounted) {
@@ -526,14 +574,18 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         });
         String errorMessage;
         final errorStr = e.toString();
-        if (errorStr.contains('Slot') && errorStr.contains('no longer available')) {
-          errorMessage = 'Slot no longer available. Please select a different slot.';
+        if (errorStr.contains('Slot') &&
+            errorStr.contains('no longer available')) {
+          errorMessage =
+              'Slot no longer available. Please select a different slot.';
         } else if (errorStr.contains('No trips remaining')) {
           errorMessage = 'No trips remaining to schedule for this item.';
         } else if (errorStr.contains('Order not found')) {
           errorMessage = 'Order not found. It may have been deleted.';
-        } else if (errorStr.contains('Connection error') || errorStr.contains('internet')) {
-          errorMessage = 'Connection error. Please check your internet and try again.';
+        } else if (errorStr.contains('Connection error') ||
+            errorStr.contains('internet')) {
+          errorMessage =
+              'Connection error. Please check your internet and try again.';
         } else if (widget.errorFormatter != null) {
           errorMessage = widget.errorFormatter!(e);
         } else {
@@ -548,7 +600,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
     }
   }
 
-  void _showSnackBar(String message, {required bool isError, bool showRetry = false}) {
+  void _showSnackBar(String message,
+      {required bool isError, bool showRetry = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -626,10 +679,15 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                     const SizedBox(height: 16),
                     _buildDatePickerSection(),
                     const SizedBox(height: 16),
-                    _buildVehicleSelectionSection(),
-                    if (_selectedVehicle != null && _selectedDate != null) ...[
+                    _buildTransportModeSection(),
+                    if (!_isSelfTransport) ...[
                       const SizedBox(height: 16),
-                      _buildSlotSelectionSection(),
+                      _buildVehicleSelectionSection(),
+                      if (_selectedVehicle != null &&
+                          _selectedDate != null) ...[
+                        const SizedBox(height: 16),
+                        _buildSlotSelectionSection(),
+                      ],
                     ],
                   ],
                 ),
@@ -671,10 +729,15 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                     const SizedBox(height: 20),
                     _buildDatePickerSection(),
                     const SizedBox(height: 20),
-                    _buildVehicleSelectionSection(),
-                    if (_selectedVehicle != null && _selectedDate != null) ...[
+                    _buildTransportModeSection(),
+                    if (!_isSelfTransport) ...[
                       const SizedBox(height: 20),
-                      _buildSlotSelectionSection(),
+                      _buildVehicleSelectionSection(),
+                      if (_selectedVehicle != null &&
+                          _selectedDate != null) ...[
+                        const SizedBox(height: 20),
+                        _buildSlotSelectionSection(),
+                      ],
                     ],
                   ],
                 ),
@@ -778,7 +841,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
         const SizedBox(height: 8),
         if (!_isAddingNewPhone) ...[
           DropdownButtonFormField<String>(
-            value: _selectedPhoneNumber,
+            initialValue: _selectedPhoneNumber,
             decoration: InputDecoration(
               filled: true,
               fillColor: _surfaceColor,
@@ -786,13 +849,15 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: _textMainColor.withOpacity(0.1)),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             ),
             dropdownColor: _surfaceColor,
             style: TextStyle(color: _textMainColor),
             items: [
               ...widget.clientPhones.map((phone) {
-                final number = phone['e164'] as String? ?? phone['number'] as String?;
+                final number =
+                    phone['e164'] as String? ?? phone['number'] as String?;
                 return DropdownMenuItem(
                   value: number,
                   child: Text(number ?? ''),
@@ -804,7 +869,7 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                   children: [
                     Icon(Icons.add, size: 18, color: _primaryColor),
                     const SizedBox(width: 8),
-                    Text('Add New Number'),
+                    const Text('Add New Number'),
                   ],
                 ),
               ),
@@ -843,7 +908,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                 borderRadius: BorderRadius.circular(10),
                 borderSide: BorderSide(color: _primaryColor, width: 1.5),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               prefixIcon: Icon(Icons.add_call, color: _textSubColor, size: 20),
               suffixIcon: IconButton(
                 icon: Icon(Icons.close, color: _textSubColor),
@@ -862,7 +928,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               ),
             ),
             onChanged: (value) {
-              setState(() => _selectedPhoneNumber = value.isEmpty ? null : value);
+              setState(
+                  () => _selectedPhoneNumber = value.isEmpty ? null : value);
             },
           ),
         ],
@@ -891,7 +958,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           final item = entry.value as Map<String, dynamic>?;
           if (item == null) return const SizedBox.shrink();
 
-          final productName = item['productName'] as String? ?? 'Unknown Product';
+          final productName =
+              item['productName'] as String? ?? 'Unknown Product';
           final estimatedTrips = (item['estimatedTrips'] as int?) ?? 0;
           final isSelected = _selectedItemIndex == index;
           final isDisabled = estimatedTrips <= 0;
@@ -901,19 +969,19 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               bottom: index < orderItems.length - 1 ? (_isAndroid ? 8 : 10) : 0,
             ),
             child: GestureDetector(
-                    onTap: isDisabled
-                        ? null
-                        : () {
-                            _triggerHapticFeedback();
-                            setState(() {
-                              _selectedItemIndex = index;
-                              _selectedVehicle = null;
-                              _selectedSlot = null;
-                              _availableSlots = [];
-                              _slotBookedStatus = {};
-                            });
-                            _loadEligibleVehicles();
-                          },
+              onTap: isDisabled
+                  ? null
+                  : () {
+                      _triggerHapticFeedback();
+                      setState(() {
+                        _selectedItemIndex = index;
+                        _selectedVehicle = null;
+                        _selectedSlot = null;
+                        _availableSlots = [];
+                        _slotBookedStatus = {};
+                      });
+                      _loadEligibleVehicles();
+                    },
               child: Container(
                 padding: EdgeInsets.all(_isAndroid ? 12 : 14),
                 decoration: BoxDecoration(
@@ -943,7 +1011,9 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                                   ? _textMainColor.withOpacity(0.4)
                                   : _textMainColor,
                               fontSize: _isAndroid ? 14 : 14,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
                             ),
                           ),
                           SizedBox(height: _isAndroid ? 4 : 4),
@@ -973,7 +1043,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                     ),
                     if (isDisabled) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: _errorColor.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(6),
@@ -1045,7 +1116,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           color: isSelected ? _primaryColor.withOpacity(0.2) : _surfaceColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? _primaryColor : _textMainColor.withOpacity(0.15),
+            color:
+                isSelected ? _primaryColor : _textMainColor.withOpacity(0.15),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -1057,6 +1129,102 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTransportModeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Transport Mode',
+          style: TextStyle(
+            color: _textMainColor,
+            fontSize: _isAndroid ? 13 : 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildTransportOption(
+                _transportCompany,
+                'Company Vehicle',
+                'Use plant vehicle & slot',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildTransportOption(
+                _transportSelf,
+                'Client Vehicle',
+                'Self transport',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTransportOption(String value, String label, String helper) {
+    final isSelected = _transportMode == value;
+    return GestureDetector(
+      onTap: () {
+        _triggerHapticFeedback();
+        setState(() {
+          _transportMode = value;
+          if (_isSelfTransport) {
+            _selectedVehicle = null;
+            _selectedSlot = null;
+            _availableSlots = [];
+            _slotBookedStatus = {};
+            _vehiclesError = null;
+            _slotsError = null;
+            _lastSlotLoadKey = null;
+          }
+        });
+        if (!_isSelfTransport) {
+          _loadEligibleVehicles();
+          if (_selectedDate != null && _selectedVehicle != null) {
+            _loadAvailableSlots(immediate: true);
+          }
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? _primaryColor.withOpacity(0.2) : _surfaceColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color:
+                isSelected ? _primaryColor : _textMainColor.withOpacity(0.15),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? _primaryColor : _textMainColor,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              helper,
+              style: TextStyle(
+                color: _textSubColor,
+                fontSize: _isAndroid ? 10 : 11,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
@@ -1120,7 +1288,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                       ? _formatDate(_selectedDate!)
                       : 'Select date',
                   style: TextStyle(
-                    color: _selectedDate != null ? _textMainColor : _textSubColor,
+                    color:
+                        _selectedDate != null ? _textMainColor : _textSubColor,
                   ),
                 ),
               ],
@@ -1186,7 +1355,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                     style: TextStyle(
                       color: isSelected ? _whiteColor : _textMainColor,
                       fontSize: _isAndroid ? 13 : 14,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -1220,14 +1390,16 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
             children: [
               Text(
                 _slotsError!,
-                style: TextStyle(color: _errorColor, fontSize: _isAndroid ? 12 : 13),
+                style: TextStyle(
+                    color: _errorColor, fontSize: _isAndroid ? 12 : 13),
               ),
               if (_slotsError!.contains('capacity configured'))
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'Contact your administrator to configure vehicle capacity.',
-                    style: TextStyle(color: _textSubColor, fontSize: _isAndroid ? 11 : 12),
+                    style: TextStyle(
+                        color: _textSubColor, fontSize: _isAndroid ? 11 : 12),
                   ),
                 ),
             ],
@@ -1246,7 +1418,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     'All ${_slotBookedStatus.length} slots are booked for this day.',
-                    style: TextStyle(color: _textSubColor, fontSize: _isAndroid ? 11 : 12),
+                    style: TextStyle(
+                        color: _textSubColor, fontSize: _isAndroid ? 11 : 12),
                   ),
                 ),
             ],
@@ -1293,7 +1466,8 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
                             : isSelected
                                 ? _whiteColor
                                 : _textMainColor,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
                       ),
                     ),
                   ),

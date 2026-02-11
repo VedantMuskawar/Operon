@@ -1,7 +1,6 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:operon_driver_android/data/repositories/users_repository.dart';
 import 'package:operon_auth_flow/operon_auth_flow.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';

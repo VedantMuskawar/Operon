@@ -60,8 +60,8 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: AppSpacing.paddingLG),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: AppSpacing.paddingLG),
                       Text(
                         'Loading zones...',
                         style: AppTypography.withColor(AppTypography.caption, AuthColors.textSub),
@@ -76,17 +76,17 @@ class DeliveryZoneSelectionSection extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.location_off,
                         size: 48,
                         color: AuthColors.textDisabled,
                       ),
-                      SizedBox(height: AppSpacing.paddingLG),
+                      const SizedBox(height: AppSpacing.paddingLG),
                       Text(
                         'No delivery zones available',
                         style: AppTypography.withColor(AppTypography.body, AuthColors.textSub),
                       ),
-                      SizedBox(height: AppSpacing.paddingSM),
+                      const SizedBox(height: AppSpacing.paddingSM),
                       Text(
                         'Add cities and regions in Delivery Zones page',
                         style: AppTypography.withColor(AppTypography.labelSmall, AuthColors.textSub),
@@ -477,7 +477,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                       filled: true,
                       fillColor: AuthColors.surface,
                       labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
-                      border: OutlineInputBorder(borderSide: BorderSide.none),
+                      border: const OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     items: widget.cities
                         .map(
@@ -500,7 +500,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                       filled: true,
                       fillColor: AuthColors.surface,
                       labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
-                      border: OutlineInputBorder(borderSide: BorderSide.none),
+                      border: const OutlineInputBorder(borderSide: BorderSide.none),
                     ),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty) ? 'Enter a region' : null,
@@ -510,7 +510,7 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                     controller: _roundtripKmController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     style: AppTypography.withColor(AppTypography.body, AuthColors.textMain),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Round Trip Distance (KM)',
                       hintText: 'e.g., 25.5',
                       prefixIcon: Icon(Icons.straighten, color: AuthColors.textSub),
@@ -692,7 +692,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                     filled: true,
                     fillColor: AuthColors.surface,
                     labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
-                    border: OutlineInputBorder(borderSide: BorderSide.none),
+                    border: const OutlineInputBorder(borderSide: BorderSide.none),
                   ),
                   items: _products
                       .map(
@@ -719,7 +719,7 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                     labelStyle: AppTypography.withColor(AppTypography.label, AuthColors.textSub),
                     filled: true,
                     fillColor: AuthColors.surface,
-                    border: OutlineInputBorder(
+                    border: const OutlineInputBorder(
                       borderRadius: BorderRadius.all(Radius.circular(12)),
                       borderSide: BorderSide.none,
                     ),

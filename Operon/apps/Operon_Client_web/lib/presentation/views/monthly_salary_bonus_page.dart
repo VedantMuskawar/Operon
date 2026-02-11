@@ -209,7 +209,7 @@ class _MonthlySalaryBonusContentState extends State<_MonthlySalaryBonusContent> 
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Add multiple tiers per role: e.g. 23 days → ₹3000, 25 days → ₹5000. Employee gets the highest tier they qualify for.',
                         style: TextStyle(color: AuthColors.textSub, fontSize: 13),
                       ),
@@ -427,14 +427,14 @@ class _MonthlySalaryBonusContentState extends State<_MonthlySalaryBonusContent> 
                   spacing: 6,
                   children: [
                     if (row.salaryCredited)
-                      Chip(
-                        label: const Text('Salary ✓', style: TextStyle(fontSize: 11)),
+                      const Chip(
+                        label: Text('Salary ✓', style: TextStyle(fontSize: 11)),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                     if (row.bonusCredited)
-                      Chip(
-                        label: const Text('Bonus ✓', style: TextStyle(fontSize: 11)),
+                      const Chip(
+                        label: Text('Bonus ✓', style: TextStyle(fontSize: 11)),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
@@ -490,8 +490,8 @@ class _BonusRoleSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (tiers.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
               child: Text(
                 'No tiers. Add one below.',
                 style: TextStyle(color: AuthColors.textSub, fontSize: 12),

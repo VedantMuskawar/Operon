@@ -38,7 +38,7 @@ abstract class BaseOperonDocument {
     String? documentTitle,
   }) {
     return pw.Container(
-      decoration: pw.BoxDecoration(
+      decoration: const pw.BoxDecoration(
         border: pw.Border(
           top: pw.BorderSide(color: kOperonNavyBlue, width: 2),
         ),

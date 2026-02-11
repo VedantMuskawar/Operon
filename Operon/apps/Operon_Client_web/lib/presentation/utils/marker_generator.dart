@@ -558,8 +558,8 @@ class MarkerGenerator {
     final canvas = Canvas(recorder);
     canvas.scale(devicePixelRatio);
 
-    final center = Offset(size / 2, size / 2);
-    final radius = size / 2 - 4;
+    const center = Offset(size / 2, size / 2);
+    const radius = size / 2 - 4;
 
     // Status ring: red when cluster has alert vehicle
     final ringColor =
@@ -585,11 +585,11 @@ class MarkerGenerator {
 
     // Count text
     final text = count > 99 ? '99+' : count.toString();
-    final textColor = const Color(0xFF263238);
+    const textColor = Color(0xFF263238);
     final textPainter = TextPainter(
       text: TextSpan(
         text: text,
-        style: TextStyle(
+        style: const TextStyle(
           color: textColor,
           fontSize: radius * 0.9,
           fontWeight: FontWeight.w800,

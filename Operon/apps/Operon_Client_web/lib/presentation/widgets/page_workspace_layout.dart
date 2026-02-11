@@ -6,6 +6,7 @@ import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/data/repositories/users_repository.dart';
 import 'package:dash_web/domain/entities/organization_user.dart';
 import 'package:dash_web/presentation/widgets/notification_center.dart';
+import 'package:dash_web/presentation/widgets/whatsapp_messages_switch_section.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -263,6 +264,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                 user: authState.userProfile,
                 organization: organization,
                 usersRepository: context.read<UsersRepository>(),
+                isAdminRole: isAdminRole,
                 onClose: () => setState(() => _isProfileOpen = false),
                 onChangeOrg: () {
                   setState(() => _isProfileOpen = false);
@@ -315,7 +317,7 @@ class _PageWorkspaceLayoutState extends State<PageWorkspaceLayout> {
                     ),
                     child: Text(
                       'PageWorkspaceLayout active ($routePath)',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -630,6 +632,7 @@ class _ProfileSideSheet extends StatelessWidget {
     required this.user,
     required this.organization,
     required this.usersRepository,
+    required this.isAdminRole,
     required this.onClose,
     required this.onChangeOrg,
     this.showUsers = false,
@@ -641,6 +644,7 @@ class _ProfileSideSheet extends StatelessWidget {
   final UserProfile? user;
   final OrganizationMembership? organization;
   final UsersRepository usersRepository;
+  final bool isAdminRole;
   final VoidCallback onClose;
   final VoidCallback onChangeOrg;
   final bool showUsers;
@@ -786,6 +790,13 @@ class _ProfileSideSheet extends StatelessWidget {
                 icon: Icons.security,
                 label: 'Permissions',
               ),
+              if (isAdminRole && organization?.id != null) ...[
+                const SizedBox(height: 12),
+                WhatsappMessagesSwitchSection(
+                  orgId: organization!.id,
+                  isAdmin: true,
+                ),
+              ],
               const Spacer(),
               DashButton(
                 label: 'Logout',

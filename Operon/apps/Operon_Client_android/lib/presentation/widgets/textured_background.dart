@@ -1,9 +1,7 @@
-import 'dart:ui';
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
-import 'package:dash_mobile/shared/constants/app_spacing.dart';
 
 /// A widget that provides a textured background (grain or dotted pattern)
 /// for the entire app

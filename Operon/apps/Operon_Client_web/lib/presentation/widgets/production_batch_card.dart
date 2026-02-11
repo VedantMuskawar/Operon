@@ -315,7 +315,7 @@ class _WorkflowProgress extends StatelessWidget {
                         ),
                       ),
                       child: step.completed
-                          ? Icon(
+                          ? const Icon(
                               Icons.check,
                               size: 14,
                               color: AuthColors.textMain,
@@ -408,7 +408,7 @@ class _InfoItem extends StatelessWidget {
                 ),
                 Text(
                   value,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textMain,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,

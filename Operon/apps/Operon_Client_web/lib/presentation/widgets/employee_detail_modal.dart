@@ -11,14 +11,11 @@ import 'package:dash_web/presentation/widgets/ledger_preview_dialog.dart';
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
-import 'package:dash_web/domain/entities/wage_type.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/widgets/detail_modal_base.dart';
 import 'package:dash_web/presentation/widgets/salary_voucher_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 
 /// Modal dialog for displaying employee details

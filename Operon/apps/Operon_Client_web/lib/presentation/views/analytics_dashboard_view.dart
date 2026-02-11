@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashTheme, EmptyState, SkeletonLoader;
@@ -81,7 +80,7 @@ class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
       final fys = _getFinancialYearsForDateRange();
       if (fys.isNotEmpty) {
         if (kDebugMode) {
-          debugPrint('[AnalyticsDashboard] Loading data for orgId=$orgId, fys=$fys, dateRange=${_startDate} to ${_endDate}');
+          debugPrint('[AnalyticsDashboard] Loading data for orgId=$orgId, fys=$fys, dateRange=$_startDate to $_endDate');
         }
         context.read<AnalyticsDashboardCubit>().loadInitial(
               orgId: orgId,
@@ -270,7 +269,7 @@ class _AnalyticsDashboardViewState extends State<AnalyticsDashboardView> {
 }
 
 class _AnalyticsTabContent extends StatelessWidget {
-  _AnalyticsTabContent({
+  const _AnalyticsTabContent({
     required this.startDate,
     required this.endDate,
     required this.onDateRangeSelected,
@@ -332,7 +331,7 @@ class _AnalyticsTabContent extends StatelessWidget {
                       emptyIcon: Icons.receipt_long,
                       child: state.transactions != null
                           ? TransactionAnalyticsContent(
-                              key: ValueKey('transactions_${startDate?.millisecondsSinceEpoch}_${endDate?.millisecondsSinceEpoch}_${selectedTabIndex}'),
+                              key: ValueKey('transactions_${startDate?.millisecondsSinceEpoch}_${endDate?.millisecondsSinceEpoch}_$selectedTabIndex'),
                               analytics: state.transactions!,
                               startDate: startDate,
                               endDate: endDate,
@@ -477,7 +476,7 @@ class _AnalyticsTabShimmer extends StatelessWidget {
 
 /// Single-row nav bar: Date Range | Transactions | Clients | ... (production-style dark pill bar, scrollable).
 class _AnalyticsSingleRowNavBar extends StatelessWidget {
-  _AnalyticsSingleRowNavBar({
+  const _AnalyticsSingleRowNavBar({
     required this.startDate,
     required this.endDate,
     required this.onDateRangeSelected,
@@ -679,9 +678,9 @@ class _AnalyticsDateRangeModalDialogState extends State<_AnalyticsDateRangeModal
             // Header
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AuthColors.background,
-                borderRadius: const BorderRadius.only(
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
@@ -747,7 +746,7 @@ class _AnalyticsDateRangeModalDialogState extends State<_AnalyticsDateRangeModal
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'From Date',
                                   style: TextStyle(
                                     color: AuthColors.textSub,
@@ -802,7 +801,7 @@ class _AnalyticsDateRangeModalDialogState extends State<_AnalyticsDateRangeModal
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                const Text(
                                   'To Date',
                                   style: TextStyle(
                                     color: AuthColors.textSub,
@@ -1230,7 +1229,7 @@ class _ClientsSummaryStats extends StatelessWidget {
     final previous = sorted.length >= 2 ? data[sorted[sorted.length - 2]] ?? 0.0 : 0.0;
     final growth = previous != 0 ? ((latest - previous) / previous * 100) : 0.0;
     final total = data.values.fold<double>(0.0, (a, b) => a + b);
-    final avg = data.length > 0 ? total / data.length : 0.0;
+    final avg = data.isNotEmpty ? total / data.length : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -1256,11 +1255,11 @@ class _ClientsSummaryStats extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.insights, color: AuthColors.success, size: 20),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Onboarding Summary',
                 style: TextStyle(
                   color: AuthColors.textMain,
@@ -1490,7 +1489,7 @@ class _EmployeesWagesSummary extends StatelessWidget {
     final previous = sorted.length >= 2 ? data[sorted[sorted.length - 2]] ?? 0.0 : 0.0;
     final growth = previous != 0 ? ((latest - previous) / previous * 100) : 0.0;
     final total = data.values.fold<double>(0.0, (a, b) => a + b);
-    final avg = data.length > 0 ? total / data.length : 0.0;
+    final avg = data.isNotEmpty ? total / data.length : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -1516,11 +1515,11 @@ class _EmployeesWagesSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.insights, color: AuthColors.secondary, size: 20),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Wages Summary',
                 style: TextStyle(
                   color: AuthColors.textMain,
@@ -1887,11 +1886,11 @@ class _VendorsTypeBreakdown extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(Icons.pie_chart_outline, color: AuthColors.warning, size: 20),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Purchases by Vendor Type (Total)',
                 style: TextStyle(
                   color: AuthColors.textMain,
@@ -1995,12 +1994,12 @@ class _DataTimestamp extends StatelessWidget {
               color: AuthColors.primary.withOpacity(0.2),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Icon(Icons.update, size: 12, color: AuthColors.primary),
+            child: const Icon(Icons.update, size: 12, color: AuthColors.primary),
           ),
           const SizedBox(width: 10),
           Text(
             'Last updated: $formatted',
-            style: TextStyle(
+            style: const TextStyle(
               color: AuthColors.textMain,
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -2269,7 +2268,7 @@ class _RegionBreakdownCard extends StatelessWidget {
         children: sorted.take(12).map((e) => Chip(
           avatar: CircleAvatar(
             backgroundColor: AuthColors.primary.withOpacity(0.15),
-            child: Icon(Icons.place, size: 16, color: AuthColors.primary),
+            child: const Icon(Icons.place, size: 16, color: AuthColors.primary),
           ),
           label: Text('${e.key}: ${_fmt(e.value)}'),
         )).toList(),
@@ -2490,7 +2489,7 @@ class _ProductionsChart extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Container(width: 12, height: 12, decoration: BoxDecoration(color: AuthColors.info, shape: BoxShape.circle)),
+                Container(width: 12, height: 12, decoration: const BoxDecoration(color: AuthColors.info, shape: BoxShape.circle)),
                 const SizedBox(width: 6),
                 const Text('Production', style: TextStyle(color: AuthColors.textSub, fontSize: 12)),
                 const SizedBox(width: 20),
@@ -2668,7 +2667,7 @@ class _TripWagesByQuantityCard extends StatelessWidget {
         children: sorted.take(15).map((e) => Chip(
           avatar: CircleAvatar(
             backgroundColor: AuthColors.success.withOpacity(0.15),
-            child: Icon(Icons.numbers, size: 16, color: AuthColors.success),
+            child: const Icon(Icons.numbers, size: 16, color: AuthColors.success),
           ),
           label: Text('Qty ${e.key}: ${_fmt(e.value)}'),
         )).toList(),

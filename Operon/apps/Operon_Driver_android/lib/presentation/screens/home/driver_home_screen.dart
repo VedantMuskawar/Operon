@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,7 +5,6 @@ import 'package:core_datasources/core_datasources.dart';
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_models/core_models.dart' hide LatLng;
 import 'package:core_ui/core_ui.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -227,7 +225,7 @@ class _DriverHomeScreenState extends State<DriverHomeScreen> {
                       onDelivery: () => _handleDelivery(context),
                       onReturn: () => _handleReturn(context),
                       locationService: locationService,
-                      organizationId: organization != null ? organization.id.toString() : null,
+                      organizationId: organization?.id.toString(),
                     );
                   },
                 ),

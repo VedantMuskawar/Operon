@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_datasources/core_datasources.dart';
@@ -20,7 +19,6 @@ import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/repositories/pending_orders_repository.dart';
 import 'package:dash_web/data/services/ledger_print_service.dart';
-import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:dash_web/data/utils/financial_year_utils.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/data/services/dm_print_service.dart';

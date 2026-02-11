@@ -12,10 +12,24 @@ service cloud.firestore {
     }
     // For future org-scoping when custom claims orgId/orgIds are set.
     function hasOrgAccess(orgId) {
-      return isSignedIn() && (
-        request.auth.token.orgId == orgId
-        || orgId in request.auth.token.get('orgIds', [])
-      );
+      return isSignedIn()
+        && (
+          request.auth.token.orgId == orgId
+          || (request.auth.token.orgIds != null && orgId in request.auth.token.orgIds)
+        );
+    }
+    function isAdminValue(value) {
+      return value == 'ADMIN' || value == 'Admin' || value == 'admin';
+    }
+    function isOrgAdmin(orgId) {
+      return isSignedIn()
+        && (
+          isAdminValue(get(/databases/$(database)/documents/ORGANIZATIONS/$(orgId)/USERS/$(request.auth.uid)).data.role_in_org)
+          || isAdminValue(get(/databases/$(database)/documents/ORGANIZATIONS/$(orgId)/USERS/$(request.auth.uid)).data.role_id)
+          || isAdminValue(get(/databases/$(database)/documents/ORGANIZATIONS/$(orgId)/USERS/$(request.auth.uid)).data.role)
+          || isAdminValue(get(/databases/$(database)/documents/ORGANIZATIONS/$(orgId)/USERS/$(request.auth.uid)).data.roleTitle)
+          || isAdminValue(get(/databases/$(database)/documents/ORGANIZATIONS/$(orgId)/USERS/$(request.auth.uid)).data.app_access_role_id)
+        );
     }
 
     // ---------- USERS ----------
@@ -67,6 +81,11 @@ service cloud.firestore {
     match /TRIP_WAGES/{wageId} {
       allow read: if isSignedIn();
       allow create, update, delete: if false;
+    }
+
+    // ---------- WhatsApp settings (admin-only) ----------
+    match /WHATSAPP_SETTINGS/{orgId} {
+      allow read, write: if isOrgAdmin(orgId);
     }
 
     // ---------- TRANSACTIONS (verified immutable) ----------

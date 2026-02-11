@@ -86,8 +86,18 @@ class _CashLedgerViewState extends State<CashLedgerView> {
 
   String _formatDatePicker(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     final day = date.day.toString().padLeft(2, '0');
     final month = months[date.month - 1];
@@ -104,8 +114,18 @@ class _CashLedgerViewState extends State<CashLedgerView> {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     final day = date.day.toString().padLeft(2, '0');
     final month = months[date.month - 1];
@@ -164,6 +184,27 @@ class _CashLedgerViewState extends State<CashLedgerView> {
     }
   }
 
+  List<PaymentAccountSummary> _filterActualPaymentAccounts(
+    List<PaymentAccountSummary> distribution,
+  ) {
+    if (_paymentAccountNames.isEmpty) {
+      return distribution;
+    }
+    final ids = _paymentAccountNames.keys
+        .map((id) => id.trim().toLowerCase())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final names = _paymentAccountNames.values
+        .map((name) => name.trim().toLowerCase())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+
+    return distribution.where((summary) {
+      final normalized = summary.displayName.trim().toLowerCase();
+      return ids.contains(normalized) || names.contains(normalized);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<CashLedgerCubit, CashLedgerState>(
@@ -186,6 +227,8 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               _buildFilterBar(),
               const SizedBox(height: 24),
               _buildTransactionList(),
+              const SizedBox(height: 24),
+              _buildCreditTransactionsTable(),
               const SizedBox(height: 24),
               _buildPaymentAccountDistribution(),
             ],
@@ -273,11 +316,13 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                 onTap: _selectStartDate,
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                    border:
+                        Border.all(color: AuthColors.textMainWithOpacity(0.1)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -316,11 +361,13 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                 onTap: _selectEndDate,
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                    border:
+                        Border.all(color: AuthColors.textMainWithOpacity(0.1)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -382,11 +429,13 @@ class _CashLedgerViewState extends State<CashLedgerView> {
             FilledButton.icon(
               onPressed: () => context.read<CashLedgerCubit>().refresh(),
               icon: const Icon(Icons.refresh, size: 22),
-              label: const Text('Refresh', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              label: const Text('Refresh',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               style: FilledButton.styleFrom(
                 backgroundColor: AuthColors.primary,
                 foregroundColor: AuthColors.textMain,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 minimumSize: const Size(0, 48),
               ),
             ),
@@ -410,7 +459,8 @@ class _CashLedgerViewState extends State<CashLedgerView> {
             final amount = tx.amount.toString();
             final clientName = tx.clientName?.toLowerCase() ?? '';
             final accountName = tx.paymentAccountName?.toLowerCase() ?? '';
-            final vendorName = tx.metadata?['vendorName']?.toString().toLowerCase() ?? '';
+            final vendorName =
+                tx.metadata?['vendorName']?.toString().toLowerCase() ?? '';
             final typeLabel = _rowTypeLabel(tx).toLowerCase();
             return description.contains(query) ||
                 reference.contains(query) ||
@@ -431,25 +481,30 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
-                    children: List.generate(4, (_) => Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: SkeletonLoader(
-                          height: 64,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    )),
+                    children: List.generate(
+                        4,
+                        (_) => Expanded(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 6),
+                                child: SkeletonLoader(
+                                  height: 64,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            )),
                   ),
                   const SizedBox(height: 24),
-                  ...List.generate(6, (_) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: SkeletonLoader(
-                      height: 48,
-                      width: double.infinity,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  )),
+                  ...List.generate(
+                      6,
+                      (_) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: SkeletonLoader(
+                              height: 48,
+                              width: double.infinity,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          )),
                 ],
               ),
             ),
@@ -469,10 +524,96 @@ class _CashLedgerViewState extends State<CashLedgerView> {
     );
   }
 
+  Widget _buildCreditTransactionsTable() {
+    return BlocBuilder<CashLedgerCubit, CashLedgerState>(
+      builder: (context, state) {
+        double totalFrom(List<Transaction> rows) {
+          var total = 0.0;
+          for (final tx in rows) {
+            final count = tx.metadata?['transactionCount'] as int?;
+            if (count != null && count > 1) {
+              total +=
+                  (tx.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+            } else if (tx.type == TransactionType.credit) {
+              total += tx.amount;
+            }
+          }
+          return total;
+        }
+
+        final clientTotal = totalFrom(state.clientCreditRows);
+        final vendorTotal = totalFrom(state.vendorCreditRows);
+        final employeeTotal = totalFrom(state.employeeCreditRows);
+
+        if (clientTotal == 0 && vendorTotal == 0 && employeeTotal == 0) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Credit summary',
+              style: TextStyle(
+                color: AuthColors.textMain,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            custom_table.DataTable<CreditSummaryRow>(
+              columns: [
+                custom_table.DataTableColumn<CreditSummaryRow>(
+                  label: 'Type',
+                  flex: 3,
+                  alignment: Alignment.center,
+                  cellBuilder: (context, s, _) => Text(
+                    s.label,
+                    style: const TextStyle(
+                      color: AuthColors.textMain,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      fontFamily: 'SF Pro Display',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                custom_table.DataTableColumn<CreditSummaryRow>(
+                  label: 'Total',
+                  flex: 2,
+                  numeric: true,
+                  alignment: Alignment.center,
+                  cellBuilder: (context, s, _) => Text(
+                    _formatCurrency(s.total),
+                    style: const TextStyle(
+                      color: AuthColors.success,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontFamily: 'SF Pro Display',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
+              rows: [
+                CreditSummaryRow(label: 'Client Credit', total: clientTotal),
+                CreditSummaryRow(label: 'Vendor Credit', total: vendorTotal),
+                CreditSummaryRow(
+                    label: 'Employee Credit', total: employeeTotal),
+              ],
+              headerBackgroundColor: AuthColors.surface,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildPaymentAccountDistribution() {
     return BlocBuilder<CashLedgerCubit, CashLedgerState>(
       builder: (context, state) {
-        final distribution = state.paymentAccountDistribution;
+        final distribution =
+            _filterActualPaymentAccounts(state.paymentAccountDistribution);
         if (distribution.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -497,7 +638,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                   cellBuilder: (context, s, _) => Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.account_balance_wallet,
                         size: 16,
                         color: AuthColors.primary,
@@ -560,9 +701,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                   cellBuilder: (context, s, _) => Text(
                     _formatCurrency(s.net),
                     style: TextStyle(
-                      color: s.net >= 0
-                          ? AuthColors.success
-                          : AuthColors.error,
+                      color: s.net >= 0 ? AuthColors.success : AuthColors.error,
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
                       fontFamily: 'SF Pro Display',
@@ -599,10 +738,11 @@ class _CashLedgerViewState extends State<CashLedgerView> {
     }
   }
 
-  Widget _buildTransactionTable(List<Transaction> transactions, CashLedgerState state) {
+  Widget _buildTransactionTable(
+      List<Transaction> transactions, CashLedgerState state) {
     final orgState = context.watch<OrganizationContextCubit>().state;
     final isAdmin = orgState.isAdmin;
-    
+
     final rowActions = <custom_table.DataTableRowAction<Transaction>>[];
 
     final columns = <custom_table.DataTableColumn<Transaction>>[
@@ -654,25 +794,28 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               transaction.category == TransactionCategory.clientCredit ||
               transaction.category == TransactionCategory.clientPayment ||
               transaction.category == TransactionCategory.refund) {
-            clientName = transaction.clientName?.trim() ?? 
-                        transaction.metadata?['clientName']?.toString().trim() ?? 
-                        '-';
-          } else if (transaction.category == TransactionCategory.vendorPurchase ||
-                     transaction.category == TransactionCategory.vendorPayment) {
+            clientName = transaction.clientName?.trim() ??
+                transaction.metadata?['clientName']?.toString().trim() ??
+                '-';
+          } else if (transaction.category ==
+                  TransactionCategory.vendorPurchase ||
+              transaction.category == TransactionCategory.vendorPayment) {
             // For vendor transactions, show vendor name
-            clientName = transaction.metadata?['vendorName']?.toString().trim() ?? 
-                        transaction.description?.trim() ?? 
-                        '-';
+            clientName =
+                transaction.metadata?['vendorName']?.toString().trim() ??
+                    transaction.description?.trim() ??
+                    '-';
           } else if (transaction.category == TransactionCategory.salaryDebit) {
             // For salary transactions, show employee name
-            clientName = transaction.metadata?['employeeName']?.toString().trim() ?? 
-                        transaction.description?.trim() ?? 
-                        '-';
+            clientName =
+                transaction.metadata?['employeeName']?.toString().trim() ??
+                    transaction.description?.trim() ??
+                    '-';
           } else {
             // For other transactions, show description or fallback
             clientName = transaction.description?.trim() ?? '-';
           }
-          
+
           return Text(
             clientName,
             style: const TextStyle(
@@ -698,10 +841,11 @@ class _CashLedgerViewState extends State<CashLedgerView> {
           String ref = '-';
           if (dmNumber != null) {
             ref = 'DM-$dmNumber';
-          } else if (transaction.referenceNumber != null && transaction.referenceNumber!.isNotEmpty) {
+          } else if (transaction.referenceNumber != null &&
+              transaction.referenceNumber!.isNotEmpty) {
             ref = transaction.referenceNumber!;
           }
-          
+
           return Text(
             ref,
             style: const TextStyle(
@@ -722,23 +866,29 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         alignment: Alignment.center,
         numeric: true,
         cellBuilder: (context, transaction, index) {
-          final transactionCount = transaction.metadata?['transactionCount'] as int?;
+          final transactionCount =
+              transaction.metadata?['transactionCount'] as int?;
           final isGrouped = transactionCount != null && transactionCount > 1;
-          
+
           double creditAmount = 0.0;
-          List<Map<String, dynamic>> paymentAccounts = []; // List of {name, amount}
-          
+          List<Map<String, dynamic>> paymentAccounts =
+              []; // List of {name, amount}
+
           if (isGrouped) {
             // For grouped transactions, use cumulative credit from metadata
-            creditAmount = (transaction.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+            creditAmount = (transaction.metadata?['cumulativeCredit'] as num?)
+                    ?.toDouble() ??
+                0.0;
             // Get payment accounts with amounts from metadata
-            final creditAccounts = transaction.metadata?['creditPaymentAccounts'] as List?;
+            final creditAccounts =
+                transaction.metadata?['creditPaymentAccounts'] as List?;
             if (creditAccounts != null) {
               paymentAccounts = creditAccounts
                   .map((acc) {
                     final accMap = acc as Map<String, dynamic>?;
                     var name = accMap?['name']?.toString().trim() ?? '';
-                    final amount = (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
+                    final amount =
+                        (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
                     if (name.isNotEmpty && amount > 0) {
                       // If name looks like an ID (exists in paymentAccountNames map), resolve it
                       if (_paymentAccountNames.containsKey(name)) {
@@ -769,18 +919,23 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                 name = _getPaymentAccountDisplayName(accountId);
               }
               if (name != null && name.isNotEmpty) {
-                paymentAccounts = [{'name': name, 'amount': creditAmount}];
+                paymentAccounts = [
+                  {'name': name, 'amount': creditAmount}
+                ];
               }
             }
           }
-          
+
           // Format amount string: "X+Y" if multiple accounts, otherwise just the total
-          String amountText = creditAmount > 0 ? _formatCurrency(creditAmount) : '–';
+          String amountText =
+              creditAmount > 0 ? _formatCurrency(creditAmount) : '–';
           if (creditAmount > 0 && paymentAccounts.length > 1) {
-            final amounts = paymentAccounts.map((acc) => _formatCurrency(acc['amount'] as double)).join('+');
+            final amounts = paymentAccounts
+                .map((acc) => _formatCurrency(acc['amount'] as double))
+                .join('+');
             amountText = amounts;
           }
-          
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -788,7 +943,9 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               Text(
                 amountText,
                 style: TextStyle(
-                  color: creditAmount > 0 ? AuthColors.success : AuthColors.textSub,
+                  color: creditAmount > 0
+                      ? AuthColors.success
+                      : AuthColors.textSub,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'SF Pro Display',
@@ -806,7 +963,8 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                   children: paymentAccounts.map((acc) {
                     final name = acc['name'] as String;
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: AuthColors.success.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(4),
@@ -817,7 +975,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                       ),
                       child: Text(
                         name,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.success,
                           fontSize: 9,
                           fontWeight: FontWeight.w500,
@@ -841,23 +999,29 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         alignment: Alignment.center,
         numeric: true,
         cellBuilder: (context, transaction, index) {
-          final transactionCount = transaction.metadata?['transactionCount'] as int?;
+          final transactionCount =
+              transaction.metadata?['transactionCount'] as int?;
           final isGrouped = transactionCount != null && transactionCount > 1;
-          
+
           double debitAmount = 0.0;
-          List<Map<String, dynamic>> paymentAccounts = []; // List of {name, amount}
-          
+          List<Map<String, dynamic>> paymentAccounts =
+              []; // List of {name, amount}
+
           if (isGrouped) {
             // For grouped transactions, use cumulative debit from metadata
-            debitAmount = (transaction.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0;
+            debitAmount = (transaction.metadata?['cumulativeDebit'] as num?)
+                    ?.toDouble() ??
+                0.0;
             // Get payment accounts with amounts from metadata
-            final debitAccounts = transaction.metadata?['debitPaymentAccounts'] as List?;
+            final debitAccounts =
+                transaction.metadata?['debitPaymentAccounts'] as List?;
             if (debitAccounts != null) {
               paymentAccounts = debitAccounts
                   .map((acc) {
                     final accMap = acc as Map<String, dynamic>?;
                     var name = accMap?['name']?.toString().trim() ?? '';
-                    final amount = (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
+                    final amount =
+                        (accMap?['amount'] as num?)?.toDouble() ?? 0.0;
                     if (name.isNotEmpty && amount > 0) {
                       // If name looks like an ID (exists in paymentAccountNames map), resolve it
                       if (_paymentAccountNames.containsKey(name)) {
@@ -888,18 +1052,23 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                 name = _getPaymentAccountDisplayName(accountId);
               }
               if (name != null && name.isNotEmpty) {
-                paymentAccounts = [{'name': name, 'amount': debitAmount}];
+                paymentAccounts = [
+                  {'name': name, 'amount': debitAmount}
+                ];
               }
             }
           }
-          
+
           // Format amount string: "X+Y" if multiple accounts, otherwise just the total
-          String amountText = debitAmount > 0 ? _formatCurrency(debitAmount) : '–';
+          String amountText =
+              debitAmount > 0 ? _formatCurrency(debitAmount) : '–';
           if (debitAmount > 0 && paymentAccounts.length > 1) {
-            final amounts = paymentAccounts.map((acc) => _formatCurrency(acc['amount'] as double)).join('+');
+            final amounts = paymentAccounts
+                .map((acc) => _formatCurrency(acc['amount'] as double))
+                .join('+');
             amountText = amounts;
           }
-          
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -907,7 +1076,8 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               Text(
                 amountText,
                 style: TextStyle(
-                  color: debitAmount > 0 ? AuthColors.error : AuthColors.textSub,
+                  color:
+                      debitAmount > 0 ? AuthColors.error : AuthColors.textSub,
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'SF Pro Display',
@@ -925,7 +1095,8 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                   children: paymentAccounts.map((acc) {
                     final name = acc['name'] as String;
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: AuthColors.error.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(4),
@@ -936,7 +1107,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                       ),
                       child: Text(
                         name,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AuthColors.error,
                           fontSize: 9,
                           fontWeight: FontWeight.w500,
@@ -961,9 +1132,11 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         tooltip: 'View voucher',
         color: AuthColors.primary,
         onTap: (transaction, index) {
-          final hasVoucher = transaction.category == TransactionCategory.salaryDebit &&
-              transaction.metadata?['cashVoucherPhotoUrl'] != null &&
-              (transaction.metadata!['cashVoucherPhotoUrl'] as String).isNotEmpty;
+          final hasVoucher =
+              transaction.category == TransactionCategory.salaryDebit &&
+                  transaction.metadata?['cashVoucherPhotoUrl'] != null &&
+                  (transaction.metadata!['cashVoucherPhotoUrl'] as String)
+                      .isNotEmpty;
           if (hasVoucher) {
             showSalaryVoucherModal(context, transaction.id);
           } else {
@@ -1025,7 +1198,8 @@ class _CashLedgerViewState extends State<CashLedgerView> {
           emptyStateMessage: 'No transactions found',
           emptyStateIcon: Icons.receipt_long_outlined,
         ),
-        if (transactions.isNotEmpty) _buildTableFooter(state, rowActions.length),
+        if (transactions.isNotEmpty)
+          _buildTableFooter(state, rowActions.length),
       ],
     );
   }
@@ -1058,7 +1232,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
         child: Row(
           children: [
             // Date column
-            Expanded(
+            const Expanded(
               flex: 2,
               child: Center(
                 child: Row(
@@ -1069,7 +1243,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
                       size: 18,
                       color: AuthColors.primary,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Text(
                       'Total',
                       style: TextStyle(
@@ -1084,17 +1258,17 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               ),
             ),
             // Type column (empty)
-            Expanded(
+            const Expanded(
               flex: 1,
               child: SizedBox.shrink(),
             ),
             // Name column (empty)
-            Expanded(
+            const Expanded(
               flex: 3,
               child: SizedBox.shrink(),
             ),
             // Reference column (empty)
-            Expanded(
+            const Expanded(
               flex: 2,
               child: SizedBox.shrink(),
             ),
@@ -1103,7 +1277,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               flex: 2,
               child: Text(
                 _formatCurrency(state.totalCredit),
-                style: TextStyle(
+                style: const TextStyle(
                   color: AuthColors.success,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -1117,7 +1291,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               flex: 2,
               child: Text(
                 _formatCurrency(state.totalDebit),
-                style: TextStyle(
+                style: const TextStyle(
                   color: AuthColors.error,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -1129,14 +1303,14 @@ class _CashLedgerViewState extends State<CashLedgerView> {
             // Actions column spacing (approximate width for action buttons)
             if (actionButtonCount > 0)
               SizedBox(
-                width: actionButtonCount * 48.0, // Approximate width per action button
+                width: actionButtonCount *
+                    48.0, // Approximate width per action button
               ),
           ],
         ),
       ),
     );
   }
-
 
   void _verifyDirect(BuildContext context, Transaction transaction) {
     final authState = context.read<AuthBloc>().state;
@@ -1236,6 +1410,13 @@ class _CashLedgerViewState extends State<CashLedgerView> {
       ),
     );
   }
+}
+
+class CreditSummaryRow {
+  const CreditSummaryRow({required this.label, required this.total});
+
+  final String label;
+  final double total;
 }
 
 class _SummaryCard extends StatelessWidget {

@@ -3,7 +3,6 @@ import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
-import 'package:dash_web/domain/entities/organization_employee.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/trip_wages/trip_wages_cubit.dart';
 import 'package:dash_web/presentation/blocs/trip_wages/trip_wages_state.dart';
@@ -475,7 +474,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.calendar_today,
                                     color: AuthColors.textSub,
                                     size: 20,
@@ -489,7 +488,7 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Icon(
+                                  const Icon(
                                     Icons.arrow_drop_down,
                                     color: AuthColors.textSub,
                                   ),
@@ -636,9 +635,9 @@ class _TripWagesContentState extends State<_TripWagesContent> {
                 ),
               ),
             if (_sectionIndex != 0)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: const _WeeklyLedgerBlock(),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: _WeeklyLedgerBlock(),
               ),
           ],
         );

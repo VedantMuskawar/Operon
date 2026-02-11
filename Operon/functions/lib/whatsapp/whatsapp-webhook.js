@@ -41,8 +41,8 @@ const firestore_helpers_1 = require("../shared/firestore-helpers");
 const logger_1 = require("../shared/logger");
 const function_config_1 = require("../shared/function-config");
 const constants_1 = require("../shared/constants");
-const db = (0, firestore_helpers_1.getFirestore)();
 const whatsappWebhookVerifyToken = (0, params_1.defineSecret)('WHATSAPP_WEBHOOK_VERIFY_TOKEN');
+const db = (0, firestore_helpers_1.getFirestore)();
 exports.whatsappWebhook = (0, https_1.onRequest)({
     region: function_config_1.DEFAULT_REGION,
     timeoutSeconds: 30,
@@ -50,11 +50,12 @@ exports.whatsappWebhook = (0, https_1.onRequest)({
     maxInstances: 5,
     secrets: [whatsappWebhookVerifyToken],
 }, async (req, res) => {
-    const verifyToken = whatsappWebhookVerifyToken.value() || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    const verifyToken = (whatsappWebhookVerifyToken.value() || process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || '').trim();
     if (req.method === 'GET') {
-        const mode = req.query['hub.mode'];
-        const token = req.query['hub.verify_token'];
-        const challenge = req.query['hub.challenge'];
+        const mode = String((_a = req.query['hub.mode']) !== null && _a !== void 0 ? _a : '').trim();
+        const token = String((_b = req.query['hub.verify_token']) !== null && _b !== void 0 ? _b : '').trim();
+        const challenge = String((_c = req.query['hub.challenge']) !== null && _c !== void 0 ? _c : '');
         if (!verifyToken) {
             (0, logger_1.logWarning)('WhatsApp/Webhook', 'verify', 'Missing WHATSAPP_WEBHOOK_VERIFY_TOKEN');
             res.status(403).send('Verify token not configured');
@@ -62,11 +63,14 @@ exports.whatsappWebhook = (0, https_1.onRequest)({
         }
         if (mode === 'subscribe' && token === verifyToken) {
             (0, logger_1.logInfo)('WhatsApp/Webhook', 'verify', 'Webhook verified');
-            res.status(200).send(challenge);
+            res.status(200).type('text/plain').send(challenge);
             return;
         }
         (0, logger_1.logWarning)('WhatsApp/Webhook', 'verify', 'Webhook verification failed', {
             mode,
+            tokenMatch: token === verifyToken,
+            tokenLength: token.length,
+            verifyTokenLength: verifyToken.length,
         });
         res.status(403).send('Verification failed');
         return;
@@ -77,65 +81,82 @@ exports.whatsappWebhook = (0, https_1.onRequest)({
     }
     try {
         const body = req.body;
-        if (!body || !body.entry) {
-            (0, logger_1.logWarning)('WhatsApp/Webhook', 'handle', 'Missing webhook payload');
-            res.status(400).send('Invalid payload');
+        const entries = Array.isArray(body === null || body === void 0 ? void 0 : body.entry) ? (_d = body === null || body === void 0 ? void 0 : body.entry) !== null && _d !== void 0 ? _d : [] : [];
+        const statuses = [];
+        for (const entry of entries) {
+            const changes = Array.isArray(entry === null || entry === void 0 ? void 0 : entry.changes) ? (_e = entry.changes) !== null && _e !== void 0 ? _e : [] : [];
+            for (const change of changes) {
+                const changeStatuses = Array.isArray((_f = change === null || change === void 0 ? void 0 : change.value) === null || _f === void 0 ? void 0 : _f.statuses) ? (_h = (_g = change.value) === null || _g === void 0 ? void 0 : _g.statuses) !== null && _h !== void 0 ? _h : [] : [];
+                statuses.push(...changeStatuses);
+            }
+        }
+        if (statuses.length === 0) {
+            (0, logger_1.logInfo)('WhatsApp/Webhook', 'handle', 'No status updates in webhook payload');
+            res.status(200).send('ok');
             return;
         }
-        const entries = Array.isArray(body.entry) ? body.entry : [];
-        let statusCount = 0;
-        for (const entry of entries) {
-            const changes = Array.isArray(entry === null || entry === void 0 ? void 0 : entry.changes) ? entry.changes : [];
-            for (const change of changes) {
-                const value = change === null || change === void 0 ? void 0 : change.value;
-                const statuses = Array.isArray(value === null || value === void 0 ? void 0 : value.statuses) ? value.statuses : [];
-                for (const status of statuses) {
-                    const messageId = status === null || status === void 0 ? void 0 : status.id;
-                    if (!messageId)
-                        continue;
-                    statusCount += 1;
-                    await updateMessageStatus(messageId, status);
+        let updatedCount = 0;
+        for (const statusPayload of statuses) {
+            const messageId = statusPayload === null || statusPayload === void 0 ? void 0 : statusPayload.id;
+            const deliveryStatus = (_j = statusPayload === null || statusPayload === void 0 ? void 0 : statusPayload.status) !== null && _j !== void 0 ? _j : 'unknown';
+            const recipientId = statusPayload === null || statusPayload === void 0 ? void 0 : statusPayload.recipient_id;
+            if (!messageId) {
+                (0, logger_1.logWarning)('WhatsApp/Webhook', 'handle', 'Missing message id in status payload', {
+                    recipientId,
+                    deliveryStatus,
+                });
+                continue;
+            }
+            const snapshot = await db
+                .collection(constants_1.WHATSAPP_MESSAGE_JOBS_COLLECTION)
+                .where('whatsapp_message_id', '==', messageId)
+                .limit(10)
+                .get();
+            if (snapshot.empty) {
+                (0, logger_1.logWarning)('WhatsApp/Webhook', 'handle', 'No WhatsApp job found for message id', {
+                    messageId,
+                    recipientId,
+                    deliveryStatus,
+                });
+                continue;
+            }
+            const batch = db.batch();
+            snapshot.docs.forEach((doc) => {
+                batch.update(doc.ref, {
+                    delivery_status: deliveryStatus,
+                    last_updated: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            });
+            await batch.commit();
+            updatedCount += snapshot.size;
+            if (deliveryStatus === 'failed') {
+                const errors = Array.isArray(statusPayload === null || statusPayload === void 0 ? void 0 : statusPayload.errors) ? statusPayload.errors : [];
+                const error = errors[0];
+                if (error) {
+                    (0, logger_1.logError)('WhatsApp/Webhook', 'handle', 'WhatsApp delivery failed', new Error('WhatsApp status failed'), {
+                        messageId,
+                        recipientId,
+                        errorCode: error.code,
+                        errorMessage: (_k = error.message) !== null && _k !== void 0 ? _k : error.title,
+                    });
+                }
+                else {
+                    (0, logger_1.logError)('WhatsApp/Webhook', 'handle', 'WhatsApp delivery failed without error details', new Error('WhatsApp status failed'), {
+                        messageId,
+                        recipientId,
+                    });
                 }
             }
         }
         (0, logger_1.logInfo)('WhatsApp/Webhook', 'handle', 'Webhook processed', {
-            statusCount,
+            updatedCount,
+            statusCount: statuses.length,
         });
         res.status(200).send('ok');
     }
     catch (err) {
-        (0, logger_1.logError)('WhatsApp/Webhook', 'handle', 'Failed to process webhook', err instanceof Error ? err : new Error(String(err)));
-        res.status(500).send('Internal error');
+        (0, logger_1.logError)('WhatsApp/Webhook', 'handle', 'Failed to process webhook payload', err instanceof Error ? err : new Error(String(err)));
+        res.status(200).send('ok');
     }
 });
-async function updateMessageStatus(messageId, statusPayload) {
-    var _a;
-    const snapshot = await db
-        .collection(constants_1.WHATSAPP_MESSAGE_JOBS_COLLECTION)
-        .where('messageId', '==', messageId)
-        .limit(5)
-        .get();
-    if (snapshot.empty) {
-        (0, logger_1.logWarning)('WhatsApp/Webhook', 'updateMessageStatus', 'No job found for message ID', {
-            messageId,
-        });
-        return;
-    }
-    const timestamp = Number(statusPayload.timestamp);
-    const statusAt = Number.isFinite(timestamp)
-        ? admin.firestore.Timestamp.fromMillis(timestamp * 1000)
-        : admin.firestore.FieldValue.serverTimestamp();
-    const updates = {
-        deliveryStatus: (_a = statusPayload.status) !== null && _a !== void 0 ? _a : 'unknown',
-        deliveryStatusAt: statusAt,
-        deliveryDetails: statusPayload,
-        deliveryStatusUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastError: statusPayload.errors ? JSON.stringify(statusPayload.errors) : undefined,
-    };
-    const batch = db.batch();
-    snapshot.docs.forEach((doc) => {
-        batch.update(doc.ref, updates);
-    });
-    await batch.commit();
-}
 //# sourceMappingURL=whatsapp-webhook.js.map
