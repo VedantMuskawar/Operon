@@ -797,14 +797,14 @@ class _ScheduleTripModalState extends State<ScheduleTripModal> {
           ),
           Expanded(
             flex: 2,
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: (_isLoading || !_canSchedule())
                   ? null
                   : () {
                       _triggerHapticFeedback();
                       _scheduleTrip();
                     },
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 backgroundColor: _primaryColor,
                 foregroundColor: _whiteColor,
                 padding: EdgeInsets.symmetric(vertical: _isAndroid ? 12 : 14),

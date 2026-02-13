@@ -11,6 +11,7 @@ class EmployeeWagesRepository {
   Future<String> createSalaryTransaction({
     required String organizationId,
     required String employeeId,
+    String? employeeName,
     required double amount,
     required DateTime paymentDate,
     required String createdBy,
@@ -23,6 +24,7 @@ class EmployeeWagesRepository {
     return _dataSource.createSalaryTransaction(
       organizationId: organizationId,
       employeeId: employeeId,
+      employeeName: employeeName,
       amount: amount,
       paymentDate: paymentDate,
       createdBy: createdBy,
@@ -38,6 +40,7 @@ class EmployeeWagesRepository {
   Future<String> createBonusTransaction({
     required String organizationId,
     required String employeeId,
+    String? employeeName,
     required double amount,
     required DateTime paymentDate,
     required String createdBy,
@@ -51,6 +54,7 @@ class EmployeeWagesRepository {
     return _dataSource.createBonusTransaction(
       organizationId: organizationId,
       employeeId: employeeId,
+      employeeName: employeeName,
       amount: amount,
       paymentDate: paymentDate,
       createdBy: createdBy,
@@ -123,12 +127,16 @@ class EmployeeWagesRepository {
     String? financialYear,
     int? limit,
     TransactionCategory? category,
+    DateTime? startDate,
+    DateTime? endDate,
   }) {
     return _dataSource.fetchOrganizationEmployeeTransactions(
       organizationId: organizationId,
       financialYear: financialYear,
       limit: limit,
       category: category,
+      startDate: startDate,
+      endDate: endDate,
     );
   }
 
@@ -162,6 +170,21 @@ class EmployeeWagesRepository {
     );
   }
 
+  /// Fetch employeeIds that already received a category credit in a month.
+  Future<Set<String>> fetchCreditedEmployeeIdsForMonth({
+    required String organizationId,
+    required TransactionCategory category,
+    required int year,
+    required int month,
+  }) {
+    return _dataSource.fetchCreditedEmployeeIdsForMonth(
+      organizationId: organizationId,
+      category: category,
+      year: year,
+      month: month,
+    );
+  }
+
   /// Stream employee transactions
   Stream<List<Transaction>> watchEmployeeTransactions({
     required String organizationId,
@@ -182,11 +205,15 @@ class EmployeeWagesRepository {
     required String organizationId,
     String? financialYear,
     int? limit,
+    DateTime? startDate,
+    DateTime? endDate,
   }) {
     return _dataSource.watchOrganizationEmployeeTransactions(
       organizationId: organizationId,
       financialYear: financialYear,
       limit: limit,
+      startDate: startDate,
+      endDate: endDate,
     );
   }
 

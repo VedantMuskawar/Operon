@@ -294,7 +294,7 @@ class _ClientTile extends StatelessWidget {
               width: AppSpacing.avatarMD,
               height: AppSpacing.avatarMD,
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.2),
+                color: AppColors.primary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
               child: const Icon(

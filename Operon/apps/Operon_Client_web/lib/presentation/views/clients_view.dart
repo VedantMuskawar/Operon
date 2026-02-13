@@ -1,6 +1,5 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_ui/core_ui.dart';
-import 'package:dash_web/data/repositories/analytics_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_web/presentation/widgets/client_detail_modal.dart';
@@ -35,6 +34,15 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
   _ClientSortOption _sortOption = _ClientSortOption.nameAsc;
   _ClientFilterType _filterType = _ClientFilterType.all;
   final ScrollController _scrollController = ScrollController();
+  final Map<String, String> _searchIndexCache = {};
+  String? _lastSearchIndexHash;
+  
+  // Caching for filtered/sorted results to avoid recomputation
+  List<Client>? _cachedFilteredClients;
+  String? _cachedQuery;
+  _ClientFilterType? _cachedFilterType;
+  _ClientSortOption? _cachedSortOption;
+  List<Client>? _cachedInputClients;
 
   @override
   void initState() {
@@ -42,9 +50,7 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
     _scrollController.addListener(_onScroll);
     // Load clients and recent clients on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ClientsCubit>()
-        ..loadClients()
-        ..loadRecentClients();
+      context.read<ClientsCubit>().loadClients();
     });
   }
 
@@ -57,26 +63,35 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
 
   void _onScroll() {
     if (_scrollController.hasClients &&
-        _scrollController.position.pixels >= 
-        _scrollController.position.maxScrollExtent * 0.8) {
-      // Load more if needed - placeholder for future pagination
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent * 0.8) {
+      // Load more if needed
     }
   }
 
-  List<Client> _applyFiltersAndSort(List<Client> clients) {
-    // Create a mutable copy to avoid "Unsupported operation: sort" error in web
-    var filtered = List<Client>.from(clients);
+  /// Memoized filter and sort logic to avoid recomputation on every build
+  List<Client> _getFilteredAndSortedClients(List<Client> clients) {
+    // Check if we can use cached result
+    if (_cachedFilteredClients != null &&
+        _cachedQuery == _query &&
+        _cachedFilterType == _filterType &&
+        _cachedSortOption == _sortOption &&
+        _cachedInputClients?.length == clients.length) {
+      return _cachedFilteredClients!;
+    }
 
     // Apply search filter
-    if (_query.isNotEmpty) {
-      context.read<ClientsCubit>().search(_query);
-      filtered = filtered
-          .where((c) => 
-              c.name.toLowerCase().contains(_query.toLowerCase()) ||
-              (c.primaryPhone?.toLowerCase().contains(_query.toLowerCase()) ?? false) ||
-              c.tags.any((tag) => tag.toLowerCase().contains(_query.toLowerCase()))
-          )
-          .toList();
+    List<Client> filtered;
+    if (_query.isEmpty) {
+      filtered = clients;
+    } else {
+      final queryLower = _query.toLowerCase();
+      final clientsHash = '${clients.length}_${clients.hashCode}';
+      final searchIndex = _buildSearchIndex(clients, clientsHash);
+      filtered = clients.where((c) {
+        final indexText = searchIndex[c.id] ?? '';
+        return indexText.contains(queryLower);
+      }).toList();
     }
 
     // Apply type filter
@@ -91,46 +106,85 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
         break;
     }
 
-    // Apply sorting (create new mutable list for sorting)
-    final sortedList = List<Client>.from(filtered);
+    // Apply sorting
     switch (_sortOption) {
       case _ClientSortOption.nameAsc:
-        sortedList.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        filtered.sort((a, b) => a.name.compareTo(b.name));
         break;
       case _ClientSortOption.nameDesc:
-        sortedList.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        filtered.sort((a, b) => b.name.compareTo(a.name));
         break;
       case _ClientSortOption.ordersHigh:
-        sortedList.sort((a, b) {
-          final aOrders = (a.stats?['orders'] as num?)?.toInt() ?? 0;
-          final bOrders = (b.stats?['orders'] as num?)?.toInt() ?? 0;
+        filtered.sort((a, b) {
+          final aOrders = a.stats?['orders'] as num? ?? 0;
+          final bOrders = b.stats?['orders'] as num? ?? 0;
           return bOrders.compareTo(aOrders);
         });
         break;
       case _ClientSortOption.ordersLow:
-        sortedList.sort((a, b) {
-          final aOrders = (a.stats?['orders'] as num?)?.toInt() ?? 0;
-          final bOrders = (b.stats?['orders'] as num?)?.toInt() ?? 0;
+        filtered.sort((a, b) {
+          final aOrders = a.stats?['orders'] as num? ?? 0;
+          final bOrders = b.stats?['orders'] as num? ?? 0;
           return aOrders.compareTo(bOrders);
         });
         break;
       case _ClientSortOption.corporateFirst:
-        sortedList.sort((a, b) {
+        filtered.sort((a, b) {
           if (a.isCorporate && !b.isCorporate) return -1;
           if (!a.isCorporate && b.isCorporate) return 1;
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          return a.name.compareTo(b.name);
         });
         break;
       case _ClientSortOption.individualFirst:
-        sortedList.sort((a, b) {
+        filtered.sort((a, b) {
           if (!a.isCorporate && b.isCorporate) return -1;
           if (a.isCorporate && !b.isCorporate) return 1;
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          return a.name.compareTo(b.name);
         });
         break;
     }
 
-    return sortedList;
+    // Cache the result
+    _cachedFilteredClients = filtered;
+    _cachedQuery = _query;
+    _cachedFilterType = _filterType;
+    _cachedSortOption = _sortOption;
+    _cachedInputClients = clients;
+
+    return filtered;
+  }
+
+  Map<String, String> _buildSearchIndex(
+    List<Client> clients,
+    String clientsHash,
+  ) {
+    if (_lastSearchIndexHash == clientsHash && _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final client in clients) {
+      final buffer = StringBuffer();
+      void add(String? value) {
+        if (value == null) return;
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        buffer.write(trimmed.toLowerCase());
+        buffer.write(' ');
+      }
+
+      add(client.name);
+      add(client.primaryPhone);
+      if (client.tags.isNotEmpty) {
+        buffer.write(client.tags.map((t) => t.toLowerCase()).join(' '));
+        buffer.write(' ');
+      }
+
+      _searchIndexCache[client.id] = buffer.toString();
+    }
+
+    _lastSearchIndexHash = clientsHash;
+    return _searchIndexCache;
   }
 
   @override
@@ -151,14 +205,16 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   const SizedBox(height: 16),
-                  ...List.generate(8, (_) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: SkeletonLoader(
-                      height: 80,
-                      width: double.infinity,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  )),
+                  ...List.generate(
+                      8,
+                      (_) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: SkeletonLoader(
+                              height: 80,
+                              width: double.infinity,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          )),
                 ],
               ),
             ),
@@ -167,30 +223,38 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
         if (state.status == ViewStatus.failure && state.clients.isEmpty) {
           return _ErrorState(
             message: state.message ?? 'Failed to load clients',
-            onRetry: () => context.read<ClientsCubit>()..loadClients()..loadRecentClients(),
+            onRetry: () => context.read<ClientsCubit>().loadClients(),
           );
         }
 
-        final allClients = _query.isEmpty
-            ? state.clients
-            : state.searchResults;
-
-        if (_query.isNotEmpty) {
-          context.read<ClientsCubit>().search(_query);
-        }
-
-        final filtered = _applyFiltersAndSort(allClients);
+        List<Client> filtered = _getFilteredAndSortedClients(state.clients);
 
         return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             // Statistics Dashboard
-            _ClientsStatsHeader(
-              clients: state.clients,
-              analytics: state.analytics,
+            BlocBuilder<ClientsCubit, ClientsState>(
+              buildWhen: (previous, current) => 
+                  previous.analytics != current.analytics,
+              builder: (context, state) {
+                final totalClients = state.analytics?.totalActiveClients ?? state.clients.length;
+                final corporateCount = state.analytics?.corporateCount ?? 
+                    state.clients.where((c) => c.isCorporate).length;
+                final individualCount = state.analytics?.individualCount ?? 
+                    (totalClients - corporateCount);
+                final totalOrders = state.analytics?.totalOrders ?? 
+                    state.clients.fold<int>(0, (sum, client) => sum + ((client.stats?['orders'] as num?)?.toInt() ?? 0));
+                
+                return _ClientsStatsHeader(
+                  totalClients: totalClients,
+                  corporateCount: corporateCount,
+                  individualCount: individualCount,
+                  totalOrders: totalOrders,
+                );
+              },
             ),
             const SizedBox(height: 32),
-            
+
             // Top Action Bar with Filters
             Row(
               children: [
@@ -217,12 +281,17 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                           color: AuthColors.textDisabled,
                         ),
                         filled: true,
-                        fillColor: Colors.transparent,
-                        prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
+                        fillColor: AuthColors.transparent,
+                        prefixIcon:
+                            const Icon(Icons.search, color: AuthColors.textSub),
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, color: AuthColors.textSub),
-                                onPressed: () => setState(() => _query = ''),
+                                icon: const Icon(Icons.clear,
+                                    color: AuthColors.textSub),
+                                onPressed: () {
+                                  setState(() => _query = '');
+                                  context.read<ClientsCubit>().search('');
+                                },
                               )
                             : null,
                         border: InputBorder.none,
@@ -237,7 +306,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                 const SizedBox(width: 12),
                 // Type Filter
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
@@ -249,14 +319,16 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                     child: DropdownButton<_ClientFilterType>(
                       value: _filterType,
                       dropdownColor: AuthColors.surface,
-                      style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
+                      style: const TextStyle(
+                          color: AuthColors.textMain, fontSize: 14),
                       items: const [
                         DropdownMenuItem(
                           value: _ClientFilterType.all,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.people, size: 16, color: AuthColors.textSub),
+                              Icon(Icons.people,
+                                  size: 16, color: AuthColors.textSub),
                               SizedBox(width: 6),
                               Text('All Clients'),
                             ],
@@ -267,7 +339,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.business, size: 16, color: AuthColors.textSub),
+                              Icon(Icons.business,
+                                  size: 16, color: AuthColors.textSub),
                               SizedBox(width: 6),
                               Text('Corporate'),
                             ],
@@ -278,7 +351,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.person, size: 16, color: AuthColors.textSub),
+                              Icon(Icons.person,
+                                  size: 16, color: AuthColors.textSub),
                               SizedBox(width: 6),
                               Text('Individual'),
                             ],
@@ -290,7 +364,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                           setState(() => _filterType = value);
                         }
                       },
-                          icon: const Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
+                      icon: const Icon(Icons.arrow_drop_down,
+                          color: AuthColors.textSub, size: 20),
                       isDense: true,
                     ),
                   ),
@@ -298,7 +373,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                 const SizedBox(width: 12),
                 // Sort Options
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
@@ -309,20 +385,23 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.sort, size: 16, color: AuthColors.textSub),
+                      const Icon(Icons.sort,
+                          size: 16, color: AuthColors.textSub),
                       const SizedBox(width: 6),
                       DropdownButtonHideUnderline(
                         child: DropdownButton<_ClientSortOption>(
                           value: _sortOption,
                           dropdownColor: AuthColors.surface,
-                          style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
+                          style: const TextStyle(
+                              color: AuthColors.textMain, fontSize: 14),
                           items: const [
                             DropdownMenuItem(
                               value: _ClientSortOption.nameAsc,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.sort_by_alpha,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Name (A-Z)'),
                                 ],
@@ -333,7 +412,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.sort_by_alpha,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Name (Z-A)'),
                                 ],
@@ -344,7 +424,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.trending_down, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.trending_down,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Orders (High to Low)'),
                                 ],
@@ -355,7 +436,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.trending_up, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.trending_up,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Orders (Low to High)'),
                                 ],
@@ -366,7 +448,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.business, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.business,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Corporate First'),
                                 ],
@@ -377,7 +460,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.person, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.person,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Individual First'),
                                 ],
@@ -389,7 +473,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                               setState(() => _sortOption = value);
                             }
                           },
-                          icon: const Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
+                          icon: const Icon(Icons.arrow_drop_down,
+                              color: AuthColors.textSub, size: 20),
                           isDense: true,
                         ),
                       ),
@@ -399,7 +484,8 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                 const SizedBox(width: 12),
                 // Results count
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
@@ -426,9 +512,10 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Client List
-            if (filtered.isEmpty && (_query.isNotEmpty || _filterType != _ClientFilterType.all))
+            if (filtered.isEmpty &&
+                (_query.isNotEmpty || _filterType != _ClientFilterType.all))
               _EmptySearchState(query: _query)
             else if (filtered.isEmpty)
               _EmptyClientsState(
@@ -439,13 +526,14 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
                 clients: filtered,
                 hasMore: state.hasMore && _query.trim().isEmpty,
                 isLoadingMore: state.isLoadingMore,
-                onLoadMore: () => context.read<ClientsCubit>().loadMoreClients(),
+                onLoadMore: () =>
+                    context.read<ClientsCubit>().loadMoreClients(),
                 onTap: (client) => _openClientDetail(client),
                 onEdit: (client) => _showClientDialog(context, client),
                 onDelete: (client) => _showDeleteConfirmation(context, client),
               ),
-            ],
-          );
+          ],
+        );
       },
     );
   }
@@ -569,7 +657,7 @@ class _ClientDialogState extends State<_ClientDialog> {
     final isEditing = widget.client != null;
 
     return Dialog(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AuthColors.transparent,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
         decoration: BoxDecoration(
@@ -615,7 +703,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                 ),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -625,12 +713,12 @@ class _ClientDialogState extends State<_ClientDialog> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                      color: AuthColors.primaryWithOpacity(0.2),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       isEditing ? Icons.edit : Icons.person_add,
-                      color: const Color(0xFF6F4BFF),
+                      color: AuthColors.primary,
                       size: 20,
                     ),
                   ),
@@ -639,21 +727,21 @@ class _ClientDialogState extends State<_ClientDialog> {
                     child: Text(
                       isEditing ? 'Edit Client' : 'Add Client',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AuthColors.textMain,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: AuthColors.textSub),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: 'Close',
                   ),
                 ],
               ),
             ),
-            
+
             // Content
             Flexible(
               child: SingleChildScrollView(
@@ -667,7 +755,8 @@ class _ClientDialogState extends State<_ClientDialog> {
                       TextFormField(
                         controller: _nameController,
                         style: const TextStyle(color: AuthColors.textMain),
-                        decoration: _inputDecoration('Client name', Icons.person_outline),
+                        decoration: _inputDecoration(
+                            'Client name', Icons.person_outline),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
                                 ? 'Enter client name'
@@ -678,7 +767,8 @@ class _ClientDialogState extends State<_ClientDialog> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         style: const TextStyle(color: AuthColors.textMain),
-                        decoration: _inputDecoration('Primary phone', Icons.phone_outlined),
+                        decoration: _inputDecoration(
+                            'Primary phone', Icons.phone_outlined),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
                                 ? 'Enter primary phone'
@@ -688,7 +778,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                       Text(
                         'Tags',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: AuthColors.textSub,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -699,25 +789,27 @@ class _ClientDialogState extends State<_ClientDialog> {
                           Expanded(
                             child: TextFormField(
                               controller: _tagController,
-                              style: const TextStyle(color: AuthColors.textMain),
+                              style:
+                                  const TextStyle(color: AuthColors.textMain),
                               decoration: InputDecoration(
                                 hintText: 'Enter tag and press Enter',
                                 hintStyle: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.4),
+                                  color: AuthColors.textSub.withValues(alpha: 0.6),
                                 ),
-                                prefixIcon: const Icon(Icons.tag, color: Colors.white54, size: 20),
+                                prefixIcon: const Icon(Icons.tag,
+                                    color: AuthColors.textSub, size: 20),
                                 filled: true,
                                 fillColor: AuthColors.surface,
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: Colors.white.withValues(alpha: 0.1),
+                                    color: AuthColors.textMain.withValues(alpha: 0.1),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: const BorderSide(
-                                    color: Color(0xFF6F4BFF),
+                                    color: AuthColors.primary,
                                     width: 2,
                                   ),
                                 ),
@@ -749,10 +841,10 @@ class _ClientDialogState extends State<_ClientDialog> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF6F4BFF).withValues(alpha: 0.2),
+                                color: AuthColors.primaryWithOpacity(0.2),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: const Color(0xFF6F4BFF).withValues(alpha: 0.3),
+                                  color: AuthColors.primaryWithOpacity(0.3),
                                 ),
                               ),
                               child: Row(
@@ -761,7 +853,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                                   Text(
                                     tag,
                                     style: const TextStyle(
-                                      color: Colors.white,
+                                      color: AuthColors.textMain,
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -772,7 +864,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                                     child: Icon(
                                       Icons.close,
                                       size: 16,
-                                      color: Colors.white.withValues(alpha: 0.7),
+                                      color: AuthColors.textSub,
                                     ),
                                   ),
                                 ],
@@ -786,14 +878,14 @@ class _ClientDialogState extends State<_ClientDialog> {
                 ),
               ),
             ),
-            
+
             // Footer Actions
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -849,33 +941,33 @@ class _ClientDialogState extends State<_ClientDialog> {
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
-      prefixIcon: Icon(icon, color: Colors.white54, size: 20),
+      prefixIcon: Icon(icon, color: AuthColors.textSub, size: 20),
       filled: true,
       fillColor: AuthColors.surface,
       labelStyle: const TextStyle(color: AuthColors.textSub),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(
-          color: Color(0xFF6F4BFF),
+          color: AuthColors.primary,
           width: 2,
         ),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(
-          color: Colors.redAccent,
+          color: AuthColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(
-          color: Colors.redAccent,
+          color: AuthColors.error,
           width: 2,
         ),
       ),
@@ -889,24 +981,19 @@ class _ClientDialogState extends State<_ClientDialog> {
 
 class _ClientsStatsHeader extends StatelessWidget {
   const _ClientsStatsHeader({
-    required this.clients,
-    this.analytics,
+    required this.totalClients,
+    required this.corporateCount,
+    required this.individualCount,
+    required this.totalOrders,
   });
 
-  final List<Client> clients;
-  final ClientsAnalytics? analytics;
+  final int totalClients;
+  final int corporateCount;
+  final int individualCount;
+  final int totalOrders;
 
   @override
   Widget build(BuildContext context) {
-    // Use analytics data if available, otherwise fall back to client list
-    final totalClients = analytics?.totalActiveClients ?? clients.length;
-    final corporateCount = clients.where((c) => c.isCorporate).length;
-    final individualCount = totalClients - corporateCount;
-    final totalOrders = analytics?.totalOrders ??
-        clients.fold<int>(
-          0,
-          (sum, client) => sum + ((client.stats?['orders'] as num?)?.toInt() ?? 0),
-        );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1060,10 +1147,10 @@ class _ErrorState extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C).withValues(alpha: 0.5),
+          color: AuthColors.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.redAccent.withValues(alpha: 0.3),
+            color: AuthColors.error.withValues(alpha: 0.3),
           ),
         ),
         child: Column(
@@ -1072,13 +1159,13 @@ class _ErrorState extends StatelessWidget {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.redAccent.withValues(alpha: 0.7),
+              color: AuthColors.error.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             const Text(
               'Failed to load clients',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -1087,7 +1174,7 @@ class _ErrorState extends StatelessWidget {
             Text(
               message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -1120,13 +1207,13 @@ class _EmptyClientsState extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-              const Color(0xFF161622).withValues(alpha: 0.8),
+              AuthColors.surface.withValues(alpha: 0.6),
+              AuthColors.backgroundAlt.withValues(alpha: 0.8),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
         ),
         child: Column(
@@ -1136,20 +1223,20 @@ class _EmptyClientsState extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withValues(alpha: 0.15),
+                color: AuthColors.primaryWithOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.people_outline,
                 size: 40,
-                color: Color(0xFF6F4BFF),
+                color: AuthColors.primary,
               ),
             ),
             const SizedBox(height: 24),
             const Text(
               'No clients yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
               ),
@@ -1158,7 +1245,7 @@ class _EmptyClientsState extends StatelessWidget {
             Text(
               'Start by adding your first client to the system',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textSub,
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -1192,13 +1279,13 @@ class _EmptySearchState extends StatelessWidget {
             Icon(
               Icons.search_off,
               size: 64,
-              color: Colors.white.withValues(alpha: 0.3),
+              color: AuthColors.textSub.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             const Text(
               'No results found',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
@@ -1207,7 +1294,7 @@ class _EmptySearchState extends StatelessWidget {
             Text(
               'No clients match "$query"',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
             ),
@@ -1256,7 +1343,9 @@ class _ClientListView extends StatelessWidget {
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
+    return name.length >= 2
+        ? name.substring(0, 2).toUpperCase()
+        : name.toUpperCase();
   }
 
   @override
@@ -1305,75 +1394,80 @@ class _ClientListView extends StatelessWidget {
           // Animate only first 20 items to keep frame rate smooth with large datasets
           const int maxAnimatedItems = 20;
           final content = Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: AuthColors.background,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: DataList(
-            title: client.name,
-            subtitle: subtitle.isNotEmpty ? subtitle : null,
-            leading: DataListAvatar(
-              initial: _getInitials(client.name),
-              radius: 28,
-              statusRingColor: clientColor,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: AuthColors.background,
+              borderRadius: BorderRadius.circular(18),
             ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (orderCount > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AuthColors.success.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.shopping_bag_outlined, size: 12, color: AuthColors.success),
-                          const SizedBox(width: 4),
-                          Text(
-                            orderCount.toString(),
-                            style: const TextStyle(
-                              color: AuthColors.success,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+            child: DataList(
+              title: client.name,
+              subtitle: subtitle.isNotEmpty ? subtitle : null,
+              leading: DataListAvatar(
+                initial: _getInitials(client.name),
+                radius: 28,
+                statusRingColor: clientColor,
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (orderCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AuthColors.success.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.shopping_bag_outlined,
+                                size: 12, color: AuthColors.success),
+                            const SizedBox(width: 4),
+                            Text(
+                              orderCount.toString(),
+                              style: const TextStyle(
+                                color: AuthColors.success,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
+                  IconButton(
+                    icon: const Icon(Icons.visibility_outlined,
+                        size: 20, color: AuthColors.textSub),
+                    onPressed: () => onTap(client),
+                    tooltip: 'View Details',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.visibility_outlined, size: 20, color: AuthColors.textSub),
-                  onPressed: () => onTap(client),
-                  tooltip: 'View Details',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: AuthColors.textSub),
-                  onPressed: () => onEdit(client),
-                  tooltip: 'Edit',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20, color: AuthColors.error),
-                  onPressed: () => onDelete(client),
-                  tooltip: 'Delete',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined,
+                        size: 20, color: AuthColors.textSub),
+                    onPressed: () => onEdit(client),
+                    tooltip: 'Edit',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        size: 20, color: AuthColors.error),
+                    onPressed: () => onDelete(client),
+                    tooltip: 'Delete',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              onTap: () => onTap(client),
             ),
-            onTap: () => onTap(client),
-          ),
           );
           if (index < maxAnimatedItems) {
             return AnimationConfiguration.staggeredList(

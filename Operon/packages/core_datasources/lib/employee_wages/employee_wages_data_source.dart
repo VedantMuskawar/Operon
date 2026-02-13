@@ -36,6 +36,7 @@ class EmployeeWagesDataSource {
   Future<String> createSalaryTransaction({
     required String organizationId,
     required String employeeId,
+    String? employeeName,
     required double amount,
     required DateTime paymentDate,
     required String createdBy,
@@ -53,6 +54,7 @@ class EmployeeWagesDataSource {
       organizationId: organizationId,
       clientId: '', // Not used for employee ledger
       employeeId: employeeId,
+      employeeName: employeeName,
       ledgerType: LedgerType.employeeLedger,
       type: TransactionType.credit,
       category: TransactionCategory.salaryCredit,
@@ -79,6 +81,7 @@ class EmployeeWagesDataSource {
   Future<String> createWageCreditTransaction({
     required String organizationId,
     required String employeeId,
+    String? employeeName,
     required double amount,
     required DateTime paymentDate,
     required String createdBy,
@@ -96,6 +99,7 @@ class EmployeeWagesDataSource {
       organizationId: organizationId,
       clientId: '', // Not used for employee ledger
       employeeId: employeeId,
+      employeeName: employeeName,
       ledgerType: LedgerType.employeeLedger,
       type: TransactionType.credit,
       category: TransactionCategory.wageCredit,
@@ -122,6 +126,7 @@ class EmployeeWagesDataSource {
   Future<String> createBonusTransaction({
     required String organizationId,
     required String employeeId,
+    String? employeeName,
     required double amount,
     required DateTime paymentDate,
     required String createdBy,
@@ -145,6 +150,7 @@ class EmployeeWagesDataSource {
       organizationId: organizationId,
       clientId: '', // Not used for employee ledger
       employeeId: employeeId,
+      employeeName: employeeName,
       ledgerType: LedgerType.employeeLedger,
       type: TransactionType.credit,
       category: TransactionCategory.bonus,
@@ -310,6 +316,17 @@ class EmployeeWagesDataSource {
       query = query.where('financialYear', isEqualTo: financialYear);
     }
 
+    if (startDate != null) {
+      final normalizedStart = DateTime(startDate.year, startDate.month, startDate.day);
+      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(normalizedStart));
+    }
+
+    if (endDate != null) {
+      final normalizedEndExclusive = DateTime(endDate.year, endDate.month, endDate.day)
+          .add(const Duration(days: 1));
+      query = query.where('createdAt', isLessThan: Timestamp.fromDate(normalizedEndExclusive));
+    }
+
     query = query.orderBy('createdAt', descending: true);
 
     if (limit != null) {
@@ -341,6 +358,8 @@ class EmployeeWagesDataSource {
     String? financialYear,
     int? limit,
     TransactionCategory? category,
+    DateTime? startDate,
+    DateTime? endDate,
   }) async {
     Query<Map<String, dynamic>> query = _transactionsRef
         .where('organizationId', isEqualTo: organizationId)
@@ -352,6 +371,17 @@ class EmployeeWagesDataSource {
 
     if (category != null) {
       query = query.where('category', isEqualTo: category.name);
+    }
+
+    if (startDate != null) {
+      final normalizedStart = DateTime(startDate.year, startDate.month, startDate.day);
+      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(normalizedStart));
+    }
+
+    if (endDate != null) {
+      final normalizedEndExclusive = DateTime(endDate.year, endDate.month, endDate.day)
+          .add(const Duration(days: 1));
+      query = query.where('createdAt', isLessThan: Timestamp.fromDate(normalizedEndExclusive));
     }
 
     query = query.orderBy('createdAt', descending: true);
@@ -400,6 +430,39 @@ class EmployeeWagesDataSource {
     });
 
     return matchingTransactions.isNotEmpty;
+  }
+
+  /// Fetch employeeIds that already received a specific category credit in a month.
+  /// Uses a range query on createdAt to keep reads low (1 query per category).
+  Future<Set<String>> fetchCreditedEmployeeIdsForMonth({
+    required String organizationId,
+    required TransactionCategory category,
+    required int year,
+    required int month,
+  }) async {
+    final financialYear = _getFinancialYear(DateTime(year, month, 1));
+    final startOfMonth = DateTime(year, month, 1);
+    final endOfMonth = DateTime(year, month + 1, 0, 23, 59, 59);
+
+    final snapshot = await _transactionsRef
+        .where('organizationId', isEqualTo: organizationId)
+        .where('ledgerType', isEqualTo: 'employeeLedger')
+        .where('category', isEqualTo: category.name)
+        .where('financialYear', isEqualTo: financialYear)
+        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
+      .where('createdAt', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth))
+      .orderBy('createdAt', descending: true)
+        .get();
+
+    final employeeIds = <String>{};
+    for (final doc in snapshot.docs) {
+      final employeeId = doc.data()['employeeId'] as String?;
+      if (employeeId != null && employeeId.isNotEmpty) {
+        employeeIds.add(employeeId);
+      }
+    }
+
+    return employeeIds;
   }
 
   /// Check if bonus already credited for a month
@@ -467,6 +530,8 @@ class EmployeeWagesDataSource {
     required String organizationId,
     String? financialYear,
     int? limit,
+    DateTime? startDate,
+    DateTime? endDate,
   }) {
     Query<Map<String, dynamic>> query = _transactionsRef
         .where('organizationId', isEqualTo: organizationId)
@@ -474,6 +539,17 @@ class EmployeeWagesDataSource {
 
     if (financialYear != null) {
       query = query.where('financialYear', isEqualTo: financialYear);
+    }
+
+    if (startDate != null) {
+      final normalizedStart = DateTime(startDate.year, startDate.month, startDate.day);
+      query = query.where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(normalizedStart));
+    }
+
+    if (endDate != null) {
+      final normalizedEndExclusive = DateTime(endDate.year, endDate.month, endDate.day)
+          .add(const Duration(days: 1));
+      query = query.where('createdAt', isLessThan: Timestamp.fromDate(normalizedEndExclusive));
     }
 
     query = query.orderBy('createdAt', descending: true);
@@ -492,12 +568,6 @@ class EmployeeWagesDataSource {
   /// to automatically update the ledger balances
   Future<void> deleteTransaction(String transactionId) async {
     await _transactionsRef.doc(transactionId).delete();
-  }
-
-  /// Get year-month string in format YYYYMM for document IDs
-  /// Format: "202401" for January 2024
-  String _getYearMonth(DateTime date) {
-    return '${date.year}${date.month.toString().padLeft(2, '0')}';
   }
 
   /// Fetch monthly transaction document from EMPLOYEE_LEDGERS subcollection

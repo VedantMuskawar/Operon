@@ -139,13 +139,13 @@ class _HeroPanelState extends State<_HeroPanel> {
                             BorderRadius.circular(AppSpacing.avatarSM * 1.5),
                         gradient: LinearGradient(
                           colors: [
-                            AuthColors.secondary.withOpacity(0.2),
+                            AuthColors.secondary.withValues(alpha: 0.2),
                             AuthColors.transparent,
                           ],
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AuthColors.secondary.withOpacity(0.25),
+                            color: AuthColors.secondary.withValues(alpha: 0.25),
                             blurRadius: 100,
                             spreadRadius: 40,
                           ),

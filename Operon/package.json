@@ -9,5 +9,10 @@
     "dev:marketing": "npm run dev -w @operon/marketing",
     "build:marketing": "npm run build -w @operon/marketing",
     "deploy:marketing": "npm run build:marketing && firebase deploy --only hosting"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "exceljs": "^4.4.0",
+    "firebase-admin": "^13.6.1"
   }
 }

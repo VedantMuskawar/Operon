@@ -29,6 +29,7 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
   final DeliveryMemoRepository _deliveryMemoRepository;
   final EmployeeWagesRepository _employeeWagesRepository;
   final String _organizationId;
+  List<OrganizationEmployee>? _employeesCache;
 
   /// Returns Monday 00:00:00 of the week containing [date].
   static DateTime weekStart(DateTime date) {
@@ -91,9 +92,14 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
       final end = DateTime(weekEndDate.year, weekEndDate.month, weekEndDate.day, 23, 59, 59);
 
       // Fetch all employees
-      final allEmployees = await _employeesRepository.fetchEmployees(_organizationId);
+      final allEmployees = _employeesCache ??
+          await _employeesRepository.fetchEmployees(_organizationId);
+      _employeesCache ??= allEmployees;
       final productionEmployees = _filterProductionEmployees(allEmployees);
       final employeeMap = {for (var e in allEmployees) e.id: e};
+
+      final monthlyTransactionsCache = <String, List<Map<String, dynamic>>>{};
+      final deliveryMemoCache = <String, String>{};
 
       // Fetch batches and trip wages for the week
       final batches = await _productionBatchesRepository.fetchProductionBatches(
@@ -114,6 +120,7 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
         employeeMap,
         start,
         end,
+        monthlyTransactionsCache,
       );
       final tripEntries = await _buildTripEntries(
         tripWages,
@@ -121,6 +128,8 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
         employeeMap,
         start,
         end,
+        monthlyTransactionsCache,
+        deliveryMemoCache,
       );
 
       emit(state.copyWith(
@@ -157,6 +166,7 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
     Map<String, OrganizationEmployee> employeeMap,
     DateTime weekStart,
     DateTime weekEnd,
+    Map<String, List<Map<String, dynamic>>> monthlyTransactionsCache,
   ) async {
     final entries = <ProductionLedgerEntry>[];
     
@@ -189,7 +199,8 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
       final allTransactions = <Map<String, dynamic>>[];
       for (final employeeId in relevantEmployeeIds) {
         for (final yearMonth in yearMonths) {
-          final monthlyTransactions = await _employeeWagesRepository.fetchMonthlyTransactions(
+          final monthlyTransactions = await _getMonthlyTransactionsCached(
+            cache: monthlyTransactionsCache,
             employeeId: employeeId,
             financialYear: financialYear,
             yearMonth: yearMonth,
@@ -242,13 +253,31 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
     Map<String, OrganizationEmployee> employeeMap,
     DateTime weekStart,
     DateTime weekEnd,
+    Map<String, List<Map<String, dynamic>>> monthlyTransactionsCache,
+    Map<String, String> deliveryMemoCache,
   ) async {
     // Group trip wages by date + vehicle
     final grouped = <String, List<TripWage>>{};
     
     for (final tw in tripWages) {
-      final dm = await _deliveryMemoRepository.getDeliveryMemo(tw.dmId);
-      final vehicleNo = dm?['vehicleNumber'] as String? ?? 'N/A';
+      String vehicleNo = 'N/A';
+
+      final cachedVehicle = deliveryMemoCache[tw.dmId];
+      if (cachedVehicle != null) {
+        vehicleNo = cachedVehicle;
+      } else {
+        // Try to fetch delivery memo, but don't fail if it's not accessible
+        try {
+          final dm = await _deliveryMemoRepository.getDeliveryMemo(tw.dmId);
+          vehicleNo = dm?['vehicleNumber'] as String? ?? 'N/A';
+        } catch (e) {
+          // Log the error but continue - use default vehicle number
+          debugPrint('[WeeklyLedgerCubit] Warning: Could not fetch delivery memo ${tw.dmId}: $e');
+          vehicleNo = 'N/A';
+        }
+        deliveryMemoCache[tw.dmId] = vehicleNo;
+      }
+      
       final date = tw.createdAt;
       final dateKey = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       final key = '$dateKey|$vehicleNo';
@@ -299,7 +328,8 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
       
       for (final employeeId in relevantEmployeeIds) {
         for (final yearMonth in yearMonths) {
-          final monthlyTransactions = await _employeeWagesRepository.fetchMonthlyTransactions(
+          final monthlyTransactions = await _getMonthlyTransactionsCached(
+            cache: monthlyTransactionsCache,
             employeeId: employeeId,
             financialYear: financialYear,
             yearMonth: yearMonth,
@@ -350,5 +380,23 @@ class WeeklyLedgerCubit extends Cubit<WeeklyLedgerState> {
     });
     
     return entries;
+  }
+
+  Future<List<Map<String, dynamic>>> _getMonthlyTransactionsCached({
+    required Map<String, List<Map<String, dynamic>>> cache,
+    required String employeeId,
+    required String financialYear,
+    required String yearMonth,
+  }) async {
+    final key = '$employeeId|$financialYear|$yearMonth';
+    final cached = cache[key];
+    if (cached != null) return cached;
+    final monthlyTransactions = await _employeeWagesRepository.fetchMonthlyTransactions(
+      employeeId: employeeId,
+      financialYear: financialYear,
+      yearMonth: yearMonth,
+    );
+    cache[key] = monthlyTransactions;
+    return monthlyTransactions;
   }
 }

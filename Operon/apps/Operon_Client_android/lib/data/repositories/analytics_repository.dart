@@ -218,12 +218,6 @@ class AnalyticsRepository {
     return VendorsAnalytics.fromMap(aggregatedPayload);
   }
 
-  String _financialYearForDate(DateTime date) {
-    final fyStartYear = date.month >= 4 ? date.year : date.year - 1;
-    final first = (fyStartYear % 100).toString().padLeft(2, '0');
-    final second = ((fyStartYear + 1) % 100).toString().padLeft(2, '0');
-    return 'FY$first$second';
-  }
 }
 
 class ClientsAnalytics {

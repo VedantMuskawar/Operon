@@ -21,6 +21,8 @@ class UnifiedFinancialTransactionsView extends StatefulWidget {
 class _UnifiedFinancialTransactionsViewState
     extends State<UnifiedFinancialTransactionsView> {
   final TextEditingController _searchController = TextEditingController();
+  final Map<String, String> _searchIndexCache = {};
+  String? _lastSearchIndexHash;
 
   @override
   void initState() {
@@ -339,21 +341,16 @@ class _UnifiedFinancialTransactionsViewState
       builder: (context, state) {
         final isLoading = state.status == ViewStatus.loading;
         var transactions = state.currentTransactions;
+        final transactionsHash =
+            '${transactions.length}_${transactions.hashCode}';
+        final searchIndex = _buildSearchIndex(transactions, transactionsHash);
 
         // Apply search filter
         if (state.searchQuery.isNotEmpty) {
           final query = state.searchQuery.toLowerCase();
           transactions = transactions.where((tx) {
-            final description = tx.description?.toLowerCase() ?? '';
-            final reference = tx.referenceNumber?.toLowerCase() ?? '';
-            final amount = tx.amount.toString();
-            final clientName = tx.clientName?.toLowerCase() ?? '';
-            final accountName = tx.paymentAccountName?.toLowerCase() ?? '';
-            return description.contains(query) ||
-                reference.contains(query) ||
-                amount.contains(query) ||
-                clientName.contains(query) ||
-                accountName.contains(query);
+            final indexText = searchIndex[tx.id] ?? '';
+            return indexText.contains(query);
           }).toList();
         }
 
@@ -417,6 +414,42 @@ class _UnifiedFinancialTransactionsViewState
         );
       },
     );
+  }
+
+  Map<String, String> _buildSearchIndex(
+    List<Transaction> transactions,
+    String transactionsHash,
+  ) {
+    if (_lastSearchIndexHash == transactionsHash &&
+        _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final tx in transactions) {
+      final buffer = StringBuffer();
+      void add(String? value) {
+        if (value == null) return;
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        buffer.write(trimmed.toLowerCase());
+        buffer.write(' ');
+      }
+
+      add(tx.description);
+      add(tx.referenceNumber);
+      add(tx.amount.toString());
+      add(tx.clientName);
+      add(tx.paymentAccountName);
+      add(tx.metadata?['clientName']?.toString());
+      add(tx.metadata?['vendorName']?.toString());
+      add(tx.metadata?['employeeName']?.toString());
+
+      _searchIndexCache[tx.id] = buffer.toString();
+    }
+
+    _lastSearchIndexHash = transactionsHash;
+    return _searchIndexCache;
   }
 
   List<custom_table.DataTableColumn<Transaction>> _transactionColumns() {

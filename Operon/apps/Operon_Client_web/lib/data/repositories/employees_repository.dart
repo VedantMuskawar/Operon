@@ -8,8 +8,34 @@ class EmployeesRepository {
 
   final EmployeesDataSource _dataSource;
 
-  Future<List<OrganizationEmployee>> fetchEmployees(String organizationId) {
-    return _dataSource.fetchEmployees(organizationId);
+  final Map<String, ({DateTime timestamp, List<OrganizationEmployee> data})> _cache = {};
+  final Map<String, Future<List<OrganizationEmployee>>> _inFlight = {};
+  static const Duration _cacheTtl = Duration(minutes: 2);
+
+  Future<List<OrganizationEmployee>> fetchEmployees(
+    String organizationId, {
+    bool forceRefresh = false,
+  }) {
+    if (!forceRefresh) {
+      final cached = _cache[organizationId];
+      if (cached != null && DateTime.now().difference(cached.timestamp) < _cacheTtl) {
+        return Future.value(cached.data);
+      }
+
+      final inFlight = _inFlight[organizationId];
+      if (inFlight != null) return inFlight;
+    }
+
+    final future = _dataSource.fetchEmployees(organizationId);
+    _inFlight[organizationId] = future;
+    return future.then((employees) {
+      _cache[organizationId] = (timestamp: DateTime.now(), data: employees);
+      _inFlight.remove(organizationId);
+      return employees;
+    }).catchError((e) {
+      _inFlight.remove(organizationId);
+      throw e;
+    });
   }
 
   Future<
@@ -52,14 +78,17 @@ class EmployeesRepository {
   }
 
   Future<void> createEmployee(OrganizationEmployee employee) {
+    _cache.remove(employee.organizationId);
     return _dataSource.createEmployee(employee);
   }
 
   Future<void> updateEmployee(OrganizationEmployee employee) {
+    _cache.remove(employee.organizationId);
     return _dataSource.updateEmployee(employee);
   }
 
   Future<void> deleteEmployee(String employeeId) {
+    _cache.clear();
     return _dataSource.deleteEmployee(employeeId);
   }
 }

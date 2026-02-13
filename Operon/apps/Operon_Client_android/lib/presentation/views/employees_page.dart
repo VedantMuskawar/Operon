@@ -201,7 +201,6 @@ class _EmployeesListView extends StatefulWidget {
 
 class _EmployeesListViewState extends State<_EmployeesListView> {
   List<String> _recentlyViewedIds = [];
-  bool _isLoadingRecent = true;
 
   @override
   void initState() {
@@ -217,15 +216,10 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
       if (mounted) {
         setState(() {
           _recentlyViewedIds = ids;
-          _isLoadingRecent = false;
         });
       }
     } else {
-      if (mounted) {
-        setState(() {
-          _isLoadingRecent = false;
-        });
-      }
+      return;
     }
   }
 
@@ -357,6 +351,37 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
   static final _filteredCache = <String, List<OrganizationEmployee>>{};
   static String? _lastEmployeesHash;
   static String? _lastSearchQuery;
+  static final _searchIndexCache = <String, String>{};
+  static String? _lastSearchIndexHash;
+
+  Map<String, String> _buildSearchIndex(
+    List<OrganizationEmployee> employees,
+    String employeesHash,
+  ) {
+    if (_lastSearchIndexHash == employeesHash &&
+        _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final employee in employees) {
+      final buffer = StringBuffer();
+      void add(String? value) {
+        if (value == null) return;
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        buffer.write(trimmed.toLowerCase());
+        buffer.write(' ');
+      }
+
+      add(employee.name);
+
+      _searchIndexCache[employee.id] = buffer.toString();
+    }
+
+    _lastSearchIndexHash = employeesHash;
+    return _searchIndexCache;
+  }
 
   List<OrganizationEmployee> _getFilteredEmployees(
     List<OrganizationEmployee> employees,
@@ -365,6 +390,7 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
     // Cache key based on employees hash and search query
     final employeesHash = '${employees.length}_${employees.hashCode}';
     final cacheKey = '${employeesHash}_$query';
+    final searchIndex = _buildSearchIndex(employees, employeesHash);
 
     // Check if we can reuse cached result
     if (_lastEmployeesHash == employeesHash &&
@@ -380,10 +406,13 @@ class _EmployeesListViewState extends State<_EmployeesListView> {
 
     // Calculate filtered list
     final filtered = query.isEmpty
-        ? employees
-        : employees
-            .where((e) => e.name.toLowerCase().contains(query.toLowerCase()))
-            .toList();
+      ? employees
+      : employees
+        .where((e) {
+          final indexText = searchIndex[e.id] ?? '';
+          return indexText.contains(query.toLowerCase());
+        })
+        .toList();
 
     // Cache result
     _filteredCache[cacheKey] = filtered;
@@ -490,7 +519,6 @@ class _EmployeeTile extends StatelessWidget {
   final OrganizationEmployee employee;
 
   static final _colorCache = <String, Color>{};
-  static final _initialsCache = <String, String>{};
   static final _subtitleCache = <String, String>{};
 
   Color _getEmployeeColor() {
@@ -510,19 +538,6 @@ class _EmployeeTile extends StatelessWidget {
     final color = colors[hash.abs() % colors.length];
     _colorCache[cacheKey] = color;
     return color;
-  }
-
-  String _getInitials(String name) {
-    if (_initialsCache.containsKey(name)) {
-      return _initialsCache[name]!;
-    }
-
-    final parts = name.trim().split(' ');
-    final initials = parts.length >= 2
-        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-        : (name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase());
-    _initialsCache[name] = initials;
-    return initials;
   }
 
   String _getRoleInitials(String roleTitle) {
@@ -581,8 +596,8 @@ class _EmployeeTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                   decoration: BoxDecoration(
                     color: isPositive
-                        ? AuthColors.success.withOpacity(0.15)
-                        : AuthColors.error.withOpacity(0.15),
+                        ? AuthColors.success.withValues(alpha: 0.15)
+                        : AuthColors.error.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                   ),
                   child: Row(
@@ -662,7 +677,7 @@ class _EmptySearchState extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 48,
-            color: AuthColors.textSub.withOpacity(0.5),
+            color: AuthColors.textSub.withValues(alpha: 0.5),
           ),
           const SizedBox(height: AppSpacing.paddingLG),
           const Text(
@@ -713,7 +728,7 @@ class _CompactPageIndicator extends StatelessWidget {
             width: isActive ? 24 : 6,
             height: 3,
             decoration: BoxDecoration(
-              color: isActive ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.3),
+              color: isActive ? AuthColors.primary : AuthColors.textMainWithOpacity(0.3),
               borderRadius: BorderRadius.circular(1.5),
             ),
           );

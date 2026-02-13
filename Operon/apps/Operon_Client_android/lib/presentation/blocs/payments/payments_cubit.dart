@@ -25,17 +25,34 @@ class PaymentsCubit extends Cubit<PaymentsState> {
   final String _organizationId;
 
   final ImagePicker _imagePicker = ImagePicker();
+  String? _paymentDescription;
+  String? _selectedPaymentAccountId;
+  String? _selectedPaymentAccountName;
+  String? _selectedPaymentAccountType;
 
-  /// Get current financial year
-  String _getCurrentFinancialYear() {
-    final now = DateTime.now();
-    final month = now.month;
-    final year = now.year;
+  void setSelectedPaymentAccount({
+    required String id,
+    required String name,
+    required String type,
+  }) {
+    _selectedPaymentAccountId = id;
+    _selectedPaymentAccountName = name;
+    _selectedPaymentAccountType = type;
+  }
+
+  /// Get financial year for a given date
+  String _getFinancialYear(DateTime date) {
+    final month = date.month;
+    final year = date.year;
     final fyStartYear = month >= 4 ? year : year - 1;
     final fyEndYear = fyStartYear + 1;
     final startStr = (fyStartYear % 100).toString().padLeft(2, '0');
     final endStr = (fyEndYear % 100).toString().padLeft(2, '0');
     return 'FY$startStr$endStr';
+  }
+
+  void setPaymentDescription(String? description) {
+    _paymentDescription = description?.trim();
   }
 
   /// Select client and fetch current balance
@@ -198,6 +215,14 @@ class PaymentsCubit extends Cubit<PaymentsState> {
       return;
     }
 
+    if (_selectedPaymentAccountId == null || _selectedPaymentAccountId!.isEmpty) {
+      emit(state.copyWith(
+        message: 'Please select a payment account',
+        status: ViewStatus.failure,
+      ));
+      return;
+    }
+
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
       emit(state.copyWith(
@@ -210,8 +235,25 @@ class PaymentsCubit extends Cubit<PaymentsState> {
     emit(state.copyWith(isSubmitting: true, status: ViewStatus.loading));
 
     try {
-      final financialYear = _getCurrentFinancialYear();
-      final now = DateTime.now();
+      final paymentDate = state.paymentDate ?? DateTime.now();
+      final financialYear = _getFinancialYear(paymentDate);
+
+      // Prepare payment account fields
+      String? paymentAccountId = _selectedPaymentAccountId;
+      String? paymentAccountName = _selectedPaymentAccountName;
+      String? paymentAccountType = _selectedPaymentAccountType;
+      Map<String, dynamic> metadata = {
+        'recordedVia': 'quick-action',
+        'photoUploaded': state.receiptPhoto != null,
+      };
+      if (state.paymentAccountSplits.isNotEmpty) {
+        metadata['paymentAccounts'] = state.paymentAccountSplits.entries
+            .map((e) => {
+                  'accountId': e.key,
+                  'amount': e.value,
+                })
+            .toList();
+      }
 
       // Create transaction (without photo URL first)
       final transaction = Transaction(
@@ -219,31 +261,28 @@ class PaymentsCubit extends Cubit<PaymentsState> {
         organizationId: _organizationId,
         clientId: state.selectedClientId!,
         ledgerType: LedgerType.clientLedger,
-        type: TransactionType
-            .debit, // Debit = client paid us (decreases receivable)
-        category: TransactionCategory
-            .clientPayment, // General payment recorded manually
+        type: TransactionType.debit, // Debit = client paid us (decreases receivable)
+        category: TransactionCategory.clientPayment, // General payment recorded manually
         amount: state.paymentAmount!,
         financialYear: financialYear,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: paymentDate,
+        updatedAt: paymentDate,
         createdBy: currentUser.uid,
-        metadata: {
-          'recordedVia': 'quick-action',
-          'photoUploaded': state.receiptPhoto != null,
-          if (state.paymentAccountSplits.isNotEmpty)
-            'paymentAccounts': state.paymentAccountSplits.entries
-                .map((e) => {
-                      'accountId': e.key,
-                      'amount': e.value,
-                    })
-                .toList(),
-        },
+        paymentAccountId: paymentAccountId,
+        paymentAccountName: paymentAccountName,
+        paymentAccountType: paymentAccountType,
+        description: _paymentDescription?.isEmpty == true ? null : _paymentDescription,
+        metadata: metadata,
       );
 
       // Create transaction first to get ID for photo upload
       final transactionId =
           await _transactionsRepository.createTransaction(transaction);
+
+        await FirebaseFirestore.instance
+          .collection('TRANSACTIONS')
+          .doc(transactionId)
+          .update({'transactionDate': Timestamp.fromDate(paymentDate)});
 
       // Upload photo if provided (optional - payment is already recorded)
       String? photoUrl;

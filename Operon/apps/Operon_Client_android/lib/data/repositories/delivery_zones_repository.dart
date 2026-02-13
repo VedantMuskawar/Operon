@@ -58,7 +58,7 @@ class DeliveryZonesRepository {
     );
   }
 
-  Future<void> createCity({
+  Future<String> createCity({
     required String orgId,
     required String cityName,
   }) {

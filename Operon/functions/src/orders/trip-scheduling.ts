@@ -93,6 +93,8 @@ async function applyOrderTripConsistencyFixes(
     }
 
     if (Object.keys(updateData).length > 0) {
+      const effectiveItems = (updateData.items as any[]) || (orderData.items as any[]) || [];
+      updateData.hasAvailableTrips = computeHasAvailableTrips(effectiveItems);
       updateData.updatedAt = new Date();
       transaction.update(orderRef, updateData);
     }
@@ -105,6 +107,15 @@ function debugLog(p: { location: string; message: string; data?: Record<string, 
   fetch(DEBUG_INGEST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...p, timestamp: Date.now() }) }).catch(() => {});
 }
 // #endregion
+
+function computeHasAvailableTrips(items: any[]): boolean {
+  return items.some((item: any) => {
+    if (!item || typeof item !== 'object') return false;
+    const estimatedTrips = Math.max(0, Math.floor(Number(item.estimatedTrips)) || 0);
+    const scheduledTrips = Math.max(0, Math.floor(Number(item.scheduledTrips)) || 0);
+    return estimatedTrips > scheduledTrips;
+  });
+}
 
 /**
  * When a trip is scheduled:
@@ -623,6 +634,8 @@ export const onScheduledTripCreated = onDocumentCreated(
           updateData.status = 'pending';
         }
 
+        updateData.hasAvailableTrips = computeHasAvailableTrips(cleanedItems);
+
         // #region agent log
         debugLog({ location: 'trip-scheduling.ts:txn:beforeUpdate', message: 'Transaction: about to update order', data: { tripId, orderId, updateDataKeys: Object.keys(updateData), allItemsFullyScheduled, scheduledTripsArrayLen: (updateData.scheduledTrips as any[])?.length, totalScheduledTrips: updateData.totalScheduledTrips }, hypothesisId: 'H3' });
         // #endregion
@@ -770,6 +783,8 @@ export const onScheduledTripDeleted = onDocumentDeleted(
         if (hasRemainingTrips) {
           updateData.status = 'pending';
         }
+
+        updateData.hasAvailableTrips = computeHasAvailableTrips(items);
 
         transaction.update(orderRef, updateData);
 

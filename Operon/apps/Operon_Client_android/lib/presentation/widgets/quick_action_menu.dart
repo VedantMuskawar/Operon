@@ -157,7 +157,7 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                       opacity: _fadeAnimation.value,
                       child: Container(
                         color: AuthColors.background
-                            .withOpacity(0.5 * _fadeAnimation.value),
+                            .withValues(alpha: 0.5 * _fadeAnimation.value),
                       ),
                     );
                   },
@@ -232,18 +232,21 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                               colors: _isExpanded
                                   ? [
                                       AuthColors.legacyAccent,
-                                      AuthColors.legacyAccent.withOpacity(0.8),
+                                      AuthColors.legacyAccent
+                                          .withValues(alpha: 0.8),
                                     ]
                                   : [
                                       AuthColors.legacyAccent,
-                                      AuthColors.legacyAccent.withOpacity(0.9),
+                                      AuthColors.legacyAccent
+                                          .withValues(alpha: 0.9),
                                     ],
                             ),
                             borderRadius:
                                 BorderRadius.circular(AppSpacing.radiusLG),
                             boxShadow: [
                               BoxShadow(
-                                color: AuthColors.legacyAccent.withOpacity(
+                                color: AuthColors.legacyAccent.withValues(
+                                  alpha:
                                   _isExpanded ? 0.5 : 0.4,
                                 ),
                                 blurRadius: _isExpanded ? 20 : 12,
@@ -301,7 +304,7 @@ class _ActionButton extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: AuthColors.background.withOpacity(0.4),
+                color: AuthColors.background.withValues(alpha: 0.4),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
                 spreadRadius: 0,
@@ -320,13 +323,13 @@ class _ActionButton extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [
                       AuthColors.legacyAccent,
-                      AuthColors.legacyAccent.withOpacity(0.9),
+                      AuthColors.legacyAccent.withValues(alpha: 0.9),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   boxShadow: [
                     BoxShadow(
-                      color: AuthColors.legacyAccent.withOpacity(0.3),
+                      color: AuthColors.legacyAccent.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),

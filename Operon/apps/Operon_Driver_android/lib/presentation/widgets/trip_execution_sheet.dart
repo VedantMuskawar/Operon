@@ -310,12 +310,14 @@ class _TripExecutionSheetState extends State<TripExecutionSheet> {
           if (hasDM) ...[
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton.icon(
+              child: FilledButton.icon(
                 onPressed: () => _openPrintDm(context),
                 icon: const Icon(Icons.print_outlined, size: 18),
                 label: const Text('Print DM'),
-                style: OutlinedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   foregroundColor: AuthColors.info,
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
                   side: const BorderSide(color: AuthColors.info),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),

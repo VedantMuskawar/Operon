@@ -65,7 +65,7 @@ class _FleetVehicleDetailPillState extends State<FleetVehicleDetailPill> {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: AuthColors.textMain.withOpacity(0.15),
+                color: AuthColors.textMain.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -92,7 +92,7 @@ class _FleetVehicleDetailPillState extends State<FleetVehicleDetailPill> {
           Container(
             width: 1,
             height: 14,
-            color: AuthColors.textSub.withOpacity(0.5),
+            color: AuthColors.textSub.withValues(alpha: 0.5),
           ),
           const SizedBox(width: 8),
           Text(
@@ -214,7 +214,7 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(8),

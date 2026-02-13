@@ -377,9 +377,9 @@ class _EditOrderDialogState extends State<EditOrderDialog> {
                   ),
                   const SizedBox(width: AppSpacing.paddingSM),
                   Expanded(
-                    child: ElevatedButton(
+                    child: FilledButton(
                       onPressed: _isSaving ? null : _handleSave,
-                      style: ElevatedButton.styleFrom(
+                      style: FilledButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.textPrimary,
                         padding: const EdgeInsets.symmetric(
@@ -441,7 +441,7 @@ class _PriorityOption extends StatelessWidget {
           horizontal: AppSpacing.paddingLG,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.2) : AppColors.inputBackground,
+          color: isSelected ? color.withValues(alpha: 0.2) : AppColors.inputBackground,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
             color: isSelected ? color : AppColors.borderDefault,
@@ -460,7 +460,7 @@ class _PriorityOption extends StatelessWidget {
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: color.withOpacity(0.5),
+                          color: color.withValues(alpha: 0.5),
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),

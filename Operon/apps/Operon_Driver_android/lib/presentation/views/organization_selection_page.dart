@@ -346,7 +346,7 @@ class _OrganizationSelectionPageState extends State<OrganizationSelectionPage> {
                   right: 0,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: OutlinedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: () async {
                         final orgContextCubit =
                             context.read<OrganizationContextCubit>();
@@ -358,16 +358,18 @@ class _OrganizationSelectionPageState extends State<OrganizationSelectionPage> {
                         authBloc.add(const AuthReset());
                         context.go('/login');
                       },
-                      style: OutlinedButton.styleFrom(
+                      style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
                         ),
+                        backgroundColor: AuthColors.textMainWithOpacity(0.1),
+                        shadowColor: Colors.transparent,
+                        foregroundColor: AuthColors.textMain,
                         side: BorderSide(
                           color: AuthColors.textMainWithOpacity(0.3),
                           width: 1.5,
                         ),
-                        backgroundColor: AuthColors.textMainWithOpacity(0.1),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

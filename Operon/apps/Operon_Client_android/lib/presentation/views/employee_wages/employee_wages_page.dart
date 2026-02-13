@@ -89,19 +89,26 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
       _currentOrgId = organization.id;
       _previousTransactions = [];
       _employeeNames.clear();
-      context.read<EmployeeWagesCubit>().watchTransactions();
+      _refreshTransactions();
     }
   }
 
-  /// Batch futures to limit concurrency and prevent overwhelming the network
-  Future<List<T>> _batchFutures<T>(List<Future<T>> futures, {int batchSize = 10}) async {
-    final results = <T>[];
-    for (int i = 0; i < futures.length; i += batchSize) {
-      final batch = futures.skip(i).take(batchSize).toList();
-      final batchResults = await Future.wait(batch);
-      results.addAll(batchResults);
-    }
-    return results;
+  void _refreshTransactions() {
+    final orgState = context.read<OrganizationContextCubit>().state;
+    context.read<EmployeeWagesCubit>().watchTransactions(
+          financialYear: orgState.financialYear,
+          startDate: _startDate,
+          endDate: _endDate,
+        );
+  }
+
+  void _loadTransactionsOnce() {
+    final orgState = context.read<OrganizationContextCubit>().state;
+    context.read<EmployeeWagesCubit>().loadTransactions(
+          financialYear: orgState.financialYear,
+          startDate: _startDate,
+          endDate: _endDate,
+        );
   }
 
   Future<void> _fetchEmployeeNames(List<Transaction> transactions) async {
@@ -110,26 +117,57 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     if (organization == null) return;
 
     try {
-      final employeeIds = transactions
-          .where((tx) => tx.employeeId != null && !_employeeNames.containsKey(tx.employeeId))
-          .map((tx) => tx.employeeId!)
-          .toSet();
-
-      if (employeeIds.isEmpty) return;
-
-      // Process futures in batches to limit concurrent network requests
-      final futures = employeeIds.map((id) => FirebaseFirestore.instance
-          .collection('EMPLOYEES')
-          .doc(id)
-          .get()).toList();
-      
-      final employeeDocs = await _batchFutures(futures, batchSize: 10);
-
       final newEmployeeNames = <String, String>{};
-      for (final doc in employeeDocs) {
-        if (doc.exists) {
+
+      // Use denormalized employeeName when available
+      for (final tx in transactions) {
+        final employeeId = tx.employeeId;
+        final employeeName = tx.employeeName;
+        if (employeeId != null && employeeName != null && employeeName.isNotEmpty) {
+          if (!_employeeNames.containsKey(employeeId)) {
+            newEmployeeNames[employeeId] = employeeName;
+          }
+        }
+      }
+
+      final missingIds = transactions
+          .where((tx) => tx.employeeId != null &&
+              !_employeeNames.containsKey(tx.employeeId) &&
+              !newEmployeeNames.containsKey(tx.employeeId))
+          .map((tx) => tx.employeeId!)
+          .toSet()
+          .toList();
+
+      if (missingIds.isEmpty) {
+        if (mounted && newEmployeeNames.isNotEmpty) {
+          setState(() {
+            _employeeNames.addAll(newEmployeeNames);
+          });
+        }
+        return;
+      }
+
+      // Batch query employee names using whereIn on document IDs
+      const chunkSize = 10;
+      final queries = <Future<QuerySnapshot<Map<String, dynamic>>>>[];
+      for (var i = 0; i < missingIds.length; i += chunkSize) {
+        final chunk = missingIds.sublist(
+          i,
+          (i + chunkSize).clamp(0, missingIds.length),
+        );
+        queries.add(
+          FirebaseFirestore.instance
+              .collection('EMPLOYEES')
+              .where(FieldPath.documentId, whereIn: chunk)
+              .get(),
+        );
+      }
+
+      final snapshots = await Future.wait(queries);
+      for (final snapshot in snapshots) {
+        for (final doc in snapshot.docs) {
           final data = doc.data();
-          final name = data?['employeeName'] as String? ?? 'Unknown Employee';
+          final name = data['employeeName'] as String? ?? 'Unknown Employee';
           newEmployeeNames[doc.id] = name;
         }
       }
@@ -170,7 +208,8 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
 
       // Search filter (if query exists)
       if (hasQuery) {
-        final employeeName = (_employeeNames[tx.employeeId ?? ''] ?? '').toLowerCase();
+        final employeeName =
+          (tx.employeeName ?? _employeeNames[tx.employeeId ?? ''] ?? '').toLowerCase();
         final description = (tx.description ?? '').toLowerCase();
         final category = tx.category.name.toLowerCase();
         if (!employeeName.contains(queryLower) &&
@@ -207,8 +246,10 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         break;
       case _WagesSortOption.employeeAsc:
         filtered.sort((a, b) {
-          final aName = (_employeeNames[a.employeeId ?? ''] ?? '').toLowerCase();
-          final bName = (_employeeNames[b.employeeId ?? ''] ?? '').toLowerCase();
+          final aName =
+              (a.employeeName ?? _employeeNames[a.employeeId ?? ''] ?? '').toLowerCase();
+          final bName =
+              (b.employeeName ?? _employeeNames[b.employeeId ?? ''] ?? '').toLowerCase();
           return aName.compareTo(bName);
         });
         break;
@@ -249,6 +290,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         _lastStartDateForCache = null;
         _lastEndDateForCache = null;
       });
+      _refreshTransactions();
     }
   }
 
@@ -289,7 +331,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                     children: [
                       Expanded(
                         child: RefreshIndicator(
-                          onRefresh: () => context.read<EmployeeWagesCubit>().loadTransactions(),
+                          onRefresh: () async => _loadTransactionsOnce(),
                           color: AuthColors.primary,
                           child: SingleChildScrollView(
                             padding: const EdgeInsets.all(AppSpacing.paddingLG),
@@ -334,7 +376,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                 return _ErrorState(
                                   message: state.message ?? 'Failed to load transactions',
                                   onRetry: () {
-                                    context.read<EmployeeWagesCubit>().loadTransactions();
+                                    _loadTransactionsOnce();
                                   },
                                 );
                               }
@@ -437,10 +479,10 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                         Expanded(
                                           child: Container(
                                             decoration: BoxDecoration(
-                                              color: AuthColors.surface.withOpacity(0.6),
+                                              color: AuthColors.surface.withValues(alpha: 0.6),
                                               borderRadius: BorderRadius.circular(12),
                                               border: Border.all(
-                                                color: AuthColors.surface.withOpacity(0.8),
+                                                color: AuthColors.surface.withValues(alpha: 0.8),
                                                 width: 1,
                                               ),
                                             ),
@@ -460,10 +502,10 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                         const SizedBox(width: AppSpacing.paddingSM),
                                         Container(
                                           decoration: BoxDecoration(
-                                            color: AuthColors.surface.withOpacity(0.6),
+                                            color: AuthColors.surface.withValues(alpha: 0.6),
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
-                                              color: AuthColors.surface.withOpacity(0.8),
+                                              color: AuthColors.surface.withValues(alpha: 0.8),
                                               width: 1,
                                             ),
                                           ),
@@ -481,10 +523,10 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                         const SizedBox(width: AppSpacing.paddingXS),
                                         Container(
                                           decoration: BoxDecoration(
-                                            color: AuthColors.surface.withOpacity(0.6),
+                                            color: AuthColors.surface.withValues(alpha: 0.6),
                                             borderRadius: BorderRadius.circular(12),
                                             border: Border.all(
-                                              color: AuthColors.surface.withOpacity(0.8),
+                                              color: AuthColors.surface.withValues(alpha: 0.8),
                                               width: 1,
                                             ),
                                           ),
@@ -518,7 +560,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                         horizontal: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AuthColors.surface.withOpacity(0.4),
+                                        color: AuthColors.surface.withValues(alpha: 0.4),
                                       ),
                                       child: const Row(
                                         children: [
@@ -578,7 +620,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
                                       ...displayList.asMap().entries.map(
                                             (e) => _WagesTransactionTableRow(
                                               transaction: e.value,
-                                              employeeName: _employeeNames[e.value.employeeId ?? ''] ?? 'Unknown',
+                                              employeeName: e.value.employeeName ?? _employeeNames[e.value.employeeId ?? ''] ?? 'Unknown',
                                               formatCurrency: _formatCurrency,
                                               formatDate: _formatDate,
                                               isEven: e.key.isEven,
@@ -683,10 +725,10 @@ class _WagesSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingSM),
       decoration: BoxDecoration(
-        color: AuthColors.surface.withOpacity(0.5),
+        color: AuthColors.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -745,10 +787,10 @@ class _WagesTransactionTableRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: isEven
             ? Colors.transparent
-            : AuthColors.surface.withOpacity(0.2),
+            : AuthColors.surface.withValues(alpha: 0.2),
         border: Border(
           bottom: BorderSide(
-            color: AuthColors.surface.withOpacity(0.2),
+            color: AuthColors.surface.withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -794,7 +836,7 @@ class _WagesTransactionTableRow extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: (isSalary ? AuthColors.primary : AuthColors.secondary)
-                      .withOpacity(0.2),
+                      .withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                 ),
                 child: Text(
@@ -848,13 +890,13 @@ class _WagesTableFooter extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AuthColors.primary.withOpacity(0.15),
-            AuthColors.primary.withOpacity(0.05),
+            AuthColors.primary.withValues(alpha: 0.15),
+            AuthColors.primary.withValues(alpha: 0.05),
           ],
         ),
         border: Border(
           top: BorderSide(
-            color: AuthColors.primary.withOpacity(0.5),
+            color: AuthColors.primary.withValues(alpha: 0.5),
             width: 2,
           ),
         ),
@@ -1007,11 +1049,11 @@ class _ErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.paddingXXL),
-            ElevatedButton.icon(
+            FilledButton.icon(
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Retry'),
               onPressed: onRetry,
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 backgroundColor: AuthColors.primary,
                 foregroundColor: AuthColors.textMain,
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXXL, vertical: AppSpacing.paddingMD),

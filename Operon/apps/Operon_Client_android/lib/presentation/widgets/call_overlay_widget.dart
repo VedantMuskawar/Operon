@@ -55,7 +55,7 @@ class CallOverlayWidget extends StatelessWidget {
               border: Border.all(color: AppColors.borderDefault),
               boxShadow: [
                 BoxShadow(
-                  color: AuthColors.background.withOpacity(0.4),
+                  color: AuthColors.background.withValues(alpha: 0.4),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -156,11 +156,11 @@ class CallOverlayWidget extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: accent.withOpacity(0.25)),
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
         gradient: LinearGradient(
           colors: [
-            accent.withOpacity(0.12),
-            AppColors.cardBackgroundElevated.withOpacity(0.95),
+            accent.withValues(alpha: 0.12),
+            AppColors.cardBackgroundElevated.withValues(alpha: 0.95),
           ],
         ),
       ),
@@ -181,12 +181,12 @@ class CallOverlayWidget extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            color.withOpacity(0.25),
-            color.withOpacity(0.15),
+            color.withValues(alpha: 0.25),
+            color.withValues(alpha: 0.15),
           ],
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

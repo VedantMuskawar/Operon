@@ -205,6 +205,80 @@ class _CashLedgerViewState extends State<CashLedgerView> {
     }).toList();
   }
 
+  int? _getDmNumber(Transaction tx) {
+    final dmNumber = tx.metadata?['dmNumber'];
+    if (dmNumber == null) return null;
+    if (dmNumber is int) return dmNumber;
+    if (dmNumber is num) return dmNumber.toInt();
+    return null;
+  }
+
+  bool _groupHasDebit(List<Transaction> group) {
+    for (final tx in group) {
+      final count = tx.metadata?['transactionCount'] as int?;
+      if (count != null && count > 1) {
+        final cumulativeDebit =
+            (tx.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0;
+        if (cumulativeDebit > 0) {
+          return true;
+        }
+      } else if (tx.type == TransactionType.debit) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  double _groupTrueClientCreditTotal(List<Transaction> group) {
+    double total = 0.0;
+    var usedCumulative = false;
+    for (final tx in group) {
+      if (tx.category != TransactionCategory.clientCredit) {
+        continue;
+      }
+      final count = tx.metadata?['transactionCount'] as int?;
+      if (count != null && count > 1) {
+        if (!usedCumulative) {
+          total +=
+              (tx.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+          usedCumulative = true;
+        }
+      } else if (tx.type == TransactionType.credit) {
+        total += tx.amount;
+      }
+    }
+    return total;
+  }
+
+  double _calculateTrueClientCreditTotal(List<Transaction> orderTransactions) {
+    final withDmNumber = <int, List<Transaction>>{};
+    final withoutDmNumber = <Transaction>[];
+
+    for (final tx in orderTransactions) {
+      final dmNumber = _getDmNumber(tx);
+      if (dmNumber != null) {
+        withDmNumber.putIfAbsent(dmNumber, () => []).add(tx);
+      } else {
+        withoutDmNumber.add(tx);
+      }
+    }
+
+    double total = 0.0;
+    for (final group in withDmNumber.values) {
+      if (!_groupHasDebit(group)) {
+        total += _groupTrueClientCreditTotal(group);
+      }
+    }
+    for (final tx in withoutDmNumber) {
+      if (tx.category == TransactionCategory.clientCredit &&
+          tx.type == TransactionType.credit) {
+        total += tx.amount;
+      }
+    }
+
+    return total;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<CashLedgerCubit, CashLedgerState>(
@@ -228,9 +302,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
               const SizedBox(height: 24),
               _buildTransactionList(),
               const SizedBox(height: 24),
-              _buildCreditTransactionsTable(),
-              const SizedBox(height: 24),
-              _buildPaymentAccountDistribution(),
+              _buildCreditAndDistributionRow(),
             ],
           ),
         ),
@@ -524,7 +596,7 @@ class _CashLedgerViewState extends State<CashLedgerView> {
     );
   }
 
-  Widget _buildCreditTransactionsTable() {
+  Widget _buildCreditAndDistributionRow() {
     return BlocBuilder<CashLedgerCubit, CashLedgerState>(
       builder: (context, state) {
         double totalFrom(List<Transaction> rows) {
@@ -541,181 +613,225 @@ class _CashLedgerViewState extends State<CashLedgerView> {
           return total;
         }
 
-        final clientTotal = totalFrom(state.clientCreditRows);
+        final clientTotal =
+            _calculateTrueClientCreditTotal(state.orderTransactions);
         final vendorTotal = totalFrom(state.vendorCreditRows);
         final employeeTotal = totalFrom(state.employeeCreditRows);
+        final hasCredit =
+            clientTotal != 0 || vendorTotal != 0 || employeeTotal != 0;
 
-        if (clientTotal == 0 && vendorTotal == 0 && employeeTotal == 0) {
+        final distribution =
+            _filterActualPaymentAccounts(state.paymentAccountDistribution);
+        final hasDistribution = distribution.isNotEmpty;
+
+        if (!hasCredit && !hasDistribution) {
           return const SizedBox.shrink();
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Credit summary',
-              style: TextStyle(
-                color: AuthColors.textMain,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 12),
-            custom_table.DataTable<CreditSummaryRow>(
-              columns: [
-                custom_table.DataTableColumn<CreditSummaryRow>(
-                  label: 'Type',
-                  flex: 3,
-                  alignment: Alignment.center,
-                  cellBuilder: (context, s, _) => Text(
-                    s.label,
-                    style: const TextStyle(
-                      color: AuthColors.textMain,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      fontFamily: 'SF Pro Display',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                custom_table.DataTableColumn<CreditSummaryRow>(
-                  label: 'Total',
-                  flex: 2,
-                  numeric: true,
-                  alignment: Alignment.center,
-                  cellBuilder: (context, s, _) => Text(
-                    _formatCurrency(s.total),
-                    style: const TextStyle(
-                      color: AuthColors.success,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      fontFamily: 'SF Pro Display',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+        final creditSection = hasCredit
+            ? _buildCreditSummarySection(
+                clientTotal: clientTotal,
+                vendorTotal: vendorTotal,
+                employeeTotal: employeeTotal,
+              )
+            : null;
+        final distributionSection = hasDistribution
+            ? _buildPaymentAccountDistributionSection(distribution)
+            : null;
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth > 1000;
+            if (isWide &&
+                creditSection != null &&
+                distributionSection != null) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: creditSection),
+                  const SizedBox(width: 24),
+                  Expanded(child: distributionSection),
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (creditSection != null) creditSection,
+                if (creditSection != null && distributionSection != null)
+                  const SizedBox(height: 24),
+                if (distributionSection != null) distributionSection,
               ],
-              rows: [
-                CreditSummaryRow(label: 'Client Credit', total: clientTotal),
-                CreditSummaryRow(label: 'Vendor Credit', total: vendorTotal),
-                CreditSummaryRow(
-                    label: 'Employee Credit', total: employeeTotal),
-              ],
-              headerBackgroundColor: AuthColors.surface,
-            ),
-          ],
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildPaymentAccountDistribution() {
-    return BlocBuilder<CashLedgerCubit, CashLedgerState>(
-      builder: (context, state) {
-        final distribution =
-            _filterActualPaymentAccounts(state.paymentAccountDistribution);
-        if (distribution.isEmpty) {
-          return const SizedBox.shrink();
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Payment account distribution',
-              style: TextStyle(
-                color: AuthColors.textMain,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+  Widget _buildCreditSummarySection({
+    required double clientTotal,
+    required double vendorTotal,
+    required double employeeTotal,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Credit summary',
+          style: TextStyle(
+            color: AuthColors.textMain,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        custom_table.DataTable<CreditSummaryRow>(
+          columns: [
+            custom_table.DataTableColumn<CreditSummaryRow>(
+              label: 'Type',
+              flex: 3,
+              alignment: Alignment.center,
+              cellBuilder: (context, s, _) => Text(
+                s.label,
+                style: const TextStyle(
+                  color: AuthColors.textMain,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 12),
-            custom_table.DataTable<PaymentAccountSummary>(
-              columns: [
-                custom_table.DataTableColumn<PaymentAccountSummary>(
-                  label: 'Account',
-                  flex: 2,
-                  alignment: Alignment.center,
-                  cellBuilder: (context, s, _) => Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.account_balance_wallet,
-                        size: 16,
-                        color: AuthColors.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          _getPaymentAccountDisplayName(s.displayName),
-                          style: const TextStyle(
-                            color: AuthColors.textMain,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                            fontFamily: 'SF Pro Display',
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  ),
+            custom_table.DataTableColumn<CreditSummaryRow>(
+              label: 'Total',
+              flex: 2,
+              numeric: true,
+              alignment: Alignment.center,
+              cellBuilder: (context, s, _) => Text(
+                _formatCurrency(s.total),
+                style: const TextStyle(
+                  color: AuthColors.success,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  fontFamily: 'SF Pro Display',
                 ),
-                custom_table.DataTableColumn<PaymentAccountSummary>(
-                  label: 'Income',
-                  flex: 2,
-                  numeric: true,
-                  alignment: Alignment.center,
-                  cellBuilder: (context, s, _) => Text(
-                    _formatCurrency(s.income),
-                    style: const TextStyle(
-                      color: AuthColors.success,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      fontFamily: 'SF Pro Display',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                custom_table.DataTableColumn<PaymentAccountSummary>(
-                  label: 'Expenses',
-                  flex: 2,
-                  numeric: true,
-                  alignment: Alignment.center,
-                  cellBuilder: (context, s, _) => Text(
-                    _formatCurrency(s.expense),
-                    style: const TextStyle(
-                      color: AuthColors.error,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      fontFamily: 'SF Pro Display',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                custom_table.DataTableColumn<PaymentAccountSummary>(
-                  label: 'Net',
-                  flex: 2,
-                  numeric: true,
-                  alignment: Alignment.center,
-                  cellBuilder: (context, s, _) => Text(
-                    _formatCurrency(s.net),
-                    style: TextStyle(
-                      color: s.net >= 0 ? AuthColors.success : AuthColors.error,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      fontFamily: 'SF Pro Display',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-              rows: distribution,
-              headerBackgroundColor: AuthColors.surface,
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
-        );
-      },
+          rows: [
+            CreditSummaryRow(label: 'Client Credit', total: clientTotal),
+            CreditSummaryRow(label: 'Vendor Credit', total: vendorTotal),
+            CreditSummaryRow(label: 'Employee Credit', total: employeeTotal),
+          ],
+          headerBackgroundColor: AuthColors.surface,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPaymentAccountDistributionSection(
+    List<PaymentAccountSummary> distribution,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Payment account distribution',
+          style: TextStyle(
+            color: AuthColors.textMain,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        custom_table.DataTable<PaymentAccountSummary>(
+          columns: [
+            custom_table.DataTableColumn<PaymentAccountSummary>(
+              label: 'Account',
+              flex: 2,
+              alignment: Alignment.center,
+              cellBuilder: (context, s, _) => Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.account_balance_wallet,
+                    size: 16,
+                    color: AuthColors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _getPaymentAccountDisplayName(s.displayName),
+                      style: const TextStyle(
+                        color: AuthColors.textMain,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                        fontFamily: 'SF Pro Display',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            custom_table.DataTableColumn<PaymentAccountSummary>(
+              label: 'Income',
+              flex: 2,
+              numeric: true,
+              alignment: Alignment.center,
+              cellBuilder: (context, s, _) => Text(
+                _formatCurrency(s.income),
+                style: const TextStyle(
+                  color: AuthColors.success,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            custom_table.DataTableColumn<PaymentAccountSummary>(
+              label: 'Expenses',
+              flex: 2,
+              numeric: true,
+              alignment: Alignment.center,
+              cellBuilder: (context, s, _) => Text(
+                _formatCurrency(s.expense),
+                style: const TextStyle(
+                  color: AuthColors.error,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            custom_table.DataTableColumn<PaymentAccountSummary>(
+              label: 'Net',
+              flex: 2,
+              numeric: true,
+              alignment: Alignment.center,
+              cellBuilder: (context, s, _) => Text(
+                _formatCurrency(s.net),
+                style: TextStyle(
+                  color: s.net >= 0 ? AuthColors.success : AuthColors.error,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  fontFamily: 'SF Pro Display',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+          rows: distribution,
+          headerBackgroundColor: AuthColors.surface,
+        ),
+      ],
     );
   }
 

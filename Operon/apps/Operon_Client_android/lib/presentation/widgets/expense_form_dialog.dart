@@ -176,11 +176,9 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
     String organizationId,
   ) async {
     try {
-      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
-        final snapshot = await firestore.FirebaseFirestore.instance
-          .collection('ACCOUNTS_LEDGERS')
+      final snapshot = await firestore.FirebaseFirestore.instance
+          .collection('COMBINED_ACCOUNTS')
           .where('organizationId', isEqualTo: organizationId)
-          .where('financialYear', isEqualTo: financialYear)
           .orderBy('updatedAt', descending: true)
           .limit(1)
           .get();
@@ -655,9 +653,9 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: AppSpacing.paddingMD),
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: _isLoading ? null : _save,
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AuthColors.legacyAccent,
                       foregroundColor: AuthColors.textMain,
                       padding: const EdgeInsets.symmetric(
@@ -729,7 +727,7 @@ class _ExpenseFormDialogState extends State<ExpenseFormDialog> {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected
-              ? AuthColors.secondary.withOpacity(0.2)
+              ? AuthColors.secondary.withValues(alpha: 0.2)
               : AuthColors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(

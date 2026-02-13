@@ -577,7 +577,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.paddingSM),
                       decoration: BoxDecoration(
-                        color: AuthColors.legacyAccent.withOpacity(0.2),
+                        color: AuthColors.legacyAccent.withValues(alpha: 0.2),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusSM),
                       ),
@@ -628,7 +628,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                         onSelected: (selected) {
                           _onVendorTypeSelected(selected ? type : null);
                         },
-                        selectedColor: AuthColors.legacyAccent.withOpacity(0.3),
+                        selectedColor: AuthColors.legacyAccent.withValues(alpha: 0.3),
                         checkmarkColor: AuthColors.legacyAccent,
                         labelStyle: TextStyle(
                           color: isSelected
@@ -666,7 +666,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                           Text(
                             'Balance: ₹${vendor.currentBalance.toStringAsFixed(2)}',
                             style: TextStyle(
-                              color: AuthColors.textMain.withOpacity(0.6),
+                              color: AuthColors.textMain.withValues(alpha: 0.6),
                               fontSize: 12,
                             ),
                           ),
@@ -779,7 +779,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                 side: BorderSide(
                                   color: isSelected
                                       ? AuthColors.primary
-                                      : AuthColors.textMain.withOpacity(0.3),
+                                      : AuthColors.textMain.withValues(alpha: 0.3),
                                 ),
                               );
                             }).toList(),
@@ -797,7 +797,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                        color: AuthColors.textMain.withOpacity(0.1),
+                        color: AuthColors.textMain.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Column(
@@ -835,7 +835,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                             child: Text(
                               'No materials assigned to this vendor. Assign materials in vendor settings.',
                               style: TextStyle(
-                                color: AuthColors.textMain.withOpacity(0.6),
+                                color: AuthColors.textMain.withValues(alpha: 0.6),
                                 fontSize: 12,
                               ),
                             ),
@@ -885,19 +885,19 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                                   AuthColors.backgroundAlt,
                                               labelStyle: TextStyle(
                                                   color: AuthColors.textMain
-                                                      .withOpacity(0.7)),
+                                                    .withValues(alpha: 0.7)),
                                               suffixText:
                                                   material.unitOfMeasurement,
                                               suffixStyle: TextStyle(
                                                   color: AuthColors.textMain
-                                                      .withOpacity(0.5)),
+                                                    .withValues(alpha: 0.5)),
                                               border: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(
                                                         AppSpacing.radiusSM),
                                                 borderSide: BorderSide(
                                                   color: AuthColors.textMain
-                                                      .withOpacity(0.1),
+                                                    .withValues(alpha: 0.1),
                                                 ),
                                               ),
                                             ),
@@ -928,18 +928,18 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                                   AuthColors.backgroundAlt,
                                               labelStyle: TextStyle(
                                                   color: AuthColors.textMain
-                                                      .withOpacity(0.7)),
+                                                    .withValues(alpha: 0.7)),
                                               prefixText: '₹',
                                               prefixStyle: TextStyle(
                                                   color: AuthColors.textMain
-                                                      .withOpacity(0.5)),
+                                                    .withValues(alpha: 0.5)),
                                               border: OutlineInputBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(
                                                         AppSpacing.radiusSM),
                                                 borderSide: BorderSide(
                                                   color: AuthColors.textMain
-                                                      .withOpacity(0.1),
+                                                    .withValues(alpha: 0.1),
                                                 ),
                                               ),
                                             ),
@@ -998,7 +998,7 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                        color: AuthColors.textMain.withOpacity(0.1),
+                        color: AuthColors.textMain.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Column(
@@ -1041,17 +1041,17 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                   fillColor: AuthColors.surface,
                                   labelStyle: TextStyle(
                                       color:
-                                          AuthColors.textMain.withOpacity(0.7)),
+                                          AuthColors.textMain.withValues(alpha: 0.7)),
                                   prefixText: '₹',
                                   prefixStyle: TextStyle(
                                       color:
-                                          AuthColors.textMain.withOpacity(0.5)),
+                                          AuthColors.textMain.withValues(alpha: 0.5)),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(
                                         AppSpacing.radiusSM),
                                     borderSide: BorderSide(
                                       color:
-                                          AuthColors.textMain.withOpacity(0.1),
+                                          AuthColors.textMain.withValues(alpha: 0.1),
                                     ),
                                   ),
                                 ),
@@ -1106,17 +1106,17 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                                     fillColor: AuthColors.surface,
                                     labelStyle: TextStyle(
                                         color: AuthColors.textMain
-                                            .withOpacity(0.7)),
+                                            .withValues(alpha: 0.7)),
                                     suffixText: '%',
                                     suffixStyle: TextStyle(
                                         color: AuthColors.textMain
-                                            .withOpacity(0.5)),
+                                            .withValues(alpha: 0.5)),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(
                                           AppSpacing.radiusSM),
                                       borderSide: BorderSide(
                                         color: AuthColors.textMain
-                                            .withOpacity(0.1),
+                                            .withValues(alpha: 0.1),
                                       ),
                                     ),
                                   ),
@@ -1176,10 +1176,10 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.paddingLG),
                     decoration: BoxDecoration(
-                      color: AuthColors.primary.withOpacity(0.1),
+                      color: AuthColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                        color: AuthColors.primary.withOpacity(0.3),
+                        color: AuthColors.primary.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Column(
@@ -1252,13 +1252,13 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
                       child: Text(
                         'Cancel',
                         style: TextStyle(
-                            color: AuthColors.textMain.withOpacity(0.7)),
+                            color: AuthColors.textMain.withValues(alpha: 0.7)),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.paddingMD),
-                    ElevatedButton(
+                    FilledButton(
                       onPressed: _submitPurchase,
-                      style: ElevatedButton.styleFrom(
+                      style: FilledButton.styleFrom(
                         backgroundColor: AuthColors.primary,
                         foregroundColor: AuthColors.textMain,
                       ),
@@ -1279,11 +1279,11 @@ class _RecordPurchaseDialogState extends State<RecordPurchaseDialog> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
+      labelStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.7)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(

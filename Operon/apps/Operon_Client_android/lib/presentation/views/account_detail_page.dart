@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/presentation/models/combined_ledger_model.dart';
+import 'package:dash_mobile/data/utils/financial_year_utils.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/app_typography.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -152,7 +154,7 @@ class _LedgerHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         gradient: LinearGradient(
           colors: [
-            ledgerColor.withOpacity(0.3),
+            ledgerColor.withValues(alpha: 0.3),
             AuthColors.backgroundAlt,
           ],
           begin: Alignment.topLeft,
@@ -160,7 +162,7 @@ class _LedgerHeader extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: ledgerColor.withOpacity(0.2),
+            color: ledgerColor.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -180,13 +182,13 @@ class _LedgerHeader extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      ledgerColor.withOpacity(0.4),
-                      ledgerColor.withOpacity(0.2),
+                      ledgerColor.withValues(alpha: 0.4),
+                      ledgerColor.withValues(alpha: 0.2),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: ledgerColor.withOpacity(0.3),
+                      color: ledgerColor.withValues(alpha: 0.3),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -311,9 +313,9 @@ class _AccountChip extends StatelessWidget {
         vertical: AppSpacing.paddingSM,
       ),
       decoration: BoxDecoration(
-        color: typeColor.withOpacity(0.1),
+        color: typeColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: typeColor.withOpacity(0.3)),
+        border: Border.all(color: typeColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,9 +411,10 @@ class _TransactionsTabState extends State<_TransactionsTab> {
     try {
       _transactionsSubscription?.cancel();
       
-      // Use accountsLedgerId which has the full ID with FY suffix (e.g., acc_1770722727952000_FY2526)
-      final ledgerId = _ledger.accountsLedgerId;
-      print('DEBUG: Loading transactions for accountsLedgerId=$ledgerId');
+        final financialYear = FinancialYearUtils.getCurrentFinancialYear();
+        final ledgerId = _ledger.lastLedgerId ??
+          '${_ledger.accountsLedgerId}_$financialYear';
+        debugPrint('DEBUG: Loading transactions for ledgerId=$ledgerId');
       
       if (ledgerId.isEmpty) {
         setState(() {
@@ -432,14 +435,15 @@ class _TransactionsTabState extends State<_TransactionsTab> {
           .limit(12) // Last 12 months
           .snapshots()
           .listen((snapshot) {
-        print('DEBUG: Got ${snapshot.docs.length} month documents');
+        debugPrint('DEBUG: Got ${snapshot.docs.length} month documents');
         final allTransactions = <Map<String, dynamic>>[];
         for (final monthDoc in snapshot.docs) {
-          print('DEBUG: Processing month doc: ${monthDoc.id}');
+          debugPrint('DEBUG: Processing month doc: ${monthDoc.id}');
           final monthData = monthDoc.data();
           final transactionsArray =
               (monthData['transactions'] as List<dynamic>?) ?? [];
-          print('DEBUG: Found ${transactionsArray.length} transactions in ${monthDoc.id}');
+          debugPrint(
+              'DEBUG: Found ${transactionsArray.length} transactions in ${monthDoc.id}');
           for (final txn in transactionsArray) {
             if (txn is Map<String, dynamic>) {
               allTransactions.add(txn);
@@ -453,7 +457,8 @@ class _TransactionsTabState extends State<_TransactionsTab> {
           return dateB.compareTo(dateA);
         });
 
-        print('DEBUG: Total transactions loaded: ${allTransactions.length}');
+        debugPrint(
+            'DEBUG: Total transactions loaded: ${allTransactions.length}');
         if (mounted) {
           setState(() {
             _transactions = allTransactions;
@@ -461,7 +466,7 @@ class _TransactionsTabState extends State<_TransactionsTab> {
           });
         }
       }, onError: (e) {
-        print('DEBUG: Error loading transactions: $e');
+        debugPrint('DEBUG: Error loading transactions: $e');
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -470,7 +475,7 @@ class _TransactionsTabState extends State<_TransactionsTab> {
         }
       });
     } catch (e) {
-      print('DEBUG: Exception in _loadTransactions: $e');
+      debugPrint('DEBUG: Exception in _loadTransactions: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -729,7 +734,7 @@ class _LedgerTable extends StatelessWidget {
           child: Column(
             children: [
               _LedgerTableHeader(),
-              Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
+              Divider(height: 1, color: AuthColors.textMain.withValues(alpha: 0.12)),
               ...rows.map((r) => _LedgerTableRow(
                     row: r,
                     formatCurrency: formatCurrency,
@@ -891,7 +896,7 @@ class _LedgerTableRow extends StatelessWidget {
                           horizontal: AppSpacing.gapSM,
                           vertical: AppSpacing.paddingXS / 2),
                       decoration: BoxDecoration(
-                        color: AuthColors.info.withOpacity(0.15),
+                        color: AuthColors.info.withValues(alpha: 0.15),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusXS),
                       ),
@@ -913,7 +918,7 @@ class _LedgerTableRow extends StatelessWidget {
                               horizontal: AppSpacing.gapSM,
                               vertical: AppSpacing.paddingXS / 2),
                           decoration: BoxDecoration(
-                            color: AuthColors.secondary.withOpacity(0.15),
+                            color: AuthColors.secondary.withValues(alpha: 0.15),
                             borderRadius:
                                 BorderRadius.circular(AppSpacing.radiusXS),
                           ),
@@ -960,7 +965,7 @@ class _LedgerTableRow extends StatelessWidget {
                                         vertical: AppSpacing.paddingXS / 2),
                                     decoration: BoxDecoration(
                                       color: _accountColor(p.accountType)
-                                          .withOpacity(0.15),
+                                        .withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(
                                           AppSpacing.radiusXS),
                                     ),

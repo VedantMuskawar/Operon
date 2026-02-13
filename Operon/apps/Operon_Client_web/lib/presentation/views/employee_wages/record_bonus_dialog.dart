@@ -144,6 +144,7 @@ class _RecordBonusDialogState extends State<RecordBonusDialog> {
 
       await cubit.createBonusTransaction(
         employeeId: _selectedEmployee!.id,
+        employeeName: _selectedEmployee!.name,
         amount: amount,
         paymentDate: _paymentDate,
         createdBy: currentUser.uid,

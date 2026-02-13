@@ -270,7 +270,7 @@ class _ModeButton extends StatelessWidget {
                 ? LinearGradient(
                     colors: [
                       AuthColors.secondary,
-                      AuthColors.secondary.withOpacity(0.8)
+                      AuthColors.secondary.withValues(alpha: 0.8)
                     ],
                   )
                 : null,
@@ -378,7 +378,7 @@ class _SectionHeader extends StatelessWidget {
             gradient: LinearGradient(
               colors: [
                 AuthColors.secondary,
-                AuthColors.secondary.withOpacity(0.7),
+                AuthColors.secondary.withValues(alpha: 0.7),
               ],
             ),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -438,20 +438,20 @@ class _SectionPermissionCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            section.color.withOpacity(0.15),
-            section.color.withOpacity(0.05),
+            section.color.withValues(alpha: 0.15),
+            section.color.withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
-          color: section.color.withOpacity(0.3),
+          color: section.color.withValues(alpha: 0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: section.color.withOpacity(0.2),
+            color: section.color.withValues(alpha: 0.2),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -467,7 +467,7 @@ class _SectionPermissionCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.paddingMD),
                   decoration: BoxDecoration(
-                    color: section.color.withOpacity(0.2),
+                    color: section.color.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   ),
                   child: Icon(section.icon, color: section.color, size: 24),
@@ -532,15 +532,15 @@ class _PagePermissionCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AuthColors.warning.withOpacity(0.15),
-              AuthColors.warning.withOpacity(0.05),
+              AuthColors.warning.withValues(alpha: 0.15),
+              AuthColors.warning.withValues(alpha: 0.05),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(
-            color: AuthColors.warning.withOpacity(0.3),
+            color: AuthColors.warning.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
@@ -556,8 +556,8 @@ class _PagePermissionCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AuthColors.warning.withOpacity(0.3),
-                          AuthColors.warning.withOpacity(0.1),
+                          AuthColors.warning.withValues(alpha: 0.3),
+                          AuthColors.warning.withValues(alpha: 0.1),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -581,10 +581,10 @@ class _PagePermissionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.paddingLG),
                 decoration: BoxDecoration(
-                  color: AuthColors.warning.withOpacity(0.1),
+                  color: AuthColors.warning.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
-                    color: AuthColors.warning.withOpacity(0.3),
+                    color: AuthColors.warning.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -626,7 +626,7 @@ class _PagePermissionCard extends StatelessWidget {
             Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: AuthColors.background.withOpacity(0.3),
+            color: AuthColors.background.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -644,8 +644,8 @@ class _PagePermissionCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        page.color.withOpacity(0.3),
-                        page.color.withOpacity(0.1),
+                        page.color.withValues(alpha: 0.3),
+                        page.color.withValues(alpha: 0.1),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
@@ -706,7 +706,7 @@ class _RoleToggleChip extends StatelessWidget {
               horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
           decoration: BoxDecoration(
             color: hasAccess
-                ? AuthColors.success.withOpacity(0.2)
+              ? AuthColors.success.withValues(alpha: 0.2)
                 : AuthColors.textMainWithOpacity(0.05),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(
@@ -782,13 +782,13 @@ class _RolePermissionRow extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AuthColors.warning.withOpacity(0.15),
-              AuthColors.warning.withOpacity(0.05),
+              AuthColors.warning.withValues(alpha: 0.15),
+              AuthColors.warning.withValues(alpha: 0.05),
             ],
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(
-            color: AuthColors.warning.withOpacity(0.3),
+            color: AuthColors.warning.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
@@ -924,7 +924,7 @@ class _CrudToggle extends StatelessWidget {
               vertical: AppSpacing.paddingMD, horizontal: AppSpacing.paddingSM),
           decoration: BoxDecoration(
             color: enabled
-                ? AuthColors.secondary.withOpacity(0.2)
+              ? AuthColors.secondary.withValues(alpha: 0.2)
                 : AuthColors.textMainWithOpacity(0.05),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(
@@ -1028,15 +1028,15 @@ class _RoleCard extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AuthColors.warning.withOpacity(0.2),
-              AuthColors.warning.withOpacity(0.05),
+              AuthColors.warning.withValues(alpha: 0.2),
+              AuthColors.warning.withValues(alpha: 0.05),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(
-            color: AuthColors.warning.withOpacity(0.4),
+            color: AuthColors.warning.withValues(alpha: 0.4),
             width: 2,
           ),
         ),
@@ -1051,7 +1051,7 @@ class _RoleCard extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       _hexToColor(role.colorHex),
-                      _hexToColor(role.colorHex).withOpacity(0.7),
+                      _hexToColor(role.colorHex).withValues(alpha: 0.7),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
@@ -1101,12 +1101,12 @@ class _RoleCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
-          color: _hexToColor(role.colorHex).withOpacity(0.3),
+          color: _hexToColor(role.colorHex).withValues(alpha: 0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: _hexToColor(role.colorHex).withOpacity(0.2),
+            color: _hexToColor(role.colorHex).withValues(alpha: 0.2),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -1126,13 +1126,13 @@ class _RoleCard extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: [
                         _hexToColor(role.colorHex),
-                        _hexToColor(role.colorHex).withOpacity(0.7),
+                        _hexToColor(role.colorHex).withValues(alpha: 0.7),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     boxShadow: [
                       BoxShadow(
-                        color: _hexToColor(role.colorHex).withOpacity(0.4),
+                        color: _hexToColor(role.colorHex).withValues(alpha: 0.4),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -1191,10 +1191,10 @@ class _RoleCard extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
                   padding: const EdgeInsets.all(AppSpacing.paddingLG),
                   decoration: BoxDecoration(
-                    color: AuthColors.warning.withOpacity(0.1),
+                    color: AuthColors.warning.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     border: Border.all(
-                      color: AuthColors.warning.withOpacity(0.3),
+                      color: AuthColors.warning.withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -1203,7 +1203,7 @@ class _RoleCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(AppSpacing.paddingSM),
                         decoration: BoxDecoration(
-                          color: AuthColors.warning.withOpacity(0.2),
+                          color: AuthColors.warning.withValues(alpha: 0.2),
                           borderRadius:
                               BorderRadius.circular(AppSpacing.radiusMD),
                         ),
@@ -1270,13 +1270,13 @@ class _SaveButton extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             AuthColors.secondary,
-            AuthColors.secondary.withOpacity(0.7),
+            AuthColors.secondary.withValues(alpha: 0.7),
           ],
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         boxShadow: [
           BoxShadow(
-            color: AuthColors.secondary.withOpacity(0.4),
+            color: AuthColors.secondary.withValues(alpha: 0.4),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1360,7 +1360,7 @@ class _SectionToggleTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(
           color: hasAccess
-              ? section.color.withOpacity(0.3)
+              ? section.color.withValues(alpha: 0.3)
               : AuthColors.textMainWithOpacity(0.08),
           width: hasAccess ? 1.5 : 1,
         ),
@@ -1370,7 +1370,7 @@ class _SectionToggleTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.paddingSM),
             decoration: BoxDecoration(
-              color: section.color.withOpacity(0.2),
+              color: section.color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             ),
             child: Icon(section.icon, color: section.color, size: 20),
@@ -1426,7 +1426,7 @@ class _PagePermissionTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.paddingSM),
                 decoration: BoxDecoration(
-                  color: page.color.withOpacity(0.2),
+                  color: page.color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 ),
                 child: Icon(page.icon, color: page.color, size: 20),

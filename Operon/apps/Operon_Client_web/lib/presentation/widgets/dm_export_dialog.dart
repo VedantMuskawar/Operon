@@ -49,7 +49,20 @@ class _DmExportDialogState extends State<DmExportDialog> {
       } else {
         return '—';
       }
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
       return '${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year}';
     } catch (_) {
       return '—';
@@ -64,12 +77,15 @@ class _DmExportDialogState extends State<DmExportDialog> {
     final clientName = dm['clientName'] as String? ?? '—';
 
     final items = dm['items'] as List<dynamic>? ?? [];
-    final first = items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
+    final first =
+        items.isNotEmpty ? items.first as Map<String, dynamic>? : null;
     final qty = (first?['fixedQuantityPerTrip'] ?? first?['quantity']) as num?;
     final fixedQty = qty != null ? qty.toString() : '—';
 
-    final price = first != null ? (first['unitPrice'] as num?)?.toDouble() : null;
-    final unitPrice = (price != null && price > 0) ? '₹${price.toStringAsFixed(2)}' : '—';
+    final price =
+        first != null ? (first['unitPrice'] as num?)?.toDouble() : null;
+    final unitPrice =
+        (price != null && price > 0) ? '₹${price.toStringAsFixed(2)}' : '—';
 
     final deliveryDate = _formatDmDateForExport(dm['scheduledDate']);
 
@@ -77,7 +93,8 @@ class _DmExportDialogState extends State<DmExportDialog> {
     String regionCity = '—';
     if (zone != null) {
       final region = zone['region'] as String? ?? '';
-      final city = zone['city_name'] as String? ?? zone['city'] as String? ?? '';
+      final city =
+          zone['city_name'] as String? ?? zone['city'] as String? ?? '';
       regionCity = [region, city].where((s) => s.isNotEmpty).join(', ');
       if (regionCity.isEmpty) regionCity = '—';
     }
@@ -85,7 +102,8 @@ class _DmExportDialogState extends State<DmExportDialog> {
     final vehicleNo = dm['vehicleNumber'] as String? ?? '—';
 
     final tp = dm['tripPricing'] as Map<String, dynamic>?;
-    final totalVal = tp != null ? (tp['total'] as num?)?.toDouble() ?? 0.0 : 0.0;
+    final totalVal =
+        tp != null ? (tp['total'] as num?)?.toDouble() ?? 0.0 : 0.0;
     final total = totalVal > 0 ? '₹${totalVal.toStringAsFixed(2)}' : '—';
 
     return [
@@ -123,8 +141,10 @@ class _DmExportDialogState extends State<DmExportDialog> {
           });
           return;
         }
-        final start = DateTime(_dateFrom!.year, _dateFrom!.month, _dateFrom!.day);
-        final end = DateTime(_dateTo!.year, _dateTo!.month, _dateTo!.day, 23, 59, 59);
+        final start =
+            DateTime(_dateFrom!.year, _dateFrom!.month, _dateFrom!.day);
+        final end =
+            DateTime(_dateTo!.year, _dateTo!.month, _dateTo!.day, 23, 59, 59);
         list = await widget.repository
             .watchDeliveryMemos(
               organizationId: widget.organizationId,
@@ -160,21 +180,11 @@ class _DmExportDialogState extends State<DmExportDialog> {
           });
           return;
         }
-        final all = await widget.repository
-            .watchDeliveryMemos(
-              organizationId: widget.organizationId,
-              status: null,
-              startDate: null,
-              endDate: null,
-              limit: null,
-            )
-            .first;
-        list = all
-            .where((dm) {
-              final numVal = dm['dmNumber'] as int? ?? 0;
-              return numVal >= fromNum && numVal <= toNum;
-            })
-            .toList();
+        list = await widget.repository.getDeliveryMemosByDmNumberRange(
+          organizationId: widget.organizationId,
+          fromDmNumber: fromNum,
+          toDmNumber: toNum,
+        );
       }
 
       if (list.isEmpty) {
@@ -186,7 +196,8 @@ class _DmExportDialogState extends State<DmExportDialog> {
       }
 
       final excel = Excel.createExcel();
-      final sheet = excel.tables.isEmpty ? null : excel[excel.tables.keys.first];
+      final sheet =
+          excel.tables.isEmpty ? null : excel[excel.tables.keys.first];
       if (sheet == null) {
         setState(() {
           _errorMessage = 'Failed to create Excel sheet';
@@ -340,8 +351,8 @@ class _DmExportDialogState extends State<DmExportDialog> {
                   onTap: () async {
                     final d = await showDatePicker(
                       context: context,
-                      initialDate:
-                          _dateFrom ?? DateTime.now().subtract(const Duration(days: 30)),
+                      initialDate: _dateFrom ??
+                          DateTime.now().subtract(const Duration(days: 30)),
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                     );

@@ -69,14 +69,9 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     });
 
     try {
-      final transactions = await widget.transactionsRepository
-          .getVendorLedgerTransactions(
-        organizationId: widget.organizationId,
-        vendorId: widget.vendor.id,
-        limit: 2000,
-      );
+      DateTime? startDate;
+      DateTime? endDate;
 
-      List<Transaction> filtered;
       if (_rangeMode == 'dateRange') {
         if (_dateFrom == null || _dateTo == null) {
           setState(() {
@@ -85,14 +80,21 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
           });
           return;
         }
-        final start = DateTime(_dateFrom!.year, _dateFrom!.month, _dateFrom!.day);
-        final end = DateTime(_dateTo!.year, _dateTo!.month, _dateTo!.day, 23, 59, 59);
-        filtered = transactions.where((tx) {
-          final d = tx.createdAt;
-          if (d == null) return false;
-          return !d.isBefore(start) && !d.isAfter(end);
-        }).toList();
-      } else {
+        startDate = DateTime(_dateFrom!.year, _dateFrom!.month, _dateFrom!.day);
+        endDate = DateTime(_dateTo!.year, _dateTo!.month, _dateTo!.day);
+      }
+
+      final transactions =
+          await widget.transactionsRepository.getFuelVendorPurchases(
+        organizationId: widget.organizationId,
+        vendorId: widget.vendor.id,
+        startDate: startDate,
+        endDate: endDate,
+        limit: 2000,
+      );
+
+      List<Transaction> filtered;
+      if (_rangeMode == 'voucherRange') {
         final fromStr = _fromVoucherController.text.trim();
         final toStr = _toVoucherController.text.trim();
         if (fromStr.isEmpty || toStr.isEmpty) {
@@ -103,10 +105,14 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
           return;
         }
         filtered = transactions.where((tx) {
-          final v = tx.referenceNumber ?? tx.metadata?['voucherNumber']?.toString() ?? '';
+          final v = tx.referenceNumber ??
+              tx.metadata?['voucherNumber']?.toString() ??
+              '';
           if (v.isEmpty) return false;
           return v.compareTo(fromStr) >= 0 && v.compareTo(toStr) <= 0;
         }).toList();
+      } else {
+        filtered = transactions;
       }
 
       filtered.sort((a, b) {
@@ -123,7 +129,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
         return;
       }
 
-      final dmSettings = await widget.dmSettingsRepository.fetchDmSettings(widget.organizationId);
+      final dmSettings = await widget.dmSettingsRepository
+          .fetchDmSettings(widget.organizationId);
       if (dmSettings == null) {
         setState(() {
           _errorMessage = 'DM Settings not found. Configure DM Settings first.';
@@ -132,10 +139,13 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
         return;
       }
 
-      final logoBytes = await widget.dmPrintService.loadImageBytes(dmSettings.header.logoImageUrl);
+      final logoBytes = await widget.dmPrintService
+          .loadImageBytes(dmSettings.header.logoImageUrl);
 
       final rows = filtered.map((tx) {
-        final voucher = tx.referenceNumber ?? tx.metadata?['voucherNumber']?.toString() ?? '';
+        final voucher = tx.referenceNumber ??
+            tx.metadata?['voucherNumber']?.toString() ??
+            '';
         final date = tx.createdAt ?? DateTime.now();
         final vehicleNo = tx.metadata?['vehicleNumber']?.toString() ?? '';
         return FuelLedgerRow(
@@ -147,8 +157,13 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
       }).toList();
 
       final total = rows.fold<double>(0, (s, r) => s + r.amount);
-      final modes = filtered.map((tx) => tx.paymentAccountType ?? '').where((s) => s.isNotEmpty).toSet();
-      final paymentMode = modes.length == 1 ? (modes.single.isEmpty ? null : modes.single) : 'Various';
+      final modes = filtered
+          .map((tx) => tx.paymentAccountType ?? '')
+          .where((s) => s.isNotEmpty)
+          .toSet();
+      final paymentMode = modes.length == 1
+          ? (modes.single.isEmpty ? null : modes.single)
+          : 'Various';
       final paymentDate = filtered.last.createdAt;
 
       if (mounted) {
@@ -177,7 +192,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     final boundary = _repaintKey.currentContext?.findRenderObject()
         as RenderRepaintBoundary?;
     if (boundary == null) {
-      if (mounted) DashSnackbar.show(context, message: 'Could not capture', isError: true);
+      if (mounted)
+        DashSnackbar.show(context, message: 'Could not capture', isError: true);
       return;
     }
     try {
@@ -185,13 +201,16 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null || !mounted) return;
       final bytes = byteData.buffer.asUint8List();
-      final name = 'Fuel-Ledger-${widget.vendor.name.replaceAll(RegExp(r'[^\w\s-]'), '')}.png';
+      final name =
+          'Fuel-Ledger-${widget.vendor.name.replaceAll(RegExp(r'[^\w\s-]'), '')}.png';
       await Share.shareXFiles(
         [XFile.fromData(bytes, name: name, mimeType: 'image/png')],
         text: 'Fuel Ledger ${widget.vendor.name}',
       );
     } catch (e) {
-      if (mounted) DashSnackbar.show(context, message: 'Failed to share: $e', isError: true);
+      if (mounted)
+        DashSnackbar.show(context,
+            message: 'Failed to share: $e', isError: true);
     }
   }
 
@@ -218,7 +237,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isGeneratingPdf = false);
-        DashSnackbar.show(context, message: 'Failed to generate PDF: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to generate PDF: $e', isError: true);
       }
     }
   }
@@ -241,7 +261,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
       final blob = html.Blob([pdfBytes], 'application/pdf');
       final url = html.Url.createObjectUrlFromBlob(blob);
       (html.AnchorElement(href: url)
-        ..setAttribute('download', 'Fuel-Ledger-${widget.vendor.name.replaceAll(RegExp(r'[^\w\s-]'), '')}.pdf')
+        ..setAttribute('download',
+            'Fuel-Ledger-${widget.vendor.name.replaceAll(RegExp(r'[^\w\s-]'), '')}.pdf')
         ..click());
       html.Url.revokeObjectUrl(url);
       if (mounted) {
@@ -251,7 +272,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _isGeneratingPdf = false);
-        DashSnackbar.show(context, message: 'Failed to save PDF: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to save PDF: $e', isError: true);
       }
     }
   }
@@ -275,12 +297,14 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
         context: context,
         pdfBytes: pdfBytes,
         title: 'Fuel Ledger - ${widget.vendor.name}',
-        pdfFileName: 'fuel_ledger_${widget.vendor.name.replaceAll(' ', '_')}.pdf',
+        pdfFileName:
+            'fuel_ledger_${widget.vendor.name.replaceAll(' ', '_')}.pdf',
       );
     } catch (e) {
       if (mounted) {
         setState(() => _isGeneratingPdf = false);
-        DashSnackbar.show(context, message: 'Failed to generate PDF: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to generate PDF: $e', isError: true);
       }
     }
   }
@@ -309,11 +333,15 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
             children: [
               const Text(
                 'Select range',
-                style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 12),
               RadioListTile<String>(
-                title: const Text('Voucher range', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                title: const Text('Voucher range',
+                    style: TextStyle(color: Colors.white70, fontSize: 14)),
                 value: 'voucherRange',
                 groupValue: _rangeMode,
                 onChanged: (v) => setState(() => _rangeMode = v!),
@@ -322,7 +350,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                 contentPadding: EdgeInsets.zero,
               ),
               RadioListTile<String>(
-                title: const Text('Date range', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                title: const Text('Date range',
+                    style: TextStyle(color: Colors.white70, fontSize: 14)),
                 value: 'dateRange',
                 groupValue: _rangeMode,
                 onChanged: (v) => setState(() => _rangeMode = v!),
@@ -342,7 +371,9 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                       borderSide: BorderSide(color: Colors.white38),
                     ),
                   ),
-                  inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\n\r]'))],
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r'[\n\r]'))
+                  ],
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -355,19 +386,25 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                       borderSide: BorderSide(color: Colors.white38),
                     ),
                   ),
-                  inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\n\r]'))],
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r'[\n\r]'))
+                  ],
                 ),
               ] else ...[
                 ListTile(
-                  title: const Text('From date', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  title: const Text('From date',
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
                   subtitle: Text(
-                    _dateFrom != null ? '${_dateFrom!.day}/${_dateFrom!.month}/${_dateFrom!.year}' : 'Tap to select',
+                    _dateFrom != null
+                        ? '${_dateFrom!.day}/${_dateFrom!.month}/${_dateFrom!.year}'
+                        : 'Tap to select',
                     style: const TextStyle(color: Colors.white),
                   ),
                   onTap: () async {
                     final d = await showDatePicker(
                       context: context,
-                      initialDate: _dateFrom ?? DateTime.now().subtract(const Duration(days: 30)),
+                      initialDate: _dateFrom ??
+                          DateTime.now().subtract(const Duration(days: 30)),
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
                     );
@@ -375,9 +412,12 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                   },
                 ),
                 ListTile(
-                  title: const Text('To date', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  title: const Text('To date',
+                      style: TextStyle(color: Colors.white70, fontSize: 12)),
                   subtitle: Text(
-                    _dateTo != null ? '${_dateTo!.day}/${_dateTo!.month}/${_dateTo!.year}' : 'Tap to select',
+                    _dateTo != null
+                        ? '${_dateTo!.day}/${_dateTo!.month}/${_dateTo!.year}'
+                        : 'Tap to select',
                     style: const TextStyle(color: Colors.white),
                   ),
                   onTap: () async {
@@ -458,7 +498,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                   ),
                 ),
               ),
-              if (_isGeneratingPdf) const LinearProgressIndicator(color: AuthColors.info),
+              if (_isGeneratingPdf)
+                const LinearProgressIndicator(color: AuthColors.info),
               if (_actionError != null) ...[
                 const SizedBox(height: 12),
                 Text(
@@ -473,7 +514,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
       actions: [
         DashButton(
           label: 'Close',
-          onPressed: _isGeneratingPdf ? null : () => Navigator.of(context).pop(),
+          onPressed:
+              _isGeneratingPdf ? null : () => Navigator.of(context).pop(),
           variant: DashButtonVariant.text,
         ),
         DashButton(

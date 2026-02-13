@@ -291,6 +291,7 @@ class _AnalyticsTabContent extends StatelessWidget {
     (icon: Icons.local_shipping_outlined, label: 'Deliveries'),
     (icon: Icons.factory_outlined, label: 'Productions'),
     (icon: Icons.paid_outlined, label: 'Trip Wages'),
+    (icon: Icons.local_gas_station_outlined, label: 'Fuel'),
   ];
 
   @override
@@ -302,7 +303,7 @@ class _AnalyticsTabContent extends StatelessWidget {
           'hasTransactions=${state.transactions != null} hasClients=${state.clients != null} '
           'hasEmployees=${state.employees != null} hasVendors=${state.vendors != null} '
           'hasDeliveries=${state.deliveries != null} hasProductions=${state.productions != null} '
-          'hasTripWages=${state.tripWages != null}');
+          'hasTripWages=${state.tripWages != null} hasFuel=${state.fuel != null}');
     }
 
     return Column(
@@ -384,6 +385,13 @@ class _AnalyticsTabContent extends StatelessWidget {
                 emptyMessage: 'No trip wages analytics for this period.',
                 emptyIcon: Icons.paid_outlined,
                 child: state.tripWages != null ? _TripWagesSection(analytics: state.tripWages!) : null,
+              ),
+              _TabContent(
+                isLoading: state.isLoadingTab(7),
+                hasData: state.fuel != null,
+                emptyMessage: 'No fuel analytics for this period.',
+                emptyIcon: Icons.local_gas_station_outlined,
+                child: state.fuel != null ? _FuelSection(analytics: state.fuel!) : null,
               ),
             ],
           ),
@@ -844,9 +852,9 @@ class _AnalyticsDateRangeModalDialogState extends State<_AnalyticsDateRangeModal
                         ),
                       ),
                       const SizedBox(width: 12),
-                      ElevatedButton(
+                      FilledButton(
                         onPressed: () => widget.onConfirm(_selectedRange),
-                        style: ElevatedButton.styleFrom(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AuthColors.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
@@ -1841,6 +1849,95 @@ FlTitlesData _monthTitles(List<String> months) {
     topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
     rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
   );
+}
+
+class _FuelSection extends StatelessWidget {
+  const _FuelSection({required this.analytics});
+
+  final FuelAnalytics analytics;
+
+  static String _fmt(double n) => NumberFormat.currency(
+        locale: 'en_IN',
+        symbol: '₹',
+        decimalDigits: 0,
+      ).format(n);
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = analytics.fuelConsumptionByVehicle.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (analytics.generatedAt != null) ...[
+          _DataTimestamp(timestamp: analytics.generatedAt!),
+          const SizedBox(height: 16),
+        ],
+        _AnalyticsStatCard(
+          title: 'Total unpaid fuel balance',
+          value: _fmt(analytics.totalUnpaidFuelBalance),
+          icon: Icons.local_gas_station_outlined,
+          color: AuthColors.warning,
+        ),
+        const SizedBox(height: 24),
+        _chartCard(
+          title: 'Fuel consumption by vehicle',
+          child: entries.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No vehicle fuel consumption data',
+                    style: TextStyle(color: AuthColors.textSub, fontSize: 14),
+                  ),
+                )
+              : Column(
+                  children: entries.map((entry) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AuthColors.background.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AuthColors.textMainWithOpacity(0.08)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AuthColors.warning,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Text(
+                              entry.key,
+                              style: const TextStyle(
+                                color: AuthColors.textMain,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _fmt(entry.value),
+                            style: const TextStyle(
+                              color: AuthColors.warning,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+      ],
+    );
+  }
 }
 
 class _VendorsTypeBreakdown extends StatelessWidget {

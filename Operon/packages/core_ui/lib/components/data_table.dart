@@ -59,6 +59,7 @@ class DataTable<T> extends StatelessWidget {
     required this.rows,
     this.rowActions,
     this.onRowTap,
+    this.rowKeyBuilder,
     this.emptyStateMessage = 'No data available',
     this.emptyStateIcon = Icons.inbox_outlined,
     this.showHeader = true,
@@ -81,6 +82,9 @@ class DataTable<T> extends StatelessWidget {
 
   /// Callback when a row is tapped
   final void Function(T row, int index)? onRowTap;
+
+  /// Optional key builder for rows (improves row-level rebuilds)
+  final Key? Function(T row, int index)? rowKeyBuilder;
 
   /// Message to show when table is empty
   final String emptyStateMessage;
@@ -158,18 +162,21 @@ class DataTable<T> extends StatelessWidget {
                       final defaultBg = isEven
                           ? Colors.transparent
                           : AuthColors.textMainWithOpacity(0.03);
-                      return _TableRow<T>(
-                        row: row,
-                        rowIndex: index,
-                        columns: columns,
-                        rowActions: rowActions,
-                        onTap: onRowTap != null
-                            ? () => onRowTap!(row, index)
-                            : null,
-                        backgroundColor: rowBackgroundColorBuilder != null
-                            ? (rowBackgroundColorBuilder!(row, index) ?? defaultBg)
-                            : (rowBackgroundColor ?? defaultBg),
-                        hoverColor: hoverColor,
+                      return RepaintBoundary(
+                        child: _TableRow<T>(
+                          key: rowKeyBuilder?.call(row, index),
+                          row: row,
+                          rowIndex: index,
+                          columns: columns,
+                          rowActions: rowActions,
+                          onTap: onRowTap != null
+                              ? () => onRowTap!(row, index)
+                              : null,
+                          backgroundColor: rowBackgroundColorBuilder != null
+                              ? (rowBackgroundColorBuilder!(row, index) ?? defaultBg)
+                              : (rowBackgroundColor ?? defaultBg),
+                          hoverColor: hoverColor,
+                        ),
                       );
                     },
                   ),
@@ -189,18 +196,21 @@ class DataTable<T> extends StatelessWidget {
                     final defaultBg = isEven
                         ? Colors.transparent
                         : AuthColors.textMainWithOpacity(0.03);
-                    return _TableRow<T>(
-                      row: row,
-                      rowIndex: index,
-                      columns: columns,
-                      rowActions: rowActions,
-                      onTap: onRowTap != null
-                          ? () => onRowTap!(row, index)
-                          : null,
-                      backgroundColor: rowBackgroundColorBuilder != null
-                          ? (rowBackgroundColorBuilder!(row, index) ?? defaultBg)
-                          : (rowBackgroundColor ?? defaultBg),
-                      hoverColor: hoverColor,
+                    return RepaintBoundary(
+                      child: _TableRow<T>(
+                        key: rowKeyBuilder?.call(row, index),
+                        row: row,
+                        rowIndex: index,
+                        columns: columns,
+                        rowActions: rowActions,
+                        onTap: onRowTap != null
+                            ? () => onRowTap!(row, index)
+                            : null,
+                        backgroundColor: rowBackgroundColorBuilder != null
+                            ? (rowBackgroundColorBuilder!(row, index) ?? defaultBg)
+                            : (rowBackgroundColor ?? defaultBg),
+                        hoverColor: hoverColor,
+                      ),
                     );
                   },
                 ),
@@ -303,6 +313,7 @@ class _TableHeader<T> extends StatelessWidget {
 
 class _TableRow<T> extends StatefulWidget {
   const _TableRow({
+    super.key,
     required this.row,
     required this.rowIndex,
     required this.columns,

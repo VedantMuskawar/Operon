@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_ui/core_ui.dart';
-import 'package:dash_mobile/data/utils/financial_year_utils.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/models/combined_ledger_model.dart';
 import 'package:dash_mobile/presentation/widgets/modern_page_header.dart';
@@ -30,7 +29,7 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
   _LedgerFilterType? _lastFilterType;
   List<CombinedLedger> _ledgers = [];
   bool _isLoading = false;
-  bool _isRefreshing = false;
+  final bool _isRefreshing = false;
   String _query = '';
 
   @override
@@ -60,19 +59,18 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
 
     setState(() => _isLoading = true);
     try {
-      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
-      final snapshot = await FirebaseFirestore.instance
-          .collection('ACCOUNTS_LEDGERS')
+        final snapshot = await FirebaseFirestore.instance
+          .collection('COMBINED_ACCOUNTS')
           .where('organizationId', isEqualTo: orgId)
-          .where('financialYear', isEqualTo: financialYear)
           .orderBy('updatedAt', descending: true)
           .get();
 
       final ledgers = snapshot.docs.map((doc) {
         final data = doc.data();
-        // Always use the Firestore document ID (includes FY suffix)
-        final accountsLedgerId = doc.id;
-        final ledgerName = (data['ledgerName'] as String?) ?? 'Combined Ledger';
+        final accountsLedgerId = (data['accountId'] as String?) ?? doc.id;
+        final ledgerName = (data['accountName'] as String?) ??
+          (data['ledgerName'] as String?) ??
+          'Combined Ledger';
         final accountsData = (data['accounts'] as List<dynamic>?) ?? [];
         final accounts = accountsData
             .whereType<Map<String, dynamic>>()
@@ -93,6 +91,9 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
 
         final updatedAt = _dateFromTimestamp(data['updatedAt']) ?? DateTime.now();
         final createdAt = _dateFromTimestamp(data['createdAt']) ?? updatedAt;
+        final lastLedgerRefreshAt =
+          _dateFromTimestamp(data['lastLedgerRefreshAt']);
+        final lastLedgerId = data['lastLedgerId'] as String?;
 
         return CombinedLedger(
           id: doc.id,
@@ -100,7 +101,8 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
           name: ledgerName,
           accounts: accounts,
           createdAt: createdAt,
-          lastRefreshedAt: updatedAt,
+          lastRefreshedAt: lastLedgerRefreshAt ?? updatedAt,
+          lastLedgerId: lastLedgerId,
         );
       }).toList();
 
@@ -288,7 +290,7 @@ class _AccountsListView extends StatelessWidget {
     }
 
     final filteredLedgers = onApplyFilter(ledgers);
-    final totalAccounts = ledgers.fold<int>(0, (sum, l) => sum + l.accounts.length);
+    final totalAccounts = ledgers.fold<int>(0, (total, ledger) => total + ledger.accounts.length);
 
     return CustomScrollView(
       controller: scrollController,
@@ -330,7 +332,7 @@ class _AccountsListView extends StatelessWidget {
           ),
         ),
         if (filteredLedgers.isEmpty)
-          SliverFillRemaining(
+          const SliverFillRemaining(
             child: Center(
               child: Text(
                 'No ledgers found.',
@@ -488,7 +490,7 @@ class _LedgerStatsHeader extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AuthColors.secondary.withOpacity(0.2),
+              color: AuthColors.secondary.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.account_balance, color: AuthColors.secondary),
@@ -527,7 +529,7 @@ class _AccountsAnalyticsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalLedgers = ledgers.length;
-    final totalAccounts = ledgers.fold<int>(0, (sum, l) => sum + l.accounts.length);
+    final totalAccounts = ledgers.fold<int>(0, (total, ledger) => total + ledger.accounts.length);
     final avgAccounts = totalLedgers > 0 ? (totalAccounts / totalLedgers).round() : 0;
 
     return CustomScrollView(
@@ -610,7 +612,7 @@ class _AnalyticsCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color),

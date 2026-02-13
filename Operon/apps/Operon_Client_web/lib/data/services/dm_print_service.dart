@@ -1,19 +1,20 @@
+
+export 'package:dash_web/data/services/qr_code_service.dart' show QrCodeService;
+
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html' as html;
-import 'dart:js' as js;
 import 'dart:typed_data';
+import 'dart:html' as html;
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_utils/core_utils.dart' as pdf_template;
 import 'package:dash_web/data/repositories/dm_settings_repository.dart';
 import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/data/services/qr_code_service.dart';
 import 'package:dash_web/data/services/print_view_data_mixin.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-
-// Export QrCodeService for use in print service
-export 'package:dash_web/data/services/qr_code_service.dart' show QrCodeService;
+import 'package:dash_web/data/services/js_util_bridge.dart' as js_util;
 
 /// Payload for DM view (no PDF). Same data source as PDF generation.
 class DmViewPayload {
@@ -72,7 +73,7 @@ class PrintDataPayload {
         htmlString: json['htmlString'] as String,
       );
     } catch (e) {
-      print('[PrintDataPayload] Error parsing from JSON: $e');
+      debugPrint('[PrintDataPayload] Error parsing from JSON: $e');
       return null;
     }
   }
@@ -1088,44 +1089,20 @@ class DmPrintService with PrintViewDataMixin {
   /// Convert HTML to PDF bytes using html2pdf.js
   Future<Uint8List> _htmlToPdf(String htmlString) async {
     try {
-      // Call the JavaScript helper function convertHtmlToPdfBlob
-      // This function is defined in index.html and uses html2pdf.js
-      // The function is attached to window, so we access it via js.context
-      // Since js.context['window'] returns a Window object (not JsObject),
-      // we need to use a workaround: access the function through dynamic typing
-      final windowObj = js.context['window'];
-      if (windowObj == null) {
-        throw Exception('window object is not available');
-      }
-      // Access the function using dynamic to bypass type checking
-      // Then convert it to JsFunction to call it
-      final convertFunc = (windowObj as dynamic).convertHtmlToPdfBlob;
+      // Use js_util to access window and call JS function
+      // Use window directly for Flutter web
+      final windowObj = html.window;
+      final convertFunc = js_util.getProperty(windowObj, 'convertHtmlToPdfBlob');
       if (convertFunc == null) {
         throw Exception('convertHtmlToPdfBlob function is not available on window');
       }
-      // Call the function - convertFunc should be callable
-      // apply() returns dynamic, so we need to cast the result to JsObject
-      final jsPromiseResult = (convertFunc as js.JsFunction).apply([htmlString]);
-      final jsPromise = jsPromiseResult as js.JsObject;
-      
-      // Convert JavaScript Promise to Dart Future using Completer
-      final completer = Completer<html.Blob>();
-      
-      // Set up promise callbacks using JsFunction
-      js.JsObject promise = jsPromise;
-      promise.callMethod('then', [
-        js.JsFunction.withThis((_, blob) {
-          completer.complete(blob as html.Blob);
-        })
-      ]);
-      promise.callMethod('catch', [
-        js.JsFunction.withThis((_, error) {
-          completer.completeError(Exception('html2pdf.js error: $error'));
-        })
-      ]);
-      
-      // Wait for the blob
-      final pdfBlob = await completer.future;
+      // Call the JS function and get a JS Promise
+      final jsPromise = js_util.callMethod(convertFunc, 'call', [windowObj, htmlString]);
+      if (jsPromise == null) {
+        throw Exception('convertHtmlToPdfBlob returned null');
+      }
+      // Convert JS Promise to Dart Future
+      final pdfBlob = await js_util.promiseToFuture(jsPromise) as html.Blob;
       
       // Convert blob to Uint8List using FileReader
       final fileReader = html.FileReader();
@@ -2048,12 +2025,12 @@ class DmPrintService with PrintViewDataMixin {
     required int dmNumber,
     Map<String, dynamic>? dmData, // Optional: if already fetched
   }) async {
-    print('[DmPrintService] Preparing print data for DM $dmNumber');
+    debugPrint('[DmPrintService] Preparing print data for DM $dmNumber');
     
     // Fetch DM data if not provided
     Map<String, dynamic>? finalDmData = dmData;
     if (finalDmData == null) {
-      print('[DmPrintService] Fetching DM data by number: $dmNumber');
+      debugPrint('[DmPrintService] Fetching DM data by number: $dmNumber');
       finalDmData = await fetchDmByNumberOrId(
         organizationId: null, // Query without orgId filter
         dmNumber: dmNumber,
@@ -2074,13 +2051,14 @@ class DmPrintService with PrintViewDataMixin {
       throw Exception('Organization ID not found in DM data');
     }
     
-    print('[DmPrintService] Organization ID: $orgId');
+    debugPrint('[DmPrintService] Organization ID: $orgId');
     
+    final needsOrderEnrichment = _needsOrderEnrichment(finalDmData);
     // Fetch related order and view payload in parallel (neither depends on the other)
     final orderId = finalDmData['orderID'] as String?;
-    final orderFuture = (orderId != null && orderId.isNotEmpty)
-        ? _fetchRelatedOrder(orderId, orgId)
-        : Future<Map<String, dynamic>?>.value(null);
+    final orderFuture = (needsOrderEnrichment && orderId != null && orderId.isNotEmpty)
+      ? _fetchRelatedOrder(orderId, orgId)
+      : Future<Map<String, dynamic>?>.value(null);
     final viewPayloadFuture = loadDmViewData(
       organizationId: orgId,
       dmData: finalDmData,
@@ -2091,7 +2069,7 @@ class DmPrintService with PrintViewDataMixin {
     final viewPayload = results[1] as DmViewPayload;
 
     if (orderData != null) {
-      print('[DmPrintService] Order data fetched, merging phone/driver info');
+      debugPrint('[DmPrintService] Order data fetched, merging phone/driver info');
       finalDmData['clientPhone'] = orderData['clientPhoneNumber'] as String? ??
           finalDmData['clientPhone'] as String?;
       finalDmData['driverName'] = orderData['driverName'] as String? ??
@@ -2101,7 +2079,7 @@ class DmPrintService with PrintViewDataMixin {
     }
     
     // Generate HTML string
-    print('[DmPrintService] Generating HTML for print...');
+    debugPrint('[DmPrintService] Generating HTML for print...');
     final htmlString = generateDmHtmlForPrint(
       dmData: finalDmData,
       dmSettings: viewPayload.dmSettings,
@@ -2110,13 +2088,34 @@ class DmPrintService with PrintViewDataMixin {
       qrCodeBytes: viewPayload.qrCodeBytes,
     );
     
-    print('[DmPrintService] Print data prepared successfully (HTML length: ${htmlString.length} chars)');
+    debugPrint('[DmPrintService] Print data prepared successfully (HTML length: ${htmlString.length} chars)');
     
     return PrintDataPayload(
       dmData: finalDmData,
       viewPayload: viewPayload,
       htmlString: htmlString,
     );
+  }
+
+  bool _needsOrderEnrichment(Map<String, dynamic> dmData) {
+    final hasClientPhone = _hasNonEmptyString(
+      dmData,
+      ['clientPhone', 'clientPhoneNumber', 'customerNumber'],
+    );
+    final hasDriverName = _hasNonEmptyString(dmData, ['driverName']);
+    final hasDriverPhone = _hasNonEmptyString(dmData, ['driverPhone', 'driverPhoneNumber']);
+
+    return !hasClientPhone || !hasDriverName || !hasDriverPhone;
+  }
+
+  bool _hasNonEmptyString(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Fetch related order data from SCH_ORDERS collection
@@ -2148,13 +2147,26 @@ class DmPrintService with PrintViewDataMixin {
       }
       return null;
     } catch (e) {
-      print('[DmPrintService] Error fetching related order: $e');
+      debugPrint('[DmPrintService] Error fetching related order: $e');
       // Silently fail - order data is optional
       return null;
     }
   }
 
   /// Store print data in sessionStorage for instant print flow
+  /// Recursively convert all Timestamp objects to ISO8601 strings
+  dynamic _sanitizeTimestamps(dynamic value) {
+    if (value is Map) {
+      return value.map((k, v) => MapEntry(k, _sanitizeTimestamps(v)));
+    } else if (value is List) {
+      return value.map(_sanitizeTimestamps).toList();
+    } else if (value is Timestamp) {
+      return value.toDate().toIso8601String();
+    } else {
+      return value;
+    }
+  }
+
   void storePrintDataInSession({
     required int dmNumber,
     required Map<String, dynamic> dmData,
@@ -2167,15 +2179,14 @@ class DmPrintService with PrintViewDataMixin {
         viewPayload: viewPayload,
         htmlString: htmlString,
       );
-      
-      final jsonData = payload.toJson();
+      // Sanitize all Timestamps before encoding
+      final jsonData = _sanitizeTimestamps(payload.toJson());
       final jsonString = jsonEncode(jsonData);
       final storageKey = 'temp_print_data_$dmNumber';
-      
       html.window.sessionStorage[storageKey] = jsonString;
-      print('[DmPrintService] Stored print data in sessionStorage with key: $storageKey (size: ${jsonString.length} bytes)');
+      debugPrint('[DmPrintService] Stored print data in sessionStorage with key: $storageKey (size: ${jsonString.length} bytes)');
     } catch (e) {
-      print('[DmPrintService] ERROR storing print data in sessionStorage: $e');
+      debugPrint('[DmPrintService] ERROR storing print data in sessionStorage: $e');
       // Don't throw - sessionStorage failure should fall back to Firestore fetch
     }
   }
@@ -2187,7 +2198,7 @@ class DmPrintService with PrintViewDataMixin {
       final jsonString = html.window.sessionStorage[storageKey];
       
       if (jsonString == null || jsonString.isEmpty) {
-        print('[DmPrintService] No cached print data found in sessionStorage for DM $dmNumber');
+        debugPrint('[DmPrintService] No cached print data found in sessionStorage for DM $dmNumber');
         return null;
       }
       
@@ -2195,16 +2206,16 @@ class DmPrintService with PrintViewDataMixin {
       final payload = PrintDataPayload.fromJson(jsonData);
       
       if (payload != null) {
-        print('[DmPrintService] Retrieved print data from sessionStorage for DM $dmNumber');
+        debugPrint('[DmPrintService] Retrieved print data from sessionStorage for DM $dmNumber');
         // Clean up after retrieval (one-time use)
         html.window.sessionStorage.remove(storageKey);
       } else {
-        print('[DmPrintService] Failed to parse cached print data from sessionStorage');
+        debugPrint('[DmPrintService] Failed to parse cached print data from sessionStorage');
       }
       
       return payload;
     } catch (e) {
-      print('[DmPrintService] ERROR retrieving print data from sessionStorage: $e');
+      debugPrint('[DmPrintService] ERROR retrieving print data from sessionStorage: $e');
       return null;
     }
   }
@@ -2213,7 +2224,7 @@ class DmPrintService with PrintViewDataMixin {
   /// This enables instant print dialog when PrintDMPage loads (no double Firestore fetch)
   Future<void> printDeliveryMemo(int dmNumber) async {
     try {
-      print('[DmPrintService] Starting unified print flow for DM $dmNumber');
+      debugPrint('[DmPrintService] Starting unified print flow for DM $dmNumber');
       
       // Prepare all print data (fetch DM, load view payload, generate HTML)
       final printData = await preparePrintData(dmNumber: dmNumber);
@@ -2230,7 +2241,7 @@ class DmPrintService with PrintViewDataMixin {
       // Use explicit size + position + window-only features so browser opens a popup
       // instead of a new tab (especially in fullscreen).
       final url = '/print-dm/$dmNumber';
-      print('[DmPrintService] Opening print window for DM $dmNumber at URL: $url');
+      debugPrint('[DmPrintService] Opening print window for DM $dmNumber at URL: $url');
       
       const width = 900;
       const height = 700;

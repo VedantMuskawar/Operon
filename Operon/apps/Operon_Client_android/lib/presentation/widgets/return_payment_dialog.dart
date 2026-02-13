@@ -249,7 +249,7 @@ class _PaymentEntryRow extends StatelessWidget {
               labelStyle: const TextStyle(color: AuthColors.textSub),
               enabledBorder: OutlineInputBorder(
                 borderSide:
-                    BorderSide(color: AuthColors.textSub.withOpacity(0.3)),
+                    BorderSide(color: AuthColors.textSub.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
               focusedBorder: OutlineInputBorder(
@@ -287,7 +287,7 @@ class _PaymentEntryRow extends StatelessWidget {
               labelStyle: const TextStyle(color: AuthColors.textSub),
               enabledBorder: OutlineInputBorder(
                 borderSide:
-                    BorderSide(color: AuthColors.textSub.withOpacity(0.3)),
+                    BorderSide(color: AuthColors.textSub.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
               ),
               focusedBorder: OutlineInputBorder(

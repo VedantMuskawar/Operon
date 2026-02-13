@@ -200,6 +200,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
 
       await cubit.createSalaryTransaction(
         employeeId: _selectedEmployee!.id,
+        employeeName: _selectedEmployee!.name,
         amount: amount,
         paymentDate: _paymentDate,
         createdBy: currentUser.uid,

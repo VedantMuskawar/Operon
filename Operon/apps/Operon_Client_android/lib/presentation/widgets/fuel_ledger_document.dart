@@ -118,7 +118,7 @@ class FuelLedgerDocument extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
       decoration: BoxDecoration(
-        color: AuthColors.textSub.withOpacity(0.15),
+        color: AuthColors.textSub.withValues(alpha: 0.15),
         border: const Border(
           left: BorderSide(color: AuthColors.textSub, width: 3),
         ),
@@ -144,13 +144,13 @@ class FuelLedgerDocument extends StatelessWidget {
         3: FlexColumnWidth(1.2),
       },
       border: TableBorder.all(
-        color: AuthColors.textSub.withOpacity(0.4),
+        color: AuthColors.textSub.withValues(alpha: 0.4),
         width: 0.5,
       ),
       children: [
         TableRow(
           decoration: BoxDecoration(
-            color: AuthColors.textSub.withOpacity(0.2),
+            color: AuthColors.textSub.withValues(alpha: 0.2),
           ),
           children: headers
               .map(
@@ -174,7 +174,7 @@ class FuelLedgerDocument extends StatelessWidget {
           final row = entry.value;
           final bg = index % 2 == 0
               ? AuthColors.surface
-              : AuthColors.textSub.withOpacity(0.08);
+              : AuthColors.textSub.withValues(alpha: 0.08);
           return TableRow(
             decoration: BoxDecoration(color: bg),
             children: [
@@ -232,7 +232,7 @@ class FuelLedgerDocument extends StatelessWidget {
       decoration: BoxDecoration(
         color: AuthColors.surface,
         border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.4),
+          color: AuthColors.textSub.withValues(alpha: 0.4),
           width: 0.8,
         ),
       ),

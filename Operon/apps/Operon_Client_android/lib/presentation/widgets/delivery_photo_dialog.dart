@@ -100,10 +100,10 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
               style: TextStyle(color: Colors.white70),
             ),
           ),
-        ElevatedButton(
+        FilledButton(
           onPressed:
               (_selectedImage == null || _isUploading) ? null : _handleUpload,
-          style: ElevatedButton.styleFrom(
+          style: FilledButton.styleFrom(
             backgroundColor: AuthColors.legacyAccent,
             foregroundColor: AuthColors.textMain,
             disabledBackgroundColor: AuthColors.textDisabled,
@@ -161,11 +161,11 @@ class _DeliveryPhotoDialogState extends State<DeliveryPhotoDialog> {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM),
-        child: ElevatedButton.icon(
+        child: FilledButton.icon(
           onPressed: onTap,
           icon: Icon(icon),
           label: Text(label),
-          style: ElevatedButton.styleFrom(
+          style: FilledButton.styleFrom(
             backgroundColor: AuthColors.secondary,
             foregroundColor: AuthColors.textMain,
             padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),

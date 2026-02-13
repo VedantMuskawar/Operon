@@ -30,8 +30,8 @@ class StandardChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? AuthColors.primary.withOpacity(0.2)
-              : AuthColors.surface.withOpacity(0.6),
+              ? AuthColors.primary.withValues(alpha: 0.2)
+              : AuthColors.surface.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(AppSpacing.chipRadius * 2),
           border: Border.all(
             color: isSelected

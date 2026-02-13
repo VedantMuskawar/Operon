@@ -18,7 +18,7 @@ class UnifiedFinancialTransactionsState extends BaseState {
     this.startDate,
     this.endDate,
     this.financialYear,
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final List<Transaction> transactions;
@@ -29,9 +29,6 @@ class UnifiedFinancialTransactionsState extends BaseState {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? financialYear;
-  @override
-  final String? message;
-
   List<Transaction> get currentTransactions {
     switch (selectedTab) {
       case TransactionTabType.transactions:

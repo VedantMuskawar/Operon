@@ -287,9 +287,9 @@ class _RegionColumn extends StatelessWidget {
         if (hasCities && selectedCity != null)
           SizedBox(
             width: 220,
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: onAddRegion,
-              style: ElevatedButton.styleFrom(
+              style: FilledButton.styleFrom(
                 backgroundColor: AuthColors.secondary,
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
                 shape: RoundedRectangleBorder(
@@ -370,7 +370,7 @@ class _RegionColumn extends StatelessWidget {
                 width: isPending || isSelected ? 2 : 1,
               ),
               color: isPending
-                  ? AuthColors.secondary.withOpacity(0.1) // Gold tint
+                  ? AuthColors.secondary.withValues(alpha: 0.1) // Gold tint
                   : isSelected
                       ? AuthColors.surface
                       : AuthColors.backgroundAlt,
@@ -552,7 +552,10 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
                       _regionController.text.trim(),
                       roundtripKm,
                     );
-                    if (mounted) Navigator.of(context).pop();
+                    if (!mounted) {
+                      return;
+                    }
+                    Navigator.of(context).pop();
                   } catch (err) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -1051,7 +1054,7 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
                             hintStyle: const TextStyle(color: AuthColors.textDisabled),
                             filled: true,
                             fillColor: state.pendingPriceUpdates?[product.id] != null
-                                ? AuthColors.secondary.withOpacity(0.1)
+                              ? AuthColors.secondary.withValues(alpha: 0.1)
                                 : AuthColors.backgroundAlt,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),

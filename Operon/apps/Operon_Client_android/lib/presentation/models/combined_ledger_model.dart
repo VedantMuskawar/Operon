@@ -23,6 +23,7 @@ class CombinedLedger {
     required this.accounts,
     required this.createdAt,
     required this.lastRefreshedAt,
+    required this.lastLedgerId,
   });
 
   final String id;
@@ -31,6 +32,7 @@ class CombinedLedger {
   final List<AccountOption> accounts;
   final DateTime createdAt;
   final DateTime lastRefreshedAt;
+  final String? lastLedgerId;
 
   bool get isEmpty => id.isEmpty;
 
@@ -41,6 +43,7 @@ class CombinedLedger {
     List<AccountOption>? accounts,
     DateTime? createdAt,
     DateTime? lastRefreshedAt,
+    String? lastLedgerId,
   }) {
     return CombinedLedger(
       id: id ?? this.id,
@@ -49,6 +52,7 @@ class CombinedLedger {
       accounts: accounts ?? this.accounts,
       createdAt: createdAt ?? this.createdAt,
       lastRefreshedAt: lastRefreshedAt ?? this.lastRefreshedAt,
+      lastLedgerId: lastLedgerId ?? this.lastLedgerId,
     );
   }
 }

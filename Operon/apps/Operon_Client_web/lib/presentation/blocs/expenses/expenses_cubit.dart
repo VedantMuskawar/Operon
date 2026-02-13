@@ -234,6 +234,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
     required DateTime date,
     String? description,
     String? referenceNumber,
+    Map<String, dynamic>? ledgerAccount,
   }) async {
     emit(state.copyWith(status: ViewStatus.loading, message: null));
     try {
@@ -249,6 +250,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         final metadata = <String, dynamic>{
           if (employeeName != null && employeeName.isNotEmpty)
             'employeeName': employeeName,
+          if (ledgerAccount != null) 'ledgerAccount': ledgerAccount,
           'splitIndex': i + 1,
           'splitCount': employeeIds.length,
         };

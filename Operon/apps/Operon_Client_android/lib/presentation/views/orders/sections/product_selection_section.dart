@@ -114,7 +114,7 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
               // Add Product Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: FilledButton(
                   onPressed: () {
                     cubit.addProductItem(
                       product: _selectedProduct!,
@@ -128,7 +128,7 @@ class _ProductSelectionSectionState extends State<ProductSelectionSection> {
                       _estimatedTrips = 1;
                     });
                   },
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AuthColors.secondary,
                     padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
                     shape: RoundedRectangleBorder(
@@ -450,8 +450,8 @@ class _OrderItemTile extends StatelessWidget {
                     height: 32,
                     decoration: BoxDecoration(
                       color: item.estimatedTrips > 1
-                          ? AuthColors.textMain.withOpacity(0.1)
-                          : AuthColors.textMain.withOpacity(0.05),
+                          ? AuthColors.textMain.withValues(alpha: 0.1)
+                          : AuthColors.textMain.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                     ),
                     child: Icon(
@@ -487,7 +487,7 @@ class _OrderItemTile extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: AuthColors.textMain.withOpacity(0.1),
+                      color: AuthColors.textMain.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                     ),
                     child: const Icon(

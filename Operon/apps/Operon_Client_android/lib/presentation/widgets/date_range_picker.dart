@@ -75,7 +75,7 @@ class DateRangePicker extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 border: Border.all(
                   color: startDate != null
-                      ? AuthColors.legacyAccent.withOpacity(0.5)
+                      ? AuthColors.legacyAccent.withValues(alpha: 0.5)
                       : AuthColors.textMainWithOpacity(0.1),
                 ),
               ),
@@ -117,7 +117,7 @@ class DateRangePicker extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 border: Border.all(
                   color: endDate != null
-                      ? AuthColors.legacyAccent.withOpacity(0.5)
+                      ? AuthColors.legacyAccent.withValues(alpha: 0.5)
                       : AuthColors.textMainWithOpacity(0.1),
                 ),
               ),

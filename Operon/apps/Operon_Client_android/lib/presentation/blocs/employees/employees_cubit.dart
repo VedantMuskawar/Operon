@@ -9,14 +9,11 @@ class EmployeesState extends BaseState {
     super.status = ViewStatus.initial,
     this.employees = const [],
     this.roles = const [],
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final List<OrganizationEmployee> employees;
   final List<OrganizationRole> roles;
-  @override
-  final String? message;
-
   @override
   EmployeesState copyWith({
     ViewStatus? status,

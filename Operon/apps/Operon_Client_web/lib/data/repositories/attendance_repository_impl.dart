@@ -13,6 +13,9 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
   final EmployeesRepository _employeesRepository;
   final EmployeeAttendanceDataSource _attendanceDataSource;
 
+  final Map<String, ({DateTime timestamp, Map<String, RoleAttendanceGroup> data})> _cache = {};
+  static const Duration _cacheTtl = Duration(minutes: 2);
+
   /// Get year-month string in "YYYY-MM" format
   String _getYearMonth(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}';
@@ -38,6 +41,14 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
   /// Normalize date to start of day for comparison
   DateTime _normalizeDate(DateTime date) {
     return DateTime(date.year, date.month, date.day);
+  }
+
+  bool _isFullMonthRange(DateTime startDate, DateTime endDate) {
+    if (startDate.year != endDate.year || startDate.month != endDate.month) {
+      return false;
+    }
+    final lastDay = _getTotalDaysInMonth(startDate);
+    return startDate.day == 1 && endDate.day == lastDay;
   }
 
   /// Calculate days present/absent from daily records for a given month
@@ -80,6 +91,11 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     required String organizationId,
     required String yearMonth, // "YYYY-MM"
   }) async {
+    final cacheKey = '${organizationId}_$yearMonth';
+    final cached = _cache[cacheKey];
+    if (cached != null && DateTime.now().difference(cached.timestamp) < _cacheTtl) {
+      return cached.data;
+    }
     // Parse yearMonth to get start/end of month
     final parts = yearMonth.split('-');
     if (parts.length != 2) {
@@ -91,11 +107,73 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     final monthStart = DateTime(year, month, 1);
     final monthEnd = DateTime(year, month, _getTotalDaysInMonth(monthStart));
 
-    return getAttendanceByRoleForDateRange(
+    // Fetch all employees for the organization
+    final employees = await _employeesRepository.fetchEmployees(organizationId);
+
+    if (employees.isEmpty) {
+      return {};
+    }
+
+    final financialYear = _getFinancialYear(monthStart);
+
+    final attendanceDocs = await _attendanceDataSource
+        .fetchAttendanceForMonthForOrganization(
       organizationId: organizationId,
-      startDate: monthStart,
-      endDate: monthEnd,
+      financialYear: financialYear,
+      yearMonth: yearMonth,
     );
+
+    final attendanceByEmployeeId = <String, EmployeeAttendance>{
+      for (final attendance in attendanceDocs) attendance.employeeId: attendance,
+    };
+
+    final attendanceDataList = employees.map((employee) {
+      final attendance = attendanceByEmployeeId[employee.id];
+      final dailyRecords = attendance?.dailyRecords ?? <DailyAttendanceRecord>[];
+
+      final (daysPresent, daysAbsent) =
+          _calculateDaysForMonth(dailyRecords, monthStart, monthEnd);
+
+      final totalDaysInMonth = _getTotalDaysInMonth(monthStart);
+      final monthSummary = _getMonthSummary(daysPresent, totalDaysInMonth);
+
+      return EmployeeAttendanceData(
+        employeeId: employee.id,
+        employeeName: employee.name,
+        roleTitle: employee.primaryJobRoleTitle.isEmpty
+            ? 'No Role'
+            : employee.primaryJobRoleTitle,
+        dailyRecords: dailyRecords,
+        daysPresent: daysPresent,
+        daysAbsent: daysAbsent,
+        monthSummary: monthSummary,
+      );
+    }).toList();
+
+    // Group by role
+    final roleGroups = <String, List<EmployeeAttendanceData>>{};
+    for (final attendanceData in attendanceDataList) {
+      final roleKey = attendanceData.roleTitle;
+      roleGroups.putIfAbsent(roleKey, () => []).add(attendanceData);
+    }
+
+    // Convert to RoleAttendanceGroup map
+    final result = <String, RoleAttendanceGroup>{};
+    for (final entry in roleGroups.entries) {
+      final employees = entry.value;
+      final totalPresent = employees.fold<int>(0, (sum, e) => sum + e.daysPresent);
+      final totalAbsent = employees.fold<int>(0, (sum, e) => sum + e.daysAbsent);
+
+      result[entry.key] = RoleAttendanceGroup(
+        roleTitle: entry.key,
+        employees: employees,
+        totalPresent: totalPresent,
+        totalAbsent: totalAbsent,
+      );
+    }
+
+    _cache[cacheKey] = (timestamp: DateTime.now(), data: result);
+    return result;
   }
 
   @override
@@ -104,6 +182,12 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
+    if (_isFullMonthRange(startDate, endDate)) {
+      return getAttendanceByRole(
+        organizationId: organizationId,
+        yearMonth: _getYearMonth(startDate),
+      );
+    }
     // Fetch all employees for the organization
     final employees = await _employeesRepository.fetchEmployees(organizationId);
 
@@ -207,6 +291,7 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     required String employeeId,
     required DateTime date,
     required bool isPresent,
+    String? organizationId,
   }) async {
     // For Web app, we need to update the attendance record
     // Get or create the month document and update the daily record
@@ -267,18 +352,21 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
         dailyRecords.fold<int>(0, (sum, record) => sum + record.numberOfBatches);
 
     // Get organization ID from existing attendance or fetch from employee
-    String organizationId = existingAttendance?.organizationId ?? '';
-    if (organizationId.isEmpty) {
+    String resolvedOrganizationId = organizationId?.trim() ?? '';
+    if (resolvedOrganizationId.isEmpty) {
+      resolvedOrganizationId = existingAttendance?.organizationId ?? '';
+    }
+    if (resolvedOrganizationId.isEmpty) {
       // Fetch employee to get organization ID for new attendance
       final employee = await _employeesRepository.fetchEmployee(employeeId);
-      organizationId = employee?.organizationId ?? '';
+      resolvedOrganizationId = employee?.organizationId ?? '';
     }
 
     // Create or update attendance document
     final updatedAttendance = EmployeeAttendance(
       yearMonth: yearMonth,
       employeeId: employeeId,
-      organizationId: organizationId,
+      organizationId: resolvedOrganizationId,
       financialYear: financialYear,
       dailyRecords: dailyRecords,
       totalDaysPresent: totalDaysPresent,
@@ -293,6 +381,10 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
       yearMonth: yearMonth,
       attendance: updatedAttendance,
     );
+
+    if (resolvedOrganizationId.isNotEmpty) {
+      _cache.remove('${resolvedOrganizationId}_$yearMonth');
+    }
   }
 
   @override
@@ -308,6 +400,7 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
         employeeId: employeeId,
         date: date,
         isPresent: isPresent,
+        organizationId: organizationId,
       );
     });
 

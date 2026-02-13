@@ -59,6 +59,16 @@ class TripWagesRepository {
     return _dataSource.fetchTripWageByDmId(dmId);
   }
 
+  /// Batch fetch trip wages by DM IDs - PERFORMANCE CRITICAL
+  /// Reduces N+1 query problem by batching 10 DMs per query
+  /// Example: 50 DMs = 6 queries instead of 51 individual queries
+  Future<Map<String, TripWage>> fetchTripWagesByDmIds(
+    String organizationId,
+    List<String> dmIds,
+  ) {
+    return _dataSource.fetchTripWagesByDmIds(organizationId, dmIds);
+  }
+
   Future<void> updateTripWage(
     String tripWageId,
     Map<String, dynamic> updates,

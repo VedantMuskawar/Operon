@@ -25,6 +25,10 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
   final DeliveryZonesRepository _deliveryZonesRepository;
   final String _organizationId;
 
+  static final Map<String, List<OrganizationProduct>> _productsCache = {};
+  static final Map<String, List<DeliveryZone>> _zonesCache = {};
+  static final Map<String, List<DeliveryCity>> _citiesCache = {};
+
   // Default fixed quantity options (fallback if product doesn't specify)
   static const List<int> _defaultFixedQuantityOptions = [
     1000,
@@ -38,7 +42,10 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
   Future<void> loadProducts() async {
     emit(state.copyWith(isLoadingProducts: true));
     try {
-      final products = await _productsRepository.fetchProducts(_organizationId);
+      final cachedProducts = _productsCache[_organizationId];
+      final products = cachedProducts ??
+          await _productsRepository.fetchProducts(_organizationId);
+      _productsCache[_organizationId] = products;
       
       // Build map of product fixed quantity options
       final productFixedQuantityOptions = <String, List<int>>{};
@@ -184,8 +191,16 @@ class CreateOrderCubit extends Cubit<CreateOrderState> {
   Future<void> loadZones() async {
     emit(state.copyWith(isLoadingZones: true));
     try {
-      final zones = await _deliveryZonesRepository.fetchZones(_organizationId);
-      final fetchedCities = await _deliveryZonesRepository.fetchCities(_organizationId);
+      final cachedZones = _zonesCache[_organizationId];
+      final cachedCities = _citiesCache[_organizationId];
+
+      final zones = cachedZones ??
+        await _deliveryZonesRepository.fetchZones(_organizationId);
+      final fetchedCities = cachedCities ??
+        await _deliveryZonesRepository.fetchCities(_organizationId);
+
+      _zonesCache[_organizationId] = zones;
+      _citiesCache[_organizationId] = fetchedCities;
       
       final cities = fetchedCities..sort((a, b) => a.name.compareTo(b.name));
 

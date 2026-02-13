@@ -292,6 +292,7 @@ class _OrdersMapViewState extends State<OrdersMapView> {
                     child: GoogleMap(
                       initialCameraPosition: _initialCamera,
                       markers: _markers,
+                      style: darkMapStyle,
                       mapToolbarEnabled: false,
                       zoomControlsEnabled: false,
                       compassEnabled: false,
@@ -299,9 +300,6 @@ class _OrdersMapViewState extends State<OrdersMapView> {
                       myLocationButtonEnabled: false,
                       onMapCreated: (controller) async {
                         _controller = controller;
-                        try {
-                          await controller.setMapStyle(darkMapStyle);
-                        } catch (_) {}
                         if (_vehicles.isNotEmpty &&
                             _selectedVehicleId == null) {
                           _fitToAllVehicles(_vehicles);
@@ -371,7 +369,9 @@ class _VehicleOptionButton extends StatelessWidget {
           vertical: AppSpacing.paddingSM,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? baseColor : AuthColors.surface.withOpacity(0.9),
+          color: isSelected
+              ? baseColor
+              : AuthColors.surface.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(AppSpacing.radiusRound),
           border: Border.all(
             color:

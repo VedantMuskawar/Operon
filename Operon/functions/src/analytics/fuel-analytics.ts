@@ -161,6 +161,147 @@ async function applyFuelImpact(impact: FuelImpact, multiplier: number): Promise<
   }
 }
 
+/**
+ * Rebuild fuel analytics for a single organization and financial year.
+ * Recalculates unpaid fuel balance and fuel consumption by vehicle.
+ */
+export async function rebuildFuelAnalyticsForOrg(
+  organizationId: string,
+  financialYear: string,
+  fyStart: Date,
+  fyEnd: Date,
+): Promise<void> {
+  // Query all transactions for this org and financial year that impact fuel analytics
+  const txSnapshot = await db
+    .collection(TRANSACTIONS_COLLECTION)
+    .where('organizationId', '==', organizationId)
+    .where('financialYear', '==', financialYear)
+    .where('ledgerType', '==', 'vendorLedger')
+    .where('category', '==', 'vendorPurchase')
+    .get();
+
+  // Group by month and build metrics
+  const fuelByMonth: Record<string, {
+    unpaidDelta: number;
+    vehicleConsumption: Record<string, number>;
+    vehicleKeyMap: Record<string, string>;
+  }> = {};
+
+  txSnapshot.forEach((doc) => {
+    const impact = buildFuelImpactSync(doc);
+    if (!impact) {
+      return;
+    }
+
+    const monthKey = impact.monthKey;
+    if (!fuelByMonth[monthKey]) {
+      fuelByMonth[monthKey] = {
+        unpaidDelta: 0,
+        vehicleConsumption: {},
+        vehicleKeyMap: {},
+      };
+    }
+
+    fuelByMonth[monthKey].unpaidDelta += impact.unpaidDelta;
+    if (impact.vehicleKey) {
+      fuelByMonth[monthKey].vehicleConsumption[impact.vehicleKey] =
+        (fuelByMonth[monthKey].vehicleConsumption[impact.vehicleKey] || 0) +
+        impact.vehicleAmountDelta;
+      if (impact.vehicleNumber) {
+        fuelByMonth[monthKey].vehicleKeyMap[impact.vehicleKey] = impact.vehicleNumber;
+      }
+    }
+  });
+
+  // Write monthly fuel analytics documents
+  const monthPromises = Object.entries(fuelByMonth).map(async ([monthKey, data]) => {
+    const analyticsDocId = `${FUEL_ANALYTICS_SOURCE_KEY}_${organizationId}_${monthKey}`;
+    const analyticsRef = db.collection(ANALYTICS_COLLECTION).doc(analyticsDocId);
+
+    await seedFuelAnalyticsDoc(analyticsRef, financialYear, organizationId);
+
+    const updatePayload: Record<string, unknown> = {
+      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (data.unpaidDelta !== 0) {
+      updatePayload['metrics.totalUnpaidFuelBalance'] = data.unpaidDelta;
+    }
+
+    if (Object.keys(data.vehicleConsumption).length > 0) {
+      updatePayload['metrics.fuelConsumptionByVehicle'] = data.vehicleConsumption;
+    }
+
+    if (Object.keys(data.vehicleKeyMap).length > 0) {
+      updatePayload['metadata.fuelVehicleKeyMap'] = data.vehicleKeyMap;
+    }
+
+    await analyticsRef.set(updatePayload, { merge: true });
+  });
+
+  await Promise.all(monthPromises);
+}
+
+/**
+ * Helper to build FuelImpact synchronously (for rebuild, not real-time)
+ */
+function buildFuelImpactSync(snapshot: FirebaseFirestore.DocumentSnapshot): FuelImpact | null {
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  const data = snapshot.data() || {};
+  const organizationId = data.organizationId as string | undefined;
+  const financialYear = data.financialYear as string | undefined;
+  const amount = (data.amount as number) || 0;
+  const type = data.type as string | undefined;
+  const ledgerType = data.ledgerType as string | undefined;
+  const category = data.category as string | undefined;
+  const vendorId = data.vendorId as string | undefined;
+  const metadata = (data.metadata as Record<string, unknown> | undefined) || {};
+  const purchaseType = metadata.purchaseType as string | undefined;
+  const vehicleNumber = (metadata.vehicleNumber as string | undefined)?.trim();
+
+  if (!organizationId || !financialYear || !amount || !type) {
+    return null;
+  }
+
+  const transactionDate = getTransactionDate(snapshot);
+  const monthKey = getYearMonth(transactionDate);
+
+  let unpaidDelta = 0;
+  if (ledgerType === 'vendorLedger' && vendorId && purchaseType === 'fuel') {
+    unpaidDelta = type === 'credit' ? amount : -amount;
+  }
+
+  let vehicleAmountDelta = 0;
+  let vehicleKey: string | undefined;
+  if (
+    ledgerType === 'vendorLedger' &&
+    category === 'vendorPurchase' &&
+    type === 'credit' &&
+    purchaseType === 'fuel' &&
+    vehicleNumber
+  ) {
+    vehicleKey = normalizeVehicleKey(vehicleNumber);
+    vehicleAmountDelta = amount;
+  }
+
+  if (unpaidDelta === 0 && vehicleAmountDelta === 0) {
+    return null;
+  }
+
+  return {
+    organizationId,
+    financialYear,
+    monthKey,
+    unpaidDelta,
+    vehicleKey,
+    vehicleNumber,
+    vehicleAmountDelta,
+  };
+}
+
 export const onFuelAnalyticsTransactionWrite = onDocumentWritten(
   {
     document: `${TRANSACTIONS_COLLECTION}/{transactionId}`,

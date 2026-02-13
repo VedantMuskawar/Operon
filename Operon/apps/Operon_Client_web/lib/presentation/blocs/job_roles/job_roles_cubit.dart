@@ -8,10 +8,19 @@ class JobRolesCubit extends Cubit<JobRolesState> {
   JobRolesCubit({
     required JobRolesRepository repository,
     required String orgId,
+    List<OrganizationJobRole>? initialJobRoles,
+    bool skipInitialLoad = false,
   })  : _repository = repository,
         _orgId = orgId,
-        super(const JobRolesState()) {
-    load();
+        super(JobRolesState(
+          jobRoles: initialJobRoles ?? const [],
+          status: (initialJobRoles != null && initialJobRoles.isNotEmpty)
+              ? ViewStatus.success
+              : ViewStatus.initial,
+        )) {
+    if (!skipInitialLoad && (initialJobRoles == null || initialJobRoles.isEmpty)) {
+      load();
+    }
   }
 
   final JobRolesRepository _repository;

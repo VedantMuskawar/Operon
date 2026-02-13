@@ -275,6 +275,11 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
       return;
     }
 
+    if (!mounted) {
+      reasonController.dispose();
+      return;
+    }
+
     final rescheduleReason = confirmed['reason'] as String? ?? '';
 
     try {
@@ -296,11 +301,19 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
         reason: rescheduleReason,
       );
 
+      if (!mounted) {
+        return;
+      }
+
       // Delete the trip - Cloud Functions will automatically update PENDING_ORDERS:
       // - Decrements totalScheduledTrips
       // - Increments estimatedTrips
       // - Removes trip from scheduledTrips array
       await scheduledTripsRepo.deleteScheduledTrip(tripId);
+
+      if (!mounted) {
+        return;
+      }
 
       // Get order data from trip
       final orderId = trip['orderId'] as String?;
@@ -323,7 +336,15 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
 
       if (customerNumber != null && customerNumber.isNotEmpty) {
         try {
-          final client = await clientService.findClientByPhone(customerNumber);
+          final orgId = context
+              .read<OrganizationContextCubit>()
+              .state
+              .organization
+              ?.id;
+          final client = await clientService.findClientByPhone(
+            customerNumber,
+            organizationId: orgId,
+          );
           if (client != null) {
             clientPhones = client.phones;
             if (clientPhones.isEmpty && client.primaryPhone != null) {
@@ -563,7 +584,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AuthColors.background.withOpacity(0.2),
+                      color: AuthColors.background.withValues(alpha: 0.2),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),

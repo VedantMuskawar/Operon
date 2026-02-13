@@ -133,7 +133,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         side: BorderSide(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
@@ -151,7 +151,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                 Container(
                   padding: const EdgeInsets.all(AppSpacing.paddingSM),
                   decoration: BoxDecoration(
-                    color: AuthColors.primary.withOpacity(0.2),
+                    color: AuthColors.primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   ),
                   child: const Icon(
@@ -198,7 +198,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                 color: AuthColors.background,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                 border: Border.all(
-                  color: AuthColors.textMain.withOpacity(0.1),
+                  color: AuthColors.textMain.withValues(alpha: 0.1),
                 ),
               ),
               child: Row(
@@ -260,7 +260,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                   color: AuthColors.background,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
-                    color: AuthColors.textMain.withOpacity(0.1),
+                    color: AuthColors.textMain.withValues(alpha: 0.1),
                   ),
                 ),
                 child: _isLoading
@@ -333,7 +333,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                           AppSpacing.radiusSM),
                                       border: Border.all(
                                         color: AuthColors.textMain
-                                            .withOpacity(0.1),
+                                            .withValues(alpha: 0.1),
                                       ),
                                     ),
                                     child: Row(
@@ -342,7 +342,7 @@ class _StockHistoryDialogState extends State<StockHistoryDialog> {
                                           width: 40,
                                           height: 40,
                                           decoration: BoxDecoration(
-                                            color: typeColor.withOpacity(0.2),
+                                            color: typeColor.withValues(alpha: 0.2),
                                             borderRadius: BorderRadius.circular(
                                                 AppSpacing.radiusSM),
                                           ),

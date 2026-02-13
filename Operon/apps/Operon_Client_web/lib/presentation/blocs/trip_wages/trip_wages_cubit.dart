@@ -4,6 +4,7 @@ import 'package:core_bloc/core_bloc.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
 import 'package:dash_web/data/repositories/employees_repository.dart';
+import 'package:dash_web/data/repositories/job_roles_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,12 +16,14 @@ class TripWagesCubit extends Cubit<TripWagesState> {
     required DeliveryMemoRepository deliveryMemoRepository,
     required String organizationId,
     EmployeesRepository? employeesRepository,
+    JobRolesRepository? jobRolesRepository,
     WageSettingsRepository? wageSettingsRepository,
     WageCalculationService? wageCalculationService,
   })  : _repository = repository,
         _deliveryMemoRepository = deliveryMemoRepository,
         _organizationId = organizationId,
         _employeesRepository = employeesRepository,
+      _jobRolesRepository = jobRolesRepository,
         _wageSettingsRepository = wageSettingsRepository,
         _wageCalculationService = wageCalculationService,
         super(const TripWagesState());
@@ -29,14 +32,29 @@ class TripWagesCubit extends Cubit<TripWagesState> {
   final DeliveryMemoRepository _deliveryMemoRepository;
   final String _organizationId;
   final EmployeesRepository? _employeesRepository;
+  final JobRolesRepository? _jobRolesRepository;
   final WageSettingsRepository? _wageSettingsRepository;
   final WageCalculationService? _wageCalculationService;
   StreamSubscription<List<TripWage>>? _tripWagesSubscription;
+
+  final Map<String, String> _cachedJobRoleIdByTitle = {};
+  String? _cachedRoleTitle;
+  Future<void>? _loadingEmployeesFuture;
 
   @override
   Future<void> close() {
     _tripWagesSubscription?.cancel();
     return super.close();
+  }
+
+  Future<WageSettings?> _ensureWageSettings() async {
+    if (state.wageSettings != null) return state.wageSettings;
+    if (_wageSettingsRepository == null) return null;
+    final settings = await _wageSettingsRepository.fetchWageSettings(_organizationId);
+    if (settings != null) {
+      emit(state.copyWith(wageSettings: settings));
+    }
+    return settings;
   }
 
   /// Load trip wages
@@ -153,9 +171,20 @@ class TripWagesCubit extends Cubit<TripWagesState> {
 
   /// Create trip wage
   Future<String> createTripWage(TripWage tripWage) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      debugPrint('[TripWagesCubit] User not authenticated. Cannot create trip wage.');
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'User not authenticated. Please sign in again.',
+      ));
+      throw Exception('User not authenticated');
+    }
     try {
       final tripWageId = await _repository.createTripWage(tripWage);
-      await loadTripWages();
+      if (state.tripWages.isNotEmpty) {
+        await loadTripWages();
+      }
       return tripWageId;
     } catch (e, stackTrace) {
       debugPrint('[TripWagesCubit] Error creating trip wage: $e');
@@ -172,7 +201,9 @@ class TripWagesCubit extends Cubit<TripWagesState> {
   Future<void> updateTripWage(String tripWageId, Map<String, dynamic> updates) async {
     try {
       await _repository.updateTripWage(tripWageId, updates);
-      await loadTripWages();
+      if (state.tripWages.isNotEmpty) {
+        await loadTripWages();
+      }
     } catch (e, stackTrace) {
       debugPrint('[TripWagesCubit] Error updating trip wage: $e');
       debugPrint('[TripWagesCubit] Stack trace: $stackTrace');
@@ -188,6 +219,8 @@ class TripWagesCubit extends Cubit<TripWagesState> {
   /// Uses Cloud Function to atomically revert all changes
   Future<void> deleteTripWage(String tripWageId) async {
     try {
+      emit(state.copyWith(status: ViewStatus.loading));
+      
       // Get trip wage details before deletion to check if revert is needed
       final tripWage = await _repository.getTripWage(tripWageId);
       if (tripWage == null) {
@@ -206,7 +239,10 @@ class TripWagesCubit extends Cubit<TripWagesState> {
           if (state.selectedDate != null) {
             await loadActiveDMsForDate(state.selectedDate!);
           }
-          await loadTripWages();
+          if (state.tripWages.isNotEmpty) {
+            await loadTripWages();
+          }
+          emit(state.copyWith(status: ViewStatus.success, message: 'Trip wage deleted successfully'));
           return;
         } else {
           throw Exception('Wage calculation service not available for revert');
@@ -218,15 +254,56 @@ class TripWagesCubit extends Cubit<TripWagesState> {
       if (state.selectedDate != null) {
         await loadActiveDMsForDate(state.selectedDate!);
       }
-      await loadTripWages();
+      if (state.tripWages.isNotEmpty) {
+        await loadTripWages();
+      }
+      emit(state.copyWith(status: ViewStatus.success, message: 'Trip wage deleted successfully'));
     } catch (e, stackTrace) {
+      final errorMessage = _getErrorMessage(e);
       debugPrint('[TripWagesCubit] Error deleting trip wage: $e');
       debugPrint('[TripWagesCubit] Stack trace: $stackTrace');
       emit(state.copyWith(
         status: ViewStatus.failure,
-        message: 'Failed to delete trip wage: ${e.toString()}',
+        message: errorMessage,
       ));
       rethrow;
+    }
+  }
+
+  /// Helper method to extract user-friendly error messages
+  String _getErrorMessage(dynamic error) {
+    final errorStr = error.toString();
+    
+    // First, check for specific error code patterns from Cloud Functions
+    if (errorStr.contains('not-found')) {
+      return 'Trip wage not found. It may have already been deleted.';
+    } else if (errorStr.contains('invalid-argument')) {
+      return 'Invalid trip wage data. Please check the details.';
+    } else if (errorStr.contains('failed-precondition')) {
+      return 'Cannot delete: Trip wage has already been processed. Please revert it first.';
+    } else if (errorStr.contains('permission-denied')) {
+      return 'You do not have permission to delete this trip wage.';
+    } else if (errorStr.contains('unauthenticated')) {
+      return 'Authentication expired. Please log in again.';
+    } else if (errorStr.contains('internal')) {
+      // Internal errors might have more details - extract them if available
+      if (errorStr.contains('permission')) {
+        return 'Permission error: You cannot delete this trip wage at this time.';
+      } else if (errorStr.contains('not-found')) {
+        return 'Trip wage not found. It may have already been deleted.';
+      }
+      return 'An internal server error occurred. Please try again later, or contact support if the problem persists.';
+    } else if (errorStr.contains('Trip wage not found')) {
+      return 'Trip wage not found. It may have already been deleted.';
+    } else if (errorStr.contains('Wage calculation service not available')) {
+      return 'Unable to process reversal. Please try again.';
+    } else if (errorStr.contains('timeout') || errorStr.contains('deadline')) {
+      return 'Request timed out. Please try again.';
+    } else if (errorStr.contains('network') || errorStr.contains('connection')) {
+      return 'Network error. Please check your connection and try again.';
+    } else {
+      debugPrint('[TripWagesCubit] Unmapped error: $errorStr');
+      return 'Failed to delete trip wage: $errorStr';
     }
   }
 
@@ -263,51 +340,47 @@ class TripWagesCubit extends Cubit<TripWagesState> {
       
       // Set start and end of day for the selected date
       final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1)).subtract(const Duration(microseconds: 1));
+      final endOfDay = startOfDay;
       
       final memos = await _deliveryMemoRepository
           .watchDeliveryMemos(
             organizationId: _organizationId,
-            status: 'active',
             startDate: startOfDay,
             endDate: endOfDay,
           )
           .first;
 
-      // Load all active DMs and check for existing trip wages
+      // Extract all DM IDs for batch fetching (PERFORMANCE CRITICAL)
+      final dmIds = memos
+          .map((memo) => memo['dmId'] as String?)
+          .whereType<String>()
+          .toList();
+
+      // CRITICAL OPTIMIZATION: Batch fetch trip wages instead of N+1 queries
+      // 50 DMs: 51 queries → 6 queries (1 DM fetch + 5 batches of 10)
+      final tripWagesByDmId = dmIds.isNotEmpty
+          ? await _repository.fetchTripWagesByDmIds(_organizationId, dmIds)
+          : <String, TripWage>{};
+
+      // Build active DMs with trip wage info (simplified structure)
       final activeDMs = <Map<String, dynamic>>[];
       for (final memo in memos) {
         final dmId = memo['dmId'] as String?;
-        if (dmId != null) {
-          // Check if trip wage already exists and add full trip wage data to the memo
-          final existingWage = await _repository.fetchTripWageByDmId(dmId);
-          final memoWithWageInfo = Map<String, dynamic>.from(memo);
-          if (existingWage != null) {
-            memoWithWageInfo['hasTripWage'] = true;
-            // fetchTripWageByDmId returns TripWage.fromJson(doc.data(), doc.id)
-            // which sets tripWageId to doc.id if missing, so existingWage.tripWageId should be valid
-            // But to be safe, ensure it's not empty
-            if (existingWage.tripWageId.isEmpty) {
-              // Skip this DM if tripWageId is invalid (shouldn't happen, but handle edge case)
-              debugPrint('[TripWagesCubit] Warning: Trip wage found but tripWageId is empty for dmId: $dmId');
-              continue;
-            }
-            memoWithWageInfo['tripWageId'] = existingWage.tripWageId;
-            memoWithWageInfo['tripWageStatus'] = existingWage.status.name;
-            memoWithWageInfo['tripWage'] = existingWage; // Include full trip wage object
-            // Include wage breakdown for easy access
-            memoWithWageInfo['totalWages'] = existingWage.totalWages;
-            memoWithWageInfo['loadingWages'] = existingWage.loadingWages;
-            memoWithWageInfo['unloadingWages'] = existingWage.unloadingWages;
-            memoWithWageInfo['loadingWagePerEmployee'] = existingWage.loadingWagePerEmployee;
-            memoWithWageInfo['unloadingWagePerEmployee'] = existingWage.unloadingWagePerEmployee;
-            memoWithWageInfo['loadingEmployeeIds'] = existingWage.loadingEmployeeIds;
-            memoWithWageInfo['unloadingEmployeeIds'] = existingWage.unloadingEmployeeIds;
-          } else {
-            memoWithWageInfo['hasTripWage'] = false;
-          }
-          activeDMs.add(memoWithWageInfo);
-        }
+        if (dmId == null) continue;
+
+        final tripWage = tripWagesByDmId[dmId];
+        
+        // Simplified data structure: only essential fields
+        final memoData = <String, dynamic>{
+          ...memo,  // Keep original DM data
+          'hasTripWage': tripWage != null,
+          if (tripWage != null) ...{
+            'tripWageId': tripWage.tripWageId,
+            'tripWageStatus': tripWage.status.name,
+            'tripWage': tripWage, // Full object for wage calculations
+          },
+        };
+        activeDMs.add(memoData);
       }
 
       emit(state.copyWith(
@@ -328,7 +401,48 @@ class TripWagesCubit extends Cubit<TripWagesState> {
 
   /// Load employees filtered by role title
   Future<void> loadEmployeesByRole(String roleTitle) async {
-      if (_employeesRepository == null) {
+    if (_employeesRepository == null) {
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Employees repository not available',
+      ));
+      return;
+    }
+
+    final normalizedTitle = roleTitle.trim().toLowerCase();
+    if (normalizedTitle.isEmpty) {
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Role title cannot be empty',
+      ));
+      return;
+    }
+
+    if (state.loadingEmployees.isNotEmpty &&
+        _cachedRoleTitle != null &&
+        _cachedRoleTitle == normalizedTitle) {
+      return;
+    }
+
+    final inFlight = _loadingEmployeesFuture;
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    _loadingEmployeesFuture = _loadEmployeesByRoleInternal(normalizedTitle);
+    try {
+      await _loadingEmployeesFuture;
+    } finally {
+      _loadingEmployeesFuture = null;
+    }
+  }
+
+  Future<void> _loadEmployeesByRoleInternal(String normalizedTitle) async {
+    try {
+      emit(state.copyWith(status: ViewStatus.loading));
+
+      final employeesRepository = _employeesRepository;
+      if (employeesRepository == null) {
         emit(state.copyWith(
           status: ViewStatus.failure,
           message: 'Employees repository not available',
@@ -336,17 +450,32 @@ class TripWagesCubit extends Cubit<TripWagesState> {
         return;
       }
 
-      try {
-        emit(state.copyWith(status: ViewStatus.loading));
-        
-        final allEmployees = await _employeesRepository.fetchEmployees(_organizationId);
-      
-      // Filter employees where any job role title matches (case-insensitive)
-      final filteredEmployees = allEmployees.where((employee) {
-        return employee.jobRoles.values.any(
-          (jobRole) => jobRole.jobRoleTitle.toUpperCase() == roleTitle.toUpperCase(),
-        );
-      }).toList();
+      String? jobRoleId = _cachedJobRoleIdByTitle[normalizedTitle];
+      if (jobRoleId == null && _jobRolesRepository != null) {
+        final roles = await _jobRolesRepository.fetchJobRoles(_organizationId);
+        for (final role in roles) {
+          if (role.title.trim().toLowerCase() == normalizedTitle) {
+            jobRoleId = role.id;
+            _cachedJobRoleIdByTitle[normalizedTitle] = role.id;
+            break;
+          }
+        }
+      }
+
+      List<OrganizationEmployee> filteredEmployees;
+      if (jobRoleId != null && jobRoleId.isNotEmpty) {
+        filteredEmployees =
+            await employeesRepository.fetchEmployeesByJobRole(_organizationId, jobRoleId);
+      } else {
+        final allEmployees = await employeesRepository.fetchEmployees(_organizationId);
+        filteredEmployees = allEmployees.where((employee) {
+          return employee.jobRoles.values.any(
+            (jobRole) => jobRole.jobRoleTitle.trim().toLowerCase() == normalizedTitle,
+          );
+        }).toList();
+      }
+
+      _cachedRoleTitle = normalizedTitle;
 
       emit(state.copyWith(
         status: ViewStatus.success,
@@ -440,8 +569,11 @@ class TripWagesCubit extends Cubit<TripWagesState> {
     }
 
     try {
+      if (state.wageSettings != null) return;
       final settings = await _wageSettingsRepository.fetchWageSettings(_organizationId);
-      emit(state.copyWith(wageSettings: settings));
+      if (settings != null) {
+        emit(state.copyWith(wageSettings: settings));
+      }
     } catch (e, stackTrace) {
       debugPrint('[TripWagesCubit] Error loading wage settings: $e');
       debugPrint('[TripWagesCubit] Stack trace: $stackTrace');
@@ -458,6 +590,14 @@ class TripWagesCubit extends Cubit<TripWagesState> {
     bool sameEmployees = false,
   }) async {
     try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final resolvedCreatedBy = createdBy.isNotEmpty
+          ? createdBy
+          : (currentUser?.uid ?? '');
+      if (resolvedCreatedBy.isEmpty) {
+        throw Exception('User not authenticated');
+      }
+
       // Get quantity from DM
       final items = dm['items'] as List<dynamic>? ?? [];
       if (items.isEmpty) {
@@ -470,13 +610,11 @@ class TripWagesCubit extends Cubit<TripWagesState> {
       WageCalculationMethod? method;
       double totalWage = 0.0;
       
-      if (_wageSettingsRepository != null) {
-        final settings = await _wageSettingsRepository.fetchWageSettings(_organizationId);
-        if (settings != null) {
-          method = settings.calculationMethods[methodId];
-          if (method != null) {
-            totalWage = calculateWageForQuantity(quantity, method);
-          }
+      final settings = await _ensureWageSettings();
+      if (settings != null) {
+        method = settings.calculationMethods[methodId];
+        if (method != null) {
+          totalWage = calculateWageForQuantity(quantity, method);
         }
       }
 
@@ -511,7 +649,7 @@ class TripWagesCubit extends Cubit<TripWagesState> {
         loadingWagePerEmployee: loadingWagePerEmployee,
         unloadingWagePerEmployee: unloadingWagePerEmployee,
         status: TripWageStatus.recorded, // Start with recorded status
-        createdBy: createdBy,
+        createdBy: resolvedCreatedBy,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -541,7 +679,7 @@ class TripWagesCubit extends Cubit<TripWagesState> {
         throw Exception('Wage settings repository not available');
       }
 
-      final settings = await _wageSettingsRepository.fetchWageSettings(_organizationId);
+      final settings = await _ensureWageSettings();
       if (settings == null) {
         throw Exception('Wage settings not found');
       }
@@ -600,7 +738,7 @@ class TripWagesCubit extends Cubit<TripWagesState> {
         throw Exception('Wage calculation service not available');
       }
 
-      final settings = await _wageSettingsRepository.fetchWageSettings(_organizationId);
+      final settings = await _ensureWageSettings();
       if (settings == null) {
         throw Exception('Wage settings not found');
       }

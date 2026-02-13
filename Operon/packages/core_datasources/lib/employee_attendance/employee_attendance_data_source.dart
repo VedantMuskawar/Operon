@@ -197,6 +197,25 @@ class EmployeeAttendanceDataSource {
     return attendanceList;
   }
 
+  /// Fetch attendance for a specific month across an organization
+  /// Uses a collection group query on Attendance subcollections.
+  Future<List<EmployeeAttendance>> fetchAttendanceForMonthForOrganization({
+    required String organizationId,
+    required String financialYear,
+    required String yearMonth, // "YYYY-MM" format
+  }) async {
+    final querySnapshot = await _firestore
+        .collectionGroup('Attendance')
+        .where('organizationId', isEqualTo: organizationId)
+        .where('financialYear', isEqualTo: financialYear)
+        .where(FieldPath.documentId, isEqualTo: yearMonth)
+        .get();
+
+    return querySnapshot.docs
+        .map((doc) => EmployeeAttendance.fromJson(doc.data(), doc.id))
+        .toList();
+  }
+
   /// Update an existing attendance record
   Future<void> updateAttendanceRecord({
     required String employeeId,

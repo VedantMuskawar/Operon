@@ -9,13 +9,10 @@ class DmSettingsState extends BaseState {
   const DmSettingsState({
     super.status = ViewStatus.initial,
     this.settings,
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final DmSettings? settings;
-  @override
-  final String? message;
-
   @override
   DmSettingsState copyWith({
     ViewStatus? status,

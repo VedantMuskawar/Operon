@@ -128,9 +128,9 @@ class _AttendanceViewContent extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.paddingLG),
-                  ElevatedButton(
+                  FilledButton(
                     onPressed: () => context.read<AttendanceCubit>().refresh(),
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AuthColors.primary,
                       foregroundColor: AuthColors.textMain,
                     ),
@@ -269,7 +269,7 @@ class _MonthPicker extends StatelessWidget {
           color: AuthColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
-            color: AuthColors.primary.withOpacity(0.3),
+            color: AuthColors.primary.withValues(alpha: 0.3),
             width: 1,
           ),
         ),
@@ -339,7 +339,7 @@ class _RoleAttendanceTable extends StatelessWidget {
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(
-          color: AuthColors.primary.withOpacity(0.2),
+          color: AuthColors.primary.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -351,7 +351,7 @@ class _RoleAttendanceTable extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.paddingLG),
             decoration: BoxDecoration(
-              color: AuthColors.primary.withOpacity(0.1),
+              color: AuthColors.primary.withValues(alpha: 0.1),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(
@@ -368,7 +368,7 @@ class _RoleAttendanceTable extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
                   decoration: BoxDecoration(
-                    color: AuthColors.primary.withOpacity(0.2),
+                    color: AuthColors.primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   ),
                   child: Text(
@@ -404,7 +404,7 @@ class _RoleAttendanceTable extends StatelessWidget {
                   ),
                   child: Table(
                     border: TableBorder.all(
-                      color: AuthColors.primary.withOpacity(0.3),
+                      color: AuthColors.primary.withValues(alpha: 0.3),
                       width: 1,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                     ),
@@ -416,7 +416,7 @@ class _RoleAttendanceTable extends StatelessWidget {
                       // Header Row
                       TableRow(
                         decoration: BoxDecoration(
-                          color: AuthColors.primary.withOpacity(0.1),
+                          color: AuthColors.primary.withValues(alpha: 0.1),
                         ),
                         children: [
                           _buildTableCell('Employee Name', isHeader: true),

@@ -8,6 +8,14 @@ class ClientService {
 
   static const String _collection = 'CLIENTS';
 
+  Query<Map<String, dynamic>> _clientsQuery({String? organizationId}) {
+    Query<Map<String, dynamic>> query = _firestore.collection(_collection);
+    if (organizationId != null && organizationId.isNotEmpty) {
+      query = query.where('organizationId', isEqualTo: organizationId);
+    }
+    return query;
+  }
+
   Future<void> createClient({
     required String name,
     required String primaryPhone,
@@ -66,10 +74,12 @@ class ClientService {
     await docRef.update({'clientId': docRef.id});
   }
 
-  Future<ClientRecord?> findClientByPhone(String phone) async {
+  Future<ClientRecord?> findClientByPhone(
+    String phone, {
+    String? organizationId,
+  }) async {
     final normalized = _normalizePhone(phone);
-    final snapshot = await _firestore
-        .collection(_collection)
+    final snapshot = await _clientsQuery(organizationId: organizationId)
         .where('phoneIndex', arrayContains: normalized)
         .limit(1)
         .get();
@@ -77,9 +87,11 @@ class ClientService {
     return ClientRecord.fromDoc(snapshot.docs.first);
   }
 
-  Future<List<ClientRecord>> fetchClients({int limit = 100}) async {
-    final snapshot = await _firestore
-        .collection(_collection)
+  Future<List<ClientRecord>> fetchClients({
+    int limit = 100,
+    String? organizationId,
+  }) async {
+    final snapshot = await _clientsQuery(organizationId: organizationId)
         .orderBy('name_lc')
         .limit(limit)
         .get();
@@ -93,9 +105,11 @@ class ClientService {
       })> fetchClientsPage({
     int limit = 30,
     DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+        String? organizationId,
   }) async {
-    Query<Map<String, dynamic>> query =
-        _firestore.collection(_collection).orderBy('name_lc').limit(limit);
+        Query<Map<String, dynamic>> query = _clientsQuery(
+          organizationId: organizationId,
+        ).orderBy('name_lc').limit(limit);
 
     if (startAfterDocument != null) {
       query = query.startAfterDocument(startAfterDocument);
@@ -107,18 +121,45 @@ class ClientService {
     return (clients: clients, lastDoc: lastDoc);
   }
 
-  Future<List<ClientRecord>> fetchRecentClients({int limit = 10}) async {
-    final snapshot = await _firestore
-        .collection(_collection)
+  Future<List<ClientRecord>> fetchRecentClients({
+    int limit = 10,
+    String? organizationId,
+  }) async {
+    final snapshot = await _clientsQuery(organizationId: organizationId)
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .get();
     return snapshot.docs.map(ClientRecord.fromDoc).toList();
   }
 
-  Stream<List<ClientRecord>> recentClientsStream({int limit = 10}) {
-    return _firestore
-        .collection(_collection)
+  Future<
+      ({
+        List<ClientRecord> clients,
+        DocumentSnapshot<Map<String, dynamic>>? lastDoc,
+      })> fetchRecentClientsPage({
+    int limit = 20,
+    DocumentSnapshot<Map<String, dynamic>>? startAfterDocument,
+    String? organizationId,
+  }) async {
+    Query<Map<String, dynamic>> query = _clientsQuery(
+      organizationId: organizationId,
+    ).orderBy('createdAt', descending: true).limit(limit);
+
+    if (startAfterDocument != null) {
+      query = query.startAfterDocument(startAfterDocument);
+    }
+
+    final snapshot = await query.get();
+    final clients = snapshot.docs.map(ClientRecord.fromDoc).toList();
+    final lastDoc = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
+    return (clients: clients, lastDoc: lastDoc);
+  }
+
+  Stream<List<ClientRecord>> recentClientsStream({
+    int limit = 10,
+    String? organizationId,
+  }) {
+    return _clientsQuery(organizationId: organizationId)
         .orderBy('createdAt', descending: true)
         .limit(limit)
         .snapshots()
@@ -130,11 +171,13 @@ class ClientService {
   Future<List<ClientRecord>> searchClientsByName(
     String query, {
     int limit = 20,
+    String? organizationId,
   }) async {
-    if (query.trim().isEmpty) return fetchClients(limit: limit);
+    if (query.trim().isEmpty) {
+      return fetchClients(limit: limit, organizationId: organizationId);
+    }
     final normalized = query.trim().toLowerCase();
-    final snapshot = await _firestore
-        .collection(_collection)
+    final snapshot = await _clientsQuery(organizationId: organizationId)
         .orderBy('name_lc')
         .startAt([normalized])
         .endAt(['$normalized\uf8ff'])
@@ -146,11 +189,11 @@ class ClientService {
   Future<List<ClientRecord>> searchClientsByPhone(
     String digits, {
     int limit = 10,
+    String? organizationId,
   }) async {
     final normalized = _normalizePhone(digits);
     if (normalized.isEmpty) return [];
-    final snapshot = await _firestore
-        .collection(_collection)
+    final snapshot = await _clientsQuery(organizationId: organizationId)
         .where('phoneIndex', arrayContains: normalized)
         .limit(limit)
         .get();

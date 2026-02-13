@@ -387,7 +387,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                       decoration: BoxDecoration(
                         color: AuthColors.surface,
                         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                        border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
+                        border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.1)),
                       ),
                       child: const Row(
                         children: [
@@ -428,7 +428,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                     decoration: BoxDecoration(
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                      border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
+                      border: Border.all(color: AuthColors.textMain.withValues(alpha: 0.1)),
                     ),
                     child: const Row(
                       children: [

@@ -11,6 +11,30 @@ class DeliveryMemoRepository {
     return _dataSource.getDeliveryMemo(dmId);
   }
 
+  /// Get a single delivery memo by DM number (fast lookup)
+  Future<Map<String, dynamic>?> getDeliveryMemoByDmNumber({
+    required String organizationId,
+    required int dmNumber,
+  }) {
+    return _dataSource.getDeliveryMemoByDmNumber(
+      organizationId: organizationId,
+      dmNumber: dmNumber,
+    );
+  }
+
+  /// Fetch delivery memos by DM number range (inclusive)
+  Future<List<Map<String, dynamic>>> getDeliveryMemosByDmNumberRange({
+    required String organizationId,
+    required int fromDmNumber,
+    required int toDmNumber,
+  }) {
+    return _dataSource.getDeliveryMemosByDmNumberRange(
+      organizationId: organizationId,
+      fromDmNumber: fromDmNumber,
+      toDmNumber: toDmNumber,
+    );
+  }
+
   /// Generate DM for a scheduled trip
   Future<String> generateDM({
     required String organizationId,

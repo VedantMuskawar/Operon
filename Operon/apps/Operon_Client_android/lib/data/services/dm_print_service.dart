@@ -15,6 +15,7 @@ import 'package:flutter_html_to_pdf_plus/flutter_html_to_pdf_plus.dart'
         PrintOrientation,
         PrintSize,
         PdfPageMargin;
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
@@ -265,9 +266,11 @@ class DmPrintService {
                 acc.qrCodeImageUrl != null && acc.qrCodeImageUrl!.isNotEmpty,
           );
         } catch (e) {
+          debugPrint('[DmPrintService] QR account lookup failed: $e');
           try {
             selectedAccount = accounts.firstWhere((acc) => acc.isPrimary);
           } catch (e) {
+            debugPrint('[DmPrintService] Primary account lookup failed: $e');
             selectedAccount = accounts.first;
           }
         }
@@ -282,7 +285,9 @@ class DmPrintService {
           try {
             qrCodeBytes = await _qrCodeService
                 .generateQrCodeImage(selectedAccount.upiQrData!);
-          } catch (e) {}
+          } catch (e) {
+            debugPrint('[DmPrintService] Failed generating QR from UPI data: $e');
+          }
         } else if ((qrCodeBytes == null || qrCodeBytes.isEmpty) &&
             selectedAccount.upiId != null &&
             selectedAccount.upiId!.isNotEmpty) {
@@ -291,7 +296,9 @@ class DmPrintService {
                 'upi://pay?pa=${selectedAccount.upiId}&pn=${Uri.encodeComponent(selectedAccount.name)}&cu=INR';
             qrCodeBytes =
                 await _qrCodeService.generateQrCodeImage(upiPaymentString);
-          } catch (e) {}
+          } catch (e) {
+            debugPrint('[DmPrintService] Failed generating QR from UPI ID: $e');
+          }
         }
       } else {
         try {
@@ -1741,13 +1748,13 @@ class DmPrintService {
     Map<String, dynamic>? dmData,
   }) async {
     try {
-      print(
+      debugPrint(
           '[DmPrintService] Starting unified HTML-based print flow for DM $dmNumber');
 
       // Fetch DM data if not provided
       Map<String, dynamic>? finalDmData = dmData;
       if (finalDmData == null) {
-        print('[DmPrintService] Fetching DM data by number: $dmNumber');
+        debugPrint('[DmPrintService] Fetching DM data by number: $dmNumber');
         finalDmData = await fetchDmByNumberOrId(
           organizationId: organizationId,
           dmNumber: dmNumber,
@@ -1761,14 +1768,14 @@ class DmPrintService {
       }
 
       // Load view payload (settings, payment account, QR code, logo)
-      print('[DmPrintService] Loading DM view data...');
+      debugPrint('[DmPrintService] Loading DM view data...');
       final viewPayload = await loadDmViewData(
         organizationId: organizationId,
         dmData: finalDmData,
       );
 
       // Generate HTML string using same method as Web
-      print('[DmPrintService] Generating HTML for print...');
+      debugPrint('[DmPrintService] Generating HTML for print...');
       final htmlString = generateDmHtmlForPrint(
         dmData: finalDmData,
         dmSettings: viewPayload.dmSettings,
@@ -1778,20 +1785,20 @@ class DmPrintService {
       );
 
       // Convert HTML to PDF bytes using flutter_html_to_pdf_plus
-      print('[DmPrintService] Converting HTML to PDF...');
+      debugPrint('[DmPrintService] Converting HTML to PDF...');
       final pdfBytes = await _convertHtmlToPdf(
         htmlString,
         dmSettings: viewPayload.dmSettings,
       );
 
       // Open print preview with PDF bytes
-      print('[DmPrintService] Opening print preview...');
+      debugPrint('[DmPrintService] Opening print preview...');
       await Printing.layoutPdf(onLayout: (_) async => pdfBytes);
 
-      print('[DmPrintService] Print preview opened successfully');
+      debugPrint('[DmPrintService] Print preview opened successfully');
     } catch (e, stackTrace) {
-      print('[DmPrintService] ERROR in print flow: $e');
-      print('[DmPrintService] Stack trace: $stackTrace');
+      debugPrint('[DmPrintService] ERROR in print flow: $e');
+      debugPrint('[DmPrintService] Stack trace: $stackTrace');
       throw Exception('Failed to print: $e');
     }
   }
@@ -1829,9 +1836,9 @@ class DmPrintService {
 
       return pdfBytes;
     } catch (e) {
-      print('[DmPrintService] ERROR converting HTML to PDF: $e');
+      debugPrint('[DmPrintService] ERROR converting HTML to PDF: $e');
       // Fallback to old PDF generation if HTML-to-PDF fails
-      print('[DmPrintService] Falling back to PDF template generation...');
+      debugPrint('[DmPrintService] Falling back to PDF template generation...');
       rethrow;
     }
   }

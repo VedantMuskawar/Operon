@@ -71,7 +71,7 @@ class _AlphabetStripState extends State<AlphabetStrip> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingSM, horizontal: AppSpacing.paddingXS),
           decoration: BoxDecoration(
-            color: AuthColors.surface.withOpacity(0.9),
+            color: AuthColors.surface.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
             border: Border.all(
               color: AuthColors.textMainWithOpacity(0.1),
@@ -112,7 +112,7 @@ class _AlphabetStripState extends State<AlphabetStrip> {
                           ? AuthColors.legacyAccent
                           : isAvailable
                               ? (isHovered
-                                  ? AuthColors.legacyAccent.withOpacity(0.7)
+                                ? AuthColors.legacyAccent.withValues(alpha: 0.7)
                                   : AuthColors.textSub)
                               : AuthColors.textDisabled,
                     ),

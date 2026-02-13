@@ -28,26 +28,26 @@ class ModernTile extends StatelessWidget {
 
   static List<BoxShadow> _cardShadow() => [
         BoxShadow(
-          color: AuthColors.background.withOpacity(0.3),
+          color: AuthColors.background.withValues(alpha: 0.3),
           blurRadius: 8,
           offset: const Offset(0, 4),
         ),
       ];
   static List<BoxShadow> _cardElevatedShadow() => [
         BoxShadow(
-          color: AuthColors.background.withOpacity(0.4),
+          color: AuthColors.background.withValues(alpha: 0.4),
           blurRadius: 12,
           offset: const Offset(0, 6),
         ),
         BoxShadow(
-          color: AuthColors.background.withOpacity(0.2),
+          color: AuthColors.background.withValues(alpha: 0.2),
           blurRadius: 4,
           offset: const Offset(0, 2),
         ),
       ];
   static List<BoxShadow> _cardHoverShadow() => [
         BoxShadow(
-          color: AuthColors.background.withOpacity(0.5),
+          color: AuthColors.background.withValues(alpha: 0.5),
           blurRadius: 16,
           offset: const Offset(0, 8),
         ),
@@ -56,7 +56,7 @@ class ModernTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveBorderColor = borderColor ??
-        (accentColor?.withOpacity(0.2) ?? AuthColors.textMainWithOpacity(0.1));
+      (accentColor?.withValues(alpha: 0.2) ?? AuthColors.textMainWithOpacity(0.1));
     final effectivePadding =
         padding ?? const EdgeInsets.all(AppSpacing.paddingLG);
     final effectiveMargin = margin ?? EdgeInsets.zero;
@@ -172,13 +172,13 @@ class ModernTileWithAvatar extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [
                   effectiveAvatarColor,
-                  effectiveAvatarColor.withOpacity(0.7),
+                  effectiveAvatarColor.withValues(alpha: 0.7),
                 ],
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: effectiveAvatarColor.withOpacity(0.4),
+                  color: effectiveAvatarColor.withValues(alpha: 0.4),
                   blurRadius: 8,
                   spreadRadius: -1,
                 ),
@@ -301,13 +301,13 @@ class ModernProductTile extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  AuthColors.primary.withOpacity(0.3),
-                  AuthColors.primary.withOpacity(0.1),
+                  AuthColors.primary.withValues(alpha: 0.3),
+                  AuthColors.primary.withValues(alpha: 0.1),
                 ],
               ),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               border: Border.all(
-                color: AuthColors.primary.withOpacity(0.2),
+                color: AuthColors.primary.withValues(alpha: 0.2),
               ),
             ),
             child: const Icon(

@@ -32,6 +32,18 @@ class PendingOrdersRepository {
     return _dataSource.watchPendingOrders(orgId);
   }
 
+  Stream<List<Map<String, dynamic>>> watchPendingOrdersForClient(
+    String orgId,
+    String clientId, {
+    int limit = 50,
+  }) {
+    return _dataSource.watchPendingOrdersForClient(
+      orgId,
+      clientId,
+      limit: limit,
+    );
+  }
+
   Future<void> updateOrderTrips({
     required String orderId,
     required String productId,

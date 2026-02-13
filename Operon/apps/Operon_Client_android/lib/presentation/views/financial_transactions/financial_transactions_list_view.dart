@@ -27,6 +27,7 @@ class _FinancialTransactionsListViewState
   late final TextEditingController _searchController;
   late final ScrollController _scrollController;
   final bool _isLoadingMore = false;
+  bool _enableAnimations = true;
 
   @override
   void initState() {
@@ -114,6 +115,18 @@ class _FinancialTransactionsListViewState
           state.searchQuery,
         );
 
+        if (_enableAnimations &&
+            state.status == ViewStatus.success &&
+            filteredTransactions.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _enableAnimations = false;
+              });
+            }
+          });
+        }
+
         // Error state
         if (state.status == ViewStatus.failure) {
           return SingleChildScrollView(
@@ -177,47 +190,61 @@ class _FinancialTransactionsListViewState
             else ...[
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG),
-                sliver: AnimationLimiter(
-                  child: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        if (index >= filteredTransactions.length) {
-                          return _isLoadingMore
-                              ? const Padding(
-                                  padding: EdgeInsets.all(AppSpacing.paddingLG),
-                                  child: Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                )
-                              : const SizedBox.shrink();
-                        }
-
-                        final transaction = filteredTransactions[index];
-                        return AnimationConfiguration.staggeredList(
-                          position: index,
-                          duration: const Duration(milliseconds: 200),
-                          child: SlideAnimation(
-                            verticalOffset: 50.0,
-                            child: FadeInAnimation(
-                              curve: Curves.easeOut,
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
-                                child: _buildTransactionTile(transaction),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      childCount:
-                          filteredTransactions.length + (_isLoadingMore ? 1 : 0),
-                    ),
-                  ),
-                ),
+                sliver: _enableAnimations
+                    ? AnimationLimiter(
+                        child: _buildTransactionsSliverList(filteredTransactions),
+                      )
+                    : _buildTransactionsSliverList(filteredTransactions),
               ),
             ],
           ],
         );
       },
+    );
+  }
+
+  SliverList _buildTransactionsSliverList(
+    List<Transaction> filteredTransactions,
+  ) {
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index >= filteredTransactions.length) {
+            return _isLoadingMore
+                ? const Padding(
+                    padding: EdgeInsets.all(AppSpacing.paddingLG),
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : const SizedBox.shrink();
+          }
+
+          final transaction = filteredTransactions[index];
+          if (!_enableAnimations) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+              child: _buildTransactionTile(transaction),
+            );
+          }
+
+          return AnimationConfiguration.staggeredList(
+            position: index,
+            duration: const Duration(milliseconds: 200),
+            child: SlideAnimation(
+              verticalOffset: 50.0,
+              child: FadeInAnimation(
+                curve: Curves.easeOut,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                  child: _buildTransactionTile(transaction),
+                ),
+              ),
+            ),
+          );
+        },
+        childCount: filteredTransactions.length + (_isLoadingMore ? 1 : 0),
+      ),
     );
   }
 
@@ -241,10 +268,10 @@ class _FinancialTransactionsListViewState
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: AuthColors.surface.withOpacity(0.6),
+                  color: AuthColors.surface.withValues(alpha: 0.6),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AuthColors.surface.withOpacity(0.8),
+                    color: AuthColors.surface.withValues(alpha: 0.8),
                     width: 1,
                   ),
                 ),
@@ -261,10 +288,10 @@ class _FinancialTransactionsListViewState
             const SizedBox(width: AppSpacing.paddingSM),
             Container(
               decoration: BoxDecoration(
-                color: AuthColors.surface.withOpacity(0.6),
+                color: AuthColors.surface.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AuthColors.surface.withOpacity(0.8),
+                  color: AuthColors.surface.withValues(alpha: 0.8),
                   width: 1,
                 ),
               ),
@@ -387,6 +414,44 @@ class _FinancialTransactionsListViewState
   static final _filteredCache = <String, List<Transaction>>{};
   static String? _lastTransactionsHash;
   static String? _lastSearchQuery;
+  static final _searchIndexCache = <String, String>{};
+  static String? _lastSearchIndexHash;
+
+  Map<String, String> _buildSearchIndex(
+    List<Transaction> transactions,
+    String transactionsHash,
+  ) {
+    if (_lastSearchIndexHash == transactionsHash &&
+        _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final tx in transactions) {
+      final buffer = StringBuffer();
+      void add(String? value) {
+        if (value == null) return;
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        buffer.write(trimmed.toLowerCase());
+        buffer.write(' ');
+      }
+
+      add(tx.description);
+      add(tx.referenceNumber);
+      add(tx.amount.toString());
+      add(tx.clientName);
+      add(tx.paymentAccountName);
+      add(tx.metadata?['clientName']?.toString());
+      add(tx.metadata?['vendorName']?.toString());
+      add(tx.metadata?['employeeName']?.toString());
+
+      _searchIndexCache[tx.id] = buffer.toString();
+    }
+
+    _lastSearchIndexHash = transactionsHash;
+    return _searchIndexCache;
+  }
 
   List<Transaction> _getFilteredTransactions(
     List<Transaction> transactions,
@@ -395,6 +460,8 @@ class _FinancialTransactionsListViewState
     // Cache key based on transactions hash and search query
     final transactionsHash = '${transactions.length}_${transactions.hashCode}';
     final cacheKey = '${transactionsHash}_$query';
+
+    final searchIndex = _buildSearchIndex(transactions, transactionsHash);
 
     // Check if we can reuse cached result
     if (_lastTransactionsHash == transactionsHash &&
@@ -410,29 +477,14 @@ class _FinancialTransactionsListViewState
 
     // Calculate filtered list
     final filtered = query.isEmpty
-        ? transactions
-        : transactions
-            .where((tx) {
-              final queryLower = query.toLowerCase();
-              final description = tx.description?.toLowerCase() ?? '';
-              final reference = tx.referenceNumber?.toLowerCase() ?? '';
-              final amount = tx.amount.toString();
-              final clientName = tx.clientName?.toLowerCase() ??
-                  tx.metadata?['clientName']?.toString().toLowerCase() ??
-                  '';
-              final vendorName = tx.metadata?['vendorName']?.toString().toLowerCase() ?? '';
-              final employeeName = tx.metadata?['employeeName']?.toString().toLowerCase() ?? '';
-              final accountName = tx.paymentAccountName?.toLowerCase() ?? '';
-
-              return description.contains(queryLower) ||
-                  reference.contains(queryLower) ||
-                  amount.contains(queryLower) ||
-                  clientName.contains(queryLower) ||
-                  vendorName.contains(queryLower) ||
-                  employeeName.contains(queryLower) ||
-                  accountName.contains(queryLower);
-            })
-            .toList();
+      ? transactions
+      : transactions
+        .where((tx) {
+          final queryLower = query.toLowerCase();
+          final indexText = searchIndex[tx.id] ?? '';
+          return indexText.contains(queryLower);
+        })
+        .toList();
 
     // Cache result
     _filteredCache[cacheKey] = filtered;
@@ -535,7 +587,7 @@ class _EmptySearchState extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 48,
-            color: AuthColors.textSub.withOpacity(0.5),
+            color: AuthColors.textSub.withValues(alpha: 0.5),
           ),
           const SizedBox(height: AppSpacing.paddingLG),
           const Text(

@@ -37,16 +37,14 @@ class _WhatsappMessagesSwitchSectionState
   Future<void> _load() async {
     try {
       final enabled = await _service.fetchEnabled(widget.orgId);
-      if (mounted) {
-        setState(() {
-          _enabled = enabled;
-          _loading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _enabled = enabled;
+        _loading = false;
+      });
     } catch (_) {
       if (mounted) {
         setState(() => _loading = false);
-        _showError('Could not load WhatsApp settings. Try again.');
       }
     }
   }
@@ -56,9 +54,8 @@ class _WhatsappMessagesSwitchSectionState
     setState(() => _saving = true);
     try {
       await _service.setEnabled(widget.orgId, value);
-      if (mounted) {
-        setState(() => _enabled = value);
-      }
+      if (!mounted) return;
+      setState(() => _enabled = value);
     } catch (_) {
       if (mounted) {
         _showError('Could not update Whatsapp Messages. Try again.');
@@ -88,7 +85,7 @@ class _WhatsappMessagesSwitchSectionState
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AuthColors.textMainWithOpacity(0.05),
+                color: AuthColors.textMain.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(

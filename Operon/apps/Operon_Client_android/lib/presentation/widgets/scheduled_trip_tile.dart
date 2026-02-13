@@ -303,7 +303,7 @@ class ScheduledTripTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         boxShadow: [
           BoxShadow(
-            color: AuthColors.background.withOpacity(0.2),
+            color: AuthColors.background.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -342,14 +342,14 @@ class ScheduledTripTile extends StatelessWidget {
                               Icon(
                                 Icons.location_on_outlined,
                                 size: 12,
-                                color: AuthColors.textSub.withOpacity(0.6),
+                                color: AuthColors.textSub.withValues(alpha: 0.6),
                               ),
                               const SizedBox(width: AppSpacing.paddingXS),
                               Expanded(
                                 child: Text(
                                   zoneText,
                                   style: TextStyle(
-                                    color: AuthColors.textSub.withOpacity(0.6),
+                                    color: AuthColors.textSub.withValues(alpha: 0.6),
                                     fontSize: 11,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -430,7 +430,7 @@ class ScheduledTripTile extends StatelessWidget {
                           horizontal: AppSpacing.paddingSM,
                           vertical: AppSpacing.paddingXS),
                       decoration: BoxDecoration(
-                        color: AuthColors.backgroundAlt.withOpacity(0.5),
+                        color: AuthColors.backgroundAlt.withValues(alpha: 0.5),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusXS),
                       ),
@@ -460,7 +460,7 @@ class ScheduledTripTile extends StatelessWidget {
                           horizontal: AppSpacing.gapSM,
                           vertical: AppSpacing.paddingXS),
                       decoration: BoxDecoration(
-                        color: AuthColors.success.withOpacity(0.15),
+                        color: AuthColors.success.withValues(alpha: 0.15),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusXS),
                       ),
@@ -494,7 +494,7 @@ class ScheduledTripTile extends StatelessWidget {
                   _ActionButton(
                     icon: Icons.receipt_long,
                     label: 'DM-$dmNumber',
-                    color: AuthColors.info.withOpacity(0.3),
+                    color: AuthColors.info.withValues(alpha: 0.3),
                     onTap: () => _openPrintDialog(context),
                   )
                 else if (orderStatus.toLowerCase() != 'dispatched' &&
@@ -503,7 +503,7 @@ class ScheduledTripTile extends StatelessWidget {
                   _ActionButton(
                     icon: Icons.receipt_long,
                     label: 'Generate DM',
-                    color: AuthColors.info.withOpacity(0.3),
+                    color: AuthColors.info.withValues(alpha: 0.3),
                     onTap: () => _generateDM(context),
                   ),
                 if (hasDM ||
@@ -519,7 +519,7 @@ class ScheduledTripTile extends StatelessWidget {
                       child: _ActionButton(
                         icon: Icons.phone_outlined,
                         label: 'Call',
-                        color: AuthColors.success.withOpacity(0.3),
+                        color: AuthColors.success.withValues(alpha: 0.3),
                         onTap: () => _callClient(context),
                       ),
                     ),
@@ -531,7 +531,7 @@ class ScheduledTripTile extends StatelessWidget {
                         child: _ActionButton(
                           icon: hasDM ? Icons.cancel_outlined : Icons.schedule,
                           label: hasDM ? 'Cancel DM' : 'Reschedule',
-                          color: AuthColors.warning.withOpacity(0.3),
+                            color: AuthColors.warning.withValues(alpha: 0.3),
                           onTap:
                               hasDM ? () => _cancelDM(context) : onReschedule,
                         ),

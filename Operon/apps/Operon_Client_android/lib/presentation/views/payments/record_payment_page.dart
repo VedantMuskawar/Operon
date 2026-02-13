@@ -26,8 +26,11 @@ class RecordPaymentPage extends StatefulWidget {
 
 class _RecordPaymentPageState extends State<RecordPaymentPage> {
   final _amountController = TextEditingController();
+  final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
+  PaymentAccountsCubit? _paymentAccountsCubit;
+  String? _paymentAccountsOrgId;
 
   @override
   void initState() {
@@ -40,6 +43,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   void dispose() {
     _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
+    _descriptionController.dispose();
+    _paymentAccountsCubit?.close();
     super.dispose();
   }
 
@@ -47,11 +52,12 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     if (!mounted) return;
     final cubit = context.read<PaymentsCubit>();
     final splits = cubit.state.paymentAccountSplits;
-    if (splits.length == 1) {
-      final accountId = splits.keys.first;
-      final amount =
-          double.tryParse(_amountController.text.replaceAll(',', '')) ?? 0.0;
-      cubit.updatePaymentAccountSplit(accountId, amount);
+    final amount = double.tryParse(_amountController.text.replaceAll(',', '')) ?? 0.0;
+    // Always update split for selected account(s)
+    if (splits.isNotEmpty) {
+      for (final accountId in splits.keys) {
+        cubit.updatePaymentAccountSplit(accountId, amount);
+      }
     }
     setState(() {});
   }
@@ -84,7 +90,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   Future<void> _selectClient() async {
     final client = await showModalBottomSheet<ClientRecord>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AuthColors.transparent,
       isScrollControlled: true,
       builder: (modalContext) => BlocProvider.value(
         value: context.read<ClientsCubit>(),
@@ -194,14 +200,66 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       }
     }
 
-    context.read<PaymentsCubit>().updatePaymentAmount(amount);
-    await context.read<PaymentsCubit>().submitPayment();
+    if (state.paymentAccountSplits.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a payment account'),
+          backgroundColor: AuthColors.error,
+        ),
+      );
+      return;
+    }
+
+    final cubit = context.read<PaymentsCubit>();
+    cubit.updatePaymentAmount(amount);
+    cubit.setPaymentDescription(_descriptionController.text);
+
+    // If exactly one payment account split, set selected account info for cubit
+    final splits = cubit.state.paymentAccountSplits;
+    if (splits.length == 1) {
+      final accountId = splits.keys.first;
+      // Find the PaymentAccount object from the UI's loaded accounts
+      final accountsCubit = context.read<PaymentAccountsCubit>();
+      final accounts = accountsCubit.state.accounts;
+      final account = accounts.where((a) => a.id == accountId).toList();
+      if (account.isNotEmpty) {
+        final selected = account.first;
+        cubit.setSelectedPaymentAccount(
+          id: selected.id,
+          name: selected.name,
+          type: selected.type.name,
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select exactly one payment account'),
+          backgroundColor: AuthColors.error,
+        ),
+      );
+      return;
+    }
+    await cubit.submitPayment();
   }
 
   @override
   Widget build(BuildContext context) {
     final orgContext = context.watch<OrganizationContextCubit>().state;
     final organization = orgContext.organization;
+
+    if (organization != null &&
+        (_paymentAccountsCubit == null ||
+            _paymentAccountsOrgId != organization.id)) {
+      _paymentAccountsCubit?.close();
+      _paymentAccountsOrgId = organization.id;
+      _paymentAccountsCubit = PaymentAccountsCubit(
+        repository: PaymentAccountsRepository(
+          dataSource: PaymentAccountsDataSource(),
+        ),
+        qrCodeService: QrCodeService(),
+        orgId: organization.id,
+      )..loadAccounts();
+    }
 
     if (organization == null) {
       return const Scaffold(
@@ -270,6 +328,10 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                           _buildAmountField(),
                           const SizedBox(height: AppSpacing.paddingXL),
                           _buildPaymentAccountsSection(state),
+                          const SizedBox(height: AppSpacing.paddingXL),
+                          _sectionTitle('Description (Optional)'),
+                          const SizedBox(height: AppSpacing.paddingSM),
+                          _buildDescriptionField(),
                           const SizedBox(height: AppSpacing.paddingXL),
                           _sectionTitle('Payment Date'),
                           const SizedBox(height: AppSpacing.paddingSM),
@@ -375,14 +437,14 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
-        color: balance >= 0
-            ? AuthColors.success.withOpacity(0.1)
-            : AuthColors.error.withOpacity(0.1),
+          color: balance >= 0
+            ? AuthColors.success.withValues(alpha: 0.1)
+            : AuthColors.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
-          color: balance >= 0
-              ? AuthColors.success.withOpacity(0.3)
-              : AuthColors.error.withOpacity(0.3),
+            color: balance >= 0
+              ? AuthColors.success.withValues(alpha: 0.3)
+              : AuthColors.error.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -496,7 +558,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
             child: IconButton(
               icon: const Icon(Icons.close, color: AuthColors.textMain),
               style: IconButton.styleFrom(
-                backgroundColor: AuthColors.background.withOpacity(0.54),
+                backgroundColor: AuthColors.background.withValues(alpha: 0.54),
               ),
               onPressed: () =>
                   context.read<PaymentsCubit>().removeReceiptPhoto(),
@@ -534,20 +596,25 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     );
   }
 
+  Widget _buildDescriptionField() {
+    return TextFormField(
+      controller: _descriptionController,
+      maxLines: 3,
+      style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
+      decoration: _inputDecoration('Description (optional)'),
+    );
+  }
+
   Widget _buildPaymentAccountsSection(PaymentsState state) {
     final orgContext = context.watch<OrganizationContextCubit>().state;
     final organization = orgContext.organization;
 
-    if (organization == null) return const SizedBox.shrink();
+    if (organization == null || _paymentAccountsCubit == null) {
+      return const SizedBox.shrink();
+    }
 
-    return BlocProvider(
-      create: (_) => PaymentAccountsCubit(
-        repository: PaymentAccountsRepository(
-          dataSource: PaymentAccountsDataSource(),
-        ),
-        qrCodeService: QrCodeService(),
-        orgId: organization.id,
-      )..loadAccounts(),
+    return BlocProvider.value(
+      value: _paymentAccountsCubit!,
       child: BlocBuilder<PaymentAccountsCubit, PaymentAccountsState>(
         builder: (context, accountsState) {
           final accounts =
@@ -572,7 +639,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'Payment Account (Optional)',
+                    'Payment Account *',
                     style: TextStyle(
                       color: AuthColors.textSub,
                       fontSize: 14,
@@ -641,9 +708,10 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
 
   Widget _buildSubmitButton(PaymentsState state) {
     final isEnabled = state.selectedClientId != null &&
-        _amountController.text.isNotEmpty &&
-        _selectedDate != null &&
-        !state.isSubmitting;
+      _amountController.text.isNotEmpty &&
+      _selectedDate != null &&
+      state.paymentAccountSplits.isNotEmpty &&
+      !state.isSubmitting;
 
     return SizedBox(
       width: double.infinity,

@@ -3,7 +3,7 @@ import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dash_mobile/config/firebase_options.dart';
+import 'package:dash_mobile/firebase_options.dart';
 import 'package:dash_mobile/data/datasources/pending_orders_data_source.dart';
 import 'package:dash_mobile/data/datasources/scheduled_trips_data_source.dart';
 import 'package:dash_mobile/data/datasources/transactions_data_source.dart';

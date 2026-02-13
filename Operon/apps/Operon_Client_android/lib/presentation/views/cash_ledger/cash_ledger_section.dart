@@ -115,6 +115,80 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
     }).toList();
   }
 
+  int? _getDmNumber(Transaction tx) {
+    final dmNumber = tx.metadata?['dmNumber'];
+    if (dmNumber == null) return null;
+    if (dmNumber is int) return dmNumber;
+    if (dmNumber is num) return dmNumber.toInt();
+    return null;
+  }
+
+  bool _groupHasDebit(List<Transaction> group) {
+    for (final tx in group) {
+      final count = tx.metadata?['transactionCount'] as int?;
+      if (count != null && count > 1) {
+        final cumulativeDebit =
+            (tx.metadata?['cumulativeDebit'] as num?)?.toDouble() ?? 0.0;
+        if (cumulativeDebit > 0) {
+          return true;
+        }
+      } else if (tx.type == TransactionType.debit) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  double _groupTrueClientCreditTotal(List<Transaction> group) {
+    double total = 0.0;
+    var usedCumulative = false;
+    for (final tx in group) {
+      if (tx.category != TransactionCategory.clientCredit) {
+        continue;
+      }
+      final count = tx.metadata?['transactionCount'] as int?;
+      if (count != null && count > 1) {
+        if (!usedCumulative) {
+          total +=
+              (tx.metadata?['cumulativeCredit'] as num?)?.toDouble() ?? 0.0;
+          usedCumulative = true;
+        }
+      } else if (tx.type == TransactionType.credit) {
+        total += tx.amount;
+      }
+    }
+    return total;
+  }
+
+  double _calculateTrueClientCreditTotal(List<Transaction> orderTransactions) {
+    final withDmNumber = <int, List<Transaction>>{};
+    final withoutDmNumber = <Transaction>[];
+
+    for (final tx in orderTransactions) {
+      final dmNumber = _getDmNumber(tx);
+      if (dmNumber != null) {
+        withDmNumber.putIfAbsent(dmNumber, () => []).add(tx);
+      } else {
+        withoutDmNumber.add(tx);
+      }
+    }
+
+    double total = 0.0;
+    for (final group in withDmNumber.values) {
+      if (!_groupHasDebit(group)) {
+        total += _groupTrueClientCreditTotal(group);
+      }
+    }
+    for (final tx in withoutDmNumber) {
+      if (tx.category == TransactionCategory.clientCredit &&
+          tx.type == TransactionType.credit) {
+        total += tx.amount;
+      }
+    }
+
+    return total;
+  }
+
   Widget _buildCreditTransactionsTable(CashLedgerState state) {
     double totalFrom(List<Transaction> rows) {
       var total = 0.0;
@@ -130,7 +204,8 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
       return total;
     }
 
-    final clientTotal = totalFrom(state.clientCreditRows);
+    final clientTotal =
+        _calculateTrueClientCreditTotal(state.orderTransactions);
     final vendorTotal = totalFrom(state.vendorCreditRows);
     final employeeTotal = totalFrom(state.employeeCreditRows);
 
@@ -153,10 +228,10 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
           const SizedBox(height: AppSpacing.paddingSM),
           Container(
             decoration: BoxDecoration(
-              color: AuthColors.surface.withOpacity(0.6),
+              color: AuthColors.surface.withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: AuthColors.surface.withOpacity(0.8),
+                color: AuthColors.surface.withValues(alpha: 0.8),
                 width: 1,
               ),
             ),
@@ -168,7 +243,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                     horizontal: AppSpacing.paddingMD,
                   ),
                   decoration: BoxDecoration(
-                    color: AuthColors.surface.withOpacity(0.4),
+                    color: AuthColors.surface.withValues(alpha: 0.4),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(8),
                       topRight: Radius.circular(8),
@@ -223,7 +298,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
           bottom: isLast
               ? BorderSide.none
               : BorderSide(
-                  color: AuthColors.surface.withOpacity(0.3),
+                  color: AuthColors.surface.withValues(alpha: 0.3),
                   width: 1,
                 ),
         ),
@@ -348,7 +423,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                         color: AuthColors.background,
                         border: Border(
                           bottom: BorderSide(
-                            color: AuthColors.surface.withOpacity(0.3),
+                            color: AuthColors.surface.withValues(alpha: 0.3),
                             width: 1,
                           ),
                         ),
@@ -399,11 +474,11 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color:
-                                          AuthColors.surface.withOpacity(0.6),
+                                          AuthColors.surface.withValues(alpha: 0.6),
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color:
-                                            AuthColors.surface.withOpacity(0.8),
+                                            AuthColors.surface.withValues(alpha: 0.8),
                                         width: 1,
                                       ),
                                     ),
@@ -422,11 +497,11 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                 const SizedBox(width: AppSpacing.paddingSM),
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: AuthColors.surface.withOpacity(0.6),
+                                    color: AuthColors.surface.withValues(alpha: 0.6),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color:
-                                          AuthColors.surface.withOpacity(0.8),
+                                          AuthColors.surface.withValues(alpha: 0.8),
                                       width: 1,
                                     ),
                                   ),
@@ -451,7 +526,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                 horizontal: 0,
                               ),
                               decoration: BoxDecoration(
-                                color: AuthColors.surface.withOpacity(0.4),
+                                color: AuthColors.surface.withValues(alpha: 0.4),
                               ),
                               child: const Row(
                                 children: [
@@ -618,10 +693,10 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                               const SizedBox(height: AppSpacing.paddingMD),
                               Container(
                                 decoration: BoxDecoration(
-                                  color: AuthColors.surface.withOpacity(0.6),
+                                  color: AuthColors.surface.withValues(alpha: 0.6),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: AuthColors.surface.withOpacity(0.8),
+                                    color: AuthColors.surface.withValues(alpha: 0.8),
                                     width: 1,
                                   ),
                                 ),
@@ -635,7 +710,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                       ),
                                       decoration: BoxDecoration(
                                         color:
-                                            AuthColors.surface.withOpacity(0.4),
+                                            AuthColors.surface.withValues(alpha: 0.4),
                                         borderRadius: const BorderRadius.only(
                                           topLeft: Radius.circular(8),
                                           topRight: Radius.circular(8),
@@ -713,7 +788,7 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                                 ? BorderSide.none
                                                 : BorderSide(
                                                     color: AuthColors.surface
-                                                        .withOpacity(0.3),
+                                                        .withValues(alpha: 0.3),
                                                     width: 1,
                                                   ),
                                           ),
@@ -864,10 +939,10 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingSM),
       decoration: BoxDecoration(
-        color: AuthColors.surface.withOpacity(0.5),
+        color: AuthColors.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: color.withOpacity(0.2),
+          color: color.withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -947,13 +1022,13 @@ class _TransactionTableFooter extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AuthColors.primary.withOpacity(0.15),
-            AuthColors.primary.withOpacity(0.05),
+            AuthColors.primary.withValues(alpha: 0.15),
+            AuthColors.primary.withValues(alpha: 0.05),
           ],
         ),
         border: Border(
           top: BorderSide(
-            color: AuthColors.primary.withOpacity(0.5),
+            color: AuthColors.primary.withValues(alpha: 0.5),
             width: 2,
           ),
         ),
@@ -1096,10 +1171,10 @@ class _TransactionTableRow extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color:
-            isEven ? Colors.transparent : AuthColors.surface.withOpacity(0.2),
+            isEven ? Colors.transparent : AuthColors.surface.withValues(alpha: 0.2),
         border: Border(
           bottom: BorderSide(
-            color: AuthColors.surface.withOpacity(0.2),
+            color: AuthColors.surface.withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -1288,10 +1363,10 @@ class _TransactionTableRow extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AuthColors.success.withOpacity(0.15),
+                                color: AuthColors.success.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: AuthColors.success.withOpacity(0.3),
+                                  color: AuthColors.success.withValues(alpha: 0.3),
                                   width: 0.5,
                                 ),
                               ),
@@ -1419,10 +1494,10 @@ class _TransactionTableRow extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AuthColors.error.withOpacity(0.15),
+                                color: AuthColors.error.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
-                                  color: AuthColors.error.withOpacity(0.3),
+                                  color: AuthColors.error.withValues(alpha: 0.3),
                                   width: 0.5,
                                 ),
                               ),

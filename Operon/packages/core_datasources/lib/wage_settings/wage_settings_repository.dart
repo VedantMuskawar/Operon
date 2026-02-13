@@ -7,11 +7,39 @@ class WageSettingsRepository {
 
   final WageSettingsDataSource _dataSource;
 
-  Future<WageSettings?> fetchWageSettings(String organizationId) {
-    return _dataSource.fetchWageSettings(organizationId);
+  final Map<String, ({DateTime timestamp, WageSettings? data})> _cache = {};
+  final Map<String, Future<WageSettings?>> _inFlight = {};
+  static const Duration _cacheTtl = Duration(minutes: 2);
+
+  Future<WageSettings?> fetchWageSettings(
+    String organizationId, {
+    bool forceRefresh = false,
+  }) {
+    if (!forceRefresh) {
+      final cached = _cache[organizationId];
+      if (cached != null &&
+          DateTime.now().difference(cached.timestamp) < _cacheTtl) {
+        return Future.value(cached.data);
+      }
+
+      final inFlight = _inFlight[organizationId];
+      if (inFlight != null) return inFlight;
+    }
+
+    final future = _dataSource.fetchWageSettings(organizationId);
+    _inFlight[organizationId] = future;
+    return future.then((settings) {
+      _cache[organizationId] = (timestamp: DateTime.now(), data: settings);
+      _inFlight.remove(organizationId);
+      return settings;
+    }).catchError((e) {
+      _inFlight.remove(organizationId);
+      throw e;
+    });
   }
 
   Future<void> updateWageSettings(String organizationId, WageSettings settings) {
+    _cache[organizationId] = (timestamp: DateTime.now(), data: settings);
     return _dataSource.updateWageSettings(organizationId, settings);
   }
 

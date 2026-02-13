@@ -7,8 +7,10 @@ import 'package:intl/intl.dart';
 
 /// Exports weekly ledger table data to Excel and triggers download.
 class WeeklyLedgerExcelGenerator {
-  static String _formatDate(DateTime date) => DateFormat('dd MMM yyyy').format(date);
-  static String _formatCurrency(double amount) => '₹${amount.toStringAsFixed(2)}';
+  static String _formatDate(DateTime date) =>
+      DateFormat('dd MMM yyyy').format(date);
+  static String _formatCurrency(double amount) =>
+      '₹${amount.toStringAsFixed(2)}';
 
   static Future<void> export({
     required DateTime weekStart,
@@ -42,108 +44,192 @@ class WeeklyLedgerExcelGenerator {
     html.Url.revokeObjectUrl(url);
   }
 
-  static int _writeProductionsSheet(Sheet sheet, List<ProductionLedgerEntry> entries, int startRow) {
-    final maxCols = entries.isEmpty ? 0 : entries.map((e) => e.employeeNames.length).reduce((a, b) => a > b ? a : b);
+  static int _writeProductionsSheet(
+      Sheet sheet, List<ProductionLedgerEntry> entries, int startRow) {
+    final maxCols = entries.isEmpty
+        ? 0
+        : entries
+            .map((e) => e.employeeNames.length)
+            .reduce((a, b) => a > b ? a : b);
     int row = startRow;
 
     // Section title
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('Productions');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+        .value = TextCellValue('Productions');
     row++;
 
     // Header row
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('Date');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('Batch No.');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+        .value = TextCellValue('Date');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+        .value = TextCellValue('Batch No.');
     for (var c = 0; c < maxCols; c++) {
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row)).value =
-          TextCellValue('Employee ${c + 1}');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row))
+          .value = TextCellValue('Employee ${c + 1}');
     }
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + maxCols, rowIndex: row)).value = TextCellValue('Description');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3 + maxCols, rowIndex: row)).value = TextCellValue('Amount');
+    sheet
+        .cell(
+            CellIndex.indexByColumnRow(columnIndex: 2 + maxCols, rowIndex: row))
+        .value = TextCellValue('Description');
+    sheet
+        .cell(
+            CellIndex.indexByColumnRow(columnIndex: 3 + maxCols, rowIndex: row))
+        .value = TextCellValue('Amount');
     row++;
 
     for (final entry in entries) {
       final n = entry.employeeNames.length;
       // Names row
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue(_formatDate(entry.date));
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(entry.batchNo);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue(_formatDate(entry.date));
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+          .value = TextCellValue(entry.batchNo);
       for (var c = 0; c < maxCols; c++) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row)).value =
-            TextCellValue(c < n ? entry.employeeNames[c] : '');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row))
+            .value = TextCellValue(c < n ? entry.employeeNames[c] : '');
       }
       row++;
       // Balances row
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+          .value = TextCellValue('');
       for (var c = 0; c < maxCols; c++) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row)).value =
-            TextCellValue(c < n ? _formatCurrency(entry.employeeBalances[c]) : '');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row))
+            .value = TextCellValue(c <
+                n
+            ? _formatCurrency(entry.employeeBalances[c])
+            : '');
       }
       row++;
       // Transaction rows
       for (final tx in entry.salaryTransactions) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+            .value = TextCellValue('');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+            .value = TextCellValue('');
         for (var c = 0; c < maxCols; c++) {
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row)).value = TextCellValue('');
+          sheet
+              .cell(
+                  CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row))
+              .value = TextCellValue('');
         }
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + maxCols, rowIndex: row)).value =
-            TextCellValue(tx.description);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3 + maxCols, rowIndex: row)).value =
-            TextCellValue(_formatCurrency(tx.amount));
+        sheet
+            .cell(CellIndex.indexByColumnRow(
+                columnIndex: 2 + maxCols, rowIndex: row))
+            .value = TextCellValue(tx.description);
+        sheet
+            .cell(CellIndex.indexByColumnRow(
+                columnIndex: 3 + maxCols, rowIndex: row))
+            .value = TextCellValue(_formatCurrency(tx.amount));
         row++;
       }
     }
     return row;
   }
 
-  static void _writeTripsSheet(Sheet sheet, List<TripLedgerEntry> entries, int startRow) {
-    final maxCols = entries.isEmpty ? 0 : entries.map((e) => e.employeeNames.length).reduce((a, b) => a > b ? a : b);
+  static void _writeTripsSheet(
+      Sheet sheet, List<TripLedgerEntry> entries, int startRow) {
+    final maxCols = entries.isEmpty
+        ? 0
+        : entries
+            .map((e) => e.employeeNames.length)
+            .reduce((a, b) => a > b ? a : b);
     int row = startRow;
 
     // Section title
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('Trips');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+        .value = TextCellValue('Trips');
     row++;
 
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('Date');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('Vehicle No. (Trips)');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+        .value = TextCellValue('Date');
+    sheet
+        .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+        .value = TextCellValue('Vehicle No. (Trips)');
     for (var c = 0; c < maxCols; c++) {
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row)).value =
-          TextCellValue('Employee ${c + 1}');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row))
+          .value = TextCellValue('Employee ${c + 1}');
     }
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + maxCols, rowIndex: row)).value = TextCellValue('Description');
-    sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3 + maxCols, rowIndex: row)).value = TextCellValue('Amount');
+    sheet
+        .cell(
+            CellIndex.indexByColumnRow(columnIndex: 2 + maxCols, rowIndex: row))
+        .value = TextCellValue('Description');
+    sheet
+        .cell(
+            CellIndex.indexByColumnRow(columnIndex: 3 + maxCols, rowIndex: row))
+        .value = TextCellValue('Amount');
     row++;
 
     for (final entry in entries) {
       final n = entry.employeeNames.length;
       final vehicleLabel = '${entry.vehicleNo} (${entry.tripCount})';
 
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue(_formatDate(entry.date));
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(vehicleLabel);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue(_formatDate(entry.date));
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+          .value = TextCellValue(vehicleLabel);
       for (var c = 0; c < maxCols; c++) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row)).value =
-            TextCellValue(c < n ? entry.employeeNames[c] : '');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row))
+            .value = TextCellValue(c < n ? entry.employeeNames[c] : '');
       }
       row++;
 
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = TextCellValue('');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+          .value = TextCellValue('');
       for (var c = 0; c < maxCols; c++) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row)).value =
-            TextCellValue(c < n ? _formatCurrency(entry.employeeBalances[c]) : '');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row))
+            .value = TextCellValue(c <
+                n
+            ? _formatCurrency(entry.employeeBalances[c])
+            : '');
       }
       row++;
 
       for (final tx in entry.salaryTransactions) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue('');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue('');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+            .value = TextCellValue('');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+            .value = TextCellValue('');
         for (var c = 0; c < maxCols; c++) {
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row)).value = TextCellValue('');
+          sheet
+              .cell(
+                  CellIndex.indexByColumnRow(columnIndex: 2 + c, rowIndex: row))
+              .value = TextCellValue('');
         }
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2 + maxCols, rowIndex: row)).value =
-            TextCellValue(tx.description);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3 + maxCols, rowIndex: row)).value =
-            TextCellValue(_formatCurrency(tx.amount));
+        sheet
+            .cell(CellIndex.indexByColumnRow(
+                columnIndex: 2 + maxCols, rowIndex: row))
+            .value = TextCellValue(tx.description);
+        sheet
+            .cell(CellIndex.indexByColumnRow(
+                columnIndex: 3 + maxCols, rowIndex: row))
+            .value = TextCellValue(_formatCurrency(tx.amount));
         row++;
       }
     }

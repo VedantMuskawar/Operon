@@ -480,7 +480,7 @@ class _UserDialogState extends State<_UserDialog> {
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           color: AuthColors.surface,
           border: Border.all(
-            color: AuthColors.textMain.withOpacity(0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
         ),
         child: const Text(

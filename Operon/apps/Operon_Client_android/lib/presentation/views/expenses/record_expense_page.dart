@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
@@ -75,6 +76,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   List<Transaction> _availableInvoices = [];
   Set<String> _selectedInvoiceIds = {};
   bool _isLoadingInvoices = false;
+  Timer? _invoiceSearchDebounce;
 
   /// Cash voucher photo for salary expense (optional).
   File? _cashVoucherPhoto;
@@ -91,12 +93,22 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
 
   @override
   void dispose() {
+    _invoiceSearchDebounce?.cancel();
     _amountController.dispose();
     _descriptionController.dispose();
     _referenceNumberController.dispose();
     _fromInvoiceNumberController.dispose();
     _toInvoiceNumberController.dispose();
     super.dispose();
+  }
+
+  void _scheduleInvoiceSearch() {
+    _invoiceSearchDebounce?.cancel();
+    _invoiceSearchDebounce = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) {
+        _loadUnpaidInvoices();
+      }
+    });
   }
 
   Future<void> _loadData() async {
@@ -508,6 +520,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               organizationId: organizationId,
               transactionId: transactionId,
             );
+            if (!mounted) {
+              return;
+            }
             await context
                 .read<TransactionsRepository>()
                 .updateTransactionMetadata(
@@ -617,13 +632,15 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                                   _selectedVendor!.vendorType ==
                                       VendorType.fuel) ...[
                                 const SizedBox(height: AppSpacing.paddingLG),
-                                OutlinedButton.icon(
+                                FilledButton.icon(
                                   onPressed: () => _openFuelLedgerPdfDialog(),
                                   icon: const Icon(Icons.picture_as_pdf,
                                       size: 20),
                                   label: const Text('Fuel Ledger PDF'),
-                                  style: OutlinedButton.styleFrom(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: AuthColors.transparent,
                                     foregroundColor: AuthColors.primary,
+                                    shadowColor: AuthColors.transparent,
                                     side: const BorderSide(
                                         color: AuthColors.primary),
                                   ),
@@ -727,9 +744,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                             // Save Button
                             SizedBox(
                               width: double.infinity,
-                              child: ElevatedButton(
+                              child: FilledButton(
                                 onPressed: _isSubmitting ? null : _save,
-                                style: ElevatedButton.styleFrom(
+                                style: FilledButton.styleFrom(
                                   backgroundColor: AuthColors.primary,
                                   foregroundColor: AuthColors.textMain,
                                   padding: const EdgeInsets.symmetric(
@@ -856,10 +873,10 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         decoration: BoxDecoration(
           color: isSelected
               ? AuthColors.primaryWithOpacity(0.2)
-              : Colors.transparent,
+              : AuthColors.transparent,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
-            color: isSelected ? AuthColors.primary : Colors.transparent,
+            color: isSelected ? AuthColors.primary : AuthColors.transparent,
             width: 1.5,
           ),
         ),
@@ -904,43 +921,53 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         Row(
           children: [
             Expanded(
-              child: RadioListTile<String>(
-                title: const Text('Pay Selected Invoices',
-                    style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
-                value: 'manualSelection',
+              child: RadioGroup<String>(
                 groupValue: _invoiceSelectionMode,
                 onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
                   setState(() {
-                    _invoiceSelectionMode = value!;
-                    _invoiceDateRangeStart = null;
-                    _invoiceDateRangeEnd = null;
-                    _fromInvoiceNumberController.clear();
-                    _toInvoiceNumberController.clear();
+                    _invoiceSelectionMode = value;
                     _selectedInvoiceIds.clear();
-                    _availableInvoices.clear();
+                    if (value == 'manualSelection') {
+                      _invoiceDateRangeStart = null;
+                      _invoiceDateRangeEnd = null;
+                      _fromInvoiceNumberController.clear();
+                      _toInvoiceNumberController.clear();
+                      _availableInvoices.clear();
+                    }
                   });
+                  if (value == 'dateRange') {
+                    _loadUnpaidInvoices();
+                  }
                 },
-                activeColor: AuthColors.primary,
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-            Expanded(
-              child: RadioListTile<String>(
-                title: const Text('Pay by Date Range',
-                    style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
-                value: 'dateRange',
-                groupValue: _invoiceSelectionMode,
-                onChanged: (value) {
-                  setState(() {
-                    _invoiceSelectionMode = value!;
-                    _selectedInvoiceIds.clear();
-                  });
-                  _loadUnpaidInvoices();
-                },
-                activeColor: AuthColors.primary,
-                dense: true,
-                contentPadding: EdgeInsets.zero,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: const Text('Pay Selected Invoices',
+                            style:
+                                TextStyle(color: AuthColors.textSub, fontSize: 14)),
+                        value: 'manualSelection',
+                        activeColor: AuthColors.primary,
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    Expanded(
+                      child: RadioListTile<String>(
+                        title: const Text('Pay by Date Range',
+                            style:
+                                TextStyle(color: AuthColors.textSub, fontSize: 14)),
+                        value: 'dateRange',
+                        activeColor: AuthColors.primary,
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -986,7 +1013,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                          color: AuthColors.textMain.withOpacity(0.1)),
+                        color: AuthColors.textMain.withValues(alpha: 0.1)),
                     ),
                     child: Row(
                       children: [
@@ -1045,7 +1072,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                          color: AuthColors.textMain.withOpacity(0.1)),
+                        color: AuthColors.textMain.withValues(alpha: 0.1)),
                     ),
                     child: Row(
                       children: [
@@ -1082,12 +1109,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('From Invoice Number'),
                   onChanged: (_) {
-                    // Debounce or trigger search on field change
-                    Future.delayed(const Duration(milliseconds: 500), () {
-                      if (mounted) {
-                        _loadUnpaidInvoices();
-                      }
-                    });
+                    _scheduleInvoiceSearch();
                   },
                 ),
               ),
@@ -1098,12 +1120,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('To Invoice Number'),
                   onChanged: (_) {
-                    // Debounce or trigger search on field change
-                    Future.delayed(const Duration(milliseconds: 500), () {
-                      if (mounted) {
-                        _loadUnpaidInvoices();
-                      }
-                    });
+                    _scheduleInvoiceSearch();
                   },
                 ),
               ),
@@ -1151,7 +1168,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             decoration: BoxDecoration(
               color: AuthColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-              border: Border.all(color: AuthColors.textMain.withOpacity(0.1)),
+              border: Border.all(
+                color: AuthColors.textMain.withValues(alpha: 0.1),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1443,13 +1462,15 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           ),
         ),
         const SizedBox(height: AppSpacing.paddingSM),
-        OutlinedButton.icon(
+        FilledButton.icon(
           onPressed: _pickCashVoucherPhoto,
           icon: const Icon(Icons.camera_alt, size: 20),
           label:
               Text(_cashVoucherPhoto == null ? 'Take photo' : 'Change photo'),
-          style: OutlinedButton.styleFrom(
+          style: FilledButton.styleFrom(
+            backgroundColor: AuthColors.transparent,
             foregroundColor: AuthColors.primary,
+            shadowColor: AuthColors.transparent,
             side: const BorderSide(color: AuthColors.primary),
           ),
         ),
@@ -1507,9 +1528,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     width: 12,
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Color(int.parse(subCategory.colorHex.substring(1),
-                              radix: 16) +
-                          0xFF000000),
+                      color: AuthColors.primary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -1556,7 +1575,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
             child: Text(
               'Select a payment account',
               style: TextStyle(
-                  color: AuthColors.error.withOpacity(0.8), fontSize: 12),
+                  color: AuthColors.error.withValues(alpha: 0.8), fontSize: 12),
             ),
           ),
       ],
@@ -1598,7 +1617,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           border: Border.all(
             color: isSelected
                 ? AuthColors.primary
-                : AuthColors.textMain.withOpacity(0.1),
+                : AuthColors.textMain.withValues(alpha: 0.1),
             width: isSelected ? 1.5 : 1,
           ),
         ),

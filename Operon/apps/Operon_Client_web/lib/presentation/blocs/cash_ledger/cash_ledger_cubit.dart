@@ -26,6 +26,7 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
   final String _organizationId;
   StreamSubscription<Map<String, List<Transaction>>>? _subscription;
   Map<String, List<Transaction>>? _lastRawData;
+  final Map<String, String> _vendorNameCache = {};
 
   String get organizationId => _organizationId;
 
@@ -65,6 +66,8 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
         .watchCashLedgerData(
       organizationId: _organizationId,
       financialYear: fy,
+      startDate: start,
+      endDate: end,
     )
         .listen(
       (data) {
@@ -198,8 +201,14 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
     final end = endDate ??
         state.endDate ??
         DateTime(today.year, today.month, today.day, 23, 59, 59);
-    emit(state.copyWith(startDate: start, endDate: end));
-    _applyFilterAndEmit();
+    if (state.startDate == start && state.endDate == end) {
+      return;
+    }
+    load(
+      financialYear: state.financialYear,
+      startDate: start,
+      endDate: end,
+    );
   }
 
   Future<void> refresh() async {
@@ -630,8 +639,10 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
         ...purchases,
         ...expenses,
       ]) {
-        if (tx.vendorId != null && tx.vendorId!.isNotEmpty) {
-          vendorIds.add(tx.vendorId!);
+        final vendorId = tx.vendorId?.trim() ??
+            tx.metadata?['vendorId']?.toString().trim();
+        if (vendorId != null && vendorId.isNotEmpty) {
+          vendorIds.add(vendorId);
         }
       }
 
@@ -644,17 +655,26 @@ class CashLedgerCubit extends Cubit<CashLedgerState> {
         };
       }
 
-      final vendors = await _vendorsRepository.fetchVendors(_organizationId);
-      final vendorMap = <String, String>{};
-      for (final vendor in vendors) {
-        vendorMap[vendor.id] = vendor.name;
+      final missingIds = vendorIds
+          .where((id) => !_vendorNameCache.containsKey(id))
+          .toList();
+      if (missingIds.isNotEmpty) {
+        final vendors = await _vendorsRepository.fetchVendorsByIds(missingIds);
+        for (final vendor in vendors) {
+          _vendorNameCache[vendor.id] = vendor.name;
+        }
       }
 
       Transaction enrich(Transaction tx) {
-        if (tx.vendorId != null && vendorMap.containsKey(tx.vendorId)) {
+        final vendorId = tx.vendorId?.trim() ??
+            tx.metadata?['vendorId']?.toString().trim();
+        final vendorName =
+            vendorId != null ? _vendorNameCache[vendorId] : null;
+        if (vendorName != null) {
           final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
-          if (!metadata.containsKey('vendorName')) {
-            metadata['vendorName'] = vendorMap[tx.vendorId];
+          final currentName = metadata['vendorName']?.toString().trim() ?? '';
+          if (currentName.isEmpty) {
+            metadata['vendorName'] = vendorName;
             return tx.copyWith(metadata: metadata);
           }
         }

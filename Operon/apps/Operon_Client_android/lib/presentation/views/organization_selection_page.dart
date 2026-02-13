@@ -267,7 +267,7 @@ class _OrganizationSelectionPageState
               right: 0,
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.paddingLG),
-                child: OutlinedButton.icon(
+                child: FilledButton.icon(
                   onPressed: () async {
                     // Clear organization context before logout
                     await context.read<OrganizationContextCubit>().clear();
@@ -276,13 +276,15 @@ class _OrganizationSelectionPageState
                       context.go('/login');
                     }
                   },
-                  style: OutlinedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
+                    backgroundColor: AuthColors.textMainWithOpacity(0.1),
+                    foregroundColor: AuthColors.textMain,
+                    shadowColor: Colors.transparent,
                     side: BorderSide(
                       color: AuthColors.textMainWithOpacity(0.3),
                       width: 1.5,
                     ),
-                    backgroundColor: AuthColors.textMainWithOpacity(0.1),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                     ),
@@ -480,6 +482,8 @@ class _OrganizationSelectionPageState
                                 );
                               }
                             }
+
+                            if (!mounted) return;
 
                             final authState = context.read<AuthBloc>().state;
                             final userId = authState.userProfile?.id ?? '';

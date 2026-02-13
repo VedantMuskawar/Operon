@@ -13,6 +13,7 @@ class AnalyticsDashboardState extends BaseState {
     this.deliveries,
     this.productions,
     this.tripWages,
+    this.fuel,
     this.loadingTabs = const {},
     super.message,
   });
@@ -24,6 +25,7 @@ class AnalyticsDashboardState extends BaseState {
   final DeliveriesAnalytics? deliveries;
   final ProductionsAnalytics? productions;
   final TripWagesAnalytics? tripWages;
+  final FuelAnalytics? fuel;
 
   /// Tab indices currently loading (0=Transactions, 1=Clients, 2=Employees, etc.)
   final Set<int> loadingTabs;
@@ -35,7 +37,8 @@ class AnalyticsDashboardState extends BaseState {
       transactions != null ||
       deliveries != null ||
       productions != null ||
-      tripWages != null;
+      tripWages != null ||
+      fuel != null;
 
   bool isLoadingTab(int index) => loadingTabs.contains(index);
 
@@ -49,6 +52,7 @@ class AnalyticsDashboardState extends BaseState {
     DeliveriesAnalytics? deliveries,
     ProductionsAnalytics? productions,
     TripWagesAnalytics? tripWages,
+    FuelAnalytics? fuel,
     Set<int>? loadingTabs,
     String? message,
   }) {
@@ -61,6 +65,7 @@ class AnalyticsDashboardState extends BaseState {
       deliveries: deliveries ?? this.deliveries,
       productions: productions ?? this.productions,
       tripWages: tripWages ?? this.tripWages,
+      fuel: fuel ?? this.fuel,
       loadingTabs: loadingTabs ?? this.loadingTabs,
       message: message ?? this.message,
     );

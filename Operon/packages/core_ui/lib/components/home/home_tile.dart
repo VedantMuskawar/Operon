@@ -16,6 +16,7 @@ class HomeTile extends StatefulWidget {
     required this.icon,
     required this.accentColor,
     this.badgeCount = 0,
+    this.subtitle,
     required this.onTap,
     this.isCompact = true,
   });
@@ -24,6 +25,7 @@ class HomeTile extends StatefulWidget {
   final IconData icon;
   final Color accentColor;
   final int badgeCount;
+  final String? subtitle;
   final VoidCallback onTap;
   final bool isCompact;
 
@@ -233,19 +235,41 @@ class _HomeTileState extends State<HomeTile>
   }
 
   Widget _buildTextSection() {
+    final subtitle = widget.subtitle;
     return Flexible(
-      child: Text(
-        widget.title,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: widget.isCompact ? 14 : 16,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
-          height: 1.2,
-        ),
-        maxLines: widget.isCompact ? 1 : 2,
-        overflow: TextOverflow.ellipsis,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            widget.title,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: widget.isCompact ? 14 : 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.2,
+              height: 1.2,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: widget.isCompact ? 12 : 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+                height: 1.1,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
       ),
     );
   }

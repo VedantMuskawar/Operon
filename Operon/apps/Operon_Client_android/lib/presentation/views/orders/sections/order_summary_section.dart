@@ -453,7 +453,9 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG, horizontal: AppSpacing.paddingLG),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.2) : AuthColors.backgroundAlt,
+          color: isSelected
+              ? color.withValues(alpha: 0.2)
+              : AuthColors.backgroundAlt,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
           border: Border.all(
             color: isSelected ? color : AuthColors.textMainWithOpacity(0.24),
@@ -472,7 +474,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: color.withOpacity(0.5),
+                          color: color.withValues(alpha: 0.5),
                           blurRadius: 8,
                           spreadRadius: 1,
                         ),
@@ -550,13 +552,13 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingMD, vertical: AppSpacing.gapSM),
                 decoration: BoxDecoration(
                   color: _includeGst
-                      ? AuthColors.success.withOpacity(0.15)
-                      : AuthColors.error.withOpacity(0.15),
+                      ? AuthColors.success.withValues(alpha: 0.15)
+                      : AuthColors.error.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
                     color: _includeGst
-                        ? AuthColors.success.withOpacity(0.35)
-                        : AuthColors.error.withOpacity(0.35),
+                        ? AuthColors.success.withValues(alpha: 0.35)
+                        : AuthColors.error.withValues(alpha: 0.35),
                   ),
                 ),
                 child: Text(
@@ -636,13 +638,13 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
   Widget _buildCreateOrderButton() {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
+      child: FilledButton(
         onPressed: _isCreatingOrder
             ? null
             : () async {
                 await _createOrder();
               },
-        style: ElevatedButton.styleFrom(
+        style: FilledButton.styleFrom(
           backgroundColor: AuthColors.secondary,
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
           shape: RoundedRectangleBorder(

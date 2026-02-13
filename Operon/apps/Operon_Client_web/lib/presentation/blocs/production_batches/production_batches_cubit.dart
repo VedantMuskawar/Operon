@@ -18,18 +18,129 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
         _organizationId = organizationId,
         _wageSettingsRepository = wageSettingsRepository,
         _wageCalculationService = wageCalculationService,
-        super(const ProductionBatchesState());
+      super(ProductionBatchesState());
 
   final ProductionBatchesRepository _repository;
   final String _organizationId;
   final WageSettingsRepository? _wageSettingsRepository;
   final WageCalculationService? _wageCalculationService;
   StreamSubscription<List<ProductionBatch>>? _batchesSubscription;
+  Timer? _searchDebounce;
 
   @override
   Future<void> close() {
     _batchesSubscription?.cancel();
+    _searchDebounce?.cancel();
     return super.close();
+  }
+
+  void _emitBatches(List<ProductionBatch> batches) {
+    emit(state.copyWith(
+      status: ViewStatus.success,
+      batches: batches,
+      message: null,
+    ));
+  }
+
+  void _upsertBatch(ProductionBatch batch) {
+    final updated = List<ProductionBatch>.from(state.batches);
+    final index = updated.indexWhere((b) => b.batchId == batch.batchId);
+    if (index == -1) {
+      updated.add(batch);
+    } else {
+      updated[index] = batch;
+    }
+    updated.sort((a, b) => b.batchDate.compareTo(a.batchDate));
+    _emitBatches(updated);
+  }
+
+  void _removeBatch(String batchId) {
+    final updated = state.batches.where((b) => b.batchId != batchId).toList();
+    _emitBatches(updated);
+  }
+
+  ProductionBatch _applyUpdatesToBatch(
+    ProductionBatch batch,
+    Map<String, dynamic> updates,
+  ) {
+    ProductionBatchStatus status = batch.status;
+    if (updates['status'] != null) {
+      final statusValue = updates['status'];
+      if (statusValue is ProductionBatchStatus) {
+        status = statusValue;
+      } else if (statusValue is String) {
+        status = ProductionBatchStatus.values.firstWhere(
+          (s) => s.name == statusValue,
+          orElse: () => batch.status,
+        );
+      }
+    }
+
+    final batchDate = updates.containsKey('batchDate')
+        ? updates['batchDate'] as DateTime?
+        : batch.batchDate;
+    final methodId = updates.containsKey('methodId')
+        ? updates['methodId'] as String?
+        : batch.methodId;
+    final productId = updates.containsKey('productId')
+        ? updates['productId'] as String?
+        : batch.productId;
+    final productName = updates.containsKey('productName')
+        ? updates['productName'] as String?
+        : batch.productName;
+    final totalBricksProduced = updates.containsKey('totalBricksProduced')
+        ? (updates['totalBricksProduced'] as num?)?.toInt() ?? 0
+        : batch.totalBricksProduced;
+    final totalBricksStacked = updates.containsKey('totalBricksStacked')
+        ? (updates['totalBricksStacked'] as num?)?.toInt() ?? 0
+        : batch.totalBricksStacked;
+    final employeeIds = updates.containsKey('employeeIds')
+        ? (updates['employeeIds'] as List?)
+                ?.map((e) => e.toString())
+                .toList() ??
+            []
+        : batch.employeeIds;
+    final employeeNames = updates.containsKey('employeeNames')
+        ? (updates['employeeNames'] as List?)
+            ?.map((e) => e.toString())
+            .toList()
+        : batch.employeeNames;
+    final totalWages = updates.containsKey('totalWages')
+        ? (updates['totalWages'] as num?)?.toDouble()
+        : batch.totalWages;
+    final wagePerEmployee = updates.containsKey('wagePerEmployee')
+        ? (updates['wagePerEmployee'] as num?)?.toDouble()
+        : batch.wagePerEmployee;
+    final wageTransactionIds = updates.containsKey('wageTransactionIds')
+        ? (updates['wageTransactionIds'] as List?)
+            ?.map((e) => e.toString())
+            .toList()
+        : batch.wageTransactionIds;
+    final notes = updates.containsKey('notes')
+        ? updates['notes'] as String?
+        : batch.notes;
+
+    return ProductionBatch(
+      batchId: batch.batchId,
+      organizationId: batch.organizationId,
+      batchDate: batchDate ?? batch.batchDate,
+      methodId: methodId ?? batch.methodId,
+      productId: productId,
+      productName: productName,
+      totalBricksProduced: totalBricksProduced,
+      totalBricksStacked: totalBricksStacked,
+      employeeIds: employeeIds,
+      employeeNames: employeeNames,
+      totalWages: totalWages,
+      wagePerEmployee: wagePerEmployee,
+      status: status,
+      wageTransactionIds: wageTransactionIds,
+      createdBy: batch.createdBy,
+      createdAt: batch.createdAt,
+      updatedAt: DateTime.now(),
+      notes: notes,
+      metadata: batch.metadata,
+    );
   }
 
   /// Load production batches
@@ -50,11 +161,7 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
         methodId: methodId,
         limit: limit,
       );
-      emit(state.copyWith(
-        status: ViewStatus.success,
-        batches: batches,
-        message: null,
-      ));
+      _emitBatches(batches);
     } catch (e, stackTrace) {
       debugPrint('[ProductionBatchesCubit] Error loading batches: $e');
       debugPrint('[ProductionBatchesCubit] Stack trace: $stackTrace');
@@ -110,7 +217,13 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
         throw Exception('Created batch has empty ID');
       }
       
-      await loadBatches();
+      final now = DateTime.now();
+      final createdBatch = batch.copyWith(
+        batchId: batchId,
+        createdAt: now,
+        updatedAt: now,
+      );
+      _upsertBatch(createdBatch);
       return batchId;
     } catch (e, stackTrace) {
       debugPrint('[ProductionBatchesCubit] Error creating batch: $e');
@@ -127,7 +240,25 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
   Future<void> updateBatch(String batchId, Map<String, dynamic> updates) async {
     try {
       await _repository.updateProductionBatch(batchId, updates);
-      await loadBatches();
+      final existing = state.batches.firstWhere(
+        (b) => b.batchId == batchId,
+        orElse: () => ProductionBatch(
+          batchId: batchId,
+          organizationId: _organizationId,
+          batchDate: DateTime.now(),
+          methodId: updates['methodId'] as String? ?? '',
+          totalBricksProduced:
+              (updates['totalBricksProduced'] as num?)?.toInt() ?? 0,
+          totalBricksStacked:
+              (updates['totalBricksStacked'] as num?)?.toInt() ?? 0,
+          employeeIds: const [],
+          status: ProductionBatchStatus.recorded,
+          createdBy: '',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+      _upsertBatch(_applyUpdatesToBatch(existing, updates));
     } catch (e, stackTrace) {
       debugPrint('[ProductionBatchesCubit] Error updating batch: $e');
       debugPrint('[ProductionBatchesCubit] Stack trace: $stackTrace');
@@ -158,7 +289,7 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
           // Cloud Function handles transaction deletion, attendance revert, and batch deletion atomically
           await wageService.revertProductionBatchWages(batch: batch);
           // Batch is already deleted by Cloud Function, just reload
-          await loadBatches();
+          _removeBatch(batchId);
           return;
         } else {
           throw Exception('Wage calculation service not available for revert');
@@ -167,7 +298,7 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
 
       // If batch was not processed, just delete the batch document
       await _repository.deleteProductionBatch(batchId);
-      await loadBatches();
+      _removeBatch(batchId);
     } catch (e, stackTrace) {
       debugPrint('[ProductionBatchesCubit] Error deleting batch: $e');
       debugPrint('[ProductionBatchesCubit] Stack trace: $stackTrace');
@@ -239,7 +370,12 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
 
   /// Set search query
   void setSearchQuery(String? query) {
-    emit(state.copyWith(searchQuery: query));
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (state.searchQuery != query) {
+        emit(state.copyWith(searchQuery: query));
+      }
+    });
   }
 
   /// Set selected batch for detail view
@@ -284,8 +420,14 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
         'wagePerEmployee': calculations['wagePerEmployee'],
         'status': ProductionBatchStatus.calculated.name,
       });
-
-      await loadBatches();
+      _upsertBatch(
+        batch.copyWith(
+          totalWages: calculations['totalWages'],
+          wagePerEmployee: calculations['wagePerEmployee'],
+          status: ProductionBatchStatus.calculated,
+          updatedAt: DateTime.now(),
+        ),
+      );
     } catch (e, stackTrace) {
       debugPrint('[ProductionBatchesCubit] Error calculating wages: $e');
       debugPrint('[ProductionBatchesCubit] Stack trace: $stackTrace');
@@ -303,7 +445,28 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
       await _repository.updateProductionBatch(batchId, {
         'status': ProductionBatchStatus.approved.name,
       });
-      await loadBatches();
+      final existing = state.batches.firstWhere(
+        (b) => b.batchId == batchId,
+        orElse: () => ProductionBatch(
+          batchId: batchId,
+          organizationId: _organizationId,
+          batchDate: DateTime.now(),
+          methodId: '',
+          totalBricksProduced: 0,
+          totalBricksStacked: 0,
+          employeeIds: const [],
+          status: ProductionBatchStatus.recorded,
+          createdBy: '',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+      _upsertBatch(
+        existing.copyWith(
+          status: ProductionBatchStatus.approved,
+          updatedAt: DateTime.now(),
+        ),
+      );
     } catch (e, stackTrace) {
       debugPrint('[ProductionBatchesCubit] Error approving batch: $e');
       debugPrint('[ProductionBatchesCubit] Stack trace: $stackTrace');
@@ -352,8 +515,13 @@ class ProductionBatchesCubit extends Cubit<ProductionBatchesState> {
         currentUser.uid,
         paymentDate,
       );
-
-      await loadBatches();
+      _upsertBatch(
+        batch.copyWith(
+          status: ProductionBatchStatus.processed,
+          wageTransactionIds: transactionIds,
+          updatedAt: DateTime.now(),
+        ),
+      );
       return transactionIds;
     } catch (e, stackTrace) {
       debugPrint('[ProductionBatchesCubit] Error processing wages: $e');

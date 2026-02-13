@@ -314,6 +314,8 @@ class _VehicleDialogState extends State<_VehicleDialog> {
   bool _isLoadingProducts = true;
   bool _isSubmitting = false;
 
+  static final Map<String, List<OrganizationProduct>> _productsCache = {};
+
   static const _predefinedTags = [
     'Delivery',
     'Personal',
@@ -378,8 +380,25 @@ class _VehicleDialogState extends State<_VehicleDialog> {
 
   Future<void> _loadProducts() async {
     try {
+      final cachedProducts = _productsCache[widget.orgId];
+      if (cachedProducts != null) {
+        setState(() {
+          _products = cachedProducts;
+          _productControllers = {
+            for (final product in cachedProducts)
+              product.id: TextEditingController(
+                text: widget.vehicle?.productCapacities?[product.id]?.toString() ?? '',
+              ),
+          };
+          _isLoadingProducts = false;
+        });
+        return;
+      }
+
       final products = await widget.productsRepository.fetchProducts(widget.orgId);
+      if (!mounted) return;
       setState(() {
+        _productsCache[widget.orgId] = products;
         _products = products;
         _productControllers = {
           for (final product in products)
@@ -390,6 +409,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
         _isLoadingProducts = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() {
         _products = const [];
         _productControllers = {};
@@ -492,7 +512,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                             onChanged: (value) => setState(() => _isActive = value),
                             title: const Text(
                               'Active',
-                              style: TextStyle(color: Colors.white70, fontSize: 14),
+                              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                             ),
                             contentPadding: EdgeInsets.zero,
                             activeThumbColor: AuthColors.primary,
@@ -504,7 +524,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                     const SizedBox(height: 12),
                     const Text(
                       'Meter Type',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -521,7 +541,9 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                           },
                           selectedColor: AuthColors.primary,
                           labelStyle: TextStyle(
-                            color: _selectedMeterType == 'KM' ? Colors.white : Colors.white70,
+                            color: _selectedMeterType == 'KM'
+                                ? AuthColors.textMain
+                                : AuthColors.textSub,
                           ),
                           backgroundColor: AuthColors.surface,
                         ),
@@ -535,7 +557,9 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                           },
                           selectedColor: AuthColors.primary,
                           labelStyle: TextStyle(
-                            color: _selectedMeterType == 'HOUR' ? Colors.white : Colors.white70,
+                            color: _selectedMeterType == 'HOUR'
+                                ? AuthColors.textMain
+                                : AuthColors.textSub,
                           ),
                           backgroundColor: AuthColors.surface,
                         ),
@@ -581,11 +605,13 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                               _showCustomTag = true;
                             });
                           },
-                          selectedColor: const Color(0xFF6F4BFF),
+                          selectedColor: AuthColors.primary,
                           labelStyle: TextStyle(
-                            color: _selectedTag == 'Custom' ? Colors.white : Colors.white70,
+                            color: _selectedTag == 'Custom'
+                                ? AuthColors.textMain
+                                : AuthColors.textSub,
                           ),
-                          backgroundColor: const Color(0xFF2A2A3D),
+                          backgroundColor: AuthColors.surface,
                         ),
                         if (_selectedTag == null)
                           ChoiceChip(
@@ -598,7 +624,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                 _customTagController.clear();
                               });
                             },
-                            selectedColor: const Color(0xFF2A2A3D),
+                            selectedColor: AuthColors.surface,
                             labelStyle: const TextStyle(color: AuthColors.textSub),
                             backgroundColor: AuthColors.surface,
                           ),
@@ -608,7 +634,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _customTagController,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
                         decoration: _compactInputDecoration('Custom Tag'),
                         onChanged: (_) {
                           // Tag will be read from controller on submit
@@ -624,13 +650,13 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                   icon: Icons.straighten_outlined,
                   children: [
                     ExpansionTile(
-                      backgroundColor: Colors.transparent,
-                      collapsedBackgroundColor: Colors.transparent,
+                      backgroundColor: AuthColors.transparent,
+                      collapsedBackgroundColor: AuthColors.transparent,
                       tilePadding: EdgeInsets.zero,
                       childrenPadding: const EdgeInsets.only(top: 8),
                       title: const Text(
                         'Weekly Capacity',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
+                        style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                       ),
                       children: [
                         Wrap(
@@ -641,7 +667,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                               width: 120,
                               child: TextFormField(
                                 controller: _weeklyControllers[day],
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
                                 decoration: _compactInputDecoration(day.capitalize()),
                                 keyboardType:
                                     const TextInputType.numberWithOptions(decimal: true),
@@ -651,7 +677,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                         ),
                       ],
                     ),
-                    const Divider(color: Colors.white10, height: 24),
+                    Divider(color: AuthColors.textMainWithOpacity(0.1), height: 24),
                     _isLoadingProducts
                         ? const Center(
                             child: Padding(
@@ -665,19 +691,19 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                 child: Text(
                                   'No products available.',
                                   style: TextStyle(
-                                    color: Colors.white54,
+                                    color: AuthColors.textSub,
                                     fontSize: 12,
                                   ),
                                 ),
                               )
                             : ExpansionTile(
-                                backgroundColor: Colors.transparent,
-                                collapsedBackgroundColor: Colors.transparent,
+                                backgroundColor: AuthColors.transparent,
+                                collapsedBackgroundColor: AuthColors.transparent,
                                 tilePadding: EdgeInsets.zero,
                                 childrenPadding: const EdgeInsets.only(top: 8),
                                 title: const Text(
                                   'Product Capacities',
-                                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                                  style: TextStyle(color: AuthColors.textSub, fontSize: 14),
                                 ),
                                 children: _products
                                     .map(
@@ -686,7 +712,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                                         child: TextFormField(
                                           controller: _productControllers[product.id],
                                           style: const TextStyle(
-                                            color: Colors.white,
+                                            color: AuthColors.textMain,
                                             fontSize: 13,
                                           ),
                                           decoration: _compactInputDecoration(
@@ -739,7 +765,7 @@ class _VehicleDialogState extends State<_VehicleDialog> {
                   children: [
                     TextFormField(
                       controller: _notesController,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
                       decoration: _compactInputDecoration('Notes (optional)'),
                       maxLines: 2,
                     ),
@@ -923,60 +949,85 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
   bool _isLoading = true;
   bool _isSubmitting = false;
 
+  static final Map<String, List<OrganizationEmployee>> _driverCache = {};
+  static final Map<String, List<OrganizationEmployee>> _employeesCache = {};
+
   @override
   void initState() {
     super.initState();
     _loadEmployees();
   }
 
+  OrganizationEmployee? _findEmployee(
+    List<OrganizationEmployee> employees,
+    String? employeeId,
+  ) {
+    if (employeeId == null) return null;
+    for (final employee in employees) {
+      if (employee.id == employeeId) return employee;
+    }
+    return null;
+  }
+
   Future<void> _loadEmployees() async {
     try {
       // Driver role ID from migration mapping
       const driverRoleId = '1766649058877';
-      
-      // Try to fetch only employees with driver role
+      final cachedDrivers = _driverCache[widget.orgId];
+      final cachedAllEmployees = _employeesCache[widget.orgId];
+
+      if (cachedDrivers != null) {
+        final currentDriver = _findEmployee(
+              cachedDrivers,
+              widget.vehicle.driver?.id,
+            ) ??
+            _findEmployee(cachedAllEmployees ?? const [], widget.vehicle.driver?.id);
+        setState(() {
+          _employees = cachedDrivers;
+          _selectedEmployee = currentDriver;
+          _isLoading = false;
+        });
+        return;
+      }
+
       List<OrganizationEmployee> employees;
       try {
         employees = await widget.employeesRepository.fetchEmployeesByJobRole(
           widget.orgId,
           driverRoleId,
         );
-      } catch (e) {
-        // If query fails (e.g., index not ready), fallback to filtering in memory
-        debugPrint('Warning: fetchEmployeesByJobRole failed, filtering in memory: $e');
-        final allEmployees = await widget.employeesRepository.fetchEmployees(widget.orgId);
+        _driverCache[widget.orgId] = employees;
+      } catch (_) {
+        final allEmployees = cachedAllEmployees ??
+            await widget.employeesRepository.fetchEmployees(widget.orgId);
+        _employeesCache[widget.orgId] = allEmployees;
         employees = allEmployees
             .where((emp) => emp.jobRoleIds.contains(driverRoleId))
             .toList()
           ..sort((a, b) => a.name.compareTo(b.name));
+        _driverCache[widget.orgId] = employees;
       }
-      
-      OrganizationEmployee? currentDriver;
-      if (widget.vehicle.driver?.id != null) {
-        for (final employee in employees) {
-          if (employee.id == widget.vehicle.driver?.id) {
-            currentDriver = employee;
-            break;
-          }
-        }
-        // If current driver not found in filtered list, fetch them separately
-        if (currentDriver == null) {
-          final allEmployees = await widget.employeesRepository.fetchEmployees(widget.orgId);
-          for (final employee in allEmployees) {
-            if (employee.id == widget.vehicle.driver?.id) {
-              currentDriver = employee;
-              break;
-            }
-          }
-        }
+
+      OrganizationEmployee? currentDriver = _findEmployee(
+        employees,
+        widget.vehicle.driver?.id,
+      );
+      if (currentDriver == null && widget.vehicle.driver?.id != null) {
+        final allEmployees = cachedAllEmployees ??
+            _employeesCache[widget.orgId] ??
+            await widget.employeesRepository.fetchEmployees(widget.orgId);
+        _employeesCache[widget.orgId] = allEmployees;
+        currentDriver = _findEmployee(allEmployees, widget.vehicle.driver?.id);
       }
+
+      if (!mounted) return;
       setState(() {
         _employees = employees;
         _selectedEmployee = currentDriver;
         _isLoading = false;
       });
-    } catch (e) {
-      debugPrint('Error loading employees: $e');
+    } catch (_) {
+      if (!mounted) return;
       setState(() {
         _employees = const [];
         _isLoading = false;
@@ -1030,9 +1081,9 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: const TextStyle(color: AuthColors.textSub),
       filled: true,
-      fillColor: const Color(0xFF1B1B2C),
+      fillColor: AuthColors.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -1043,10 +1094,10 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF11111B),
+      backgroundColor: AuthColors.surface,
       title: Text(
         'Assign Driver - ${widget.vehicle.vehicleNumber}',
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
         width: 400,
@@ -1060,17 +1111,17 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.blueAccent.withValues(alpha: 0.15),
+                        color: AuthColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.blueAccent.withValues(alpha: 0.3),
+                          color: AuthColors.primary.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.info_outline,
-                            color: Colors.blueAccent,
+                            color: AuthColors.primary,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -1079,7 +1130,7 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                               'Current: ${widget.vehicle.driver!.name ?? 'Unknown'}'
                               '${widget.vehicle.driver!.phone != null ? ' (${widget.vehicle.driver!.phone})' : ''}',
                               style: const TextStyle(
-                                color: Colors.blueAccent,
+                                color: AuthColors.primary,
                                 fontSize: 13,
                               ),
                             ),
@@ -1092,8 +1143,8 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                   DropdownButtonFormField<OrganizationEmployee?>(
                     initialValue: _selectedEmployee,
                     decoration: _inputDecoration('Select Driver'),
-                    dropdownColor: const Color(0xFF1B1B2C),
-                    style: const TextStyle(color: Colors.white),
+                    dropdownColor: AuthColors.surface,
+                    style: const TextStyle(color: AuthColors.textMain),
                     onChanged: (value) {
                       setState(() {
                         _selectedEmployee = value;
@@ -1116,7 +1167,7 @@ class _DriverAssignmentDialogState extends State<_DriverAssignmentDialog> {
                     const SizedBox(height: 12),
                     const Text(
                       'No employees available. Add employees first.',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
+                      style: TextStyle(color: AuthColors.textSub, fontSize: 12),
                     ),
                   ],
                 ],
@@ -1155,21 +1206,21 @@ class _FormSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A2A).withValues(alpha: 0.5),
+        color: AuthColors.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: const Color(0xFF6F4BFF), size: 18),
+              Icon(icon, color: AuthColors.primary, size: 18),
               const SizedBox(width: 8),
               Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AuthColors.textMain,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1205,12 +1256,12 @@ class _CompactDocumentFields extends StatelessWidget {
           flex: 2,
           child: TextFormField(
             controller: numberController,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: const TextStyle(color: AuthColors.textMain, fontSize: 13),
             decoration: InputDecoration(
               labelText: '$title Number',
-              labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+              labelStyle: const TextStyle(color: AuthColors.textSub, fontSize: 12),
               filled: true,
-              fillColor: const Color(0xFF1B1B2C),
+              fillColor: AuthColors.surface,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: BorderSide.none,
@@ -1232,7 +1283,14 @@ class _CompactDocumentFields extends StatelessWidget {
                 lastDate: DateTime(now.year + 10),
                 builder: (context, child) {
                   return Theme(
-                    data: DashTheme.light(),
+                    data: Theme.of(context).copyWith(
+                      colorScheme: const ColorScheme.dark(
+                        primary: AuthColors.primary,
+                        onPrimary: AuthColors.textMain,
+                        surface: AuthColors.surface,
+                        onSurface: AuthColors.textMain,
+                      ),
+                    ),
                     child: child!,
                   );
                 },
@@ -1243,9 +1301,9 @@ class _CompactDocumentFields extends StatelessWidget {
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B1B2C),
+                color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white10),
+                border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
               ),
               alignment: Alignment.centerLeft,
               child: Text(
@@ -1255,7 +1313,7 @@ class _CompactDocumentFields extends StatelessWidget {
                         '${expiry!.month.toString().padLeft(2, '0')}/'
                         '${expiry!.year}',
                 style: TextStyle(
-                  color: expiry == null ? Colors.white54 : Colors.white,
+                  color: expiry == null ? AuthColors.textSub : AuthColors.textMain,
                   fontSize: 13,
                 ),
               ),

@@ -9,7 +9,6 @@ class ContactCubit extends Cubit<ContactState> {
 
   Timer? _searchDebounce;
   static const int _maxSearchResults = 100;
-  static const int _chunkSize = 50;
 
   /// Initialize contact loading - called from UI
   void initializeLoading() {

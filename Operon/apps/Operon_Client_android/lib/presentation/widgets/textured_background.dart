@@ -37,7 +37,7 @@ class TexturedBackground extends StatelessWidget {
           Container(
             color: kDebugMode && debugMode
                 ? AuthColors.info
-                    .withOpacity(0.5) // Blue tint to verify rendering
+                .withValues(alpha: 0.5) // Blue tint to verify rendering
                 : AuthColors.transparent,
           ),
           // Textured overlay - using LayoutBuilder to get actual size
@@ -80,7 +80,7 @@ class TexturedBackground extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(AppSpacing.paddingSM),
                 decoration: BoxDecoration(
-                  color: AuthColors.error.withOpacity(0.9),
+                  color: AuthColors.error.withValues(alpha: 0.9),
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(8),
                   ),
@@ -136,8 +136,8 @@ class _TexturedPainter extends CustomPainter {
     // Increase opacity for better visibility
     final effectiveOpacity = opacity * 1.5; // Boost visibility
     final paint = Paint()
-      ..color =
-          AuthColors.textMain.withOpacity(effectiveOpacity.clamp(0.0, 1.0))
+      ..color = AuthColors.textMain
+        .withValues(alpha: effectiveOpacity.clamp(0.0, 1.0))
       ..strokeWidth = 0.5
       ..style = PaintingStyle.fill;
 

@@ -63,7 +63,10 @@ export const onEmployeeCreated = onDocumentCreated(
  * Called by unified analytics scheduler.
  */
 export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<void> {
-  const employeesSnapshot = await db.collection(EMPLOYEES_COLLECTION).get();
+  const employeesSnapshot = await db
+    .collection(EMPLOYEES_COLLECTION)
+    .select('organizationId')
+    .get();
   const employeesByOrg: Record<string, FirebaseFirestore.DocumentSnapshot[]> = {};
 
   employeesSnapshot.forEach((doc) => {
@@ -85,6 +88,7 @@ export async function rebuildEmployeeAnalyticsCore(fyLabel: string): Promise<voi
       .where('ledgerType', '==', 'employeeLedger')
       .where('type', '==', 'credit')
       .where('category', '==', 'wageCredit')
+      .select('transactionDate', 'paymentDate', 'createdAt', 'amount')
       .get();
 
     // Group wages by month and by day (daily data only)

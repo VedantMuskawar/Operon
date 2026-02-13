@@ -8,6 +8,7 @@ import 'package:dash_mobile/presentation/widgets/quick_action_menu.dart';
 import 'package:dash_mobile/presentation/widgets/edit_order_dialog.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/app_typography.dart';
+import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -198,6 +199,10 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
 
     if (confirmed != true) return;
 
+    if (!mounted) {
+      return;
+    }
+
     setState(() => _isDeleting = true);
     try {
       final repository = context.read<PendingOrdersRepository>();
@@ -345,9 +350,16 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
 
     try {
       final clientService = ClientService();
+      final orgId =
+          context.read<OrganizationContextCubit>().state.organization?.id;
       final client = await clientService.findClientByPhone(
         _currentOrder?['clientPhone'] as String? ?? '',
+        organizationId: orgId,
       );
+
+      if (!mounted) {
+        return;
+      }
 
       if (client == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -506,7 +518,7 @@ class _PendingOrderDetailPageState extends State<PendingOrderDetailPage> {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                        color: AuthColors.textSub.withOpacity(0.1),
+                        color: AuthColors.textSub.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
@@ -652,12 +664,12 @@ class _OrderHeader extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             AuthColors.surface,
-            AuthColors.surface.withOpacity(0.95),
+            AuthColors.surface.withValues(alpha: 0.95),
           ],
         ),
         border: Border(
           bottom: BorderSide(
-            color: AuthColors.textSub.withOpacity(0.1),
+            color: AuthColors.textSub.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -699,13 +711,13 @@ class _OrderHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      priorityColor.withOpacity(0.25),
-                      priorityColor.withOpacity(0.15),
+                      priorityColor.withValues(alpha: 0.25),
+                      priorityColor.withValues(alpha: 0.15),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
-                    color: priorityColor.withOpacity(0.5),
+                    color: priorityColor.withValues(alpha: 0.5),
                     width: 1.5,
                   ),
                 ),
@@ -769,12 +781,12 @@ class _OrderHeader extends StatelessWidget {
                                           ? [
                                               AuthColors.success,
                                               AuthColors.success
-                                                  .withOpacity(0.8),
+                                                  .withValues(alpha: 0.8),
                                             ]
                                           : [
                                               AuthColors.primary,
                                               AuthColors.primary
-                                                  .withOpacity(0.8),
+                                                  .withValues(alpha: 0.8),
                                             ],
                                     ),
                                   ),
@@ -803,13 +815,13 @@ class _OrderHeader extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: orderAgeDays > 7
-                        ? AuthColors.error.withOpacity(0.1)
-                        : AuthColors.warning.withOpacity(0.1),
+                        ? AuthColors.error.withValues(alpha: 0.1)
+                        : AuthColors.warning.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                     border: Border.all(
                       color: orderAgeDays > 7
-                          ? AuthColors.error.withOpacity(0.3)
-                          : AuthColors.warning.withOpacity(0.3),
+                          ? AuthColors.error.withValues(alpha: 0.3)
+                          : AuthColors.warning.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -1096,8 +1108,8 @@ class _ItemCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AuthColors.primary.withOpacity(0.2),
-                      AuthColors.primary.withOpacity(0.1),
+                      AuthColors.primary.withValues(alpha: 0.2),
+                      AuthColors.primary.withValues(alpha: 0.1),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
@@ -1224,10 +1236,10 @@ class _TripInfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingSM),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -1402,7 +1414,7 @@ class _ScheduledTripItem extends StatelessWidget {
                 Container(
                   width: 2,
                   height: 8,
-                  color: AuthColors.textSub.withOpacity(0.1),
+                  color: AuthColors.textSub.withValues(alpha: 0.1),
                 ),
               Container(
                 width: 12,
@@ -1420,7 +1432,7 @@ class _ScheduledTripItem extends StatelessWidget {
                 Expanded(
                   child: Container(
                     width: 2,
-                    color: AuthColors.textSub.withOpacity(0.1),
+                    color: AuthColors.textSub.withValues(alpha: 0.1),
                   ),
                 ),
             ],
@@ -1487,14 +1499,14 @@ class _ScheduledTripItem extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            statusColor.withOpacity(0.25),
-                            statusColor.withOpacity(0.15),
+                            statusColor.withValues(alpha: 0.25),
+                            statusColor.withValues(alpha: 0.15),
                           ],
                         ),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusXS),
                         border: Border.all(
-                          color: statusColor.withOpacity(0.4),
+                          color: statusColor.withValues(alpha: 0.4),
                         ),
                       ),
                       child: Row(
@@ -1528,14 +1540,14 @@ class _ScheduledTripItem extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          AuthColors.primary.withOpacity(0.2),
-                          AuthColors.primary.withOpacity(0.1),
+                          AuthColors.primary.withValues(alpha: 0.2),
+                          AuthColors.primary.withValues(alpha: 0.1),
                         ],
                       ),
                       borderRadius:
                           BorderRadius.circular(AppSpacing.radiusXS / 2),
                       border: Border.all(
-                        color: AuthColors.primary.withOpacity(0.3),
+                        color: AuthColors.primary.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Text(
@@ -1557,66 +1569,6 @@ class _ScheduledTripItem extends StatelessWidget {
 }
 
 // Stat Card Widget
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return ModernTile(
-      padding: const EdgeInsets.all(AppSpacing.paddingLG),
-      elevation: 0,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  color.withOpacity(0.2),
-                  color.withOpacity(0.1),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: AppSpacing.iconMD,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.paddingLG),
-          Text(
-            value,
-            style: AppTypography.h3.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.paddingXS / 2),
-          Text(
-            label,
-            style: AppTypography.bodySmall.copyWith(
-              color: AuthColors.textSub,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // Info Card Widget
 class _InfoCard extends StatelessWidget {
   const _InfoCard({

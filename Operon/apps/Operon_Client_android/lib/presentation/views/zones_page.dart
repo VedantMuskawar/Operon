@@ -522,6 +522,7 @@ class _ZonesPageState extends State<ZonesPage> {
       ),
     );
     if (shouldDelete != true) return;
+    if (!mounted) return;
     try {
       await context.read<DeliveryZonesCubit>().deleteCity(city);
     } catch (err) {

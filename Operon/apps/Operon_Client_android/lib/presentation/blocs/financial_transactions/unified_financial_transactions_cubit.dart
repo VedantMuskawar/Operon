@@ -11,20 +11,37 @@ class UnifiedFinancialTransactionsCubit
     extends Cubit<UnifiedFinancialTransactionsState> {
   UnifiedFinancialTransactionsCubit({
     required TransactionsRepository transactionsRepository,
+    required VendorsRepository vendorsRepository,
     required String organizationId,
   })  : _transactionsRepository = transactionsRepository,
+        _vendorsRepository = vendorsRepository,
         _organizationId = organizationId,
         super(const UnifiedFinancialTransactionsState());
 
   final TransactionsRepository _transactionsRepository;
+  final VendorsRepository _vendorsRepository;
   final String _organizationId;
   Timer? _searchDebounce;
+  final Map<String, String> _vendorNameCache = {};
+  final Map<String, Map<String, List<Transaction>>> _rangeCache = {};
 
   String get organizationId => _organizationId;
 
+  String _buildCacheKey(
+    String financialYear,
+    DateTime startDate,
+    DateTime endDate,
+  ) {
+    return '$financialYear|${startDate.millisecondsSinceEpoch}|${endDate.millisecondsSinceEpoch}';
+  }
+
   /// Load all financial data (transactions, purchases, expenses)
-  Future<void> load({String? financialYear, DateTime? startDate, DateTime? endDate}) async {
-    emit(state.copyWith(status: ViewStatus.loading, message: null));
+  Future<void> load({
+    String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool forceRefresh = false,
+  }) async {
     try {
       final fy = financialYear ?? FinancialYearUtils.getCurrentFinancialYear();
 
@@ -36,26 +53,60 @@ class UnifiedFinancialTransactionsCubit
       final effectiveStartDate = startDate ?? todayStart;
       final effectiveEndDate = endDate ?? todayEnd;
 
-      // Load all data in parallel
+      final cacheKey = _buildCacheKey(
+        fy,
+        effectiveStartDate,
+        effectiveEndDate,
+      );
+
+      if (!forceRefresh && _rangeCache.containsKey(cacheKey)) {
+        final cached = _rangeCache[cacheKey]!;
+        emit(state.copyWith(
+          status: ViewStatus.success,
+          transactions: cached['transactions'] ?? const [],
+          purchases: cached['purchases'] ?? const [],
+          expenses: cached['expenses'] ?? const [],
+          financialYear: fy,
+          startDate: effectiveStartDate,
+          endDate: effectiveEndDate,
+          message: null,
+        ));
+        return;
+      }
+
+      emit(state.copyWith(status: ViewStatus.loading, message: null));
+
+      // Load all data in parallel with server-side date filtering
       final data = await _transactionsRepository.getUnifiedFinancialData(
         organizationId: _organizationId,
         financialYear: fy,
+        startDate: effectiveStartDate,
+        endDate: effectiveEndDate,
+        limit: 50,
       );
 
-      var transactions = data['transactions'] ?? [];
-      var purchases = data['purchases'] ?? [];
-      var expenses = data['expenses'] ?? [];
+      final transactions = data['transactions'] ?? [];
+      final purchases = data['purchases'] ?? [];
+      final expenses = data['expenses'] ?? [];
 
-      // Apply date filter (always apply since we have default dates)
-      transactions = _filterByDateRange(transactions, effectiveStartDate, effectiveEndDate);
-      purchases = _filterByDateRange(purchases, effectiveStartDate, effectiveEndDate);
-      expenses = _filterByDateRange(expenses, effectiveStartDate, effectiveEndDate);
+      // Enrich vendor names with minimal reads
+      final enriched = await _enrichWithVendorNames(
+        transactions,
+        purchases,
+        expenses,
+      );
+
+      _rangeCache[cacheKey] = {
+        'transactions': enriched['transactions']!,
+        'purchases': enriched['purchases']!,
+        'expenses': enriched['expenses']!,
+      };
 
       emit(state.copyWith(
         status: ViewStatus.success,
-        transactions: transactions,
-        purchases: purchases,
-        expenses: expenses,
+        transactions: enriched['transactions']!,
+        purchases: enriched['purchases']!,
+        expenses: enriched['expenses']!,
         financialYear: fy,
         startDate: effectiveStartDate,
         endDate: effectiveEndDate,
@@ -68,22 +119,88 @@ class UnifiedFinancialTransactionsCubit
     }
   }
 
-  /// Filter transactions by date range
-  List<Transaction> _filterByDateRange(
+  /// Enrich transactions with vendor names from vendorId (minimal reads)
+  Future<Map<String, List<Transaction>>> _enrichWithVendorNames(
     List<Transaction> transactions,
-    DateTime? startDate,
-    DateTime? endDate,
-  ) {
-    if (startDate == null && endDate == null) return transactions;
+    List<Transaction> purchases,
+    List<Transaction> expenses,
+  ) async {
+    try {
+      final vendorIds = <String>{};
+      for (final tx in [...transactions, ...purchases, ...expenses]) {
+        if (tx.vendorId != null && tx.vendorId!.isNotEmpty) {
+          final hasVendorName =
+              (tx.metadata?['vendorName'] as String?)?.trim().isNotEmpty == true;
+          if (!hasVendorName) {
+            vendorIds.add(tx.vendorId!);
+          }
+        }
+      }
 
-    return transactions.where((tx) {
-      final txDate = tx.createdAt ?? DateTime(1970);
-      final start = startDate ?? DateTime(1970);
-      final end = endDate ?? DateTime.now();
+      if (vendorIds.isNotEmpty) {
+        final missingIds =
+            vendorIds.where((id) => !_vendorNameCache.containsKey(id)).toList();
+        if (missingIds.isNotEmpty) {
+          final vendors = await _vendorsRepository.fetchVendorsByIds(missingIds);
+          for (final vendor in vendors) {
+            _vendorNameCache[vendor.id] = vendor.name;
+          }
+        }
+      }
 
-      return txDate.isAfter(start.subtract(const Duration(days: 1))) &&
-             txDate.isBefore(end.add(const Duration(days: 1)));
-    }).toList();
+      if (_vendorNameCache.isEmpty) {
+        return {
+          'transactions': transactions,
+          'purchases': purchases,
+          'expenses': expenses,
+        };
+      }
+
+      final enrichedTransactions = transactions.map((tx) {
+        if (tx.vendorId != null && _vendorNameCache.containsKey(tx.vendorId)) {
+          final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
+          if (!metadata.containsKey('vendorName')) {
+            metadata['vendorName'] = _vendorNameCache[tx.vendorId];
+            return tx.copyWith(metadata: metadata);
+          }
+        }
+        return tx;
+      }).toList();
+
+      final enrichedPurchases = purchases.map((tx) {
+        if (tx.vendorId != null && _vendorNameCache.containsKey(tx.vendorId)) {
+          final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
+          if (!metadata.containsKey('vendorName')) {
+            metadata['vendorName'] = _vendorNameCache[tx.vendorId];
+            return tx.copyWith(metadata: metadata);
+          }
+        }
+        return tx;
+      }).toList();
+
+      final enrichedExpenses = expenses.map((tx) {
+        if (tx.vendorId != null && _vendorNameCache.containsKey(tx.vendorId)) {
+          final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
+          if (!metadata.containsKey('vendorName')) {
+            metadata['vendorName'] = _vendorNameCache[tx.vendorId];
+            return tx.copyWith(metadata: metadata);
+          }
+        }
+        return tx;
+      }).toList();
+
+      return {
+        'transactions': enrichedTransactions,
+        'purchases': enrichedPurchases,
+        'expenses': enrichedExpenses,
+      };
+    } catch (_) {
+      return {
+        'transactions': transactions,
+        'purchases': purchases,
+        'expenses': expenses,
+      };
+    }
   }
 
   /// Select tab (transactions, purchases, expenses)
@@ -114,6 +231,7 @@ class UnifiedFinancialTransactionsCubit
       financialYear: state.financialYear,
       startDate: state.startDate,
       endDate: state.endDate,
+      forceRefresh: true,
     );
   }
 
@@ -129,6 +247,7 @@ class UnifiedFinancialTransactionsCubit
       await _transactionsRepository.cancelTransaction(
         transactionId: transactionId,
       );
+      _rangeCache.clear();
       await refresh();
     } catch (e) {
       emit(state.copyWith(

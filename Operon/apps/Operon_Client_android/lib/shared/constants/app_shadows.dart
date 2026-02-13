@@ -9,7 +9,7 @@ class AppShadows {
   // Card Shadows
   static List<BoxShadow> card = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.3),
+      color: Colors.black.withValues(alpha: 0.3),
       blurRadius: 8.0,
       offset: const Offset(0, 4),
     ),
@@ -17,12 +17,12 @@ class AppShadows {
 
   static List<BoxShadow> cardElevated = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.4),
+      color: Colors.black.withValues(alpha: 0.4),
       blurRadius: 12.0,
       offset: const Offset(0, 6),
     ),
     BoxShadow(
-      color: Colors.black.withOpacity(0.2),
+      color: Colors.black.withValues(alpha: 0.2),
       blurRadius: 4.0,
       offset: const Offset(0, 2),
     ),
@@ -30,7 +30,7 @@ class AppShadows {
 
   static List<BoxShadow> cardHover = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withValues(alpha: 0.5),
       blurRadius: 16.0,
       offset: const Offset(0, 8),
     ),
@@ -39,7 +39,7 @@ class AppShadows {
   // Button Shadows
   static List<BoxShadow> button = [
     BoxShadow(
-      color: AppColors.primary.withOpacity(0.4),
+      color: AppColors.primary.withValues(alpha: 0.4),
       blurRadius: 12.0,
       offset: const Offset(0, 4),
     ),
@@ -47,7 +47,7 @@ class AppShadows {
 
   static List<BoxShadow> buttonPressed = [
     BoxShadow(
-      color: AppColors.primary.withOpacity(0.2),
+      color: AppColors.primary.withValues(alpha: 0.2),
       blurRadius: 4.0,
       offset: const Offset(0, 2),
     ),
@@ -56,7 +56,7 @@ class AppShadows {
   // Input Shadows
   static List<BoxShadow> inputFocused = [
     BoxShadow(
-      color: AppColors.primary.withOpacity(0.2),
+      color: AppColors.primary.withValues(alpha: 0.2),
       blurRadius: 8.0,
       offset: const Offset(0, 0),
     ),
@@ -65,12 +65,12 @@ class AppShadows {
   // Dialog Shadows
   static List<BoxShadow> dialog = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withValues(alpha: 0.5),
       blurRadius: 20.0,
       offset: const Offset(0, 12),
     ),
     BoxShadow(
-      color: Colors.black.withOpacity(0.3),
+      color: Colors.black.withValues(alpha: 0.3),
       blurRadius: 8.0,
       offset: const Offset(0, 4),
     ),
@@ -79,7 +79,7 @@ class AppShadows {
   // Floating Action Button Shadows
   static List<BoxShadow> fab = [
     BoxShadow(
-      color: AppColors.primary.withOpacity(0.4),
+      color: AppColors.primary.withValues(alpha: 0.4),
       blurRadius: 12.0,
       offset: const Offset(0, 4),
     ),
@@ -88,12 +88,12 @@ class AppShadows {
   // Drawer Shadows
   static List<BoxShadow> drawer = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.3),
+      color: Colors.black.withValues(alpha: 0.3),
       blurRadius: 60.0,
       offset: const Offset(0, 30),
     ),
     BoxShadow(
-      color: Colors.black.withOpacity(0.2),
+      color: Colors.black.withValues(alpha: 0.2),
       blurRadius: 20.0,
       offset: const Offset(0, 8),
     ),
@@ -102,7 +102,7 @@ class AppShadows {
   // Subtle shadow for borders
   static List<BoxShadow> border = [
     BoxShadow(
-      color: Colors.white.withOpacity(0.05),
+      color: Colors.white.withValues(alpha: 0.05),
       blurRadius: 2.0,
       offset: const Offset(0, 1),
     ),

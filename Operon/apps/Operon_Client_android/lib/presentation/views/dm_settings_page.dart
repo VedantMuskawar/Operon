@@ -160,6 +160,8 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       ),
     );
 
+    if (!mounted) return;
+
     if (confirmed == true) {
       try {
         final cubit = context.read<DmSettingsCubit>();
@@ -206,6 +208,8 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
           ? _customTemplateIdController.text.trim()
           : null,
     );
+
+    if (!mounted) return;
 
     if (mounted && cubit.state.status == ViewStatus.success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -268,7 +272,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                                   borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
                                   color: AuthColors.surface,
                                   border: Border.all(
-                                    color: AuthColors.textMain.withOpacity(0.1),
+                                    color: AuthColors.textMain.withValues(alpha: 0.1),
                                   ),
                                 ),
                                 child: const Text(
@@ -479,7 +483,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
         ),
       ),
       child: Column(
@@ -523,7 +527,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                   color: AuthColors.surface,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
-                    color: AuthColors.textMain.withOpacity(0.1),
+                    color: AuthColors.textMain.withValues(alpha: 0.1),
                   ),
                 ),
                 child: ClipRRect(
@@ -556,7 +560,7 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
                   color: AuthColors.surface,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                   border: Border.all(
-                    color: AuthColors.textMain.withOpacity(0.1),
+                    color: AuthColors.textMain.withValues(alpha: 0.1),
                   ),
                 ),
                 child: const Icon(
@@ -608,14 +612,14 @@ class _DmSettingsPageState extends State<DmSettingsPage> {
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
@@ -652,13 +656,13 @@ class _PrintOption extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected
-              ? AuthColors.primary.withOpacity(0.2)
+              ? AuthColors.primary.withValues(alpha: 0.2)
               : AuthColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
           border: Border.all(
             color: isSelected
                 ? AuthColors.primary
-                : AuthColors.textMain.withOpacity(0.1),
+                : AuthColors.textMain.withValues(alpha: 0.1),
             width: isSelected ? 2 : 1,
           ),
         ),

@@ -12,6 +12,7 @@ import { rebuildTransactionAnalyticsForOrg } from '../transactions/transaction-r
 import { rebuildDeliveriesAnalyticsForOrg } from './deliveries-analytics';
 import { rebuildProductionsAnalyticsForOrg } from './productions-analytics';
 import { rebuildTripWagesAnalyticsForOrg } from './trip-wages-analytics';
+import { rebuildFuelAnalyticsForOrg } from './fuel-analytics';
 import { SCHEDULED_FUNCTION_OPTS } from '../shared/function-config';
 
 const db = getFirestore();
@@ -105,6 +106,12 @@ export const rebuildAllAnalytics = onSchedule(
         await rebuildTripWagesAnalyticsForOrg(organizationId, fyLabel, fyStart, fyEnd);
       } catch (error) {
         console.error('[Analytics Rebuild] Trip wages analytics failed for org', organizationId, error);
+      }
+
+      try {
+        await rebuildFuelAnalyticsForOrg(organizationId, fyLabel, fyStart, fyEnd);
+      } catch (error) {
+        console.error('[Analytics Rebuild] Fuel analytics failed for org', organizationId, error);
       }
     }
 

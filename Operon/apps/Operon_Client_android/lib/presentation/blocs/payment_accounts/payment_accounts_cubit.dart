@@ -8,13 +8,10 @@ class PaymentAccountsState extends BaseState {
   const PaymentAccountsState({
     super.status = ViewStatus.initial,
     this.accounts = const [],
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final List<PaymentAccount> accounts;
-  @override
-  final String? message;
-
   @override
   PaymentAccountsState copyWith({
     ViewStatus? status,

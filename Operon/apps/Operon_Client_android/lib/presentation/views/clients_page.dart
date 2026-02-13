@@ -33,15 +33,14 @@ enum _ClientFilterType {
 
 class _ClientsPageState extends State<ClientsPage> {
   late final TextEditingController _searchController;
-  late final PageController _pageController;
   late final Debouncer _searchDebouncer;
   late final ScrollController _scrollController;
   double _currentPage = 0;
   _ClientFilterType _filterType = _ClientFilterType.all;
   List<ClientRecord>? _cachedFilteredClients;
   _ClientFilterType? _lastFilterType;
-  int _currentLimit = 20;
   bool _isLoadingMore = false;
+  static const int _pageSize = 20;
 
   @override
   void initState() {
@@ -49,21 +48,8 @@ class _ClientsPageState extends State<ClientsPage> {
     _searchDebouncer = Debouncer(duration: const Duration(milliseconds: 300));
     _searchController = TextEditingController()
       ..addListener(_handleSearchChanged);
-    _pageController = PageController()
-      ..addListener(_onPageChanged);
     _scrollController = ScrollController()
       ..addListener(_onScroll);
-  }
-
-  void _onPageChanged() {
-    if (!_pageController.hasClients) return;
-    final newPage = _pageController.page ?? 0;
-    final roundedPage = newPage.round();
-    if (roundedPage != _currentPage.round()) {
-      setState(() {
-        _currentPage = newPage;
-      });
-    }
   }
 
   void _onScroll() {
@@ -73,24 +59,24 @@ class _ClientsPageState extends State<ClientsPage> {
     }
   }
 
-  void _loadMore() {
+  Future<void> _loadMore() async {
     if (_isLoadingMore) return;
+    final cubit = context.read<ClientsCubit>();
+    if (!cubit.hasMore) return;
     setState(() => _isLoadingMore = true);
-    _currentLimit += 20;
-    context.read<ClientsCubit>().subscribeToRecent(limit: _currentLimit);
-    Future.delayed(const Duration(milliseconds: 500), () {
+    try {
+      await cubit.loadMoreClients(limit: _pageSize);
+    } finally {
       if (mounted) {
         setState(() => _isLoadingMore = false);
       }
-    });
+    }
   }
 
   @override
   void dispose() {
     _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
-    _pageController.removeListener(_onPageChanged);
-    _pageController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _searchDebouncer.dispose();
@@ -165,34 +151,38 @@ class _ClientsPageState extends State<ClientsPage> {
                   child: Column(
                     children: [
                       Expanded(
-                      child: PageView(
-                        controller: _pageController,
-                        physics: const PageScrollPhysics(),
+                      child: IndexedStack(
+                        index: _currentPage.round(),
                         children: [
-                            _ClientsListView(
-                              filterType: _filterType,
-                              scrollController: _scrollController,
-                              isLoadingMore: _isLoadingMore,
-                              onFilterChanged: (filter) {
-                                setState(() {
-                                  _filterType = filter;
-                                  _cachedFilteredClients = null;
-                                  _lastFilterType = null;
-                                });
-                              },
-                              onApplyFilter: _applyFilter,
-                              searchController: _searchController,
-                              onClearSearch: _clearSearch,
-                              onOpenContactPage: _openContactPage,
-                            ),
-                            const ClientAnalyticsPage(),
-                          ],
-                        ),
+                          _ClientsListView(
+                            filterType: _filterType,
+                            scrollController: _scrollController,
+                            isLoadingMore: _isLoadingMore,
+                            onFilterChanged: (filter) {
+                              setState(() {
+                                _filterType = filter;
+                                _cachedFilteredClients = null;
+                                _lastFilterType = null;
+                              });
+                            },
+                            onApplyFilter: _applyFilter,
+                            searchController: _searchController,
+                            onClearSearch: _clearSearch,
+                            onOpenContactPage: _openContactPage,
+                          ),
+                          const ClientAnalyticsPage(),
+                        ],
                       ),
+                    ),
                       const SizedBox(height: AppSpacing.paddingSM),
                       _CompactPageIndicator(
                         pageCount: 2,
                         currentIndex: _currentPage,
+                        onPageSelected: (index) {
+                          setState(() {
+                            _currentPage = index.toDouble();
+                          });
+                        },
                       ),
                       const SizedBox(height: AppSpacing.paddingLG),
                     ],
@@ -237,7 +227,7 @@ class _ClientsPageState extends State<ClientsPage> {
                 right: 24,
                 bottom: QuickActionMenu.standardBottom(context),
                 child: Material(
-                  color: Colors.transparent,
+                  color: AuthColors.transparent,
                   child: InkWell(
                     onTap: _openContactPage,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
@@ -250,7 +240,7 @@ class _ClientsPageState extends State<ClientsPage> {
                           end: Alignment.bottomRight,
                           colors: [
                             AuthColors.primary,
-                            AuthColors.primaryVariant,
+                            AuthColors.primary,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
@@ -548,10 +538,18 @@ class _ClientTile extends StatelessWidget {
 
   final ClientRecord client;
 
+  // Max cache size to prevent unbounded memory growth
+  static const int _maxCacheSize = 500;
   static final _colorCache = <String, Color>{};
   static final _initialsCache = <String, String>{};
   static final _subtitleCache = <String, String>{};
-  static final _orderCountCache = <String, int>{};
+
+  void _maintainCacheSize<K, V>(Map<K, V> cache) {
+    if (cache.length > _maxCacheSize) {
+      // Clear cache if it grows too large to prevent memory leaks
+      cache.clear();
+    }
+  }
 
   Color _getClientColor() {
     if (client.isCorporate) {
@@ -572,6 +570,7 @@ class _ClientTile extends StatelessWidget {
     ];
     final color = colors[hash.abs() % colors.length];
     _colorCache[cacheKey] = color;
+    _maintainCacheSize(_colorCache);
     return color;
   }
 
@@ -585,6 +584,7 @@ class _ClientTile extends StatelessWidget {
         ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
         : (name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase());
     _initialsCache[name] = initials;
+    _maintainCacheSize(_initialsCache);
     return initials;
   }
 
@@ -601,25 +601,15 @@ class _ClientTile extends StatelessWidget {
     if (client.isCorporate) subtitleParts.add('Corporate');
     final subtitle = subtitleParts.join(' • ');
     _subtitleCache[cacheKey] = subtitle;
+    _maintainCacheSize(_subtitleCache);
     return subtitle;
-  }
-
-  int _getOrderCount() {
-    final cacheKey = '${client.id}_orders';
-    if (_orderCountCache.containsKey(cacheKey)) {
-      return _orderCountCache[cacheKey]!;
-    }
-    
-    final orderCount = (client.stats['orders'] as num?)?.toInt() ?? 0;
-    _orderCountCache[cacheKey] = orderCount;
-    return orderCount;
   }
 
   @override
   Widget build(BuildContext context) {
     final clientColor = _getClientColor();
     final subtitle = _getSubtitle();
-    final orderCount = _getOrderCount();
+    final orderCount = (client.stats['orders'] as num?)?.toInt() ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
@@ -644,7 +634,7 @@ class _ClientTile extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
                   decoration: BoxDecoration(
-                    color: AuthColors.success.withOpacity(0.15),
+                    color: AuthColors.success.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                   ),
                   child: Row(
@@ -761,32 +751,42 @@ class _CompactPageIndicator extends StatelessWidget {
   const _CompactPageIndicator({
     required this.pageCount,
     required this.currentIndex,
+    this.onPageSelected,
   });
 
   final int pageCount;
   final double currentIndex;
+  final ValueChanged<int>? onPageSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(
-        pageCount,
-        (index) {
-          final isActive = currentIndex.round() == index;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            margin: const EdgeInsets.symmetric(horizontal: 3),
-            width: isActive ? 24 : 6,
-            height: 3,
-            decoration: BoxDecoration(
-              color: isActive ? AuthColors.legacyAccent : AuthColors.textMainWithOpacity(0.3),
-              borderRadius: BorderRadius.circular(1.5),
-            ),
-          );
-        },
+    return GestureDetector(
+      onTap: () {
+        // Allow clicking on empty space to cycle pages
+      },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(
+          pageCount,
+          (index) {
+            final isActive = currentIndex.round() == index;
+            return GestureDetector(
+              onTap: () => onPageSelected?.call(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isActive ? 24 : 6,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: isActive ? AuthColors.primary : AuthColors.textMainWithOpacity(0.3),
+                  borderRadius: BorderRadius.circular(1.5),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -807,7 +807,7 @@ class _EmptySearchState extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 48,
-            color: AuthColors.textSub.withOpacity(0.5),
+            color: AuthColors.textSub.withValues(alpha: 0.5),
           ),
                     const SizedBox(height: AppSpacing.paddingLG),
           const Text(

@@ -38,20 +38,76 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
   String _query = '';
   _SortOption _sortOption = _SortOption.nameAsc;
   String? _selectedRoleFilter;
-  final ScrollController _scrollController = ScrollController();
-  final bool _isLoadingMore = false;
+  final Map<String, String> _searchIndexCache = {};
+  String? _lastSearchIndexHash;
 
+  // ⚡ Performance: Cache for expensive operations
+  List<_SimpleRole>? _cachedRoles;
+  List<OrganizationEmployee>? _cachedFilteredEmployees;
+  String? _lastCacheKey;
+  int? _lastEmployeesHash;
+
+  String _generateCacheKey() {
+    return '$_query|$_selectedRoleFilter|${_sortOption.name}';
+  }
+
+  // ⚡ Performance: Extract and cache unique roles
+  List<_SimpleRole> _extractUniqueRoles(List<OrganizationEmployee> employees) {
+    final employeesHash = employees.hashCode;
+    
+    // Return cached roles if employees haven't changed
+    if (_cachedRoles != null && _lastEmployeesHash == employeesHash) {
+      return _cachedRoles!;
+    }
+
+    final roleMap = <String, String>{};
+    for (final emp in employees) {
+      for (final jobRoleId in emp.jobRoleIds) {
+        final jobRole = emp.jobRoles[jobRoleId];
+        if (jobRole != null && !roleMap.containsKey(jobRoleId)) {
+          roleMap[jobRoleId] = jobRole.jobRoleTitle;
+        }
+      }
+    }
+    final uniqueRoles = roleMap.entries
+        .map((e) => _SimpleRole(id: e.key, title: e.value))
+        .toList();
+    uniqueRoles.sort((a, b) => a.title.compareTo(b.title));
+    
+    // Cache the result
+    _cachedRoles = uniqueRoles;
+    _lastEmployeesHash = employeesHash;
+    
+    return uniqueRoles;
+  }
+
+  // ⚡ Performance: Memoized filter and sort
   List<OrganizationEmployee> _applyFiltersAndSort(
     List<OrganizationEmployee> employees,
-    List<_SimpleRole> roles,
   ) {
+    final cacheKey = _generateCacheKey();
+    final employeesHash = employees.hashCode;
+    
+    // Return cached result if inputs haven't changed
+    if (_cachedFilteredEmployees != null && 
+        _lastCacheKey == cacheKey &&
+        _lastEmployeesHash == employeesHash) {
+      return _cachedFilteredEmployees!;
+    }
+
     // Create a mutable copy to avoid "Unsupported operation: sort" error in web
     var filtered = List<OrganizationEmployee>.from(employees);
 
     // Apply search filter
     if (_query.isNotEmpty) {
+      final queryLower = _query.toLowerCase();
+      final employeesHashKey = '${employees.length}_${employees.hashCode}';
+      final searchIndex = _buildSearchIndex(employees, employeesHashKey);
       filtered = filtered
-          .where((e) => e.name.toLowerCase().contains(_query.toLowerCase()))
+          .where((e) {
+            final indexText = searchIndex[e.id] ?? '';
+            return indexText.contains(queryLower);
+          })
           .toList();
     }
 
@@ -82,12 +138,49 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
         break;
     }
 
+    // Cache the result
+    _cachedFilteredEmployees = sortedList;
+    _lastCacheKey = cacheKey;
+    _lastEmployeesHash = employeesHash;
+
     return sortedList;
+  }
+
+  Map<String, String> _buildSearchIndex(
+    List<OrganizationEmployee> employees,
+    String employeesHashKey,
+  ) {
+    if (_lastSearchIndexHash == employeesHashKey &&
+        _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final employee in employees) {
+      final buffer = StringBuffer();
+      void add(String? value) {
+        if (value == null) return;
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        buffer.write(trimmed.toLowerCase());
+        buffer.write(' ');
+      }
+
+      add(employee.name);
+      _searchIndexCache[employee.id] = buffer.toString();
+    }
+
+    _lastSearchIndexHash = employeesHashKey;
+    return _searchIndexCache;
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<EmployeesCubit, EmployeesState>(
+      // ⚡ Performance: Only rebuild when employees list changes
+      buildWhen: (previous, current) => 
+          previous.employees != current.employees ||
+          previous.status != current.status,
       builder: (context, state) {
         if (state.status == ViewStatus.loading && state.employees.isEmpty) {
           return Center(
@@ -125,26 +218,18 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
 
         final employees = state.employees;
         
-        // Extract unique job roles from employees for filtering
-        final roleMap = <String, String>{};
-        for (final emp in employees) {
-          for (final jobRoleId in emp.jobRoleIds) {
-            final jobRole = emp.jobRoles[jobRoleId];
-            if (jobRole != null && !roleMap.containsKey(jobRoleId)) {
-              roleMap[jobRoleId] = jobRole.jobRoleTitle;
-            }
-          }
-        }
-        final uniqueRoles = roleMap.entries.map((e) => _SimpleRole(id: e.key, title: e.value)).toList();
-        uniqueRoles.sort((a, b) => a.title.compareTo(b.title));
+        // ⚡ Performance: Use cached unique roles
+        final uniqueRoles = _extractUniqueRoles(employees);
         
-        final filtered = _applyFiltersAndSort(employees, uniqueRoles);
+        // ⚡ Performance: Use memoized filter and sort
+        final filtered = _applyFiltersAndSort(employees);
 
         return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
             // Statistics Dashboard
-            _EmployeesStatsHeader(employees: employees),
+            // ⚡ Performance: Separate widget to prevent unnecessary recalculations
+            _MemoizedEmployeesStatsHeader(employees: employees),
             const SizedBox(height: 32),
             
             // Top Action Bar with Filters
@@ -170,7 +255,7 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                           color: AuthColors.textDisabled,
                         ),
                         filled: true,
-                        fillColor: Colors.transparent,
+                        fillColor: AuthColors.transparent,
                         prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
@@ -379,8 +464,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
       builder: (dialogContext) => EmployeeDetailModal(
         employee: employee,
         onEmployeeChanged: (updatedEmployee) {
-          // Refresh employees list if needed
-          context.read<EmployeesCubit>().loadEmployees();
+          // Update in-memory state to avoid refetching all employees
+          context.read<EmployeesCubit>().applyEmployeeUpdate(updatedEmployee);
         },
         onEdit: () => _showEmployeeDialog(context, employee),
       ),
@@ -404,7 +489,9 @@ void _showEmployeeDialog(BuildContext context, OrganizationEmployee? employee) {
           create: (_) => JobRolesCubit(
             repository: context.read<JobRolesRepository>(),
             orgId: orgId,
-          )..load(),
+            initialJobRoles: employeesCubit.state.jobRoles,
+            skipInitialLoad: employeesCubit.state.jobRoles.isNotEmpty,
+          ),
         ),
       ],
       child: _EmployeeDialog(
@@ -541,7 +628,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     }
 
     return Dialog(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AuthColors.transparent,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500),
         decoration: BoxDecoration(
@@ -555,11 +642,11 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: AuthColors.background.withValues(alpha: 0.5),
               blurRadius: 30,
               spreadRadius: -10,
               offset: const Offset(0, 20),
@@ -580,7 +667,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                 ),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -658,7 +745,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                           border: Border.all(
                             color: _selectedJobRoleIds.isEmpty 
                                 ? AuthColors.error.withValues(alpha: 0.5)
-                                : Colors.white.withValues(alpha: 0.1),
+                                : AuthColors.textMain.withValues(alpha: 0.1),
                           ),
                         ),
                         child: ListView.builder(
@@ -830,7 +917,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
               decoration: BoxDecoration(
                 border: Border(
                   top: BorderSide(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AuthColors.textMain.withValues(alpha: 0.08),
                   ),
                 ),
               ),
@@ -966,7 +1053,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: Colors.white.withValues(alpha: 0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(
@@ -997,29 +1084,67 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
   }
 }
 
-class _EmployeesStatsHeader extends StatelessWidget {
-  const _EmployeesStatsHeader({required this.employees});
+// ⚡ Performance: Memoized stats header to prevent recalculations
+class _MemoizedEmployeesStatsHeader extends StatefulWidget {
+  const _MemoizedEmployeesStatsHeader({required this.employees});
 
   final List<OrganizationEmployee> employees;
 
   @override
-  Widget build(BuildContext context) {
-    final totalEmployees = employees.length;
-    final totalOpeningBalance = employees.fold<double>(
+  State<_MemoizedEmployeesStatsHeader> createState() => _MemoizedEmployeesStatsHeaderState();
+}
+
+class _MemoizedEmployeesStatsHeaderState extends State<_MemoizedEmployeesStatsHeader> {
+  int? _cachedEmployeesHash;
+  int? _cachedTotalEmployees;
+  double? _cachedTotalCurrentBalance;
+  double? _cachedAvgBalance;
+  double? _cachedBalanceDifference;
+  double? _cachedBalanceChangePercent;
+
+  void _calculateStats() {
+    final employeesHash = widget.employees.hashCode;
+    
+    // Return if stats already calculated for this employee list
+    if (_cachedEmployeesHash == employeesHash && _cachedTotalEmployees != null) {
+      return;
+    }
+
+    final totalEmployees = widget.employees.length;
+    final totalOpeningBalance = widget.employees.fold<double>(
       0.0,
       (sum, emp) => sum + emp.openingBalance,
     );
-    final totalCurrentBalance = employees.fold<double>(
+    final totalCurrentBalance = widget.employees.fold<double>(
       0.0,
       (sum, emp) => sum + emp.currentBalance,
     );
-    final avgBalance = employees.isNotEmpty
-        ? totalCurrentBalance / employees.length
+    final avgBalance = widget.employees.isNotEmpty
+        ? totalCurrentBalance / widget.employees.length
         : 0.0;
     final balanceDifference = totalCurrentBalance - totalOpeningBalance;
     final balanceChangePercent = totalOpeningBalance != 0
         ? (balanceDifference / totalOpeningBalance * 100)
         : 0.0;
+
+    // Cache the results
+    _cachedEmployeesHash = employeesHash;
+    _cachedTotalEmployees = totalEmployees;
+    _cachedTotalCurrentBalance = totalCurrentBalance;
+    _cachedAvgBalance = avgBalance;
+    _cachedBalanceDifference = balanceDifference;
+    _cachedBalanceChangePercent = balanceChangePercent;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _calculateStats();
+
+    final totalEmployees = _cachedTotalEmployees!;
+    final totalCurrentBalance = _cachedTotalCurrentBalance!;
+    final avgBalance = _cachedAvgBalance!;
+    final balanceDifference = _cachedBalanceDifference!;
+    final balanceChangePercent = _cachedBalanceChangePercent!;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1166,28 +1291,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _LoadingState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 24),
-          Text(
-            'Loading employees...',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ErrorState extends StatelessWidget {
   const _ErrorState({
     required this.message,
@@ -1203,10 +1306,10 @@ class _ErrorState extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
-          color: const Color(0xFF1B1B2C).withValues(alpha: 0.5),
+          color: AuthColors.surface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.redAccent.withValues(alpha: 0.3),
+            color: AuthColors.error.withValues(alpha: 0.3),
           ),
         ),
         child: Column(
@@ -1215,13 +1318,13 @@ class _ErrorState extends StatelessWidget {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.redAccent.withValues(alpha: 0.7),
+              color: AuthColors.error.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             const Text(
               'Failed to load employees',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -1230,7 +1333,7 @@ class _ErrorState extends StatelessWidget {
             Text(
               message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -1263,13 +1366,13 @@ class _EmptyEmployeesState extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF1B1B2C).withValues(alpha: 0.6),
-              const Color(0xFF161622).withValues(alpha: 0.8),
+              AuthColors.surface.withValues(alpha: 0.6),
+              AuthColors.backgroundAlt.withValues(alpha: 0.8),
             ],
           ),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
           ),
         ),
         child: Column(
@@ -1279,20 +1382,20 @@ class _EmptyEmployeesState extends StatelessWidget {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF6F4BFF).withValues(alpha: 0.15),
+                color: AuthColors.primaryWithOpacity(0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.people_outline,
                 size: 40,
-                color: Color(0xFF6F4BFF),
+                color: AuthColors.primary,
               ),
             ),
             const SizedBox(height: 24),
             const Text(
               'No employees yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
               ),
@@ -1301,7 +1404,7 @@ class _EmptyEmployeesState extends StatelessWidget {
             Text(
               'Start by adding your first employee to the system',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textSub,
                 fontSize: 16,
               ),
               textAlign: TextAlign.center,
@@ -1335,13 +1438,13 @@ class _EmptySearchState extends StatelessWidget {
             Icon(
               Icons.search_off,
               size: 64,
-              color: Colors.white.withValues(alpha: 0.3),
+              color: AuthColors.textSub.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             const Text(
               'No results found',
               style: TextStyle(
-                color: Colors.white,
+                color: AuthColors.textMain,
                 fontSize: 20,
                 fontWeight: FontWeight.w600,
               ),
@@ -1350,7 +1453,7 @@ class _EmptySearchState extends StatelessWidget {
             Text(
               'No employees match "$query"',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AuthColors.textSub,
                 fontSize: 14,
               ),
             ),
@@ -1385,25 +1488,6 @@ class _EmployeeListView extends StatelessWidget {
       AuthColors.error,
     ];
     return colors[hash.abs() % colors.length];
-  }
-
-  String _getWageTypeDisplayName(WageType type) {
-    switch (type) {
-      case WageType.perMonth:
-        return 'Per Month';
-      case WageType.perTrip:
-        return 'Per Trip';
-      case WageType.perBatch:
-        return 'Per Batch';
-      case WageType.perHour:
-        return 'Per Hour';
-      case WageType.perKm:
-        return 'Per Kilometer';
-      case WageType.commission:
-        return 'Commission';
-      case WageType.hybrid:
-        return 'Hybrid';
-    }
   }
 
   String _getInitials(String name) {

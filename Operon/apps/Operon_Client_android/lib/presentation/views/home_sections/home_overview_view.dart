@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -22,8 +23,62 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
   // Memoized tile list - only rebuilds when role changes
   List<_TileData>? _cachedTiles;
   dynamic _cachedRoleId; // Cache role identity to detect changes
+  String? _cachedOrgId;
 
-  List<_TileData> _buildTiles(dynamic role) {
+  static String _monthKey(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    return '${date.year}-$month';
+  }
+
+  static String _formatCurrency(double value) {
+    return '₹${value.toStringAsFixed(0)}';
+  }
+
+  Widget _buildFuelBalanceTile(BuildContext context, String? orgId) {
+    if (orgId == null || orgId.isEmpty) {
+      return HomeTile(
+        title: 'Fuel Balance',
+        subtitle: '—',
+        icon: Icons.local_gas_station_outlined,
+        accentColor: _financialColor,
+        onTap: _noOp,
+        isCompact: true,
+      );
+    }
+
+    final docId = 'fuel_${orgId}_${_monthKey(DateTime.now())}';
+    final docRef = FirebaseFirestore.instance
+        .collection('ANALYTICS')
+        .doc(docId)
+        .withConverter<Map<String, dynamic>>(
+          fromFirestore: (snapshot, _) => snapshot.data() ?? {},
+          toFirestore: (value, _) => value,
+        );
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: docRef.snapshots(),
+      builder: (context, snapshot) {
+        final data = snapshot.data?.data();
+        final raw = data?['metrics']?['totalUnpaidFuelBalance'];
+        final subtitle = snapshot.connectionState == ConnectionState.waiting
+            ? 'Loading…'
+            : raw is num
+                ? _formatCurrency(raw.toDouble())
+                : '—';
+
+        return HomeTile(
+          title: 'Fuel Balance',
+          subtitle: subtitle,
+          icon: Icons.local_gas_station_outlined,
+          accentColor: _financialColor,
+          onTap: _noOp,
+          isCompact: true,
+        );
+      },
+    );
+  }
+
+  List<_TileData> _buildTiles(dynamic role, String? orgId) {
     // Build tiles by category
     final peopleTiles = <_TileData>[
       const _TileData(
@@ -83,6 +138,12 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
     }
 
     final financialTiles = <_TileData>[
+      if (role?.canAccessSection('analyticsDashboard') == true ||
+          role?.canAccessPage('financialTransactions') == true ||
+          role?.isAdmin == true)
+        _TileData.custom(
+          builder: (context) => _buildFuelBalanceTile(context, orgId),
+        ),
       const _TileData(
         icon: Icons.payment_outlined,
         title: '*Transactions',
@@ -115,19 +176,22 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
     ];
   }
 
-  List<_TileData> _getTiles(dynamic role) {
+  List<_TileData> _getTiles(dynamic role, String? orgId) {
     // Use identity check to detect role changes
-    if (_cachedTiles == null || _cachedRoleId != role) {
+    if (_cachedTiles == null || _cachedRoleId != role || _cachedOrgId != orgId) {
       _cachedRoleId = role;
-      _cachedTiles = _buildTiles(role);
+      _cachedOrgId = orgId;
+      _cachedTiles = _buildTiles(role, orgId);
     }
     return _cachedTiles!;
   }
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<OrganizationContextCubit>().state.appAccessRole;
-    final allTiles = _getTiles(role);
+    final orgState = context.watch<OrganizationContextCubit>().state;
+    final role = orgState.appAccessRole;
+    final orgId = orgState.organization?.id;
+    final allTiles = _getTiles(role, orgId);
 
     return CustomScrollView(
       physics: const ClampingScrollPhysics(),
@@ -147,13 +211,19 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
               childAspectRatio: 1.2,
             ),
             delegate: SliverChildBuilderDelegate(
-              (context, index) => HomeTile(
-                title: allTiles[index].title,
-                icon: allTiles[index].icon,
-                accentColor: allTiles[index].color,
-                onTap: () => context.go(allTiles[index].route),
-                isCompact: true,
-              ),
+              (context, index) {
+                final tile = allTiles[index];
+                if (tile.builder != null) {
+                  return tile.builder!(context);
+                }
+                return HomeTile(
+                  title: tile.title,
+                  icon: tile.icon,
+                  accentColor: tile.color,
+                  onTap: () => context.go(tile.route),
+                  isCompact: true,
+                );
+              },
               childCount: allTiles.length,
             ),
           ),
@@ -163,6 +233,8 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
   }
 }
 
+void _noOp() {}
+
 /// Simple data class for tile configuration
 class _TileData {
   const _TileData({
@@ -170,10 +242,21 @@ class _TileData {
     required this.title,
     required this.route,
     required this.color,
-  });
+  })  : readOnly = false,
+        builder = null;
+
+  const _TileData.custom({
+    required this.builder,
+  })  : icon = Icons.local_gas_station_outlined,
+        title = 'Fuel Balance',
+        route = '',
+        color = AuthColors.success,
+        readOnly = true;
 
   final IconData icon;
   final String title;
   final String route;
   final Color color;
+  final bool readOnly;
+  final Widget Function(BuildContext context)? builder;
 }

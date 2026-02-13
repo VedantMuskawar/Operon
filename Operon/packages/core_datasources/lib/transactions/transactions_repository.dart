@@ -73,6 +73,23 @@ class TransactionsRepository {
     );
   }
 
+  /// Get fuel vendor purchases (credit transactions on vendorLedger)
+  Future<List<Transaction>> getFuelVendorPurchases({
+    required String organizationId,
+    required String vendorId,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? limit,
+  }) {
+    return _dataSource.getFuelVendorPurchases(
+      organizationId: organizationId,
+      vendorId: vendorId,
+      startDate: startDate,
+      endDate: endDate,
+      limit: limit,
+    );
+  }
+
   /// Get vendor payment expenses
   Future<List<Transaction>> getVendorExpenses({
     required String organizationId,
@@ -226,11 +243,15 @@ class TransactionsRepository {
   Stream<Map<String, List<Transaction>>> watchCashLedgerData({
     required String organizationId,
     String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
     int? limit,
   }) {
     return _dataSource.watchCashLedgerData(
       organizationId: organizationId,
       financialYear: financialYear,
+      startDate: startDate,
+      endDate: endDate,
       limit: limit,
     );
   }

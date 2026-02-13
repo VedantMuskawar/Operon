@@ -32,15 +32,13 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
   VendorType? _selectedTypeFilter;
   VendorStatus? _selectedStatusFilter;
   final ScrollController _scrollController = ScrollController();
-  final bool _isLoadingMore = false;
+  final Map<String, String> _searchIndexCache = {};
+  String? _lastSearchIndexHash;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<VendorsCubit>().loadVendors();
-    });
   }
 
   @override
@@ -58,16 +56,20 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
     }
   }
 
-  List<Vendor> _applyFiltersAndSort(List<Vendor> vendors) {
+  List<Vendor> _applyFiltersAndSort(
+    List<Vendor> vendors, {
+    bool applyQueryFilter = true,
+  }) {
     var filtered = List<Vendor>.from(vendors);
 
     // Apply search filter
-    if (_query.isNotEmpty) {
+    if (applyQueryFilter && _query.isNotEmpty) {
       final queryLower = _query.toLowerCase();
+      final vendorsHash = '${vendors.length}_${vendors.hashCode}';
+      final searchIndex = _buildSearchIndex(vendors, vendorsHash);
       filtered = filtered.where((v) {
-        return v.name.toLowerCase().contains(queryLower) ||
-            v.phoneNumber.contains(_query) ||
-            (v.gstNumber?.toLowerCase().contains(queryLower) ?? false);
+        final indexText = searchIndex[v.id] ?? '';
+        return indexText.contains(queryLower);
       }).toList();
     }
 
@@ -106,6 +108,36 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
     }
 
     return sortedList;
+  }
+
+  Map<String, String> _buildSearchIndex(
+    List<Vendor> vendors,
+    String vendorsHash,
+  ) {
+    if (_lastSearchIndexHash == vendorsHash && _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final vendor in vendors) {
+      final buffer = StringBuffer();
+      void add(String? value) {
+        if (value == null) return;
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        buffer.write(trimmed.toLowerCase());
+        buffer.write(' ');
+      }
+
+      add(vendor.name);
+      add(vendor.phoneNumber);
+      add(vendor.gstNumber);
+
+      _searchIndexCache[vendor.id] = buffer.toString();
+    }
+
+    _lastSearchIndexHash = vendorsHash;
+    return _searchIndexCache;
   }
 
   String _formatVendorType(VendorType type) {
@@ -152,16 +184,39 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
         if (state.status == ViewStatus.failure && state.vendors.isEmpty) {
           return _ErrorState(
             message: state.message ?? 'Failed to load vendors',
-            onRetry: () => cubit.loadVendors(),
+            onRetry: () => cubit.loadVendors(force: true),
           );
         }
 
         final vendors = state.vendors;
-        final filtered = _applyFiltersAndSort(vendors);
+        final isServerSearch = state.searchQuery.isNotEmpty;
+        final baseList = isServerSearch ? state.filteredVendors : vendors;
+        final filtered = _applyFiltersAndSort(
+          baseList,
+          applyQueryFilter: !isServerSearch,
+        );
+
+        final Widget listContent;
+        if (filtered.isEmpty &&
+            (_query.isNotEmpty || _selectedTypeFilter != null || _selectedStatusFilter != null)) {
+          listContent = _EmptySearchState(query: _query);
+        } else if (filtered.isEmpty) {
+          listContent = _EmptyVendorsState(
+            onAddVendor: () => _showVendorDialog(context, null, context.read<VendorsCubit>()),
+          );
+        } else {
+          listContent = _VendorListView(
+            vendors: filtered,
+            scrollController: _scrollController,
+            onTap: (vendor) => _openVendorDetail(context, vendor),
+            onEdit: (vendor) => _showVendorDialog(context, vendor, context.read<VendorsCubit>()),
+            onDelete: (vendor) => _handleDeleteVendor(context, vendor, context.read<VendorsCubit>()),
+          );
+        }
 
         return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             // Statistics Dashboard
               _VendorsStatsHeader(vendors: vendors),
               const SizedBox(height: 32),
@@ -181,7 +236,10 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                   ),
                 ),
                           child: TextField(
-                      onChanged: (v) => setState(() => _query = v),
+                      onChanged: (v) {
+                        setState(() => _query = v);
+                        context.read<VendorsCubit>().searchVendorsDebounced(v);
+                      },
                             style: const TextStyle(color: AuthColors.textMain),
                             decoration: InputDecoration(
                         hintText: 'Search vendors by name, phone, or GST...',
@@ -194,7 +252,10 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear, color: AuthColors.textSub),
-                                onPressed: () => setState(() => _query = ''),
+                                onPressed: () {
+                                  setState(() => _query = '');
+                                  context.read<VendorsCubit>().searchVendorsDebounced('');
+                                },
                               )
                             : null,
                         border: InputBorder.none,
@@ -417,19 +478,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
             const SizedBox(height: 24),
             
             // Vendor List
-            if (filtered.isEmpty && (_query.isNotEmpty || _selectedTypeFilter != null || _selectedStatusFilter != null))
-              _EmptySearchState(query: _query)
-            else if (filtered.isEmpty)
-              _EmptyVendorsState(
-                onAddVendor: () => _showVendorDialog(context, null, context.read<VendorsCubit>()),
-              )
-            else
-              _VendorListView(
-                vendors: filtered,
-                onTap: (vendor) => _openVendorDetail(context, vendor),
-                onEdit: (vendor) => _showVendorDialog(context, vendor, context.read<VendorsCubit>()),
-                onDelete: (vendor) => _handleDeleteVendor(context, vendor, context.read<VendorsCubit>()),
-              ),
+            Expanded(child: listContent),
           ],
         );
       },
@@ -565,28 +614,6 @@ class _StatCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoadingState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 24),
-          Text(
-            'Loading vendors...',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 16,
             ),
           ),
         ],
@@ -771,12 +798,14 @@ class _EmptySearchState extends StatelessWidget {
 class _VendorListView extends StatelessWidget {
   const _VendorListView({
     required this.vendors,
+    required this.scrollController,
     this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
   final List<Vendor> vendors;
+  final ScrollController scrollController;
   final ValueChanged<Vendor>? onTap;
   final ValueChanged<Vendor> onEdit;
   final ValueChanged<Vendor> onDelete;
@@ -794,45 +823,6 @@ class _VendorListView extends StatelessWidget {
     return colors[hash.abs() % colors.length];
   }
 
-  IconData _getVendorTypeIcon(VendorType type) {
-    switch (type) {
-      case VendorType.rawMaterial:
-        return Icons.inventory_2;
-      case VendorType.vehicle:
-        return Icons.directions_car;
-      case VendorType.repairMaintenance:
-        return Icons.build;
-      case VendorType.fuel:
-        return Icons.local_gas_station;
-      case VendorType.utilities:
-        return Icons.bolt;
-      case VendorType.rent:
-        return Icons.home;
-      case VendorType.professionalServices:
-        return Icons.business_center;
-      case VendorType.marketingAdvertising:
-        return Icons.campaign;
-      case VendorType.insurance:
-        return Icons.shield;
-      case VendorType.logistics:
-        return Icons.local_shipping;
-      case VendorType.officeSupplies:
-        return Icons.description;
-      case VendorType.security:
-        return Icons.security;
-      case VendorType.cleaning:
-        return Icons.cleaning_services;
-      case VendorType.taxConsultant:
-        return Icons.account_balance;
-      case VendorType.bankingFinancial:
-        return Icons.account_balance_wallet;
-      case VendorType.welfare:
-        return Icons.favorite;
-      case VendorType.other:
-        return Icons.category;
-    }
-  }
-
   String _formatVendorType(VendorType type) {
     return type.name
         .split(RegExp(r'(?=[A-Z])'))
@@ -844,8 +834,7 @@ class _VendorListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimationLimiter(
       child: ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+        controller: scrollController,
         itemCount: vendors.length,
         itemBuilder: (context, index) {
           final vendor = vendors[index];
@@ -959,8 +948,7 @@ void _openVendorDetail(BuildContext context, Vendor vendor) {
     builder: (dialogContext) => VendorDetailModal(
       vendor: vendor,
       onVendorChanged: (updatedVendor) {
-        // Refresh vendors list if needed
-        context.read<VendorsCubit>().loadVendors();
+        // Stream will update automatically; no manual refresh to avoid extra reads
       },
       onEdit: () => _showVendorDialog(context, vendor, context.read<VendorsCubit>()),
     ),

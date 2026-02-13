@@ -414,7 +414,7 @@ class _DeliveryMemoTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(
             color: isCancelled
-                ? AuthColors.error.withOpacity(0.25)
+                ? AuthColors.error.withValues(alpha: 0.25)
                 : AuthColors.textMainWithOpacity(0.1),
           ),
         ),
@@ -452,10 +452,10 @@ class _DeliveryMemoTile extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingSM, vertical: AppSpacing.paddingXS),
                               decoration: BoxDecoration(
-                                color: statusColor.withOpacity(0.15),
+                                color: statusColor.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                 border: Border.all(
-                                  color: statusColor.withOpacity(0.3),
+                                  color: statusColor.withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Text(
@@ -523,7 +523,7 @@ class _DeliveryMemoTile extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingSM, horizontal: AppSpacing.paddingMD),
                       decoration: BoxDecoration(
-                        color: AuthColors.successVariant.withOpacity(0.1),
+                        color: AuthColors.successVariant.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       ),
                       child: Row(

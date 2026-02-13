@@ -25,6 +25,7 @@ class UnifiedFinancialTransactionsCubit
   final VendorsRepository _vendorsRepository;
   final String _organizationId;
   Timer? _searchDebounce;
+  final Map<String, String> _vendorNameCache = {};
 
   String get organizationId => _organizationId;
 
@@ -118,11 +119,26 @@ class UnifiedFinancialTransactionsCubit
       final vendorIds = <String>{};
       for (final tx in [...transactions, ...purchases, ...expenses]) {
         if (tx.vendorId != null && tx.vendorId!.isNotEmpty) {
-          vendorIds.add(tx.vendorId!);
+          final hasVendorName =
+              (tx.metadata?['vendorName'] as String?)?.trim().isNotEmpty == true;
+          if (!hasVendorName) {
+            vendorIds.add(tx.vendorId!);
+          }
         }
       }
 
-      if (vendorIds.isEmpty) {
+      if (vendorIds.isNotEmpty) {
+        final missingIds =
+            vendorIds.where((id) => !_vendorNameCache.containsKey(id)).toList();
+        if (missingIds.isNotEmpty) {
+          final vendors = await _vendorsRepository.fetchVendorsByIds(missingIds);
+          for (final vendor in vendors) {
+            _vendorNameCache[vendor.id] = vendor.name;
+          }
+        }
+      }
+
+      if (_vendorNameCache.isEmpty) {
         return {
           'transactions': transactions,
           'purchases': purchases,
@@ -130,19 +146,12 @@ class UnifiedFinancialTransactionsCubit
         };
       }
 
-      // Fetch all vendors in one call
-      final vendors = await _vendorsRepository.fetchVendors(_organizationId);
-      final vendorMap = <String, String>{};
-      for (final vendor in vendors) {
-        vendorMap[vendor.id] = vendor.name;
-      }
-
       // Enrich transactions by updating metadata (create new transaction objects with enriched metadata)
       final enrichedTransactions = transactions.map((tx) {
-        if (tx.vendorId != null && vendorMap.containsKey(tx.vendorId)) {
+        if (tx.vendorId != null && _vendorNameCache.containsKey(tx.vendorId)) {
           final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
           if (!metadata.containsKey('vendorName')) {
-            metadata['vendorName'] = vendorMap[tx.vendorId];
+            metadata['vendorName'] = _vendorNameCache[tx.vendorId];
             return tx.copyWith(metadata: metadata);
           }
         }
@@ -150,10 +159,10 @@ class UnifiedFinancialTransactionsCubit
       }).toList();
 
       final enrichedPurchases = purchases.map((tx) {
-        if (tx.vendorId != null && vendorMap.containsKey(tx.vendorId)) {
+        if (tx.vendorId != null && _vendorNameCache.containsKey(tx.vendorId)) {
           final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
           if (!metadata.containsKey('vendorName')) {
-            metadata['vendorName'] = vendorMap[tx.vendorId];
+            metadata['vendorName'] = _vendorNameCache[tx.vendorId];
             return tx.copyWith(metadata: metadata);
           }
         }
@@ -161,10 +170,10 @@ class UnifiedFinancialTransactionsCubit
       }).toList();
 
       final enrichedExpenses = expenses.map((tx) {
-        if (tx.vendorId != null && vendorMap.containsKey(tx.vendorId)) {
+        if (tx.vendorId != null && _vendorNameCache.containsKey(tx.vendorId)) {
           final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
           if (!metadata.containsKey('vendorName')) {
-            metadata['vendorName'] = vendorMap[tx.vendorId];
+            metadata['vendorName'] = _vendorNameCache[tx.vendorId];
             return tx.copyWith(metadata: metadata);
           }
         }

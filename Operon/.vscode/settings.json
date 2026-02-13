@@ -1,5 +1,10 @@
 {
     "git.ignoreLimitWarning": true,
     "java.configuration.updateBuildConfiguration": "automatic",
-    "github.copilot.chat.agent.autoFix": true
+    "github.copilot.chat.agent.autoFix": true,
+    "github.copilot.chat.anthropic.tools.websearch.enabled": true,
+    "chat.disableAIFeatures": false,
+    "github.copilot.chat.anthropic.contextEditing.enabled": true,
+    "github.copilot.chat.alternateGptPrompt.enabled": true,
+    "github.copilot.chat.alternateGeminiModelFPrompt.enabled": true
 }

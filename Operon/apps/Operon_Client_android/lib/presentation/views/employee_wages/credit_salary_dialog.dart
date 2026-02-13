@@ -206,6 +206,7 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
 
       await cubit.createSalaryTransaction(
         employeeId: _selectedEmployee!.id,
+        employeeName: _selectedEmployee!.name,
         amount: amount,
         paymentDate: _paymentDate,
         createdBy: currentUser.uid,
@@ -443,9 +444,9 @@ class _CreditSalaryDialogState extends State<CreditSalaryDialog> {
                 ),
                 const SizedBox(height: AppSpacing.paddingXXL),
 
-                ElevatedButton(
+                FilledButton(
                   onPressed: _isLoading ? null : _submitSalary,
-                  style: ElevatedButton.styleFrom(
+                  style: FilledButton.styleFrom(
                     backgroundColor: AuthColors.primary,
                     foregroundColor: AuthColors.textMain,
                     padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),

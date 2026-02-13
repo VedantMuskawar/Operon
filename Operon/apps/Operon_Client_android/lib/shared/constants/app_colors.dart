@@ -30,10 +30,10 @@ class AppColors {
       AuthColors.textDisabled; // Colors.white38 equivalent
 
   // Border Colors
-  static Color borderDefault = AuthColors.textMain.withOpacity(0.1);
-  static Color borderLight = AuthColors.textMain.withOpacity(0.05);
-  static Color borderMedium = AuthColors.textMain.withOpacity(0.15);
-  static Color borderPrimary = primary.withOpacity(0.3);
+    static Color borderDefault = AuthColors.textMain.withValues(alpha: 0.1);
+    static Color borderLight = AuthColors.textMain.withValues(alpha: 0.05);
+    static Color borderMedium = AuthColors.textMain.withValues(alpha: 0.15);
+    static Color borderPrimary = primary.withValues(alpha: 0.3);
 
   // Card/Surface Colors
   static const Color cardBackground = AuthColors.surface;
@@ -47,9 +47,9 @@ class AppColors {
   static const Color info = AuthColors.info;
 
   // Overlay Colors
-  static Color overlayLight = AuthColors.background.withOpacity(0.3);
-  static Color overlayMedium = AuthColors.background.withOpacity(0.5);
-  static Color overlayDark = AuthColors.background.withOpacity(0.7);
+    static Color overlayLight = AuthColors.background.withValues(alpha: 0.3);
+    static Color overlayMedium = AuthColors.background.withValues(alpha: 0.5);
+    static Color overlayDark = AuthColors.background.withValues(alpha: 0.7);
 
   // Input Colors
   static const Color inputBackground = AuthColors.backgroundAlt;
@@ -57,8 +57,8 @@ class AppColors {
   static const Color inputFocused = primary;
 
   // Divider Colors
-  static Color divider = AuthColors.textMain.withOpacity(0.1);
-  static Color dividerLight = AuthColors.textMain.withOpacity(0.05);
+    static Color divider = AuthColors.textMain.withValues(alpha: 0.1);
+    static Color dividerLight = AuthColors.textMain.withValues(alpha: 0.05);
 
   // Legacy color mappings (for gradual migration)
   static const Color legacyDarkGray = AuthColors.background;

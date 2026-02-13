@@ -980,14 +980,10 @@ class _PendingOrdersSectionState extends State<PendingOrdersSection> {
     final repository = context.read<PendingOrdersRepository>();
 
     await _ordersSubscription?.cancel();
-    _ordersSubscription = repository.watchPendingOrders(orgId).listen(
-      (allOrders) {
-        // Filter orders by clientId
-        final clientOrders = allOrders.where((order) {
-          final orderClientId = order['clientId'] as String?;
-          return orderClientId == widget.clientId;
-        }).toList();
-
+    _ordersSubscription = repository
+        .watchPendingOrdersForClient(orgId, widget.clientId)
+        .listen(
+      (clientOrders) {
         if (mounted) {
           setState(() {
             _orders = clientOrders;

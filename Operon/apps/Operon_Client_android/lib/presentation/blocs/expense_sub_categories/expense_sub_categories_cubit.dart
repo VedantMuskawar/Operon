@@ -1,6 +1,7 @@
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_models/core_models.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'expense_sub_categories_state.dart';
 
@@ -22,6 +23,11 @@ class ExpenseSubCategoriesCubit extends Cubit<ExpenseSubCategoriesState> {
 
   Future<void> load() async {
     emit(state.copyWith(status: ViewStatus.loading, message: null));
+    if (kDebugMode) {
+      debugPrint(
+        '[ExpenseSubCategoriesCubit] Loading sub-categories for user $_userId',
+      );
+    }
     try {
       final subCategories = await _repository.fetchSubCategories(_organizationId);
       emit(state.copyWith(

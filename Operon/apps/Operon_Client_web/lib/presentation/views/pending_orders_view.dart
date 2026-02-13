@@ -37,6 +37,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   SortOption _sortOption = SortOption.dateNewest;
   final Set<String> _selectedOrderIds = {};
   final FocusNode _searchFocusNode = FocusNode();
+  final Map<String, String> _searchIndexCache = {};
+  String? _lastSearchIndexHash;
 
   @override
   void initState() {
@@ -128,9 +130,12 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     // Filter by search query (client name)
     if (_searchQuery.isNotEmpty) {
       final query = _searchQuery.toLowerCase();
+      final ordersHash = '${_orders.length}_${_orders.hashCode}';
+      final searchIndex = _buildSearchIndex(_orders, ordersHash);
       filtered = filtered.where((order) {
-        final clientName = (order['clientName'] as String? ?? '').toLowerCase();
-        return clientName.contains(query);
+        final orderId = order['id'] as String? ?? '';
+        final indexText = searchIndex[orderId] ?? '';
+        return indexText.contains(query);
       }).toList();
     }
 
@@ -138,6 +143,26 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     filtered = _sortOrders(filtered);
 
     return filtered;
+  }
+
+  Map<String, String> _buildSearchIndex(
+    List<Map<String, dynamic>> orders,
+    String ordersHash,
+  ) {
+    if (_lastSearchIndexHash == ordersHash && _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final order in orders) {
+      final orderId = order['id'] as String? ?? '';
+      if (orderId.isEmpty) continue;
+      final clientName = (order['clientName'] as String? ?? '').trim();
+      _searchIndexCache[orderId] = clientName.toLowerCase();
+    }
+
+    _lastSearchIndexHash = ordersHash;
+    return _searchIndexCache;
   }
 
   List<Map<String, dynamic>> _sortOrders(List<Map<String, dynamic>> orders) {
@@ -380,7 +405,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                       const SizedBox(width: 16),
                       SizedBox(
                         height: 48,
-                        child: ElevatedButton.icon(
+                        child: FilledButton.icon(
                           onPressed: (_isEddRunning || _orders.isEmpty)
                               ? null
                               : _runEddForAllOrders,
@@ -395,7 +420,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                           label: Text(_isEddRunning
                               ? 'Calculating EDD...'
                               : 'Estimated Dates'),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor: AuthColors.primary,
                             foregroundColor: AuthColors.textMain,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -918,11 +943,11 @@ class _BulkActionsBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: onBulkDelete,
             icon: const Icon(Icons.delete_outline, size: 18),
             label: const Text('Delete'),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: AuthColors.error,
               foregroundColor: AuthColors.textMain,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),

@@ -50,7 +50,7 @@ class GlassPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveBorderRadius = borderRadius ?? BorderRadius.circular(24);
     final effectiveBackgroundColor =
-        backgroundColor ?? Colors.black.withOpacity(0.7);
+        backgroundColor ?? Colors.black.withValues(alpha: 0.7);
     final effectivePadding = padding ?? const EdgeInsets.all(16);
     final innerRadius = effectiveBorderRadius.topLeft.x - borderWidth;
     final innerBorderRadius = BorderRadius.circular(innerRadius > 0 ? innerRadius : 12);
@@ -70,13 +70,13 @@ class GlassPanel extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withOpacity(0.1),
-                    Colors.white.withOpacity(0.05),
+                    Colors.white.withValues(alpha: 0.1),
+                    Colors.white.withValues(alpha: 0.05),
                   ],
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AuthColors.textMain.withOpacity(0.12),
+                    color: AuthColors.textMain.withValues(alpha: 0.12),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -91,7 +91,7 @@ class GlassPanel extends StatelessWidget {
                   boxShadow: [
                     // Soft inner shadow simulation: dark gradient overlay at top
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 0,
                       offset: const Offset(0, 1),
                       spreadRadius: 0,
@@ -115,7 +115,7 @@ class GlassPanel extends StatelessWidget {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.black.withOpacity(0.03),
+                                Colors.black.withValues(alpha: 0.03),
                                 Colors.transparent,
                               ],
                             ),

@@ -22,7 +22,7 @@ class PendingOrdersView extends StatefulWidget {
   static void showCustomerTypeDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AuthColors.background.withOpacity(0),
+      backgroundColor: AuthColors.background.withValues(alpha: 0),
       builder: (context) => _CustomerTypeDialog(),
     );
   }
@@ -98,6 +98,9 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
       final repository = context.read<PendingOrdersRepository>();
       final result =
           await repository.calculateEddForAllPendingOrders(organization.id);
+      if (!mounted) {
+        return;
+      }
       final updatedOrders = result['updatedOrders'] ?? 0;
       DashSnackbar.show(context,
           message: 'EDD calculated for $updatedOrders order(s)');
@@ -278,7 +281,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                         const SizedBox(height: AppSpacing.paddingMD),
                         SizedBox(
                           height: 44,
-                          child: ElevatedButton.icon(
+                          child: FilledButton.icon(
                             onPressed: (_isEddRunning || _orders.isEmpty)
                                 ? null
                                 : _runEddForAllOrders,
@@ -293,7 +296,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                             label: Text(_isEddRunning
                                 ? 'Calculating EDD...'
                                 : 'Estimated Dates'),
-                            style: ElevatedButton.styleFrom(
+                            style: FilledButton.styleFrom(
                               backgroundColor: AuthColors.primary,
                               foregroundColor: AuthColors.textMain,
                             ),
@@ -431,7 +434,7 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AuthColors.background.withOpacity(0),
+      color: AuthColors.background.withValues(alpha: 0),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
@@ -577,12 +580,26 @@ class _CustomerTypeDialog extends StatelessWidget {
                 // If client was created successfully, fetch the most recent client and navigate to create order page
                 if (result == true && context.mounted) {
                   final clientsRepository = context.read<ClientsRepository>();
+                  final org = context
+                      .read<OrganizationContextCubit>()
+                      .state
+                      .organization;
+                  if (org == null) {
+                    return;
+                  }
                   try {
                     // Fetch the most recently created client
                     final recentClients =
-                        await clientsRepository.fetchRecentClients(limit: 1);
+                        await clientsRepository.fetchRecentClients(
+                      orgId: org.id,
+                      limit: 1,
+                    );
                     final createdClient =
                         recentClients.isNotEmpty ? recentClients.first : null;
+
+                    if (!context.mounted) {
+                      return;
+                    }
 
                     if (context.mounted) {
                       Navigator.of(context).push(
@@ -614,12 +631,18 @@ class _CustomerTypeDialog extends StatelessWidget {
               subtitle: 'Select from existing customers',
               onTap: () {
                 Navigator.of(context).pop();
+                final org =
+                    context.read<OrganizationContextCubit>().state.organization;
+                if (org == null) {
+                  return;
+                }
                 final clientsRepository = context.read<ClientsRepository>();
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => BlocProvider(
                       create: (_) => ClientsCubit(
                         repository: clientsRepository,
+                        orgId: org.id,
                       )..subscribeToRecent(),
                       child: const SelectCustomerPage(),
                     ),
@@ -666,7 +689,7 @@ class _CustomerTypeOption extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: AuthColors.legacyAccent.withOpacity(0.2),
+                color: AuthColors.legacyAccent.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
               child: Icon(

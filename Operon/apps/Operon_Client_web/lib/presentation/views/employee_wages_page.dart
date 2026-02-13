@@ -65,7 +65,17 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
       _currentOrgId = organization.id;
       _previousTransactions = [];
       _employeeNames.clear();
+      _refreshTransactions();
     }
+  }
+
+  void _refreshTransactions() {
+    final orgState = context.read<OrganizationContextCubit>().state;
+    context.read<EmployeeWagesCubit>().watchTransactions(
+          financialYear: orgState.financialYear,
+          startDate: _startDate,
+          endDate: _endDate,
+        );
   }
 
   Future<void> _fetchEmployeeNames(List<Transaction> transactions) async {
@@ -74,26 +84,58 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     if (organization == null) return;
 
     try {
-      // Get employee IDs that we don't have names for yet
-      final employeeIds = transactions
-          .where((tx) => tx.employeeId != null && !_employeeNames.containsKey(tx.employeeId))
-          .map((tx) => tx.employeeId!)
-          .toSet();
-
-      if (employeeIds.isEmpty) return;
-
-      final employeeDocs = await Future.wait(
-        employeeIds.map((id) => FirebaseFirestore.instance
-            .collection('EMPLOYEES')
-            .doc(id)
-            .get()),
-      );
-
       final newEmployeeNames = <String, String>{};
-      for (final doc in employeeDocs) {
-        if (doc.exists) {
+
+      // Use denormalized employeeName when available
+      for (final tx in transactions) {
+        final employeeId = tx.employeeId;
+        final employeeName = tx.employeeName;
+        if (employeeId != null && employeeName != null && employeeName.isNotEmpty) {
+          if (!_employeeNames.containsKey(employeeId)) {
+            newEmployeeNames[employeeId] = employeeName;
+          }
+        }
+      }
+
+      // Get employee IDs that we don't have names for yet
+      final missingIds = transactions
+          .where((tx) => tx.employeeId != null &&
+              !_employeeNames.containsKey(tx.employeeId) &&
+              !newEmployeeNames.containsKey(tx.employeeId))
+          .map((tx) => tx.employeeId!)
+          .toSet()
+          .toList();
+
+      if (missingIds.isEmpty) {
+        if (mounted && newEmployeeNames.isNotEmpty) {
+          setState(() {
+            _employeeNames.addAll(newEmployeeNames);
+          });
+        }
+        return;
+      }
+
+      // Batch query employee names using whereIn on document IDs
+      const chunkSize = 10;
+      final queries = <Future<QuerySnapshot<Map<String, dynamic>>>>[];
+      for (var i = 0; i < missingIds.length; i += chunkSize) {
+        final chunk = missingIds.sublist(
+          i,
+          (i + chunkSize).clamp(0, missingIds.length),
+        );
+        queries.add(
+          FirebaseFirestore.instance
+              .collection('EMPLOYEES')
+              .where(FieldPath.documentId, whereIn: chunk)
+              .get(),
+        );
+      }
+
+      final snapshots = await Future.wait(queries);
+      for (final snapshot in snapshots) {
+        for (final doc in snapshot.docs) {
           final data = doc.data();
-          final name = data?['employeeName'] as String? ?? 'Unknown Employee';
+          final name = data['employeeName'] as String? ?? 'Unknown Employee';
           newEmployeeNames[doc.id] = name;
         }
       }
@@ -132,7 +174,8 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
     if (_query.isNotEmpty) {
       final queryLower = _query.toLowerCase();
       filtered = filtered.where((tx) {
-        final employeeName = (_employeeNames[tx.employeeId ?? ''] ?? '').toLowerCase();
+        final employeeName =
+            (tx.employeeName ?? _employeeNames[tx.employeeId ?? ''] ?? '').toLowerCase();
         final description = (tx.description ?? '').toLowerCase();
         final category = tx.category.name.toLowerCase();
         return employeeName.contains(queryLower) ||
@@ -166,8 +209,10 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         break;
       case _WagesSortOption.employeeAsc:
         sortedList.sort((a, b) {
-          final aName = (_employeeNames[a.employeeId ?? ''] ?? '').toLowerCase();
-          final bName = (_employeeNames[b.employeeId ?? ''] ?? '').toLowerCase();
+          final aName =
+              (a.employeeName ?? _employeeNames[a.employeeId ?? ''] ?? '').toLowerCase();
+          final bName =
+              (b.employeeName ?? _employeeNames[b.employeeId ?? ''] ?? '').toLowerCase();
           return aName.compareTo(bName);
         });
         break;
@@ -228,7 +273,8 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
   }
 
   void _showDeleteConfirmation(BuildContext context, Transaction transaction) {
-    final employeeName = _employeeNames[transaction.employeeId ?? ''] ?? 'Unknown Employee';
+    final employeeName =
+        transaction.employeeName ?? _employeeNames[transaction.employeeId ?? ''] ?? 'Unknown Employee';
     final categoryName = transaction.category == TransactionCategory.salaryCredit
         ? 'Salary'
         : transaction.category == TransactionCategory.bonus
@@ -283,6 +329,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         if (_endDate.isBefore(_startDate)) _endDate = _startDate;
         _currentPage = 0;
       });
+      _refreshTransactions();
     }
   }
 
@@ -299,6 +346,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
         if (_startDate.isAfter(_endDate)) _startDate = _endDate;
         _currentPage = 0;
       });
+      _refreshTransactions();
     }
   }
 
@@ -341,7 +389,7 @@ class _EmployeeWagesPageState extends State<EmployeeWagesPage> {
             return _ErrorState(
               message: state.message ?? 'Failed to load transactions',
               onRetry: () {
-                context.read<EmployeeWagesCubit>().loadTransactions();
+                _refreshTransactions();
               },
             );
           }
@@ -883,7 +931,7 @@ class _WagesDataTable extends StatelessWidget {
         icon: Icons.person,
         width: 160,
         cellBuilder: (context, tx, _) {
-          final name = employeeNames[tx.employeeId ?? ''] ?? 'Unknown Employee';
+          final name = tx.employeeName ?? employeeNames[tx.employeeId ?? ''] ?? 'Unknown Employee';
           return Text(name, style: const TextStyle(color: AuthColors.textMain, fontSize: 13, fontWeight: FontWeight.w600));
         },
       ),

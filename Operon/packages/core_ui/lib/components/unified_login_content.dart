@@ -423,7 +423,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
         SizedBox(
           width: double.infinity,
           height: 50,
-          child: ElevatedButton(
+          child: FilledButton(
             onPressed: _isLoading
                 ? null
                 : () {
@@ -439,7 +439,7 @@ class _UnifiedLoginContentState extends State<UnifiedLoginContent> {
                     final formattedNumber = '+91$digits';
                     widget.onPhoneSubmitted(formattedNumber);
                   },
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: AuthColors.primary,
               foregroundColor: AuthColors.textMain,
               elevation: 0,

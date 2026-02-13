@@ -11,6 +11,13 @@ class RawMaterialsRepository {
     return _dataSource.fetchRawMaterials(orgId);
   }
 
+  Future<List<RawMaterial>> fetchRawMaterialsByIds(
+    String orgId,
+    List<String> materialIds,
+  ) {
+    return _dataSource.fetchRawMaterialsByIds(orgId, materialIds);
+  }
+
   Future<void> createRawMaterial(String orgId, RawMaterial material) {
     return _dataSource.createRawMaterial(orgId, material);
   }

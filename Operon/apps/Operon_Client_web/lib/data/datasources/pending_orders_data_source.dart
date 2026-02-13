@@ -10,12 +10,18 @@ class PendingOrdersDataSource {
     return _firestore.collection('PENDING_ORDERS');
   }
 
-  Future<String> createOrder(String orgId, Map<String, dynamic> orderData) async {
+  Future<String> createOrder(
+      String orgId, Map<String, dynamic> orderData) async {
     final docRef = _ordersRef().doc();
     final normalizedClientPhone =
         _normalizePhone(orderData['clientPhone'] as String? ?? '');
     final clientName = (orderData['clientName'] as String?)?.trim() ?? '';
     final nameLc = clientName.toLowerCase();
+    final items = (orderData['items'] as List<dynamic>?) ?? [];
+    final status = (orderData['status'] as String?)?.trim();
+    final resolvedStatus =
+        status == null || status.isEmpty ? 'pending' : status;
+    final hasAvailableTrips = _hasAvailableTrips(items);
 
     await docRef.set({
       ...orderData,
@@ -27,7 +33,8 @@ class PendingOrdersDataSource {
       'name_lc': nameLc,
       'tripIds': orderData['tripIds'] ?? <dynamic>[],
       'totalScheduledTrips': orderData['totalScheduledTrips'] ?? 0,
-      // ❌ REMOVED: scheduledQuantity, unscheduledQuantity (calculate on-the-fly)
+      'status': resolvedStatus,
+      'hasAvailableTrips': hasAvailableTrips,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -35,11 +42,12 @@ class PendingOrdersDataSource {
   }
 
   /// Returns count of pending orders for the org using Firestore count aggregation.
-  /// Note: Does not filter by hasAvailableTrips (that would require a stored field).
+  /// Note: Filters by hasAvailableTrips to align with schedule-ready orders.
   Future<int> getPendingOrdersCount(String orgId) async {
     final query = _ordersRef()
-        .where('organizationId', isEqualTo: orgId)
-        .where('status', isEqualTo: 'pending');
+      .where('organizationId', isEqualTo: orgId)
+      .where('status', isEqualTo: 'pending')
+      .where('hasAvailableTrips', isEqualTo: true);
     final snapshot = await query.aggregate(count()).get();
     return snapshot.count ?? 0;
   }
@@ -48,6 +56,8 @@ class PendingOrdersDataSource {
   Future<int> getTotalPendingTrips(String orgId) async {
     final snapshot = await _ordersRef()
         .where('organizationId', isEqualTo: orgId)
+        .where('status', isEqualTo: 'pending')
+        .where('hasAvailableTrips', isEqualTo: true)
         .limit(500)
         .get();
 
@@ -69,77 +79,45 @@ class PendingOrdersDataSource {
 
   Future<List<Map<String, dynamic>>> fetchPendingOrders(String orgId) async {
     final snapshot = await _ordersRef()
-        .where('organizationId', isEqualTo: orgId)
-        .orderBy('createdAt', descending: true)
-        .limit(100)
-        .get();
+      .where('organizationId', isEqualTo: orgId)
+      .where('status', isEqualTo: 'pending')
+      .where('hasAvailableTrips', isEqualTo: true)
+      .orderBy('createdAt', descending: true)
+      .limit(100)
+      .get();
 
-    final orders = <Map<String, dynamic>>[];
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      final status = data['status'] as String?;
-
-      final items = data['items'] as List<dynamic>? ?? [];
-      // Check if any item has available trips
-      bool hasAvailableTrips = false;
-      for (final item in items) {
-        final itemMap = item as Map<String, dynamic>?;
-        if (itemMap != null) {
-          final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
-          final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
-          if (estimatedTrips > scheduledTrips) {
-            hasAvailableTrips = true;
-            break;
-          }
-        }
-      }
-
-      if ((status == null || status == 'pending') && hasAvailableTrips) {
-        orders.add({
-          'id': doc.id,
-          ...data,
-        });
-      }
-    }
-    return orders;
+    return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
   }
 
   Stream<List<Map<String, dynamic>>> watchPendingOrders(String orgId) {
     return _ordersRef()
         .where('organizationId', isEqualTo: orgId)
+        .where('status', isEqualTo: 'pending')
+        .where('hasAvailableTrips', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .limit(100)
         .snapshots()
         .map((snapshot) {
-          final orders = <Map<String, dynamic>>[];
-          for (final doc in snapshot.docs) {
-            final data = doc.data();
-            final status = data['status'] as String?;
+      return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+    });
+  }
 
-            final items = data['items'] as List<dynamic>? ?? [];
-            // Check if any item has available trips
-            bool hasAvailableTrips = false;
-            for (final item in items) {
-              final itemMap = item as Map<String, dynamic>?;
-              if (itemMap != null) {
-                final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
-                final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
-                if (estimatedTrips > scheduledTrips) {
-                  hasAvailableTrips = true;
-                  break;
-                }
-              }
-            }
-
-            if ((status == null || status == 'pending') && hasAvailableTrips) {
-              orders.add({
-                'id': doc.id,
-                ...data,
-              });
-            }
-          }
-          return orders;
-        });
+  Stream<List<Map<String, dynamic>>> watchPendingOrdersForClient(
+    String orgId,
+    String clientId, {
+    int limit = 50,
+  }) {
+    return _ordersRef()
+        .where('organizationId', isEqualTo: orgId)
+        .where('clientId', isEqualTo: clientId)
+        .where('status', isEqualTo: 'pending')
+        .where('hasAvailableTrips', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+    });
   }
 
   Future<void> updateOrderTrips({
@@ -155,7 +133,9 @@ class PendingOrdersDataSource {
     }
 
     final data = orderDoc.data()!;
-    final items = (data['items'] as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
+    final items = (data['items'] as List<dynamic>)
+        .map((e) => e as Map<String, dynamic>)
+        .toList();
 
     bool itemFound = false;
     for (int i = 0; i < items.length; i++) {
@@ -178,21 +158,18 @@ class PendingOrdersDataSource {
         final updatedItem = <String, dynamic>{
           ...items[i],
           'estimatedTrips': newTrips,
-          // ❌ REMOVED: totalQuantity (calculate on-the-fly)
           'subtotal': subtotal,
           'total': total,
         };
-        
-        // ✅ Only include GST fields if GST applies
+
         if (hasGst) {
           updatedItem['gstPercent'] = gstPercent;
           updatedItem['gstAmount'] = gstAmount;
         } else {
-          // Remove GST fields if not applicable
           updatedItem.remove('gstPercent');
           updatedItem.remove('gstAmount');
         }
-        
+
         items[i] = updatedItem;
         itemFound = true;
         break;
@@ -216,15 +193,25 @@ class PendingOrdersDataSource {
       'subtotal': orderSubtotal,
       'totalAmount': orderTotal,
     };
-    
-    // ✅ Only include totalGst if there's any GST
+
     if (orderGst > 0) {
       pricingUpdate['totalGst'] = orderGst;
     }
 
+    final hasAvailableTrips = _hasAvailableTrips(items);
+    final currentStatus = (data['status'] as String?)?.trim();
+    final statusAllowsUpdate = currentStatus == null ||
+        currentStatus == 'pending' ||
+        currentStatus == 'fully_scheduled';
+    final nextStatus = statusAllowsUpdate
+        ? (hasAvailableTrips ? 'pending' : 'fully_scheduled')
+        : currentStatus;
+
     await orderRef.update({
       'items': items,
       'pricing': pricingUpdate,
+      'hasAvailableTrips': hasAvailableTrips,
+      if (statusAllowsUpdate) 'status': nextStatus,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -235,5 +222,18 @@ class PendingOrdersDataSource {
 
   String _normalizePhone(String input) {
     return input.replaceAll(RegExp(r'[^0-9+]'), '');
+  }
+
+  bool _hasAvailableTrips(List<dynamic> items) {
+    for (final item in items) {
+      final itemMap = item as Map<String, dynamic>?;
+      if (itemMap == null) continue;
+      final estimatedTrips = itemMap['estimatedTrips'] as int? ?? 0;
+      final scheduledTrips = itemMap['scheduledTrips'] as int? ?? 0;
+      if (estimatedTrips > scheduledTrips) {
+        return true;
+      }
+    }
+    return false;
   }
 }

@@ -123,7 +123,7 @@ class _AddProductButton extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        color: AuthColors.textMain.withOpacity(0.1),
+        color: AuthColors.textMain.withValues(alpha: 0.1),
       ),
       child: const Text(
         'You have read-only access to products.',
@@ -358,7 +358,7 @@ class _ProductDialogState extends State<_ProductDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         side: BorderSide(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
@@ -540,14 +540,14 @@ class _ProductDialogState extends State<_ProductDialog> {
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
           width: 1,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         borderSide: BorderSide(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
           width: 1,
         ),
       ),

@@ -10,16 +10,13 @@ class AttendanceState extends BaseState {
     this.selectedYearMonth,
     this.selectedStartDate,
     this.selectedEndDate,
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final Map<String, RoleAttendanceGroup>? roleGroups;
   final String? selectedYearMonth;
   final DateTime? selectedStartDate;
   final DateTime? selectedEndDate;
-  @override
-  final String? message;
-
   @override
   AttendanceState copyWith({
     ViewStatus? status,
@@ -54,7 +51,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
   // Cache key: '${organizationId}_$yearMonth' or '${organizationId}_${startDate}_${endDate}'
   final Map<String, ({DateTime timestamp, Map<String, RoleAttendanceGroup> data})> _cache = {};
-  static const _cacheTTL = Duration(seconds: 30);
+  static const _cacheTTL = Duration(minutes: 2);
 
   String get organizationId => _organizationId;
 

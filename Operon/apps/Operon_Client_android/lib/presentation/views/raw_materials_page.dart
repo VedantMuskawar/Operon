@@ -91,7 +91,7 @@ class RawMaterialsPage extends StatelessWidget {
                                     ? 'No raw materials yet. Tap "Add Raw Material".'
                                     : 'No raw materials to display.',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.6),
+                                  color: Colors.white.withValues(alpha: 0.6),
                                   fontSize: 16,
                                 ),
                                 textAlign: TextAlign.center,
@@ -228,8 +228,8 @@ class _RawMaterialTile extends StatelessWidget {
         gradient: LinearGradient(
           colors: isLowStock
               ? [
-                  AuthColors.error.withOpacity(0.2),
-                  AuthColors.error.withOpacity(0.1)
+                  AuthColors.error.withValues(alpha: 0.2),
+                  AuthColors.error.withValues(alpha: 0.1)
                 ]
               : [AuthColors.surface, AuthColors.backgroundAlt],
           begin: Alignment.topLeft,
@@ -238,7 +238,7 @@ class _RawMaterialTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
         border: Border.all(
           color: isLowStock
-              ? Colors.orange.withOpacity(0.5)
+              ? Colors.orange.withValues(alpha: 0.5)
               : AuthColors.textMainWithOpacity(0.1),
         ),
       ),
@@ -249,7 +249,7 @@ class _RawMaterialTile extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: isLowStock
-                  ? Colors.orange.withOpacity(0.2)
+                  ? Colors.orange.withValues(alpha: 0.2)
                   : AuthColors.textMainWithOpacity(0.1),
               borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
             ),
@@ -284,7 +284,7 @@ class _RawMaterialTile extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.2),
+                          color: Colors.orange.withValues(alpha: 0.2),
                           borderRadius:
                               BorderRadius.circular(AppSpacing.radiusSM),
                         ),

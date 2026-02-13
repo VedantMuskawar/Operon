@@ -337,9 +337,9 @@ class _LedgerDateRangeModalDialogState extends State<_LedgerDateRangeModalDialog
                         ),
                       ),
                       const SizedBox(width: 12),
-                      ElevatedButton(
+                      FilledButton(
                         onPressed: () => widget.onConfirm(_selectedRange),
-                        style: ElevatedButton.styleFrom(
+                        style: FilledButton.styleFrom(
                           backgroundColor: AuthColors.primary,
                           foregroundColor: AuthColors.textMain,
                           padding: const EdgeInsets.symmetric(

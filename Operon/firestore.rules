@@ -11,13 +11,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.superadmin == true;
     }
     // For future org-scoping when custom claims orgId/orgIds are set.
-    function hasOrgAccess(orgId) {
-      return isSignedIn()
-        && (
-          request.auth.token.orgId == orgId
-          || (request.auth.token.orgIds != null && orgId in request.auth.token.orgIds)
-        );
-    }
     function isAdminValue(value) {
       return value == 'ADMIN' || value == 'Admin' || value == 'admin';
     }
@@ -51,6 +44,10 @@ service cloud.firestore {
     match /ORGANIZATIONS/{orgId}/{subcollection}/{docId} {
       allow read, write: if isSignedIn();
     }
+    // Explicit rule for delivery memos under organization (if stored there)
+    match /ORGANIZATIONS/{orgId}/DELIVERY_MEMOS/{dmId} {
+      allow read, write: if isSignedIn();
+    }
     match /ORGANIZATIONS/{orgId}/RAW_MATERIALS/{materialId}/STOCK_HISTORY/{entryId} {
       allow read: if isSignedIn();
       allow create, update, delete: if false;
@@ -64,6 +61,9 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
     match /EMPLOYEES/{employeeId} {
+      allow read, write: if isSignedIn();
+    }
+    match /COMBINED_ACCOUNTS/{accountId} {
       allow read, write: if isSignedIn();
     }
     match /PENDING_ORDERS/{orderId} {
@@ -80,7 +80,11 @@ service cloud.firestore {
     }
     match /TRIP_WAGES/{wageId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if false;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      // Allow delete only via Cloud Functions (admin SDK bypasses these rules)
+      // Client-side deletes are still blocked
+      allow delete: if false;
     }
 
     // ---------- WhatsApp settings (admin-only) ----------

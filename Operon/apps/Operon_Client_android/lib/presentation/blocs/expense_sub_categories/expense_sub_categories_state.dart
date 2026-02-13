@@ -7,15 +7,12 @@ class ExpenseSubCategoriesState extends BaseState {
     this.subCategories = const [],
     this.filteredSubCategories = const [],
     this.searchQuery = '',
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final List<ExpenseSubCategory> subCategories;
   final List<ExpenseSubCategory> filteredSubCategories;
   final String searchQuery;
-  @override
-  final String? message;
-
   bool get isSearching => searchQuery.isNotEmpty;
 
   @override

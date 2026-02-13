@@ -28,33 +28,56 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
     debugPrint('[ZonesCubit] $message');
   }
 
-  Future<void> loadZones() async {
-    _log('loadZones start orgId=$_orgId');
+  Future<void> loadZones({bool forceRefresh = false}) async {
+    _log('loadZones start orgId=$_orgId forceRefresh=$forceRefresh');
+    if (!forceRefresh &&
+        state.zones.isNotEmpty &&
+        _cities.isNotEmpty &&
+        _catalog.isNotEmpty) {
+      final selection = _resolveSelection(
+        state.zones,
+        preferredZoneId: state.selectedZoneId,
+      );
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        zones: state.zones,
+        products: _catalog,
+        cities: _cities,
+        selectedZoneId: selection.zoneId,
+        selectedZonePrices: selection.prices,
+        message: null,
+      ));
+      return;
+    }
     emit(state.copyWith(status: ViewStatus.loading));
     try {
-      final zones = await _repository.fetchZones(_orgId);
+      final results = await Future.wait([
+        _repository.fetchZones(_orgId),
+        _repository.fetchCities(_orgId),
+        _catalog.isEmpty
+            ? _productsRepository.fetchProducts(_orgId)
+            : Future.value(_catalog),
+      ]);
+      final zones = _sortZones(results[0] as List<DeliveryZone>);
       _log('Fetched ${zones.length} zones');
-      final fetchedCities = await _repository.fetchCities(_orgId);
-      _cities = fetchedCities..sort((a, b) => a.name.compareTo(b.name));
+      _cities = (results[1] as List<DeliveryCity>)
+        ..sort((a, b) => a.name.compareTo(b.name));
       _log('Resolved ${_cities.length} cities');
-      if (_catalog.isEmpty) {
-        _catalog = await _productsRepository.fetchProducts(_orgId);
-        _log('Fetched products catalog size=${_catalog.length}');
-      }
-      emit(
-        state.copyWith(
-          status: ViewStatus.success,
-          zones: zones,
-          products: _catalog,
-          cities: _cities,
-          message: null,
-        ),
+      _catalog = results[2] as List<OrganizationProduct>;
+      _log('Resolved products catalog size=${_catalog.length}');
+      final selection = _resolveSelection(
+        zones,
+        preferredZoneId: state.selectedZoneId,
       );
-      if (zones.isNotEmpty) {
-        final targetZoneId = state.selectedZoneId ?? zones.first.id;
-        _log('Selecting zone $targetZoneId after load');
-        await selectZone(targetZoneId);
-      }
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        zones: zones,
+        products: _catalog,
+        cities: _cities,
+        selectedZoneId: selection.zoneId,
+        selectedZonePrices: selection.prices,
+        message: null,
+      ));
     } catch (err, stack) {
       _log('loadZones error: $err\n$stack');
       emit(state.copyWith(
@@ -66,18 +89,17 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
 
   Future<void> selectZone(String zoneId) async {
     _log('selectZone $zoneId');
-    emit(state.copyWith(status: ViewStatus.loading, selectedZoneId: zoneId));
     try {
-      final zone = state.zones.firstWhere((z) => z.id == zoneId);
-      final prices = zone.prices.values.toList();
-      _log('Fetched ${prices.length} prices for zone $zoneId');
-      final mergedPrices = _mergePrices(_catalog, prices);
-      _log('Merged price list size=${mergedPrices.length}');
+      final selection = _resolveSelection(
+        state.zones,
+        preferredZoneId: zoneId,
+      );
       emit(
         state.copyWith(
           status: ViewStatus.success,
-          selectedZonePrices: mergedPrices,
-          selectedZoneId: zoneId,
+          selectedZonePrices: selection.prices,
+          selectedZoneId: selection.zoneId,
+          message: null,
         ),
       );
     } catch (err, stack) {
@@ -93,8 +115,17 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
     _log('createZone');
     emit(state.copyWith(status: ViewStatus.loading));
     try {
-      await _repository.createZone(_orgId, zone);
-      await loadZones();
+      final zoneId = await _repository.createZone(_orgId, zone);
+      final created = zone.copyWith(id: zoneId, organizationId: _orgId);
+      final updatedZones = _sortZones([...state.zones, created]);
+      final selection = _resolveSelection(updatedZones, preferredZoneId: zoneId);
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        zones: updatedZones,
+        selectedZoneId: selection.zoneId,
+        selectedZonePrices: selection.prices,
+        message: null,
+      ));
     } catch (err, stack) {
       _log('createZone error: $err\n$stack');
       emit(state.copyWith(
@@ -109,7 +140,22 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
     emit(state.copyWith(status: ViewStatus.loading));
     try {
       await _repository.updateZone(_orgId, zone);
-      await loadZones();
+      final updatedZones = _sortZones(
+        state.zones
+            .map((z) => z.id == zone.id ? zone : z)
+            .toList(),
+      );
+      final selection = _resolveSelection(
+        updatedZones,
+        preferredZoneId: state.selectedZoneId,
+      );
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        zones: updatedZones,
+        selectedZoneId: selection.zoneId,
+        selectedZonePrices: selection.prices,
+        message: null,
+      ));
     } catch (err, stack) {
       _log('updateZone error: $err\n$stack');
       emit(state.copyWith(
@@ -124,7 +170,20 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
     emit(state.copyWith(status: ViewStatus.loading));
     try {
       await _repository.deleteZone(_orgId, zoneId);
-      await loadZones();
+      final updatedZones = state.zones.where((z) => z.id != zoneId).toList();
+      final selection = _resolveSelection(
+        updatedZones,
+        preferredZoneId: state.selectedZoneId == zoneId
+            ? null
+            : state.selectedZoneId,
+      );
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        zones: updatedZones,
+        selectedZoneId: selection.zoneId,
+        selectedZonePrices: selection.prices,
+        message: null,
+      ));
     } catch (err, stack) {
       _log('deleteZone error: $err\n$stack');
       emit(state.copyWith(
@@ -158,7 +217,19 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
         zoneId: zoneId,
         price: enriched,
       );
-      await selectZone(zoneId);
+      final updatedZones = _updateZonePrices(
+        zones: state.zones,
+        zoneId: zoneId,
+        updatedPrice: enriched,
+      );
+      final selection = _resolveSelection(updatedZones, preferredZoneId: zoneId);
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        zones: updatedZones,
+        selectedZoneId: selection.zoneId,
+        selectedZonePrices: selection.prices,
+        message: null,
+      ));
     } catch (err, stack) {
       _log('upsertPrice error: $err\n$stack');
       emit(state.copyWith(
@@ -179,7 +250,19 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
         zoneId: zoneId,
         productId: productId,
       );
-      await selectZone(zoneId);
+      final updatedZones = _removeZonePrice(
+        zones: state.zones,
+        zoneId: zoneId,
+        productId: productId,
+      );
+      final selection = _resolveSelection(updatedZones, preferredZoneId: zoneId);
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        zones: updatedZones,
+        selectedZoneId: selection.zoneId,
+        selectedZonePrices: selection.prices,
+        message: null,
+      ));
     } catch (err, stack) {
       _log('deletePrice error: $err\n$stack');
       emit(state.copyWith(
@@ -220,6 +303,57 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
     return merged;
   }
 
+  List<DeliveryZone> _sortZones(List<DeliveryZone> zones) {
+    final sorted = [...zones];
+    sorted.sort((a, b) {
+      final cityCompare = a.cityName.compareTo(b.cityName);
+      if (cityCompare != 0) return cityCompare;
+      return a.region.compareTo(b.region);
+    });
+    return sorted;
+  }
+
+  _SelectionSnapshot _resolveSelection(
+    List<DeliveryZone> zones, {
+    required String? preferredZoneId,
+  }) {
+    if (zones.isEmpty) {
+      return const _SelectionSnapshot(null, <DeliveryZonePrice>[]);
+    }
+    final resolvedId = zones.any((z) => z.id == preferredZoneId)
+        ? preferredZoneId
+        : zones.first.id;
+    final zone = zones.firstWhere((z) => z.id == resolvedId);
+    final prices = _mergePrices(_catalog, zone.prices.values.toList());
+    return _SelectionSnapshot(resolvedId, prices);
+  }
+
+  List<DeliveryZone> _updateZonePrices({
+    required List<DeliveryZone> zones,
+    required String zoneId,
+    required DeliveryZonePrice updatedPrice,
+  }) {
+    return zones.map((zone) {
+      if (zone.id != zoneId) return zone;
+      final updatedPrices = Map<String, DeliveryZonePrice>.from(zone.prices)
+        ..[updatedPrice.productId] = updatedPrice;
+      return zone.copyWith(prices: updatedPrices);
+    }).toList();
+  }
+
+  List<DeliveryZone> _removeZonePrice({
+    required List<DeliveryZone> zones,
+    required String zoneId,
+    required String productId,
+  }) {
+    return zones.map((zone) {
+      if (zone.id != zoneId) return zone;
+      final updatedPrices = Map<String, DeliveryZonePrice>.from(zone.prices)
+        ..remove(productId);
+      return zone.copyWith(prices: updatedPrices);
+    }).toList();
+  }
+
   Future<void> createCity(String name) async {
     final normalized = name.trim();
     if (normalized.isEmpty) {
@@ -228,8 +362,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
     if (_cities.any((c) => c.name.toLowerCase() == normalized.toLowerCase())) {
       throw Exception('City already exists');
     }
-    await _repository.createCity(orgId: _orgId, cityName: normalized);
-    _cities = await _repository.fetchCities(_orgId);
+    final cityId = await _repository.createCity(
+      orgId: _orgId,
+      cityName: normalized,
+    );
+    _cities = [..._cities, DeliveryCity(id: cityId, name: normalized)]
+      ..sort((a, b) => a.name.compareTo(b.name));
     emit(state.copyWith(cities: _cities));
   }
 
@@ -251,9 +389,23 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       oldName: city.name,
       newName: normalized,
     );
-    _cities = await _repository.fetchCities(_orgId);
-    final zones = await _repository.fetchZones(_orgId);
-    emit(state.copyWith(cities: _cities, zones: zones));
+    _cities = _cities
+        .map((c) => c.id == city.id ? DeliveryCity(id: c.id, name: normalized) : c)
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    final updatedZones = state.zones
+        .map((z) => z.cityId == city.id ? z.copyWith(cityName: normalized) : z)
+        .toList();
+    final selection = _resolveSelection(
+      updatedZones,
+      preferredZoneId: state.selectedZoneId,
+    );
+    emit(state.copyWith(
+      cities: _cities,
+      zones: updatedZones,
+      selectedZoneId: selection.zoneId,
+      selectedZonePrices: selection.prices,
+    ));
   }
 
   Future<void> deleteCity(DeliveryCity city) async {
@@ -262,9 +414,16 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       cityId: city.id,
       cityName: city.name,
     );
-    _cities = await _repository.fetchCities(_orgId);
-    final zones = await _repository.fetchZones(_orgId);
-    emit(state.copyWith(cities: _cities, zones: zones, selectedZoneId: null));
+    _cities = _cities.where((c) => c.id != city.id).toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    final updatedZones = state.zones.where((z) => z.cityId != city.id).toList();
+    final selection = _resolveSelection(updatedZones, preferredZoneId: null);
+    emit(state.copyWith(
+      cities: _cities,
+      zones: updatedZones,
+      selectedZoneId: selection.zoneId,
+      selectedZonePrices: selection.prices,
+    ));
   }
 
   Future<void> createRegion({
@@ -306,5 +465,12 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
     );
     await createZone(zone);
   }
+}
+
+class _SelectionSnapshot {
+  const _SelectionSnapshot(this.zoneId, this.prices);
+
+  final String? zoneId;
+  final List<DeliveryZonePrice> prices;
 }
 

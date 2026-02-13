@@ -11,7 +11,7 @@ class DeliveryMemosState extends BaseState {
     this.statusFilter, // 'active' or 'cancelled'
     this.startDate,
     this.endDate,
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final List<Map<String, dynamic>> deliveryMemos;
@@ -19,24 +19,56 @@ class DeliveryMemosState extends BaseState {
   final String? statusFilter;
   final DateTime? startDate;
   final DateTime? endDate;
-  @override
-  final String? message;
+  static final Map<String, String> _searchIndexCache = {};
+  static String? _lastSearchIndexHash;
 
+  static Map<String, String> _buildSearchIndex(
+    List<Map<String, dynamic>> memos,
+    String memosHash,
+  ) {
+    if (_lastSearchIndexHash == memosHash && _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final dm in memos) {
+      final buffer = StringBuffer();
+      void add(String? value) {
+        if (value == null) return;
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        buffer.write(trimmed.toLowerCase());
+        buffer.write(' ');
+      }
+
+      final dmId = dm['dmId'] as String?;
+      final dmNumberStr = (dm['dmNumber'] as int? ?? 0).toString();
+      add(dmId);
+      add(dmNumberStr);
+      add(dm['clientName'] as String?);
+      add(dm['vehicleNumber'] as String?);
+
+      final key = dmId ?? dmNumberStr;
+      _searchIndexCache[key] = buffer.toString();
+    }
+
+    _lastSearchIndexHash = memosHash;
+    return _searchIndexCache;
+  }
   List<Map<String, dynamic>> get filteredDeliveryMemos {
     var filtered = deliveryMemos;
 
     // Apply search filter
     if (searchQuery.isNotEmpty) {
       final query = searchQuery.toLowerCase();
+      final memosHash = '${deliveryMemos.length}_${deliveryMemos.hashCode}';
+      final searchIndex = _buildSearchIndex(deliveryMemos, memosHash);
       filtered = filtered.where((dm) {
-        final dmId = (dm['dmId'] as String? ?? '').toLowerCase();
+        final dmId = dm['dmId'] as String?;
         final dmNumberStr = (dm['dmNumber'] as int? ?? 0).toString();
-        final clientName = (dm['clientName'] as String? ?? '').toLowerCase();
-        final vehicleNumber = (dm['vehicleNumber'] as String? ?? '').toLowerCase();
-        return dmId.contains(query) ||
-            dmNumberStr.contains(query) ||
-            clientName.contains(query) ||
-            vehicleNumber.contains(query);
+        final key = dmId ?? dmNumberStr;
+        final indexText = searchIndex[key] ?? '';
+        return indexText.contains(query);
       }).toList();
     }
 

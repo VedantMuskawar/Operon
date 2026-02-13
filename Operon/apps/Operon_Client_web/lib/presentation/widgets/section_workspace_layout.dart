@@ -258,6 +258,7 @@ class _SectionWorkspaceLayoutState extends State<SectionWorkspaceLayout> {
                             userId: authState.userProfile!.id,
                             phoneNumber: authState.userProfile!.phoneNumber,
                           );
+                          if (!context.mounted) return null;
                           // Return the name field from OrganizationUser (which maps from 'user_name' in DB)
                           final name = orgUser?.name;
                           if (name != null && name.isNotEmpty && name != 'Unnamed') {
@@ -1414,9 +1415,9 @@ class _FloatingCircleIconState extends State<_FloatingCircleIcon>
           height: buttonSize,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-                    color: const Color(0xFF0A0A0A).withOpacity(0.95), // Match nav bar background
+                    color: const Color(0xFF0A0A0A).withValues(alpha: 0.95), // Match nav bar background
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.1), // Match nav bar border
+                      color: Colors.white.withValues(alpha: 0.1), // Match nav bar border
                       width: 1,
                     ),
                     boxShadow: [
@@ -1434,10 +1435,10 @@ class _FloatingCircleIconState extends State<_FloatingCircleIcon>
                   child: Icon(
                     widget.icon,
                     color: Color.lerp(
-                      Colors.white.withOpacity(0.7), // Match nav bar inactive icon color
+                      Colors.white.withValues(alpha: 0.7), // Match nav bar inactive icon color
                       Colors.white, // Match nav bar active icon color
                       _controller.value,
-                    ) ?? Colors.white.withOpacity(0.7),
+                    ) ?? Colors.white.withValues(alpha: 0.7),
                     size: 26 + (_controller.value * 2),
                   ),
                 ),

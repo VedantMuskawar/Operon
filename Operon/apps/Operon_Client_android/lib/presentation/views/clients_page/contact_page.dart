@@ -442,9 +442,14 @@ class _ContactPageState extends State<_ContactPageContent> {
   }
 
   Future<ClientRecord?> _findExistingClient(ContactEntry entry) async {
+    final orgId =
+        context.read<OrganizationContextCubit>().state.organization?.id;
     // Optimize: Check all phones in parallel but limit concurrency
     final futures = entry.displayPhones
-        .map((phone) => _clientService.findClientByPhone(phone))
+        .map((phone) => _clientService.findClientByPhone(
+              phone,
+              organizationId: orgId,
+            ))
         .toList();
     
     try {
@@ -470,11 +475,14 @@ class _ContactPageState extends State<_ContactPageContent> {
   }
 
   Future<ClientRecord?> _showExistingClientPicker() {
+    final orgId =
+        context.read<OrganizationContextCubit>().state.organization?.id;
     return showDialog<ClientRecord>(
       context: context,
       builder: (context) => _ExistingClientPickerSheet(
         loadClients: () => _clientService.fetchClients(
           limit: _clientFetchLimit,
+          organizationId: orgId,
         ),
       ),
     );
@@ -871,8 +879,10 @@ class _ContactPageState extends State<_ContactPageContent> {
             final checkedNumbers = <String>{};
             for (final number in entry.displayPhones) {
               if (number.isEmpty || !checkedNumbers.add(number)) continue;
-              final duplicate =
-                  await _clientService.findClientByPhone(number);
+              final duplicate = await _clientService.findClientByPhone(
+                number,
+                organizationId: organizationId,
+              );
               if (duplicate != null) {
                 throw _DuplicateClientException(
                   'Client "${duplicate.name}" already exists with $number.',
@@ -936,11 +946,11 @@ class _ContactPermissionErrorWidget extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.paddingXXL),
-          ElevatedButton.icon(
+          FilledButton.icon(
             onPressed: onOpenSettings,
             icon: const Icon(Icons.settings, size: 18),
             label: const Text('Open Settings'),
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: AuthColors.legacyAccent,
               foregroundColor: AuthColors.textMain,
               padding: const EdgeInsets.symmetric(
@@ -1477,10 +1487,13 @@ class _ContactActionSheet extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AuthColors.legacyAccent.withOpacity(0.2),
+                  color: AuthColors.legacyAccent.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 ),
-                child: Icon(Icons.person_add_alt, color: AuthColors.legacyAccent.withOpacity(0.8)),
+                child: Icon(
+                  Icons.person_add_alt,
+                  color: AuthColors.legacyAccent.withValues(alpha: 0.8),
+                ),
               ),
               title: const Text(
                 'New Client',
@@ -1499,7 +1512,7 @@ class _ContactActionSheet extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AuthColors.successVariant.withOpacity(0.18),
+                  color: AuthColors.successVariant.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 ),
                 child: const Icon(Icons.group_add, color: AuthColors.successVariant),
@@ -1927,9 +1940,9 @@ class _AddContactToClientSheetState extends State<_AddContactToClientSheet> {
             const SizedBox(height: AppSpacing.paddingXXL),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: FilledButton(
                 onPressed: _isSaving ? null : _handleSave,
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AuthColors.successVariant,
                   foregroundColor: AuthColors.textMain,
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
@@ -2186,9 +2199,9 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                 const SizedBox(height: AppSpacing.paddingXXL),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: FilledButton(
                     onPressed: _isSaving ? null : _handleSave,
-                    style: ElevatedButton.styleFrom(
+                    style: FilledButton.styleFrom(
                       backgroundColor: AuthColors.primary,
                       foregroundColor: AuthColors.textMain,
                       padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),

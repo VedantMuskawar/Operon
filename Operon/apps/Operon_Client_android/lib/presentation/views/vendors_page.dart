@@ -329,11 +329,44 @@ class _VendorsListView extends StatelessWidget {
   static final _filteredCache = <String, List<Vendor>>{};
   static String? _lastVendorsHash;
   static String? _lastSearchQuery;
+  static final _searchIndexCache = <String, String>{};
+  static String? _lastSearchIndexHash;
+
+  Map<String, String> _buildSearchIndex(
+    List<Vendor> vendors,
+    String vendorsHash,
+  ) {
+    if (_lastSearchIndexHash == vendorsHash && _searchIndexCache.isNotEmpty) {
+      return _searchIndexCache;
+    }
+
+    _searchIndexCache.clear();
+    for (final vendor in vendors) {
+      final buffer = StringBuffer();
+      void add(String? value) {
+        if (value == null) return;
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return;
+        buffer.write(trimmed.toLowerCase());
+        buffer.write(' ');
+      }
+
+      add(vendor.name);
+      add(vendor.phoneNumber);
+      add(vendor.gstNumber);
+
+      _searchIndexCache[vendor.id] = buffer.toString();
+    }
+
+    _lastSearchIndexHash = vendorsHash;
+    return _searchIndexCache;
+  }
 
   List<Vendor> _getFilteredVendors(List<Vendor> vendors, String query) {
     // Cache key based on vendors hash and search query
     final vendorsHash = '${vendors.length}_${vendors.hashCode}';
     final cacheKey = '${vendorsHash}_$query';
+    final searchIndex = _buildSearchIndex(vendors, vendorsHash);
 
     // Check if we can reuse cached result
     if (_lastVendorsHash == vendorsHash &&
@@ -349,13 +382,13 @@ class _VendorsListView extends StatelessWidget {
 
     // Calculate filtered list
     final filtered = query.isEmpty
-        ? vendors
-        : vendors
-            .where((v) =>
-                v.name.toLowerCase().contains(query.toLowerCase()) ||
-                v.phoneNumber.contains(query) ||
-                (v.gstNumber?.toLowerCase().contains(query.toLowerCase()) ?? false))
-            .toList();
+      ? vendors
+      : vendors
+        .where((v) {
+          final indexText = searchIndex[v.id] ?? '';
+          return indexText.contains(query.toLowerCase());
+        })
+        .toList();
 
     // Cache result
     _filteredCache[cacheKey] = filtered;
@@ -521,8 +554,8 @@ class _VendorTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.gapSM, vertical: AppSpacing.paddingXS / 2),
                   decoration: BoxDecoration(
                     color: isPositive
-                        ? AuthColors.success.withOpacity(0.15)
-                        : AuthColors.error.withOpacity(0.15),
+                        ? AuthColors.success.withValues(alpha: 0.15)
+                        : AuthColors.error.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                   ),
                   child: Row(
@@ -591,7 +624,7 @@ class _EmptySearchState extends StatelessWidget {
           Icon(
             Icons.search_off,
             size: 48,
-            color: AuthColors.textSub.withOpacity(0.5),
+            color: AuthColors.textSub.withValues(alpha: 0.5),
           ),
                     const SizedBox(height: AppSpacing.paddingLG),
           const Text(
@@ -687,13 +720,13 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.paddingLG, vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
           color: isSelected
-              ? AuthColors.primary.withOpacity(0.2)
-              : AuthColors.surface.withOpacity(0.6),
+              ? AuthColors.primary.withValues(alpha: 0.2)
+              : AuthColors.surface.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXL),
           border: Border.all(
             color: isSelected
                 ? AuthColors.primary
-                : AuthColors.textSub.withOpacity(0.2),
+                : AuthColors.textSub.withValues(alpha: 0.2),
             width: isSelected ? 1.5 : 1,
           ),
         ),

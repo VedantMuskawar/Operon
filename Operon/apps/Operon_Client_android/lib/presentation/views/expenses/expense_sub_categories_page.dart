@@ -396,8 +396,8 @@ class _EmptyState extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AuthColors.backgroundAlt.withOpacity(0.6),
-              AuthColors.surface.withOpacity(0.8),
+              AuthColors.backgroundAlt.withValues(alpha: 0.6),
+              AuthColors.surface.withValues(alpha: 0.8),
             ],
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
@@ -412,7 +412,7 @@ class _EmptyState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: AuthColors.secondary.withOpacity(0.15),
+                color: AuthColors.secondary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

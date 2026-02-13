@@ -80,6 +80,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
           .collection('VENDORS')
           .where('organizationId', isEqualTo: organization.id)
           .where('status', isEqualTo: 'active')
+          .where('vendorType', isEqualTo: 'fuel')
           .get();
 
       final vendors = vendorsSnapshot.docs
@@ -88,7 +89,6 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
             data['vendorId'] = doc.id;
             return Vendor.fromJson(data, doc.id);
           })
-          .where((vendor) => vendor.vendorType == VendorType.fuel)
           .toList();
 
       setState(() {
@@ -178,6 +178,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
         'purchaseType': 'fuel',
         'vehicleNumber': vehicleNumber,
         'voucherNumber': voucherNumber,
+        'vendorName': _selectedVendor!.name,
         'recordedVia': 'fuel-ledger-page',
         'linkedTrips': <Map<String, dynamic>>[],
       };
@@ -188,6 +189,7 @@ class _RecordFuelPurchaseDialogState extends State<RecordFuelPurchaseDialog> {
         organizationId: organization.id,
         clientId: '', // Not used for vendor transactions
         vendorId: _selectedVendor!.id,
+        vendorName: _selectedVendor!.name,
         ledgerType: LedgerType.vendorLedger,
         type: TransactionType.credit, // Credit = purchase (we owe vendor)
         category: TransactionCategory.vendorPurchase,

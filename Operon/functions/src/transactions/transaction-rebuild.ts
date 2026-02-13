@@ -202,6 +202,16 @@ export async function rebuildTransactionAnalyticsForOrg(
     .collection(TRANSACTIONS_COLLECTION)
     .where('organizationId', '==', organizationId)
     .where('financialYear', '==', financialYear)
+    .select(
+      'status',
+      'category',
+      'type',
+      'amount',
+      'paymentAccountId',
+      'paymentAccountType',
+      'ledgerType',
+      'createdAt',
+    )
     .get();
   
   // Group transactions by month
@@ -370,56 +380,5 @@ export async function rebuildTransactionAnalyticsForOrg(
  * Cloud Function: Scheduled function to rebuild all client ledgers
  * Runs every 24 hours (midnight UTC) to recalculate ledger balances
  */
-export const rebuildClientLedgers = onSchedule(
-  {
-    schedule: '0 0 * * *',
-    timeZone: 'UTC',
-    ...SCHEDULED_FUNCTION_OPTS,
-  },
-  async () => {
-    const now = new Date();
-    const { fyLabel } = getFinancialContext(now);
-
-    const ledgersSnapshot = await db
-      .collection(CLIENT_LEDGERS_COLLECTION)
-      .where('financialYear', '==', fyLabel)
-      .get();
-
-    const rebuildPromises = ledgersSnapshot.docs.map(async (ledgerDoc) => {
-      const ledgerData = ledgerDoc.data();
-      const organizationId = ledgerData.organizationId as string;
-      const clientId = ledgerData.clientId as string;
-      const financialYear = ledgerData.financialYear as string;
-
-      if (!organizationId || !clientId || !financialYear) {
-        console.warn('[Client Ledger Rebuild] Missing required fields', {
-          ledgerId: ledgerDoc.id,
-          organizationId,
-          clientId,
-          financialYear,
-        });
-        return;
-      }
-
-      try {
-        await rebuildClientLedger(organizationId, clientId, financialYear);
-        console.log('[Client Ledger Rebuild] Successfully rebuilt', {
-          organizationId,
-          clientId,
-          financialYear,
-        });
-      } catch (error) {
-        console.error('[Client Ledger Rebuild] Error rebuilding ledger', {
-          organizationId,
-          clientId,
-          financialYear,
-          error,
-        });
-      }
-    });
-
-    await Promise.all(rebuildPromises);
-    console.log(`[Client Ledger Rebuild] Rebuilt ${ledgersSnapshot.size} client ledgers`);
-  },
-);
+// Function removed: replaced by LedgerMaintenanceManager
 

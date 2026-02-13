@@ -41,7 +41,7 @@ class DmPrintDialog extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: AuthColors.transparent,
-      barrierColor: AuthColors.background.withOpacity(0.7),
+      barrierColor: AuthColors.background.withValues(alpha: 0.7),
       builder: (context) => DmPrintDialog(
         dmPrintService: dmPrintService,
         organizationId: organizationId,

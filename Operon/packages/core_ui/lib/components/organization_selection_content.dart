@@ -323,9 +323,9 @@ class OrganizationSelectionContinueButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: 50,
-      child: ElevatedButton(
+      child: FilledButton(
         onPressed: (isEnabled && !isLoading) ? onPressed : null,
-        style: ElevatedButton.styleFrom(
+        style: FilledButton.styleFrom(
           backgroundColor: AuthColors.primary,
           foregroundColor: AuthColors.textMain,
           elevation: 0,
@@ -484,9 +484,9 @@ class EmptyOrganizationsState extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           height: 50,
-          child: ElevatedButton(
+          child: FilledButton(
             onPressed: onRefresh,
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: AuthColors.primary,
               foregroundColor: AuthColors.textMain,
               elevation: 0,

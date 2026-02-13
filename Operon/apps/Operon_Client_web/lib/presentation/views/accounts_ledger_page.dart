@@ -13,7 +13,6 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-
 class AccountsLedgerPage extends StatefulWidget {
   const AccountsLedgerPage({super.key});
 
@@ -46,6 +45,8 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
   _LedgerFilterType _filterType = _LedgerFilterType.all;
   String? _refreshingLedgerId;
 
+  static final Map<String, List<_CombinedLedger>> _ledgerCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -60,21 +61,28 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
     final orgId = orgState.organization?.id;
     if (orgId == null) return;
 
+    final cachedLedgers = _ledgerCache[orgId];
+    if (cachedLedgers != null && cachedLedgers.isNotEmpty) {
+      setState(() {
+        _ledgers = cachedLedgers;
+      });
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
-      final snapshot = await FirebaseFirestore.instance
-          .collection('ACCOUNTS_LEDGERS')
+        final snapshot = await FirebaseFirestore.instance
+          .collection('COMBINED_ACCOUNTS')
           .where('organizationId', isEqualTo: orgId)
-          .where('financialYear', isEqualTo: financialYear)
           .orderBy('updatedAt', descending: true)
           .get();
 
       final ledgers = snapshot.docs.map((doc) {
         final data = doc.data();
-        final accountsLedgerId =
-            (data['accountsLedgerId'] as String?) ?? doc.id;
-        final ledgerName = (data['ledgerName'] as String?) ?? 'Combined Ledger';
+        final accountsLedgerId = (data['accountId'] as String?) ?? doc.id;
+        final ledgerName = (data['accountName'] as String?) ??
+          (data['ledgerName'] as String?) ??
+          'Combined Ledger';
         final accountsData = (data['accounts'] as List<dynamic>?) ?? [];
         final accounts = accountsData
             .whereType<Map<String, dynamic>>()
@@ -94,8 +102,11 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
             .toList();
 
         final updatedAt =
-            _dateFromTimestamp(data['updatedAt']) ?? DateTime.now();
+          _dateFromTimestamp(data['updatedAt']) ?? DateTime.now();
         final createdAt = _dateFromTimestamp(data['createdAt']) ?? updatedAt;
+        final lastLedgerRefreshAt =
+          _dateFromTimestamp(data['lastLedgerRefreshAt']);
+        final lastLedgerId = data['lastLedgerId'] as String?;
 
         return _CombinedLedger(
           id: doc.id,
@@ -103,13 +114,15 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
           name: ledgerName,
           accounts: accounts,
           createdAt: createdAt,
-          lastRefreshedAt: updatedAt,
+          lastRefreshedAt: lastLedgerRefreshAt ?? updatedAt,
+          lastLedgerId: lastLedgerId,
         );
       }).toList();
 
       setState(() {
         _ledgers = ledgers;
       });
+      _ledgerCache[orgId] = ledgers;
     } catch (e) {
       DashSnackbar.show(context,
           message: 'Failed to load ledgers: $e', isError: true);
@@ -136,46 +149,72 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
 
     setState(() => _isLoading = true);
     try {
-      final accountsLedgerId = 'acc_${DateTime.now().microsecondsSinceEpoch}';
-      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
-      final callable = FirebaseFunctions.instanceFor(region: 'asia-south1')
-          .httpsCallable('generateAccountsLedger');
+      final accountId = 'acc_${DateTime.now().microsecondsSinceEpoch}';
+      final accountsPayload = result.selectedAccounts
+          .map((account) => {
+                'type': _accountTypeToApi(account.type),
+                'id': account.id,
+                'name': account.name,
+              })
+          .toList();
 
-      final response = await callable.call({
-        'organizationId': orgId,
-        'financialYear': financialYear,
-        'accountsLedgerId': accountsLedgerId,
-        'ledgerName': result.name,
-        'accounts': result.selectedAccounts
-            .map((account) => {
-                  'type': _accountTypeToApi(account.type),
-                  'id': account.id,
-                  'name': account.name,
-                })
-            .toList(),
-        'clearMissingMonths': true,
-      });
+      final firestore = FirebaseFirestore.instance;
+      final batch = firestore.batch();
 
-      final data = response.data as Map<Object?, Object?>?;
-      final ledgerId = (data?['ledgerId'] as String?) ?? accountsLedgerId;
+      final combinedRef =
+          firestore.collection('COMBINED_ACCOUNTS').doc(accountId);
+      batch.set(
+        combinedRef,
+        {
+          'accountId': accountId,
+          'accountName': result.name,
+          'organizationId': orgId,
+          'accounts': accountsPayload,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+          'lastLedgerRefreshAt': null,
+          'lastLedgerId': null,
+        },
+      );
+
+      for (final account in result.selectedAccounts) {
+        final collection = switch (account.type) {
+          _AccountType.employee => 'EMPLOYEES',
+          _AccountType.vendor => 'VENDORS',
+          _AccountType.client => 'CLIENTS',
+        };
+        final memberRef = firestore.collection(collection).doc(account.id);
+        batch.set(
+          memberRef,
+          {
+            'combinedAccountIds': FieldValue.arrayUnion([accountId]),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      await batch.commit();
 
       final ledger = _CombinedLedger(
-        id: ledgerId,
-        accountsLedgerId: accountsLedgerId,
+        id: accountId,
+        accountsLedgerId: accountId,
         name: result.name,
         accounts: result.selectedAccounts,
         createdAt: DateTime.now(),
         lastRefreshedAt: DateTime.now(),
+        lastLedgerId: null,
       );
 
       setState(() {
         _ledgers = [ledger, ..._ledgers];
       });
+      _ledgerCache[orgId] = [ledger, ..._ledgers];
 
-      DashSnackbar.show(context, message: 'Ledger created', isError: false);
+      DashSnackbar.show(context,
+          message: 'Combined account created', isError: false);
     } catch (e) {
       DashSnackbar.show(context,
-          message: 'Failed to create ledger: $e', isError: true);
+          message: 'Failed to create combined account: $e', isError: true);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -249,12 +288,6 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
     );
     final averageAccounts =
         _ledgers.isEmpty ? 0 : (totalAccounts / _ledgers.length).round();
-    final latestRefresh = _ledgers.isEmpty
-        ? null
-        : _ledgers
-            .map((ledger) => ledger.lastRefreshedAt)
-            .reduce((a, b) => a.isAfter(b) ? a : b);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -535,7 +568,7 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
       final callable = FirebaseFunctions.instanceFor(region: 'asia-south1')
           .httpsCallable('generateAccountsLedger');
 
-      await callable.call({
+      final response = await callable.call({
         'organizationId': orgId,
         'financialYear': financialYear,
         'accountsLedgerId': ledger.accountsLedgerId,
@@ -550,15 +583,35 @@ class _AccountsLedgerPageState extends State<AccountsLedgerPage> {
         'clearMissingMonths': true,
       });
 
+      final data = response.data as Map<Object?, Object?>?;
+      final ledgerId = (data?['ledgerId'] as String?) ??
+          '${ledger.accountsLedgerId}_$financialYear';
+
+      await FirebaseFirestore.instance
+          .collection('COMBINED_ACCOUNTS')
+          .doc(ledger.accountsLedgerId)
+          .set(
+        {
+          'lastLedgerRefreshAt': FieldValue.serverTimestamp(),
+          'lastLedgerId': ledgerId,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
       setState(() {
         _ledgers = _ledgers
             .map(
               (item) => item.id == ledgerId
-                  ? item.copyWith(lastRefreshedAt: DateTime.now())
+                  ? item.copyWith(
+                      lastRefreshedAt: DateTime.now(),
+                      lastLedgerId: ledgerId,
+                    )
                   : item,
             )
             .toList();
       });
+      _ledgerCache[orgId] = _ledgers;
 
       DashSnackbar.show(context, message: 'Ledger refreshed', isError: false);
     } catch (e) {
@@ -835,7 +888,7 @@ class _AccountsLedgerCreateDialogState
         final results = await employeesRepo.searchEmployeesByName(
           widget.orgId,
           query,
-          limit: _pageSize,
+          limit: 5,
         );
         return results
             .map(
@@ -846,6 +899,7 @@ class _AccountsLedgerCreateDialogState
                 type: _AccountType.employee,
               ),
             )
+            .take(5)
             .toList();
       case _AccountType.vendor:
         final results = await vendorsRepo.searchVendors(widget.orgId, query);
@@ -858,6 +912,7 @@ class _AccountsLedgerCreateDialogState
                 type: _AccountType.vendor,
               ),
             )
+            .take(5)
             .toList();
       case _AccountType.client:
         final results = await clientsRepo.searchClients(widget.orgId, query);
@@ -870,6 +925,7 @@ class _AccountsLedgerCreateDialogState
                 type: _AccountType.client,
               ),
             )
+            .take(5)
             .toList();
     }
   }
@@ -906,14 +962,13 @@ class _AccountsLedgerCreateDialogState
 
   @override
   Widget build(BuildContext context) {
-    final options = _searchQuery.isNotEmpty
-        ? _searchResults
-        : (_pagedOptions[_activeType] ?? const <_AccountOption>[]);
+    final options =
+      _searchQuery.isNotEmpty ? _searchResults : const <_AccountOption>[];
 
     return AlertDialog(
       backgroundColor: AuthColors.surface,
       title: const Text(
-        'Create Combined Ledger',
+        'Create Combined Account',
         style: TextStyle(color: AuthColors.textMain),
       ),
       content: SizedBox(
@@ -924,7 +979,7 @@ class _AccountsLedgerCreateDialogState
             children: [
               DashFormField(
                 controller: _nameController,
-                label: 'Ledger Name',
+                label: 'Account Name',
                 style: const TextStyle(color: AuthColors.textMain),
               ),
               const SizedBox(height: 16),
@@ -978,7 +1033,7 @@ class _AccountsLedgerCreateDialogState
               ),
               const SizedBox(height: 16),
               const Text(
-                'Select Accounts (2 or more)',
+                'Select Members (2 or more)',
                 style: TextStyle(
                   color: AuthColors.textSub,
                   fontWeight: FontWeight.w600,
@@ -999,6 +1054,21 @@ class _AccountsLedgerCreateDialogState
                 'Selected: ${_selectedOptions.length}',
                 style: const TextStyle(color: AuthColors.textSub, fontSize: 12),
               ),
+              if (_selectedOptions.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _selectedOptions.values
+                      .map(
+                        (option) => Chip(
+                          label: Text(option.name),
+                          onDeleted: () => _toggleSelection(option),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ],
             ],
           ),
         ),
@@ -1016,7 +1086,7 @@ class _AccountsLedgerCreateDialogState
             if (name.isEmpty) {
               DashSnackbar.show(
                 context,
-                message: 'Enter a ledger name',
+                message: 'Enter an account name',
                 isError: true,
               );
               return;
@@ -1024,7 +1094,7 @@ class _AccountsLedgerCreateDialogState
             if (_selectedOptions.length < 2) {
               DashSnackbar.show(
                 context,
-                message: 'Select at least two accounts',
+                message: 'Select at least two members',
                 isError: true,
               );
               return;
@@ -1045,7 +1115,7 @@ class _AccountsLedgerCreateDialogState
     if (_searchQuery.trim().isEmpty) {
       return const Center(
         child: Text(
-          'Start typing to load accounts.',
+          'Start typing to search accounts.',
           style: TextStyle(color: AuthColors.textSub),
         ),
       );
@@ -1427,6 +1497,7 @@ class _CombinedLedger {
     required this.accounts,
     required this.createdAt,
     required this.lastRefreshedAt,
+    required this.lastLedgerId,
   });
 
   final String id;
@@ -1435,6 +1506,7 @@ class _CombinedLedger {
   final List<_AccountOption> accounts;
   final DateTime createdAt;
   final DateTime lastRefreshedAt;
+  final String? lastLedgerId;
 
   bool get isEmpty => id.isEmpty;
 
@@ -1445,6 +1517,7 @@ class _CombinedLedger {
     List<_AccountOption>? accounts,
     DateTime? createdAt,
     DateTime? lastRefreshedAt,
+    String? lastLedgerId,
   }) {
     return _CombinedLedger(
       id: id ?? this.id,
@@ -1453,6 +1526,7 @@ class _CombinedLedger {
       accounts: accounts ?? this.accounts,
       createdAt: createdAt ?? this.createdAt,
       lastRefreshedAt: lastRefreshedAt ?? this.lastRefreshedAt,
+      lastLedgerId: lastLedgerId ?? this.lastLedgerId,
     );
   }
 
@@ -1463,6 +1537,7 @@ class _CombinedLedger {
         accounts: const [],
         createdAt: DateTime.fromMillisecondsSinceEpoch(0),
         lastRefreshedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      lastLedgerId: null,
       );
 }
 
@@ -1477,11 +1552,13 @@ class _AccountLedgerDetailModal extends StatefulWidget {
 }
 
 class _AccountLedgerDetailModalState extends State<_AccountLedgerDetailModal> {
-  int _selectedTabIndex = 0;
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _ledger;
   List<Map<String, dynamic>> _transactions = [];
+
+  static final Map<String, ({Map<String, dynamic> ledger, List<Map<String, dynamic>> transactions})>
+      _ledgerDetailCache = {};
 
   @override
   void initState() {
@@ -1489,18 +1566,38 @@ class _AccountLedgerDetailModalState extends State<_AccountLedgerDetailModal> {
     _loadLedgerData();
   }
 
-  Future<void> _loadLedgerData() async {
+  Future<void> _loadLedgerData({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
     try {
+      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
+      final ledgerDocId = widget.ledger.lastLedgerId ??
+          '${widget.ledger.accountsLedgerId}_$financialYear';
+
+      final cached = _ledgerDetailCache[ledgerDocId];
+      if (!forceRefresh && cached != null) {
+        setState(() {
+          _ledger = cached.ledger;
+          _transactions = cached.transactions;
+          _isLoading = false;
+        });
+        return;
+      }
+
       final ledgerRef = FirebaseFirestore.instance
           .collection('ACCOUNTS_LEDGERS')
-          .doc(widget.ledger.id);
+          .doc(ledgerDocId);
       final ledgerDoc = await ledgerRef.get();
       if (!ledgerDoc.exists) {
-        throw Exception('Ledger not found');
+        setState(() {
+          _ledger = {'openingBalance': 0};
+          _transactions = [];
+          _error = 'Ledger not generated yet. Tap Refresh to build it.';
+          _isLoading = false;
+        });
+        return;
       }
       final ledgerData = ledgerDoc.data() ?? <String, dynamic>{};
 
@@ -1527,6 +1624,10 @@ class _AccountLedgerDetailModalState extends State<_AccountLedgerDetailModal> {
         _transactions = transactions;
         _isLoading = false;
       });
+      _ledgerDetailCache[ledgerDocId] = (
+        ledger: ledgerData,
+        transactions: transactions,
+      );
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -1567,42 +1668,7 @@ class _AccountLedgerDetailModalState extends State<_AccountLedgerDetailModal> {
           _AccountLedgerModalHeader(
             ledger: widget.ledger,
             onClose: () => Navigator.of(context).pop(),
-            onReload: _loadLedgerData,
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: AuthColors.backgroundAlt,
-              border: Border(
-                bottom: BorderSide(
-                  color: AuthColors.textMainWithOpacity(0.1),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _LedgerTabButton(
-                    label: 'Overview',
-                    isSelected: _selectedTabIndex == 0,
-                    onTap: () => setState(() => _selectedTabIndex = 0),
-                  ),
-                ),
-                Expanded(
-                  child: _LedgerTabButton(
-                    label: 'Ledger',
-                    isSelected: _selectedTabIndex == 1,
-                    onTap: () => setState(() => _selectedTabIndex = 1),
-                  ),
-                ),
-                Expanded(
-                  child: _LedgerTabButton(
-                    label: 'Transactions',
-                    isSelected: _selectedTabIndex == 2,
-                    onTap: () => setState(() => _selectedTabIndex = 2),
-                  ),
-                ),
-              ],
-            ),
+            onReload: () => _loadLedgerData(forceRefresh: true),
           ),
           Expanded(
             child: _isLoading
@@ -1617,35 +1683,17 @@ class _AccountLedgerDetailModalState extends State<_AccountLedgerDetailModal> {
                           textAlign: TextAlign.center,
                         ),
                       )
-                    : IndexedStack(
-                        index: _selectedTabIndex,
-                        children: [
-                          _AccountLedgerOverviewTab(
-                            ledger: _ledger,
-                            accounts: widget.ledger.accounts,
-                            formatCurrency: _formatCurrency,
-                          ),
-                          SingleChildScrollView(
-                            padding: const EdgeInsets.all(20),
-                            child: _AccountLedgerTable(
-                              openingBalance:
-                                  (_ledger?['openingBalance'] as num?)
-                                          ?.toDouble() ??
-                                      0.0,
-                              transactions: _transactions,
-                              formatCurrency: _formatCurrency,
-                              formatDate: _formatDate,
-                            ),
-                          ),
-                          SingleChildScrollView(
-                            padding: const EdgeInsets.all(20),
-                            child: _AccountTransactionsTable(
-                              transactions: _transactions,
-                              formatCurrency: _formatCurrency,
-                              formatDate: _formatDate,
-                            ),
-                          ),
-                        ],
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: _AccountLedgerTable(
+                          openingBalance:
+                              (_ledger?['openingBalance'] as num?)
+                                      ?.toDouble() ??
+                                  0.0,
+                          transactions: _transactions,
+                          formatCurrency: _formatCurrency,
+                          formatDate: _formatDate,
+                        ),
                       ),
           ),
         ],
@@ -1748,389 +1796,6 @@ class _AccountLedgerModalHeader extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AccountLedgerOverviewTab extends StatelessWidget {
-  const _AccountLedgerOverviewTab({
-    required this.ledger,
-    required this.accounts,
-    required this.formatCurrency,
-  });
-
-  final Map<String, dynamic>? ledger;
-  final List<_AccountOption> accounts;
-  final String Function(double) formatCurrency;
-
-  @override
-  Widget build(BuildContext context) {
-    final currentBalance =
-        (ledger?['currentBalance'] as num?)?.toDouble() ?? 0.0;
-    final totalCredits = (ledger?['totalCredits'] as num?)?.toDouble() ?? 0.0;
-    final totalDebits = (ledger?['totalDebits'] as num?)?.toDouble() ?? 0.0;
-    final transactionCount = ledger?['transactionCount'] as int? ?? 0;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _StatCard(
-                label: 'Current Balance',
-                value: formatCurrency(currentBalance),
-                accent: AuthColors.success,
-              ),
-              _StatCard(
-                label: 'Total Credits',
-                value: formatCurrency(totalCredits),
-                accent: AuthColors.info,
-              ),
-              _StatCard(
-                label: 'Total Debits',
-                value: formatCurrency(totalDebits),
-                accent: AuthColors.warning,
-              ),
-              _StatCard(
-                label: 'Transactions',
-                value: transactionCount.toString(),
-                accent: AuthColors.primary,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Accounts',
-            style: TextStyle(
-              color: AuthColors.textMain,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: accounts
-                .map((account) => Chip(
-                      label: Text(account.name),
-                      backgroundColor: AuthColors.background,
-                      labelStyle: const TextStyle(color: AuthColors.textMain),
-                    ))
-                .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
-
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AuthColors.textMainWithOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: AuthColors.textSub, fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              color: accent,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountTransactionsTable extends StatelessWidget {
-  const _AccountTransactionsTable({
-    required this.transactions,
-    required this.formatCurrency,
-    required this.formatDate,
-  });
-
-  final List<Map<String, dynamic>> transactions;
-  final String Function(double) formatCurrency;
-  final String Function(dynamic) formatDate;
-
-  @override
-  Widget build(BuildContext context) {
-    if (transactions.isEmpty) {
-      return const Text(
-        'No transactions found.',
-        style: TextStyle(color: AuthColors.textSub, fontSize: 13),
-      );
-    }
-
-    final visible = List<Map<String, dynamic>>.from(transactions);
-    visible.sort((a, b) {
-      final aDate = a['transactionDate'];
-      final bDate = b['transactionDate'];
-      try {
-        final ad = aDate is Timestamp ? aDate.toDate() : (aDate as DateTime);
-        final bd = bDate is Timestamp ? bDate.toDate() : (bDate as DateTime);
-        return bd.compareTo(ad);
-      } catch (_) {
-        return 0;
-      }
-    });
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AuthColors.surface,
-        borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: AuthColors.textMainWithOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        children: [
-          const _TransactionsTableHeader(),
-          Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
-          ...visible.take(120).map((tx) => _TransactionsTableRow(
-                transaction: tx,
-                formatCurrency: formatCurrency,
-                formatDate: formatDate,
-              )),
-        ],
-      ),
-    );
-  }
-}
-
-class _TransactionsTableHeader extends StatelessWidget {
-  const _TransactionsTableHeader();
-
-  static const _labelStyle = TextStyle(
-    color: AuthColors.textSub,
-    fontSize: 13,
-    fontFamily: 'SF Pro Display',
-  );
-  static final _cellBorder = Border(
-    right: BorderSide(color: AuthColors.textMain.withOpacity(0.12), width: 1),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            decoration: BoxDecoration(border: _cellBorder),
-            alignment: Alignment.center,
-            child: const Text('Date',
-                style: _labelStyle, textAlign: TextAlign.center),
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            decoration: BoxDecoration(border: _cellBorder),
-            alignment: Alignment.center,
-            child: const Text('Type',
-                style: _labelStyle, textAlign: TextAlign.center),
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            decoration: BoxDecoration(border: _cellBorder),
-            alignment: Alignment.center,
-            child: const Text('Amount',
-                style: _labelStyle, textAlign: TextAlign.center),
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            decoration: BoxDecoration(border: _cellBorder),
-            alignment: Alignment.center,
-            child: const Text('Balance',
-                style: _labelStyle, textAlign: TextAlign.center),
-          ),
-        ),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-            alignment: Alignment.center,
-            child: const Text('Reference',
-                style: _labelStyle, textAlign: TextAlign.center),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TransactionsTableRow extends StatelessWidget {
-  const _TransactionsTableRow({
-    required this.transaction,
-    required this.formatCurrency,
-    required this.formatDate,
-  });
-
-  final Map<String, dynamic> transaction;
-  final String Function(double) formatCurrency;
-  final String Function(dynamic) formatDate;
-
-  static const _cellStyle = TextStyle(
-    color: AuthColors.textMain,
-    fontSize: 13,
-    fontFamily: 'SF Pro Display',
-  );
-  static final _cellBorder = Border(
-    right: BorderSide(color: AuthColors.textMain.withOpacity(0.12), width: 1),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final amount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
-    final balanceAfter =
-        (transaction['balanceAfter'] as num?)?.toDouble() ?? 0.0;
-    final type = (transaction['type'] as String?) ?? '-';
-    final reference = (transaction['referenceNumber'] as String?) ??
-        (transaction['transactionId'] as String?) ??
-        '-';
-
-    return Row(
-      children: [
-        Expanded(
-          flex: 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(border: _cellBorder),
-            alignment: Alignment.center,
-            child: Text(
-              formatDate(transaction['transactionDate']),
-              style: _cellStyle,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(border: _cellBorder),
-            alignment: Alignment.center,
-            child: Text(
-              type,
-              style: _cellStyle,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(border: _cellBorder),
-            alignment: Alignment.center,
-            child: Text(
-              formatCurrency(amount),
-              style: _cellStyle,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        Expanded(
-          flex: 1,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(border: _cellBorder),
-            alignment: Alignment.center,
-            child: Text(
-              formatCurrency(balanceAfter),
-              style: _cellStyle,
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            alignment: Alignment.center,
-            child: Text(
-              reference,
-              style: _cellStyle,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _LedgerTabButton extends StatelessWidget {
-  const _LedgerTabButton({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? AuthColors.secondary : Colors.transparent,
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-          ),
-        ),
       ),
     );
   }

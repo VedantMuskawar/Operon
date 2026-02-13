@@ -37,6 +37,28 @@ class VendorsDataSource {
     }
   }
 
+  Future<List<Vendor>> fetchVendorsByIds(List<String> vendorIds) async {
+    if (vendorIds.isEmpty) {
+      return [];
+    }
+
+    final vendors = <Vendor>[];
+    const chunkSize = 10; // Firestore whereIn limit
+    for (var i = 0; i < vendorIds.length; i += chunkSize) {
+      final chunk = vendorIds.sublist(
+        i,
+        (i + chunkSize > vendorIds.length) ? vendorIds.length : i + chunkSize,
+      );
+      final snapshot = await _vendorsRef
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      vendors.addAll(
+        snapshot.docs.map((doc) => Vendor.fromJson(doc.data(), doc.id)),
+      );
+    }
+    return vendors;
+  }
+
   Future<
       ({
         List<Vendor> vendors,
@@ -90,6 +112,15 @@ class VendorsDataSource {
       vendors
           .sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       return vendors;
+    });
+  }
+
+  Stream<Vendor?> watchVendor(String vendorId) {
+    return _vendorsRef.doc(vendorId).snapshots().map((snapshot) {
+      if (!snapshot.exists) return null;
+      final data = snapshot.data();
+      if (data == null) return null;
+      return Vendor.fromJson(data, snapshot.id);
     });
   }
 

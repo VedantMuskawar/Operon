@@ -52,6 +52,7 @@ class _VendorDetailPageState extends State<VendorDetailPage> {
     );
 
     if (confirm != true) return;
+    if (!mounted) return;
 
     try {
       context.read<VendorsCubit>().deleteVendor(widget.vendor.id);
@@ -267,7 +268,7 @@ class _VendorHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         gradient: LinearGradient(
           colors: [
-            vendorColor.withOpacity(0.3),
+            vendorColor.withValues(alpha: 0.3),
             AuthColors.surface,
           ],
           begin: Alignment.topLeft,
@@ -275,7 +276,7 @@ class _VendorHeader extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: vendorColor.withOpacity(0.2),
+            color: vendorColor.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -296,14 +297,14 @@ class _VendorHeader extends StatelessWidget {
                   gradient: LinearGradient(
                     colors: [
                       vendorColor,
-                      vendorColor.withOpacity(0.7),
+                      vendorColor.withValues(alpha: 0.7),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: vendorColor.withOpacity(0.3),
+                      color: vendorColor.withValues(alpha: 0.3),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -392,10 +393,10 @@ class _VendorHeader extends StatelessWidget {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: vendorColor.withOpacity(0.2),
+                  color: vendorColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
-                    color: vendorColor.withOpacity(0.5),
+                    color: vendorColor.withValues(alpha: 0.5),
                   ),
                 ),
                 child: Row(
@@ -426,12 +427,12 @@ class _VendorHeader extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: vendor.status == VendorStatus.active
-                      ? AuthColors.successVariant.withOpacity(0.2)
+                      ? AuthColors.successVariant.withValues(alpha: 0.2)
                       : AuthColors.textSubWithOpacity(0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
                     color: vendor.status == VendorStatus.active
-                        ? AuthColors.successVariant.withOpacity(0.5)
+                        ? AuthColors.successVariant.withValues(alpha: 0.5)
                         : AuthColors.textSubWithOpacity(0.5),
                   ),
                 ),
@@ -455,13 +456,13 @@ class _VendorHeader extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: isPositive
-                        ? AuthColors.successVariant.withOpacity(0.2)
-                        : AuthColors.error.withOpacity(0.2),
+                        ? AuthColors.successVariant.withValues(alpha: 0.2)
+                        : AuthColors.error.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                     border: Border.all(
                       color: isPositive
-                          ? AuthColors.successVariant.withOpacity(0.5)
-                          : AuthColors.error.withOpacity(0.5),
+                          ? AuthColors.successVariant.withValues(alpha: 0.5)
+                          : AuthColors.error.withValues(alpha: 0.5),
                     ),
                   ),
                   child: Row(
@@ -636,12 +637,12 @@ class _OverviewSectionState extends State<_OverviewSection> {
               gradient: LinearGradient(
                 colors: isPositive
                     ? [
-                        AuthColors.success.withOpacity(0.2),
-                        AuthColors.success.withOpacity(0.05),
+                        AuthColors.success.withValues(alpha: 0.2),
+                        AuthColors.success.withValues(alpha: 0.05),
                       ]
                     : [
-                        AuthColors.error.withOpacity(0.2),
-                        AuthColors.error.withOpacity(0.05),
+                        AuthColors.error.withValues(alpha: 0.2),
+                        AuthColors.error.withValues(alpha: 0.05),
                       ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -649,7 +650,7 @@ class _OverviewSectionState extends State<_OverviewSection> {
               borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
               border: Border.all(
                 color: (isPositive ? AuthColors.success : AuthColors.error)
-                    .withOpacity(0.3),
+                    .withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -875,11 +876,11 @@ class _OverviewSectionState extends State<_OverviewSection> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: vendorColor.withOpacity(0.2),
+                            color: vendorColor.withValues(alpha: 0.2),
                             borderRadius:
                                 BorderRadius.circular(AppSpacing.radiusSM),
                             border: Border.all(
-                              color: vendorColor.withOpacity(0.3),
+                              color: vendorColor.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Text(
@@ -919,10 +920,10 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -1330,7 +1331,7 @@ class _LedgerTable extends StatelessWidget {
           child: Column(
             children: [
               _LedgerTableHeader(),
-              Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
+              Divider(height: 1, color: AuthColors.textMain.withValues(alpha: 0.12)),
               ...rows,
             ],
           ),

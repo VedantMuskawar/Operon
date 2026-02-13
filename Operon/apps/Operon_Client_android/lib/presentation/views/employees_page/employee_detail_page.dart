@@ -178,7 +178,7 @@ class _EmployeeHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         gradient: LinearGradient(
           colors: [
-            employeeColor.withOpacity(0.3),
+            employeeColor.withValues(alpha: 0.3),
             AuthColors.backgroundAlt,
           ],
           begin: Alignment.topLeft,
@@ -186,7 +186,7 @@ class _EmployeeHeader extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: employeeColor.withOpacity(0.2),
+            color: employeeColor.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -203,15 +203,15 @@ class _EmployeeHeader extends StatelessWidget {
               shape: BoxShape.circle,
               gradient: LinearGradient(
                 colors: [
-                  employeeColor.withOpacity(0.4),
-                  employeeColor.withOpacity(0.2),
+                  employeeColor.withValues(alpha: 0.4),
+                  employeeColor.withValues(alpha: 0.2),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: employeeColor.withOpacity(0.3),
+                  color: employeeColor.withValues(alpha: 0.3),
                   blurRadius: 8,
                   spreadRadius: 2,
                 ),
@@ -250,10 +250,10 @@ class _EmployeeHeader extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: employeeColor.withOpacity(0.2),
+                    color: employeeColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                     border: Border.all(
-                      color: employeeColor.withOpacity(0.5),
+                      color: employeeColor.withValues(alpha: 0.5),
                     ),
                   ),
                   child: Row(
@@ -552,7 +552,7 @@ class _LedgerTable extends StatelessWidget {
           child: Column(
             children: [
               _LedgerTableHeader(),
-              Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
+              Divider(height: 1, color: AuthColors.textMain.withValues(alpha: 0.12)),
               ...rows,
             ],
           ),
@@ -872,8 +872,8 @@ class _DeleteEmployeeSheet extends StatelessWidget {
             const SizedBox(height: AppSpacing.paddingXXL),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
+              child: FilledButton(
+                style: FilledButton.styleFrom(
                   backgroundColor: AuthColors.error,
                   foregroundColor: AuthColors.textMain,
                   padding: const EdgeInsets.symmetric(

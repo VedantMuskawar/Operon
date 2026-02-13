@@ -28,9 +28,63 @@ class DeliveryMemoDataSource {
           .doc(dmId)
           .get();
       if (!doc.exists) return null;
-      return {'dmId': doc.id, ...?doc.data()};
+      return {...?doc.data(), 'dmId': doc.id};
     } catch (e) {
       throw Exception('Failed to get delivery memo: $e');
+    }
+  }
+
+  /// Get a single delivery memo by DM number (fast lookup)
+  /// Requires Firestore composite index on (organizationId, dmNumber)
+  Future<Map<String, dynamic>?> getDeliveryMemoByDmNumber({
+    required String organizationId,
+    required int dmNumber,
+  }) async {
+    try {
+      final snapshot = await _firestore
+          .collection(_deliveryMemosCollection)
+          .where('organizationId', isEqualTo: organizationId)
+          .where('dmNumber', isEqualTo: dmNumber)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isEmpty) return null;
+      final doc = snapshot.docs.first;
+      return <String, dynamic>{
+        ...doc.data(),
+        'dmId': doc.id,
+      };
+    } catch (e) {
+      throw Exception('Failed to get delivery memo by DM number: $e');
+    }
+  }
+
+  /// Fetch delivery memos by DM number range (inclusive)
+  /// Requires Firestore composite index on (organizationId, dmNumber)
+  Future<List<Map<String, dynamic>>> getDeliveryMemosByDmNumberRange({
+    required String organizationId,
+    required int fromDmNumber,
+    required int toDmNumber,
+  }) async {
+    try {
+      final query = _firestore
+          .collection(_deliveryMemosCollection)
+          .where('organizationId', isEqualTo: organizationId)
+          .where('dmNumber', isGreaterThanOrEqualTo: fromDmNumber)
+          .where('dmNumber', isLessThanOrEqualTo: toDmNumber)
+          .orderBy('dmNumber', descending: false);
+
+      final snapshot = await query.get();
+      final memos = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return <String, dynamic>{
+          ...data,
+          'dmId': doc.id,
+        };
+      }).toList();
+
+      return memos;
+    } catch (e) {
+      throw Exception('Failed to fetch delivery memos by DM range: $e');
     }
   }
 
@@ -192,9 +246,16 @@ class DeliveryMemoDataSource {
         developer.log('End date filter applied: $endDate', name: 'DeliveryMemoDataSource');
       }
 
-      // Order by scheduled date descending (newest first) for Firestore query
-      // We'll sort by dmNumber in memory to ensure correct ordering
-      query = query.orderBy('scheduledDate', descending: true);
+      final hasDateFilter = startDate != null || endDate != null;
+      final useDmNumberOrdering = !hasDateFilter && status == null;
+
+      // Order by dmNumber when possible (fast + avoids extra in-memory sort)
+      // Otherwise, order by scheduledDate for date-range queries
+      if (useDmNumberOrdering) {
+        query = query.orderBy('dmNumber', descending: true);
+      } else {
+        query = query.orderBy('scheduledDate', descending: true);
+      }
 
       // Limit results if specified (default to 10 for recent items)
       if (limit != null && limit > 0) {
@@ -209,18 +270,20 @@ class DeliveryMemoDataSource {
         final memos = snapshot.docs.map((doc) {
           final data = doc.data();
           return <String, dynamic>{
-            'dmId': doc.id,
             ...data,
+            'dmId': doc.id,
           };
         }).toList();
-        
-        // Sort by dmNumber descending (highest DM numbers first)
-        memos.sort((a, b) {
-          final dmNumberA = a['dmNumber'] as int? ?? 0;
-          final dmNumberB = b['dmNumber'] as int? ?? 0;
-          return dmNumberB.compareTo(dmNumberA); // Descending order
-        });
-        
+
+        if (!useDmNumberOrdering) {
+          // Sort by dmNumber descending (highest DM numbers first)
+          memos.sort((a, b) {
+            final dmNumberA = a['dmNumber'] as int? ?? 0;
+            final dmNumberB = b['dmNumber'] as int? ?? 0;
+            return dmNumberB.compareTo(dmNumberA); // Descending order
+          });
+        }
+
         developer.log('Mapped ${memos.length} delivery memos', name: 'DeliveryMemoDataSource');
         return memos;
       }).handleError((error) {
@@ -262,8 +325,8 @@ class DeliveryMemoDataSource {
         final memos = snapshot.docs.map((doc) {
           final data = doc.data();
           return <String, dynamic>{
-            'dmId': doc.id,
             ...data,
+            'dmId': doc.id,
           };
         }).toList();
         memos.sort((a, b) {
@@ -332,8 +395,8 @@ class DeliveryMemoDataSource {
       final results = snapshot.docs.map((doc) {
         final data = doc.data();
         return <String, dynamic>{
-          'dmId': doc.id,
           ...data,
+          'dmId': doc.id,
         };
       }).where((item) {
         // Filter by date in memory (last 3 days)

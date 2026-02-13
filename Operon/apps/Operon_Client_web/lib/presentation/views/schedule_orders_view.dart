@@ -27,6 +27,11 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   String? _currentOrgId;
   List<Vehicle> _vehicles = [];
   String? _selectedVehicleId;
+  String? _vehiclesOrgId;
+  int _totalTrips = 0;
+  double _totalValue = 0.0;
+  int _totalQuantity = 0;
+  int _totalVehicles = 0;
 
   @override
   void initState() {
@@ -62,20 +67,26 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     if (organization == null) {
       setState(() {
         _vehicles = [];
+        _vehiclesOrgId = null;
       });
       return;
     }
 
+    if (_vehiclesOrgId == organization.id && _vehicles.isNotEmpty) {
+      return;
+    }
+
+    _vehiclesOrgId = organization.id;
+
     try {
       final vehiclesRepo = context.read<VehiclesRepository>();
       final allVehicles = await vehiclesRepo.fetchVehicles(organization.id);
+      if (!mounted) return;
       final activeVehicles = allVehicles.where((v) => v.isActive).toList();
 
-      if (mounted) {
-        setState(() {
-          _vehicles = activeVehicles;
-        });
-      }
+      setState(() {
+        _vehicles = activeVehicles;
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -114,12 +125,16 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
         .listen(
       (trips) {
         if (mounted) {
+          final filteredTrips = _applyFilters(trips);
+          final summary = _buildSummary(filteredTrips);
           setState(() {
-            debugPrint(
-                'ScheduleOrdersView: Received ${trips.length} trips for date $_selectedDate');
             _allTripsForDate = trips;
-            _scheduledTrips = _applyFilters(_allTripsForDate);
+            _scheduledTrips = filteredTrips;
             _isLoadingTrips = false;
+            _totalTrips = summary.totalTrips;
+            _totalValue = summary.totalValue;
+            _totalQuantity = summary.totalQuantity;
+            _totalVehicles = summary.totalVehicles;
           });
         }
       },
@@ -156,6 +171,11 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     setState(() {
       _selectedVehicleId = vehicleId;
       _scheduledTrips = _applyFilters(_allTripsForDate);
+      final summary = _buildSummary(_scheduledTrips);
+      _totalTrips = summary.totalTrips;
+      _totalValue = summary.totalValue;
+      _totalQuantity = summary.totalQuantity;
+      _totalVehicles = summary.totalVehicles;
     });
   }
 
@@ -171,17 +191,16 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
     return filtered;
   }
 
-  int _getTotalTrips() {
-    return _scheduledTrips.length;
-  }
+  _TripSummary _buildSummary(List<Map<String, dynamic>> trips) {
+    double totalValue = 0.0;
+    int totalQuantity = 0;
+    final vehicleIds = <String>{};
 
-  double _getTotalValue() {
-    double total = 0.0;
-    for (final trip in _scheduledTrips) {
+    for (final trip in trips) {
       final tripPricing = trip['tripPricing'] as Map<String, dynamic>?;
       if (tripPricing != null) {
         final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-        total += tripTotal;
+        totalValue += tripTotal;
       } else {
         final items = trip['items'] as List<dynamic>? ?? [];
         for (final item in items) {
@@ -193,33 +212,32 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
           final subtotal = unitPrice * fixedQuantity;
           final gstAmount =
               gstPercent != null ? subtotal * (gstPercent / 100) : 0.0;
-          total += subtotal + gstAmount;
+          totalValue += subtotal + gstAmount;
+          totalQuantity += fixedQuantity;
         }
       }
-    }
-    return total;
-  }
 
-  int _getTotalQuantity() {
-    int total = 0;
-    for (final trip in _scheduledTrips) {
-      final items = trip['items'] as List<dynamic>? ?? [];
-      for (final item in items) {
-        final itemMap = item as Map<String, dynamic>? ?? {};
-        final fixedQuantity = (itemMap['fixedQuantityPerTrip'] as int?) ?? 0;
-        total += fixedQuantity;
+      final vehicleId = trip['vehicleId'] as String?;
+      if (vehicleId != null) {
+        vehicleIds.add(vehicleId);
       }
     }
-    return total;
+
+    return _TripSummary(
+      totalTrips: trips.length,
+      totalValue: totalValue,
+      totalQuantity: totalQuantity,
+      totalVehicles: vehicleIds.length,
+    );
   }
 
-  int _getTotalVehicles() {
-    final vehicleIds = _scheduledTrips
-        .map((trip) => trip['vehicleId'] as String?)
-        .where((id) => id != null)
-        .toSet();
-    return vehicleIds.length;
-  }
+  int _getTotalTrips() => _totalTrips;
+
+  double _getTotalValue() => _totalValue;
+
+  int _getTotalQuantity() => _totalQuantity;
+
+  int _getTotalVehicles() => _totalVehicles;
 
   String _formatCurrency(double value) {
     if (value >= 100000) {
@@ -392,7 +410,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                           border: Border.all(
                             color: isSelected
                                 ? AuthColors.primary
-                                : AuthColors.textMainWithOpacity(0.1),
+                                : AuthColors.textMain.withValues(alpha: 0.1),
                             width: 1,
                           ),
                         ),
@@ -450,12 +468,12 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                 color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AuthColors.textMainWithOpacity(0.1),
+                  color: AuthColors.textMain.withValues(alpha: 0.1),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AuthColors.background.withOpacity(0.2),
+                    color: AuthColors.background.withValues(alpha: 0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -476,7 +494,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       width: 1,
                       height: 40,
                       margin: const EdgeInsets.symmetric(horizontal: 8),
-                      color: AuthColors.textMainWithOpacity(0.1),
+                      color: AuthColors.textMain.withValues(alpha: 0.1),
                     ),
                     Expanded(
                       flex: 2,
@@ -489,7 +507,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       width: 1,
                       height: 40,
                       margin: const EdgeInsets.symmetric(horizontal: 8),
-                      color: AuthColors.textMainWithOpacity(0.1),
+                      color: AuthColors.textMain.withValues(alpha: 0.1),
                     ),
                     Expanded(
                       flex: 1,
@@ -502,7 +520,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                       width: 1,
                       height: 40,
                       margin: const EdgeInsets.symmetric(horizontal: 8),
-                      color: AuthColors.textMainWithOpacity(0.1),
+                      color: AuthColors.textMain.withValues(alpha: 0.1),
                     ),
                     Expanded(
                       flex: 1,
@@ -713,7 +731,7 @@ class _VehicleFilterButton extends StatelessWidget {
           border: Border.all(
             color: isSelected
                 ? AuthColors.primary
-                : AuthColors.textMainWithOpacity(0.1),
+                : AuthColors.textMain.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -728,4 +746,18 @@ class _VehicleFilterButton extends StatelessWidget {
       ),
     );
   }
+}
+
+class _TripSummary {
+  const _TripSummary({
+    required this.totalTrips,
+    required this.totalValue,
+    required this.totalQuantity,
+    required this.totalVehicles,
+  });
+
+  final int totalTrips;
+  final double totalValue;
+  final int totalQuantity;
+  final int totalVehicles;
 }

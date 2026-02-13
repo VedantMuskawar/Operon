@@ -33,7 +33,7 @@ class CashLedgerState extends BaseState {
     this.startDate,
     this.endDate,
     this.financialYear,
-    this.message,
+    String? message,
     this.allRows = const [],
     this.totalOrderTransactions = 0.0,
     this.totalPayments = 0.0,
@@ -59,9 +59,6 @@ class CashLedgerState extends BaseState {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? financialYear;
-  @override
-  final String? message;
-  
   // Cached computed values (computed once in cubit)
   final List<Transaction> allRows;
   final double totalOrderTransactions;

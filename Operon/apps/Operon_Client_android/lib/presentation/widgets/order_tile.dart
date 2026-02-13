@@ -1,6 +1,7 @@
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
 import 'package:dash_mobile/data/services/client_service.dart';
+import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/orders/pending_order_detail_page.dart';
 import 'package:dash_mobile/presentation/widgets/schedule_trip_modal.dart';
 import 'package:dash_mobile/shared/constants/constants.dart';
@@ -115,13 +116,13 @@ class _OrderTileState extends State<OrderTile> {
     final priorityShadows = isHighPriority
         ? [
             BoxShadow(
-              color: AuthColors.secondary.withOpacity(0.4),
+              color: AuthColors.secondary.withValues(alpha: 0.4),
               blurRadius: 12,
               spreadRadius: 0,
               offset: const Offset(0, 0),
             ),
             BoxShadow(
-              color: AuthColors.secondary.withOpacity(0.2),
+              color: AuthColors.secondary.withValues(alpha: 0.2),
               blurRadius: 6,
               spreadRadius: -2,
               offset: const Offset(0, 2),
@@ -235,18 +236,18 @@ class _OrderTileState extends State<OrderTile> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              color.withOpacity(0.2),
-              color.withOpacity(0.1),
+              color.withValues(alpha: 0.2),
+              color.withValues(alpha: 0.1),
             ],
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
           border: Border.all(
-            color: color.withOpacity(0.4),
+            color: color.withValues(alpha: 0.4),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               blurRadius: 4,
               offset: const Offset(0, 1),
             ),
@@ -356,8 +357,11 @@ class _OrderTileState extends State<OrderTile> {
     // Fetch client phones
     try {
       final clientService = ClientService();
+      final orgId =
+          context.read<OrganizationContextCubit>().state.organization?.id;
       final client = await clientService.findClientByPhone(
         widget.order['clientPhone'] as String? ?? '',
+        organizationId: orgId,
       );
 
       if (client == null) {
@@ -435,7 +439,7 @@ class _OrderTileState extends State<OrderTile> {
             boxShadow: [
               ...priorityShadows,
               BoxShadow(
-                color: AuthColors.background.withOpacity(0.3),
+                color: AuthColors.background.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -572,26 +576,26 @@ class _TripCounterBadge extends StatelessWidget {
             ? LinearGradient(
                 colors: [
                   AuthColors.success,
-                  AuthColors.success.withOpacity(0.8),
+                  AuthColors.success.withValues(alpha: 0.8),
                 ],
               )
             : LinearGradient(
                 colors: [
-                  AuthColors.primary.withOpacity(0.2),
-                  AuthColors.primary.withOpacity(0.1),
+                  AuthColors.primary.withValues(alpha: 0.2),
+                  AuthColors.primary.withValues(alpha: 0.1),
                 ],
               ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         border: Border.all(
           color: isComplete
               ? AuthColors.success
-              : AuthColors.primary.withOpacity(0.4),
+              : AuthColors.primary.withValues(alpha: 0.4),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
             color: (isComplete ? AuthColors.success : AuthColors.primary)
-                .withOpacity(0.2),
+                .withValues(alpha: 0.2),
             blurRadius: 4,
             offset: const Offset(0, 1),
           ),
@@ -699,13 +703,13 @@ class _ProductInfo extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AuthColors.success.withOpacity(0.2),
-                AuthColors.success.withOpacity(0.1),
+                AuthColors.success.withValues(alpha: 0.2),
+                AuthColors.success.withValues(alpha: 0.1),
               ],
             ),
             borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
             border: Border.all(
-              color: AuthColors.success.withOpacity(0.3),
+              color: AuthColors.success.withValues(alpha: 0.3),
               width: 1,
             ),
           ),
@@ -806,12 +810,12 @@ class _CompactActionButton extends StatelessWidget {
         : AuthColors.textMain;
 
     return Material(
-      color: AuthColors.background.withOpacity(0),
+      color: AuthColors.background.withValues(alpha: 0),
       child: InkWell(
         onTap: (isDisabled || isLoading) ? null : onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-        splashColor: effectiveColor.withOpacity(0.2),
-        highlightColor: effectiveColor.withOpacity(0.1),
+        splashColor: effectiveColor.withValues(alpha: 0.2),
+        highlightColor: effectiveColor.withValues(alpha: 0.1),
         child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.paddingSM,
@@ -826,7 +830,7 @@ class _CompactActionButton extends StatelessWidget {
                 : LinearGradient(
                     colors: [
                       effectiveColor,
-                      effectiveColor.withOpacity(0.9),
+                      effectiveColor.withValues(alpha: 0.9),
                     ],
                   ),
             color: (isDisabled || onTap == null) ? effectiveColor : null,
@@ -841,7 +845,7 @@ class _CompactActionButton extends StatelessWidget {
                 ? null
                 : [
                     BoxShadow(
-                      color: effectiveColor.withOpacity(0.3),
+                      color: effectiveColor.withValues(alpha: 0.3),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),

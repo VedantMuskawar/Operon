@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,6 +8,22 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
 }
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { input ->
+        keystoreProperties.load(input)
+    }
+}
+
+val requireReleaseSigning = gradle.startParameter.taskNames.any {
+    it.contains("Release", ignoreCase = true)
+}
+
+val mapsApiKey: String = (project.findProperty("GOOGLE_MAPS_API_KEY") as String?)
+    ?: System.getenv("GOOGLE_MAPS_API_KEY")
+    ?: "REPLACE_ME"
 
 android {
     namespace = "com.operonclientandroid.app"
@@ -17,6 +36,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        resValue("string", "google_maps_key", mapsApiKey)
     }
 
     compileOptions {
@@ -34,7 +54,14 @@ android {
             // Uses default Android debug keystore; replace if you need custom.
         }
         create("release") {
-            // TODO: configure your release keystore before shipping.
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            } else if (requireReleaseSigning) {
+                throw GradleException("Missing key.properties for release signing.")
+            }
         }
     }
 

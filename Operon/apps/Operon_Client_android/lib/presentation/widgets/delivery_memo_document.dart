@@ -155,7 +155,7 @@ class DeliveryMemoDocument extends StatelessWidget {
       decoration: BoxDecoration(
         color: AuthColors.surface,
         border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.5),
+          color: AuthColors.textSub.withValues(alpha: 0.5),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
@@ -249,7 +249,7 @@ class DeliveryMemoDocument extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: AuthColors.textSub.withOpacity(0.4),
+            color: AuthColors.textSub.withValues(alpha: 0.4),
             width: 1,
           ),
         ),
@@ -337,10 +337,10 @@ class DeliveryMemoDocument extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingSM),
       decoration: BoxDecoration(
-        color: AuthColors.textSub.withOpacity(0.15),
+        color: AuthColors.textSub.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
         border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.4),
+          color: AuthColors.textSub.withValues(alpha: 0.4),
           width: 1,
         ),
       ),
@@ -423,7 +423,7 @@ class DeliveryMemoDocument extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(AppSpacing.paddingMD),
         decoration: BoxDecoration(
-          border: Border.all(color: AuthColors.textSub.withOpacity(0.4)),
+          border: Border.all(color: AuthColors.textSub.withValues(alpha: 0.4)),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
         ),
         child: const Center(
@@ -441,7 +441,7 @@ class DeliveryMemoDocument extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.5),
+          color: AuthColors.textSub.withValues(alpha: 0.5),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
@@ -449,11 +449,11 @@ class DeliveryMemoDocument extends StatelessWidget {
       child: Table(
         border: TableBorder(
           horizontalInside: BorderSide(
-            color: AuthColors.textSub.withOpacity(0.3),
+            color: AuthColors.textSub.withValues(alpha: 0.3),
             width: 0.5,
           ),
           verticalInside: BorderSide(
-            color: AuthColors.textSub.withOpacity(0.3),
+            color: AuthColors.textSub.withValues(alpha: 0.3),
             width: 0.5,
           ),
         ),
@@ -497,7 +497,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isEven
                     ? AuthColors.surface
-                    : AuthColors.textSub.withOpacity(0.08),
+                  : AuthColors.textSub.withValues(alpha: 0.08),
               ),
               children: [
                 Padding(
@@ -582,11 +582,11 @@ class DeliveryMemoDocument extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.5),
+          color: AuthColors.textSub.withValues(alpha: 0.5),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-        color: AuthColors.textSub.withOpacity(0.08),
+        color: AuthColors.textSub.withValues(alpha: 0.08),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -608,7 +608,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 horizontal: AppSpacing.paddingSM,
                 vertical: AppSpacing.paddingXS),
             decoration: BoxDecoration(
-              color: AuthColors.info.withOpacity(0.2),
+              color: AuthColors.info.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
             ),
             child: _labelValue(
@@ -683,7 +683,7 @@ class DeliveryMemoDocument extends StatelessWidget {
             width: 1.5,
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-          color: AuthColors.textSub.withOpacity(0.08),
+          color: AuthColors.textSub.withValues(alpha: 0.08),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -703,7 +703,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                 border: Border.all(
-                  color: AuthColors.textSub.withOpacity(0.4),
+                  color: AuthColors.textSub.withValues(alpha: 0.4),
                 ),
               ),
               child: Image.memory(
@@ -750,7 +750,7 @@ class DeliveryMemoDocument extends StatelessWidget {
             width: 1.5,
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-          color: AuthColors.textSub.withOpacity(0.08),
+          color: AuthColors.textSub.withValues(alpha: 0.08),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -770,7 +770,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 color: AuthColors.surface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
                 border: Border.all(
-                  color: AuthColors.textSub.withOpacity(0.4),
+                  color: AuthColors.textSub.withValues(alpha: 0.4),
                 ),
               ),
               child: Text(
@@ -809,11 +809,11 @@ class DeliveryMemoDocument extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
         border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.5),
+          color: AuthColors.textSub.withValues(alpha: 0.5),
           width: 1.5,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-        color: AuthColors.textSub.withOpacity(0.08),
+        color: AuthColors.textSub.withValues(alpha: 0.08),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

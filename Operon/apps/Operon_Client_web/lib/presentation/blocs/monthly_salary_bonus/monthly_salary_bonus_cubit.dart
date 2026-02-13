@@ -54,11 +54,25 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
         organizationId: _organizationId,
         yearMonth: yearMonth,
       );
+      final salaryCreditedFuture = _employeeWagesRepository.fetchCreditedEmployeeIdsForMonth(
+        organizationId: _organizationId,
+        category: TransactionCategory.salaryCredit,
+        year: year,
+        month: month,
+      );
+      final bonusCreditedFuture = _employeeWagesRepository.fetchCreditedEmployeeIdsForMonth(
+        organizationId: _organizationId,
+        category: TransactionCategory.bonus,
+        year: year,
+        month: month,
+      );
 
       final employees = await employeesFuture;
       final jobRoles = await jobRolesFuture;
       final bonusSettings = await bonusSettingsFuture;
       final attendanceByRole = await attendanceFuture;
+      final salaryCreditedEmployeeIds = await salaryCreditedFuture;
+      final bonusCreditedEmployeeIds = await bonusCreditedFuture;
 
       // Build employeeId -> (daysPresent, roleTitle) from attendance
       final employeeAttendanceMap = <String, ({int daysPresent, String roleTitle})>{};
@@ -85,11 +99,6 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
         return 0.0;
       }
 
-      final roleIdByTitle = <String, String>{};
-      for (final r in jobRoles) {
-        roleIdByTitle[r.title] = r.id;
-      }
-
       final rows = <MonthlySalaryBonusRow>[];
       for (final emp in eligible) {
         final att = employeeAttendanceMap[emp.id];
@@ -101,18 +110,8 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
         final roleSetting = bonusSettings?.roleSettings[roleId];
         final bonusAmount = roleSetting?.resolveAmount(daysPresent) ?? 0.0;
 
-        final salaryCredited = await _employeeWagesRepository.isSalaryCreditedForMonth(
-          organizationId: _organizationId,
-          employeeId: emp.id,
-          year: year,
-          month: month,
-        );
-        final bonusCredited = await _employeeWagesRepository.isBonusCreditedForMonth(
-          organizationId: _organizationId,
-          employeeId: emp.id,
-          year: year,
-          month: month,
-        );
+        final salaryCredited = salaryCreditedEmployeeIds.contains(emp.id);
+        final bonusCredited = bonusCreditedEmployeeIds.contains(emp.id);
 
         rows.add(MonthlySalaryBonusRow(
           employeeId: emp.id,
@@ -272,6 +271,7 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
         await _employeeWagesRepository.createSalaryTransaction(
           organizationId: _organizationId,
           employeeId: row.employeeId,
+          employeeName: row.employeeName,
           amount: row.salaryAmount,
           paymentDate: paymentDate,
           createdBy: createdBy,
@@ -282,6 +282,7 @@ class MonthlySalaryBonusCubit extends Cubit<MonthlySalaryBonusState> {
           await _employeeWagesRepository.createBonusTransaction(
             organizationId: _organizationId,
             employeeId: row.employeeId,
+            employeeName: row.employeeName,
             amount: row.bonusAmount,
             paymentDate: paymentDate,
             createdBy: createdBy,

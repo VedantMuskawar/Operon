@@ -24,14 +24,15 @@ class ClientsCubit extends Cubit<ClientsState> {
   final AnalyticsRepository? _analyticsRepository;
   Timer? _searchDebounce;
   DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
-  static const int _pageSize = 20;
+  static const int _pageSize = 50;
 
   Future<void> loadClients() async {
     _lastDoc = null;
     emit(state.copyWith(status: ViewStatus.loading));
     try {
       debugPrint('[ClientsCubit] Loading clients');
-      final result = await _repository.fetchClients(orgId: _orgId, limit: _pageSize);
+      final result =
+          await _repository.fetchClients(orgId: _orgId, limit: _pageSize);
       _lastDoc = result.lastDoc;
       final hasMore = result.clients.length == _pageSize;
       debugPrint('[ClientsCubit] Fetched ${result.clients.length} clients');
@@ -80,7 +81,7 @@ class ClientsCubit extends Cubit<ClientsState> {
   Future<void> loadAnalytics() async {
     final analyticsRepo = _analyticsRepository;
     if (analyticsRepo == null) return;
-    
+
     emit(state.copyWith(isAnalyticsLoading: true));
     try {
       final analytics = await analyticsRepo.fetchClientsAnalytics(
@@ -101,7 +102,8 @@ class ClientsCubit extends Cubit<ClientsState> {
   Future<void> loadRecentClients({int limit = 10}) async {
     emit(state.copyWith(isRecentLoading: true, message: null));
     try {
-      final clients = await _repository.fetchRecentClients(orgId: _orgId, limit: limit);
+      final clients =
+          await _repository.fetchRecentClients(orgId: _orgId, limit: limit);
       emit(state.copyWith(
         recentClients: clients,
         isRecentLoading: false,

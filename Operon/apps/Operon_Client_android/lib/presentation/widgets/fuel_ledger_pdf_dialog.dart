@@ -71,14 +71,9 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     });
 
     try {
-      final transactions =
-          await widget.transactionsRepository.getVendorLedgerTransactions(
-        organizationId: widget.organizationId,
-        vendorId: widget.vendor.id,
-        limit: 2000,
-      );
+      DateTime? startDate;
+      DateTime? endDate;
 
-      List<Transaction> filtered;
       if (_rangeMode == 'dateRange') {
         if (_dateFrom == null || _dateTo == null) {
           setState(() {
@@ -87,16 +82,21 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
           });
           return;
         }
-        final start =
-            DateTime(_dateFrom!.year, _dateFrom!.month, _dateFrom!.day);
-        final end =
-            DateTime(_dateTo!.year, _dateTo!.month, _dateTo!.day, 23, 59, 59);
-        filtered = transactions.where((tx) {
-          final d = tx.createdAt;
-          if (d == null) return false;
-          return !d.isBefore(start) && !d.isAfter(end);
-        }).toList();
-      } else {
+        startDate = DateTime(_dateFrom!.year, _dateFrom!.month, _dateFrom!.day);
+        endDate = DateTime(_dateTo!.year, _dateTo!.month, _dateTo!.day);
+      }
+
+      final transactions =
+          await widget.transactionsRepository.getFuelVendorPurchases(
+        organizationId: widget.organizationId,
+        vendorId: widget.vendor.id,
+        startDate: startDate,
+        endDate: endDate,
+        limit: 2000,
+      );
+
+      List<Transaction> filtered;
+      if (_rangeMode == 'voucherRange') {
         final fromStr = _fromVoucherController.text.trim();
         final toStr = _toVoucherController.text.trim();
         if (fromStr.isEmpty || toStr.isEmpty) {
@@ -113,6 +113,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
           if (v.isEmpty) return false;
           return v.compareTo(fromStr) >= 0 && v.compareTo(toStr) <= 0;
         }).toList();
+      } else {
+        filtered = transactions;
       }
 
       filtered.sort((a, b) {
@@ -307,25 +309,43 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                     fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: AppSpacing.paddingMD),
-              RadioListTile<String>(
-                title: const Text('Voucher range',
-                    style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
-                value: 'voucherRange',
+              RadioGroup<String>(
                 groupValue: _rangeMode,
-                onChanged: (v) => setState(() => _rangeMode = v!),
-                activeColor: AuthColors.primary,
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-              RadioListTile<String>(
-                title: const Text('Date range',
-                    style: TextStyle(color: AuthColors.textSub, fontSize: 14)),
-                value: 'dateRange',
-                groupValue: _rangeMode,
-                onChanged: (v) => setState(() => _rangeMode = v!),
-                activeColor: AuthColors.primary,
-                dense: true,
-                contentPadding: EdgeInsets.zero,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _rangeMode = value);
+                  }
+                },
+                child: Column(
+                  children: [
+                    RadioListTile<String>(
+                      title: const Text(
+                        'Voucher range',
+                        style: TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 14,
+                        ),
+                      ),
+                      value: 'voucherRange',
+                      activeColor: AuthColors.primary,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    RadioListTile<String>(
+                      title: const Text(
+                        'Date range',
+                        style: TextStyle(
+                          color: AuthColors.textSub,
+                          fontSize: 14,
+                        ),
+                      ),
+                      value: 'dateRange',
+                      activeColor: AuthColors.primary,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: AppSpacing.paddingLG),
               if (_rangeMode == 'voucherRange') ...[
@@ -420,9 +440,9 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
           child:
               const Text('Cancel', style: TextStyle(color: AuthColors.textSub)),
         ),
-        ElevatedButton(
+        FilledButton(
           onPressed: _isLoading ? null : _generate,
-          style: ElevatedButton.styleFrom(backgroundColor: AuthColors.primary),
+          style: FilledButton.styleFrom(backgroundColor: AuthColors.primary),
           child: _isLoading
               ? const SizedBox(
                   width: 20,

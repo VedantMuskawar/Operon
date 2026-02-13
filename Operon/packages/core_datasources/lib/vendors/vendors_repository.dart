@@ -12,6 +12,10 @@ class VendorsRepository {
     return _dataSource.fetchVendors(organizationId);
   }
 
+  Future<List<Vendor>> fetchVendorsByIds(List<String> vendorIds) {
+    return _dataSource.fetchVendorsByIds(vendorIds);
+  }
+
   Future<
       ({
         List<Vendor> vendors,
@@ -30,6 +34,10 @@ class VendorsRepository {
 
   Stream<List<Vendor>> watchVendors(String organizationId) {
     return _dataSource.watchVendors(organizationId);
+  }
+
+  Stream<Vendor?> watchVendor(String vendorId) {
+    return _dataSource.watchVendor(vendorId);
   }
 
   Future<List<Vendor>> searchVendors(String organizationId, String query) {

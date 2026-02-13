@@ -26,13 +26,20 @@ class EmployeeWagesCubit extends Cubit<EmployeeWagesState> {
   }
 
   /// Load transactions for the organization
-  Future<void> loadTransactions({String? financialYear, int? limit}) async {
+  Future<void> loadTransactions({
+    String? financialYear,
+    int? limit,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     emit(state.copyWith(status: ViewStatus.loading));
     try {
       final transactions = await _repository.fetchOrganizationEmployeeTransactions(
         organizationId: _organizationId,
         financialYear: financialYear,
         limit: limit,
+        startDate: startDate,
+        endDate: endDate,
       );
       emit(state.copyWith(
         status: ViewStatus.success,
@@ -50,13 +57,20 @@ class EmployeeWagesCubit extends Cubit<EmployeeWagesState> {
   }
 
   /// Watch transactions stream for real-time updates
-  void watchTransactions({String? financialYear, int? limit}) {
+  void watchTransactions({
+    String? financialYear,
+    int? limit,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
     _transactionsSubscription?.cancel();
     _transactionsSubscription = _repository
         .watchOrganizationEmployeeTransactions(
       organizationId: _organizationId,
       financialYear: financialYear,
       limit: limit,
+      startDate: startDate,
+      endDate: endDate,
     )
         .listen(
       (transactions) {
@@ -79,6 +93,7 @@ class EmployeeWagesCubit extends Cubit<EmployeeWagesState> {
   /// Create salary credit transaction
   Future<String> createSalaryTransaction({
     required String employeeId,
+    String? employeeName,
     required double amount,
     required DateTime paymentDate,
     required String createdBy,
@@ -92,6 +107,7 @@ class EmployeeWagesCubit extends Cubit<EmployeeWagesState> {
       final transactionId = await _repository.createSalaryTransaction(
         organizationId: _organizationId,
         employeeId: employeeId,
+        employeeName: employeeName,
         amount: amount,
         paymentDate: paymentDate,
         createdBy: createdBy,
@@ -102,8 +118,10 @@ class EmployeeWagesCubit extends Cubit<EmployeeWagesState> {
         metadata: metadata,
       );
       
-      // Reload transactions to reflect the new one
-      await loadTransactions();
+      // Reload only when not streaming
+      if (_transactionsSubscription == null) {
+        await loadTransactions();
+      }
       
       return transactionId;
     } catch (e) {
@@ -118,6 +136,7 @@ class EmployeeWagesCubit extends Cubit<EmployeeWagesState> {
   /// Create bonus transaction
   Future<String> createBonusTransaction({
     required String employeeId,
+    String? employeeName,
     required double amount,
     required DateTime paymentDate,
     required String createdBy,
@@ -132,6 +151,7 @@ class EmployeeWagesCubit extends Cubit<EmployeeWagesState> {
       final transactionId = await _repository.createBonusTransaction(
         organizationId: _organizationId,
         employeeId: employeeId,
+        employeeName: employeeName,
         amount: amount,
         paymentDate: paymentDate,
         createdBy: createdBy,
@@ -143,8 +163,10 @@ class EmployeeWagesCubit extends Cubit<EmployeeWagesState> {
         metadata: metadata,
       );
       
-      // Reload transactions to reflect the new one
-      await loadTransactions();
+      // Reload only when not streaming
+      if (_transactionsSubscription == null) {
+        await loadTransactions();
+      }
       
       return transactionId;
     } catch (e) {

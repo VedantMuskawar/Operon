@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:core_bloc/core_bloc.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/components/data_table.dart' as custom_table;
@@ -445,6 +447,7 @@ class _MonthlySalaryBonusContentState extends State<_MonthlySalaryBonusContent> 
               ),
             ],
             rows: rows,
+            rowKeyBuilder: (row, _) => ValueKey(row.employeeId),
             emptyStateMessage: 'No eligible employees (monthly salary) for this month.',
           ),
         ],
@@ -544,6 +547,7 @@ class _BonusTierRow extends StatefulWidget {
 class _BonusTierRowState extends State<_BonusTierRow> {
   late TextEditingController _daysController;
   late TextEditingController _amountController;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -561,12 +565,23 @@ class _BonusTierRowState extends State<_BonusTierRow> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _daysController.dispose();
     _amountController.dispose();
     super.dispose();
   }
 
-  void _notify() {
+  void _scheduleNotify() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final minDays = int.tryParse(_daysController.text) ?? 0;
+      final amount = double.tryParse(_amountController.text) ?? 0.0;
+      widget.onChanged(minDays, amount);
+    });
+  }
+
+  void _flushNotify() {
+    _debounce?.cancel();
     final minDays = int.tryParse(_daysController.text) ?? 0;
     final amount = double.tryParse(_amountController.text) ?? 0.0;
     widget.onChanged(minDays, amount);
@@ -587,7 +602,8 @@ class _BonusTierRowState extends State<_BonusTierRow> {
               contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               border: OutlineInputBorder(),
             ),
-            onChanged: (_) => _notify(),
+            onChanged: (_) => _scheduleNotify(),
+            onEditingComplete: _flushNotify,
           ),
         ),
         const SizedBox(width: 10),
@@ -602,7 +618,8 @@ class _BonusTierRowState extends State<_BonusTierRow> {
               contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               border: OutlineInputBorder(),
             ),
-            onChanged: (_) => _notify(),
+            onChanged: (_) => _scheduleNotify(),
+            onEditingComplete: _flushNotify,
           ),
         ),
         const SizedBox(width: 8),
@@ -634,6 +651,7 @@ class _EditableAmount extends StatefulWidget {
 class _EditableAmountState extends State<_EditableAmount> {
   late TextEditingController _controller;
   bool _focused = false;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -651,8 +669,23 @@ class _EditableAmountState extends State<_EditableAmount> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _scheduleCommit(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      final n = double.tryParse(value) ?? 0;
+      widget.onChanged(n);
+    });
+  }
+
+  void _flushCommit() {
+    _debounce?.cancel();
+    final n = double.tryParse(_controller.text) ?? 0;
+    widget.onChanged(n);
   }
 
   @override
@@ -669,10 +702,13 @@ class _EditableAmountState extends State<_EditableAmount> {
           border: OutlineInputBorder(),
         ),
         onTap: () => setState(() => _focused = true),
-        onTapOutside: (_) => setState(() => _focused = false),
+        onTapOutside: (_) {
+          setState(() => _focused = false);
+          _flushCommit();
+        },
+        onEditingComplete: _flushCommit,
         onChanged: (v) {
-          final n = double.tryParse(v) ?? 0;
-          widget.onChanged(n);
+          _scheduleCommit(v);
         },
       ),
     );

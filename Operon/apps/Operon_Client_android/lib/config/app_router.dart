@@ -525,7 +525,8 @@ GoRouter buildRouter() {
             child: BlocProvider(
               create: (_) => ClientsCubit(
                 repository: clientsRepository,
-              )..subscribeToRecent(),
+                orgId: organization.id,
+              )..loadClients(),
               child: const ClientsPage(),
             ),
           );
@@ -661,6 +662,7 @@ GoRouter buildRouter() {
                 BlocProvider(
                   create: (_) => ClientsCubit(
                     repository: clientsRepository,
+                    orgId: organization.id,
                   )..subscribeToRecent(),
                 ),
                 BlocProvider(
@@ -767,11 +769,13 @@ GoRouter buildRouter() {
             );
           }
           final transactionsRepository = context.read<TransactionsRepository>();
+          final vendorsRepository = context.read<VendorsRepository>();
           return _buildTransitionPage(
             key: state.pageKey,
             child: BlocProvider(
               create: (_) => UnifiedFinancialTransactionsCubit(
                 transactionsRepository: transactionsRepository,
+                vendorsRepository: vendorsRepository,
                 organizationId: organization.id,
               ),
               child: const UnifiedFinancialTransactionsPage(),

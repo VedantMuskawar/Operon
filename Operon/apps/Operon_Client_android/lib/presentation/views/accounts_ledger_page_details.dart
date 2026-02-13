@@ -148,7 +148,7 @@ class _LedgerHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         gradient: LinearGradient(
           colors: [
-            ledgerColor.withOpacity(0.3),
+            ledgerColor.withValues(alpha: 0.3),
             AuthColors.backgroundAlt,
           ],
           begin: Alignment.topLeft,
@@ -156,7 +156,7 @@ class _LedgerHeader extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: ledgerColor.withOpacity(0.2),
+            color: ledgerColor.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -176,13 +176,13 @@ class _LedgerHeader extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      ledgerColor.withOpacity(0.4),
-                      ledgerColor.withOpacity(0.2),
+                      ledgerColor.withValues(alpha: 0.4),
+                      ledgerColor.withValues(alpha: 0.2),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: ledgerColor.withOpacity(0.3),
+                      color: ledgerColor.withValues(alpha: 0.3),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -307,9 +307,9 @@ class _AccountChip extends StatelessWidget {
         vertical: AppSpacing.paddingSM,
       ),
       decoration: BoxDecoration(
-        color: typeColor.withOpacity(0.1),
+        color: typeColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: typeColor.withOpacity(0.3)),
+        border: Border.all(color: typeColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

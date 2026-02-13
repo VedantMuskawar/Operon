@@ -18,14 +18,22 @@ class QrCodeService {
       data: data,
       version: QrVersions.auto,
       errorCorrectionLevel: QrErrorCorrectLevel.L,
-      color: AuthColors.printBlack,
-      emptyColor: AuthColors.printWhite,
+      eyeStyle: const QrEyeStyle(
+        eyeShape: QrEyeShape.square,
+        color: AuthColors.printBlack,
+      ),
+      dataModuleStyle: const QrDataModuleStyle(
+        dataModuleShape: QrDataModuleShape.square,
+        color: AuthColors.printBlack,
+      ),
       gapless: true,
     );
 
     final picRecorder = ui.PictureRecorder();
     final canvas = Canvas(picRecorder);
     final qrSize = Size(size.toDouble(), size.toDouble());
+    final backgroundPaint = Paint()..color = AuthColors.printWhite;
+    canvas.drawRect(Offset.zero & qrSize, backgroundPaint);
     painter.paint(canvas, qrSize);
     final picture = picRecorder.endRecording();
     final image = await picture.toImage(size, size);

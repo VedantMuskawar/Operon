@@ -228,7 +228,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
           Text(
             label,
             style: TextStyle(
-              color: isTotal ? AuthColors.textMain : AuthColors.textMain.withOpacity(0.7),
+              color: isTotal ? AuthColors.textMain : AuthColors.textMain.withValues(alpha: 0.7),
               fontWeight: isTotal ? FontWeight.w700 : FontWeight.normal,
               fontSize: isTotal ? 14 : 12,
             ),
@@ -595,7 +595,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                       onSelected: (selected) {
                         _onVendorTypeSelected(selected ? type : null);
                       },
-                      selectedColor: AuthColors.primary.withOpacity(0.3),
+                      selectedColor: AuthColors.primary.withValues(alpha: 0.3),
                       checkmarkColor: AuthColors.primary,
                       labelStyle: TextStyle(
                         color: isSelected ? AuthColors.textMain : AuthColors.textSub,
@@ -630,7 +630,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                         Text(
                           'Balance: ₹${vendor.currentBalance.toStringAsFixed(2)}',
                           style: TextStyle(
-                            color: AuthColors.textMain.withOpacity(0.6),
+                              color: AuthColors.textMain.withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -733,7 +733,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                               selectedColor: AuthColors.primary,
                               checkmarkColor: AuthColors.textMain,
                               side: BorderSide(
-                                color: isSelected ? AuthColors.primary : AuthColors.textMain.withOpacity(0.3),
+                                  color: isSelected ? AuthColors.primary : AuthColors.textMain.withValues(alpha: 0.3),
                               ),
                             );
                           }).toList(),
@@ -750,7 +750,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                     color: AuthColors.surface,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                     border: Border.all(
-                      color: AuthColors.textMain.withOpacity(0.1),
+                        color: AuthColors.textMain.withValues(alpha: 0.1),
                     ),
                   ),
                   child: Column(
@@ -788,7 +788,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                           child: Text(
                             'No materials assigned to this vendor. Assign materials in vendor settings.',
                             style: TextStyle(
-                              color: AuthColors.textMain.withOpacity(0.6),
+                                color: AuthColors.textMain.withValues(alpha: 0.6),
                               fontSize: 12,
                             ),
                           ),
@@ -826,13 +826,13 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                             hintText: '0',
                                             filled: true,
                                             fillColor: AuthColors.background,
-                                            labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
+                                            labelStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.7)),
                                             suffixText: material.unitOfMeasurement,
-                                            suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
+                                            suffixStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.5)),
                                             border: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                               borderSide: BorderSide(
-                                                color: AuthColors.textMain.withOpacity(0.1),
+                                                color: AuthColors.textMain.withValues(alpha: 0.1),
                                               ),
                                             ),
                                           ),
@@ -854,13 +854,13 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                             hintText: '0.00',
                                             filled: true,
                                             fillColor: AuthColors.background,
-                                            labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
+                                            labelStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.7)),
                                             prefixText: '₹',
-                                            prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
+                                            prefixStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.5)),
                                             border: OutlineInputBorder(
                                               borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                               borderSide: BorderSide(
-                                                color: AuthColors.textMain.withOpacity(0.1),
+                                                color: AuthColors.textMain.withValues(alpha: 0.1),
                                               ),
                                             ),
                                           ),
@@ -911,7 +911,7 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                   color: AuthColors.surface,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                   border: Border.all(
-                    color: AuthColors.textMain.withOpacity(0.1),
+                    color: AuthColors.textMain.withValues(alpha: 0.1),
                   ),
                 ),
                 child: Column(
@@ -949,13 +949,13 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                               hintText: '0.00',
                               filled: true,
                               fillColor: AuthColors.backgroundAlt,
-                              labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
+                              labelStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.7)),
                               prefixText: '₹',
-                              prefixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
+                              prefixStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.5)),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                 borderSide: BorderSide(
-                                  color: AuthColors.textMain.withOpacity(0.1),
+                                  color: AuthColors.textMain.withValues(alpha: 0.1),
                                 ),
                               ),
                             ),
@@ -1003,13 +1003,13 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
                                 hintText: '18',
                                 filled: true,
                                 fillColor: AuthColors.backgroundAlt,
-                                labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
+                                labelStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.7)),
                                 suffixText: '%',
-                                suffixStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.5)),
+                                suffixStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.5)),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                                   borderSide: BorderSide(
-                                    color: AuthColors.textMain.withOpacity(0.1),
+                                    color: AuthColors.textMain.withValues(alpha: 0.1),
                                   ),
                                 ),
                               ),
@@ -1111,9 +1111,9 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
               const SizedBox(height: AppSpacing.paddingXXXL),
               
               // Submit Button
-              ElevatedButton(
+              FilledButton(
                 onPressed: _isSubmitting ? null : _submitPurchase,
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AuthColors.primary,
                   foregroundColor: AuthColors.textMain,
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingLG),
@@ -1185,11 +1185,11 @@ class _RecordPurchasePageState extends State<RecordPurchasePage> {
       labelText: label,
       filled: true,
       fillColor: AuthColors.surface,
-      labelStyle: TextStyle(color: AuthColors.textMain.withOpacity(0.7)),
+      labelStyle: TextStyle(color: AuthColors.textMain.withValues(alpha: 0.7)),
       enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         borderSide: BorderSide(
-          color: AuthColors.textMain.withOpacity(0.1),
+          color: AuthColors.textMain.withValues(alpha: 0.1),
         ),
       ),
       focusedBorder: OutlineInputBorder(

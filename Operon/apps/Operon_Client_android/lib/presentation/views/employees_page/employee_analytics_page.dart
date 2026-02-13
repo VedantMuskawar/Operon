@@ -114,13 +114,13 @@ class _EmployeeAnalyticsPageState extends State<EmployeeAnalyticsPage> {
               Icon(
                 Icons.analytics_outlined,
                 size: 64,
-                color: Colors.white.withOpacity(0.3),
+                color: Colors.white.withValues(alpha: 0.3),
               ),
               const SizedBox(height: AppSpacing.paddingLG),
               Text(
                 'No analytics data available',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
@@ -130,7 +130,7 @@ class _EmployeeAnalyticsPageState extends State<EmployeeAnalyticsPage> {
                 'Analytics will appear once employees are added and wages are credited.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   fontSize: 14,
                 ),
               ),
@@ -311,11 +311,11 @@ class _StatCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.2),
+          color: AuthColors.textSub.withValues(alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: AuthColors.background.withOpacity(0.3),
+            color: AuthColors.background.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -331,7 +331,7 @@ class _StatCard extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 ),
                 child: Icon(icon, color: color, size: 18),
@@ -392,8 +392,8 @@ class _InfoTile extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AuthColors.secondary.withOpacity(0.2),
-            AuthColors.successVariant.withOpacity(0.1),
+            AuthColors.secondary.withValues(alpha: 0.2),
+            AuthColors.successVariant.withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
@@ -461,7 +461,7 @@ class _WagesChart extends StatelessWidget {
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
+        border: Border.all(color: AuthColors.textSub.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,7 +527,7 @@ class _WagesLineChartPainter extends CustomPainter {
 
     // Draw grid lines
     final gridPaint = Paint()
-      ..color = AuthColors.textSub.withOpacity(0.2)
+      ..color = AuthColors.textSub.withValues(alpha: 0.2)
       ..strokeWidth = 1;
 
     for (int i = 0; i <= 4; i++) {
@@ -862,9 +862,9 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

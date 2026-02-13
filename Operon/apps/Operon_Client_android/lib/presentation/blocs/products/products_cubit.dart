@@ -7,13 +7,10 @@ class ProductsState extends BaseState {
   const ProductsState({
     super.status = ViewStatus.initial,
     this.products = const [],
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final List<OrganizationProduct> products;
-  @override
-  final String? message;
-
   @override
   ProductsState copyWith({
     ViewStatus? status,

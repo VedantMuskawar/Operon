@@ -20,6 +20,7 @@ abstract class AttendanceRepository {
     required String employeeId,
     required DateTime date,
     required bool isPresent,
+    String? organizationId,
   });
 
   /// Mark attendance for multiple employees on a specific date (Web only)

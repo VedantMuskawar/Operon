@@ -308,7 +308,7 @@ class _ClientHeader extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusXXL),
         gradient: LinearGradient(
           colors: [
-            clientColor.withOpacity(0.3),
+            clientColor.withValues(alpha: 0.3),
             AuthColors.backgroundAlt,
           ],
           begin: Alignment.topLeft,
@@ -316,7 +316,7 @@ class _ClientHeader extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: clientColor.withOpacity(0.2),
+            color: clientColor.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -336,15 +336,15 @@ class _ClientHeader extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      clientColor.withOpacity(0.4),
-                      clientColor.withOpacity(0.2),
+                      clientColor.withValues(alpha: 0.4),
+                      clientColor.withValues(alpha: 0.2),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: clientColor.withOpacity(0.3),
+                      color: clientColor.withValues(alpha: 0.3),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -387,11 +387,11 @@ class _ClientHeader extends StatelessWidget {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AuthColors.secondary.withOpacity(0.2),
+                              color: AuthColors.secondary.withValues(alpha: 0.2),
                               borderRadius:
                                   BorderRadius.circular(AppSpacing.radiusSM),
                               border: Border.all(
-                                color: AuthColors.secondary.withOpacity(0.5),
+                                color: AuthColors.secondary.withValues(alpha: 0.5),
                               ),
                             ),
                             child: Row(
@@ -482,10 +482,10 @@ class _ClientHeader extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: AuthColors.secondary.withOpacity(0.2),
+                      color: AuthColors.secondary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                       border: Border.all(
-                        color: AuthColors.secondary.withOpacity(0.5),
+                        color: AuthColors.secondary.withValues(alpha: 0.5),
                       ),
                     ),
                     child: const Row(
@@ -687,8 +687,8 @@ class _DeleteClientSheet extends StatelessWidget {
             const SizedBox(height: AppSpacing.paddingXXL),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
+              child: FilledButton(
+                style: FilledButton.styleFrom(
                   backgroundColor: AuthColors.error,
                   foregroundColor: AuthColors.textMain,
                   padding: const EdgeInsets.symmetric(
@@ -731,10 +731,6 @@ class _PendingOrdersSectionState extends State<_PendingOrdersSection> {
   bool _isLoading = true;
   String? _currentOrgId;
 
-  // Cache filtered results and order IDs to avoid unnecessary filtering
-  List<Map<String, dynamic>> _cachedClientOrders = [];
-  List<String> _cachedOrderIds = [];
-
   @override
   void initState() {
     super.initState();
@@ -767,30 +763,10 @@ class _PendingOrdersSectionState extends State<_PendingOrdersSection> {
     final repository = context.read<PendingOrdersRepository>();
 
     await _ordersSubscription?.cancel();
-    _ordersSubscription = repository.watchPendingOrders(orgId).listen(
-      (allOrders) {
-        // Check if orders list actually changed by comparing IDs
-        final newOrderIds =
-            allOrders.map((o) => o['id'] as String? ?? '').toList();
-        final ordersChanged = newOrderIds.length != _cachedOrderIds.length ||
-            !newOrderIds.every((id) => _cachedOrderIds.contains(id)) ||
-            !_cachedOrderIds.every((id) => newOrderIds.contains(id));
-
-        // Only filter when orders list changed
-        List<Map<String, dynamic>> clientOrders;
-        if (ordersChanged) {
-          // Filter orders by clientId
-          clientOrders = allOrders.where((order) {
-            final orderClientId = order['clientId'] as String?;
-            return orderClientId == widget.clientId;
-          }).toList();
-          _cachedClientOrders = clientOrders;
-          _cachedOrderIds = newOrderIds;
-        } else {
-          // Use cached filtered result
-          clientOrders = _cachedClientOrders;
-        }
-
+    _ordersSubscription = repository
+        .watchPendingOrdersForClient(orgId, widget.clientId)
+        .listen(
+      (clientOrders) {
         if (mounted) {
           setState(() {
             _orders = clientOrders;
@@ -1482,10 +1458,10 @@ class _PaymentStatusItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingMD),
             decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -1591,7 +1567,7 @@ class _TransactionListItem extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
             ),
             child: Icon(
@@ -1631,7 +1607,7 @@ class _TransactionListItem extends StatelessWidget {
                             horizontal: AppSpacing.gapSM,
                             vertical: AppSpacing.paddingXS / 2),
                         decoration: BoxDecoration(
-                          color: AuthColors.info.withOpacity(0.15),
+                          color: AuthColors.info.withValues(alpha: 0.15),
                           borderRadius:
                               BorderRadius.circular(AppSpacing.radiusXS),
                         ),
@@ -1845,7 +1821,7 @@ class _LedgerTable extends StatelessWidget {
           child: Column(
             children: [
               _LedgerTableHeader(),
-              Divider(height: 1, color: AuthColors.textMain.withOpacity(0.12)),
+              Divider(height: 1, color: AuthColors.textMain.withValues(alpha: 0.12)),
               ...rows.map((r) => _LedgerTableRow(
                     row: r,
                     formatCurrency: formatCurrency,
@@ -2007,7 +1983,7 @@ class _LedgerTableRow extends StatelessWidget {
                           horizontal: AppSpacing.gapSM,
                           vertical: AppSpacing.paddingXS / 2),
                       decoration: BoxDecoration(
-                        color: AuthColors.info.withOpacity(0.15),
+                        color: AuthColors.info.withValues(alpha: 0.15),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusXS),
                       ),
@@ -2029,7 +2005,7 @@ class _LedgerTableRow extends StatelessWidget {
                               horizontal: AppSpacing.gapSM,
                               vertical: AppSpacing.paddingXS / 2),
                           decoration: BoxDecoration(
-                            color: AuthColors.secondary.withOpacity(0.15),
+                            color: AuthColors.secondary.withValues(alpha: 0.15),
                             borderRadius:
                                 BorderRadius.circular(AppSpacing.radiusXS),
                           ),
@@ -2078,7 +2054,7 @@ class _LedgerTableRow extends StatelessWidget {
                                         vertical: AppSpacing.paddingXS / 2),
                                     decoration: BoxDecoration(
                                       color: _accountColor(p.accountType)
-                                          .withOpacity(0.15),
+                                        .withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(
                                           AppSpacing.radiusXS),
                                     ),

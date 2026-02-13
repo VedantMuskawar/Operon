@@ -130,16 +130,17 @@ class DeliveryZonesDataSource {
     });
   }
 
-  Future<void> createCity({
+  Future<String> createCity({
     required String orgId,
     required String cityName,
-  }) {
+  }) async {
     final doc = _citiesCollection(orgId).doc();
-    return doc.set({
+    await doc.set({
       'name': cityName,
       'created_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
     });
+    return doc.id;
   }
 
   Future<void> renameCity({

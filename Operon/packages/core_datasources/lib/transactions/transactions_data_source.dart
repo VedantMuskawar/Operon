@@ -173,6 +173,47 @@ class TransactionsDataSource {
     }
   }
 
+  /// Get fuel vendor purchases (credit transactions on vendorLedger)
+  /// Filters by metadata.purchaseType == 'fuel'
+  Future<List<Transaction>> getFuelVendorPurchases({
+    required String organizationId,
+    required String vendorId,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? limit,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _transactionsRef()
+          .where('organizationId', isEqualTo: organizationId)
+          .where('vendorId', isEqualTo: vendorId)
+          .where('ledgerType', isEqualTo: LedgerType.vendorLedger.name)
+          .where('category', isEqualTo: TransactionCategory.vendorPurchase.name)
+          .where('metadata.purchaseType', isEqualTo: 'fuel');
+
+      if (startDate != null) {
+        query = query.where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      }
+      if (endDate != null) {
+        query = query.where('createdAt',
+            isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
+      }
+
+      query = query.orderBy('createdAt', descending: true);
+
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+
+      final snapshot = await query.get();
+      return snapshot.docs
+          .map((doc) => Transaction.fromJson(doc.data(), doc.id))
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Get vendor payment expenses (debit transactions on vendorLedger)
   Future<List<Transaction>> getVendorExpenses({
     required String organizationId,
@@ -336,49 +377,45 @@ class TransactionsDataSource {
     int? limit,
   }) async {
     try {
-      // Get all three types of expenses
-      final vendorExpenses = await getVendorExpenses(
-        organizationId: organizationId,
-        financialYear: financialYear,
-        startDate: startDate,
-        endDate: endDate,
-        limit: limit,
-      );
-
-      final employeeExpenses = await getEmployeeExpenses(
-        organizationId: organizationId,
-        financialYear: financialYear,
-        startDate: startDate,
-        endDate: endDate,
-        limit: limit,
-      );
-
-      final generalExpenses = await getGeneralExpenses(
-        organizationId: organizationId,
-        financialYear: financialYear,
-        startDate: startDate,
-        endDate: endDate,
-        limit: limit,
-      );
-
-      // Combine and sort by date
-      final allExpenses = [
-        ...vendorExpenses,
-        ...employeeExpenses,
-        ...generalExpenses,
+      final expenseCategories = <String>[
+        TransactionCategory.vendorPayment.name,
+        TransactionCategory.salaryDebit.name,
+        TransactionCategory.generalExpense.name,
       ];
 
-      allExpenses.sort((a, b) {
-        final aDate = a.createdAt ?? DateTime(1970);
-        final bDate = b.createdAt ?? DateTime(1970);
-        return bDate.compareTo(aDate); // Descending order
-      });
+      Query<Map<String, dynamic>> query = _transactionsRef()
+          .where('organizationId', isEqualTo: organizationId)
+          .where('category', whereIn: expenseCategories);
 
-      if (limit != null && allExpenses.length > limit) {
-        return allExpenses.take(limit).toList();
+      if (financialYear != null) {
+        query = query.where('financialYear', isEqualTo: financialYear);
       }
 
-      return allExpenses;
+      if (startDate != null) {
+        query = query.where('createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      }
+      if (endDate != null) {
+        query = query.where('createdAt',
+            isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)));
+      }
+
+      query = query.orderBy('createdAt', descending: true);
+
+      final effectiveLimit = limit ?? 50;
+      query = query.limit(effectiveLimit);
+
+      final snapshot = await query.get();
+      return snapshot.docs
+          .map((doc) {
+            try {
+              return Transaction.fromJson(doc.data(), doc.id);
+            } catch (e) {
+              return null;
+            }
+          })
+          .whereType<Transaction>()
+          .toList();
     } catch (e) {
       rethrow;
     }
@@ -621,14 +658,42 @@ class TransactionsDataSource {
   Stream<Map<String, List<Transaction>>> watchCashLedgerData({
     required String organizationId,
     String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
     int? limit,
   }) {
+    final cashLedgerCategories = <String>{
+      TransactionCategory.advance.name,
+      TransactionCategory.tripPayment.name,
+      TransactionCategory.clientCredit.name,
+      TransactionCategory.clientPayment.name,
+      TransactionCategory.refund.name,
+      TransactionCategory.vendorPurchase.name,
+      TransactionCategory.vendorPayment.name,
+      TransactionCategory.salaryDebit.name,
+      TransactionCategory.generalExpense.name,
+    };
+
     Query<Map<String, dynamic>> query = _transactionsRef()
         .where('organizationId', isEqualTo: organizationId);
 
     if (financialYear != null && financialYear.isNotEmpty) {
       query = query.where('financialYear', isEqualTo: financialYear);
     }
+    if (startDate != null) {
+      query = query.where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+      );
+    }
+    if (endDate != null) {
+      query = query.where(
+        'createdAt',
+        isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)),
+      );
+    }
+
+    query = query.where('category', whereIn: cashLedgerCategories.toList());
     final effectiveLimit = limit ?? 500;
     query = query.orderBy('createdAt', descending: true).limit(effectiveLimit);
 
@@ -685,29 +750,33 @@ class TransactionsDataSource {
   }) async {
     try {
       final effectiveLimit = limit ?? 50;
-      final transactions = await getClientPayments(
-        organizationId: organizationId,
-        financialYear: financialYear,
-        startDate: startDate,
-        endDate: endDate,
-        limit: effectiveLimit,
-      );
+      final results = await Future.wait([
+        getClientPayments(
+          organizationId: organizationId,
+          financialYear: financialYear,
+          startDate: startDate,
+          endDate: endDate,
+          limit: effectiveLimit,
+        ),
+        getVendorPurchases(
+          organizationId: organizationId,
+          financialYear: financialYear,
+          startDate: startDate,
+          endDate: endDate,
+          limit: effectiveLimit,
+        ),
+        getAllExpenses(
+          organizationId: organizationId,
+          financialYear: financialYear,
+          startDate: startDate,
+          endDate: endDate,
+          limit: effectiveLimit,
+        ),
+      ]);
 
-      final purchases = await getVendorPurchases(
-        organizationId: organizationId,
-        financialYear: financialYear,
-        startDate: startDate,
-        endDate: endDate,
-        limit: effectiveLimit,
-      );
-
-      final expenses = await getAllExpenses(
-        organizationId: organizationId,
-        financialYear: financialYear,
-        startDate: startDate,
-        endDate: endDate,
-        limit: effectiveLimit,
-      );
+      final transactions = results[0];
+      final purchases = results[1];
+      final expenses = results[2];
 
       return {
         'transactions': transactions,

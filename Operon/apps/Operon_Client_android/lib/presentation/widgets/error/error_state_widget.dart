@@ -70,11 +70,11 @@ class ErrorStateWidget extends StatelessWidget {
             ),
             if (onRetry != null) ...[
               const SizedBox(height: AppSpacing.paddingXXL),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh, size: 18),
                 label: Text(retryLabel),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AuthColors.legacyAccent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,

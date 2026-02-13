@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'analytics_dashboard_state.dart';
 
-/// Tab indices: 0=Transactions, 1=Clients, 2=Employees, 3=Vendors, 4=Deliveries, 5=Productions, 6=Trip Wages
+/// Tab indices: 0=Transactions, 1=Clients, 2=Employees, 3=Vendors, 4=Deliveries, 5=Productions, 6=Trip Wages, 7=Fuel
 const _tabTransactions = 0;
 const _tabClients = 1;
 const _tabEmployees = 2;
@@ -14,6 +14,7 @@ const _tabVendors = 3;
 const _tabDeliveries = 4;
 const _tabProductions = 5;
 const _tabTripWages = 6;
+const _tabFuel = 7;
 
 /// Cached analytics for a given (orgId, fy). Used to avoid Firestore reads when switching months within same FY.
 class _CachedData {
@@ -24,6 +25,7 @@ class _CachedData {
   DeliveriesAnalytics? deliveries;
   ProductionsAnalytics? productions;
   TripWagesAnalytics? tripWages;
+  FuelAnalytics? fuel;
 }
 
 class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
@@ -186,6 +188,9 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
         case _tabTripWages:
           existing = cached?.tripWages;
           break;
+        case _tabFuel:
+          existing = cached?.fuel;
+          break;
         default:
           return;
       }
@@ -296,6 +301,16 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
           _getOrCreateCache(orgId, fy).tripWages = r;
           _emitTabData(_tabTripWages, r, loadingTabs);
           break;
+        case _tabFuel:
+          final r = await _repo.fetchFuelAnalytics(
+            orgId,
+            financialYear: fy,
+            startDate: startDate,
+            endDate: endDate,
+          );
+          _getOrCreateCache(orgId, fy).fuel = r;
+          _emitTabData(_tabFuel, r, loadingTabs);
+          break;
       }
     } catch (e) {
       final newLoading = loadingTabs.difference({tabIndex, if (tabIndex == _tabProductions) _tabDeliveries});
@@ -330,6 +345,9 @@ class AnalyticsDashboardCubit extends Cubit<AnalyticsDashboardState> {
         break;
       case _tabTripWages:
         emit(state.copyWith(tripWages: data as TripWagesAnalytics?, loadingTabs: newLoading));
+        break;
+      case _tabFuel:
+        emit(state.copyWith(fuel: data as FuelAnalytics?, loadingTabs: newLoading));
         break;
     }
   }

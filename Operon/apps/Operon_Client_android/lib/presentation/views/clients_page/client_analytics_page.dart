@@ -18,22 +18,45 @@ class ClientAnalyticsPage extends StatefulWidget {
 class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
   ClientsAnalytics? _analytics;
   bool _isLoading = true;
+  bool _analyticsLoaded = false;
   String? _cachedActiveClientsValue;
   String? _cachedOnboardingValue;
   Map<String, double>? _cachedChartData;
-  Map<String, double>? _lastAnalyticsData;
+  String? _lastOrgId;
+  String? _lastFy;
 
   @override
   void initState() {
     super.initState();
-    _loadAnalytics();
+    // Defer analytics loading - load only when page is visible
+    _scheduleAnalyticsLoad();
+  }
+
+  void _scheduleAnalyticsLoad() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_analyticsLoaded) {
+        _loadAnalytics();
+      }
+    });
   }
 
   @override
   void didUpdateWidget(ClientAnalyticsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_analytics != null && _lastAnalyticsData != _analytics!.onboardingMonthly) {
-      _updateCachedValues();
+    // Reload analytics only if org or FY changed
+    _checkAndReloadIfNeeded();
+  }
+
+  void _checkAndReloadIfNeeded() {
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final newOrgId = orgContext.organization?.id;
+    final newFy = _canonicalFy(orgContext.financialYear);
+    
+    if (_lastOrgId != newOrgId || _lastFy != newFy) {
+      _lastOrgId = newOrgId;
+      _lastFy = newFy;
+      _analyticsLoaded = false;
+      _scheduleAnalyticsLoad();
     }
   }
 
@@ -46,7 +69,6 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
     _cachedChartData = Map.fromEntries(
       sortedKeys.map((key) => MapEntry(key, _analytics!.onboardingMonthly[key] ?? 0.0)),
     );
-    _lastAnalyticsData = _analytics!.onboardingMonthly;
   }
 
   String _canonicalFy(String? prettyFy) {
@@ -80,12 +102,16 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
         setState(() {
           _analytics = analytics;
           _isLoading = false;
+          _analyticsLoaded = true;
         });
         _updateCachedValues();
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _analyticsLoaded = true; // Mark as attempted even if failed
+        });
       }
     }
   }
@@ -111,7 +137,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
               Icon(
                 Icons.analytics_outlined,
                 size: 64,
-                color: AuthColors.textSub.withOpacity(0.5),
+                color: AuthColors.textSub.withValues(alpha: 0.5),
               ),
               const SizedBox(height: AppSpacing.paddingLG),
               const Text(
@@ -127,7 +153,7 @@ class _ClientAnalyticsPageState extends State<ClientAnalyticsPage> {
                 'Analytics will appear once clients are added.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: AuthColors.textSub.withOpacity(0.5),
+                  color: AuthColors.textSub.withValues(alpha: 0.5),
                   fontSize: 14,
                 ),
               ),
@@ -212,12 +238,12 @@ class _InfoTile extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AuthColors.primary.withOpacity(0.2),
-            AuthColors.success.withOpacity(0.1),
+            AuthColors.primary.withValues(alpha: 0.2),
+            AuthColors.success.withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
+        border: Border.all(color: AuthColors.textSub.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,7 +307,7 @@ class _OnboardingChart extends StatelessWidget {
       decoration: BoxDecoration(
         color: AuthColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
-        border: Border.all(color: AuthColors.textSub.withOpacity(0.2)),
+        border: Border.all(color: AuthColors.textSub.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,7 +379,7 @@ class _LineChartPainter extends CustomPainter {
 
     // Draw grid lines
     final gridPaint = Paint()
-      ..color = AuthColors.textSub.withOpacity(0.2)
+      ..color = AuthColors.textSub.withValues(alpha: 0.2)
       ..strokeWidth = 1;
 
     for (int i = 0; i <= 4; i++) {
@@ -657,9 +683,9 @@ class _StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.paddingMD),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -799,11 +825,11 @@ class _StatCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
         border: Border.all(
-          color: AuthColors.textSub.withOpacity(0.2),
+          color: AuthColors.textSub.withValues(alpha: 0.2),
         ),
         boxShadow: [
           BoxShadow(
-            color: AuthColors.background.withOpacity(0.3),
+            color: AuthColors.background.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -819,7 +845,7 @@ class _StatCard extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                 ),
                 child: Icon(icon, color: color, size: 18),

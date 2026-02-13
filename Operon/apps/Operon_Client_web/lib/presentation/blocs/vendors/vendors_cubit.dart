@@ -19,10 +19,16 @@ class VendorsCubit extends Cubit<VendorsState> {
   final VendorsRepository _repository;
   final String _organizationId;
   StreamSubscription<List<Vendor>>? _vendorsSubscription;
+  bool _isSubscribed = false;
+  Timer? _searchDebounce;
+  int _searchToken = 0;
 
   String get organizationId => _organizationId;
 
-  void _subscribeToVendors() {
+  void _subscribeToVendors({bool force = false}) {
+    if (_isSubscribed && !force) {
+      return;
+    }
     emit(state.copyWith(status: ViewStatus.loading));
     _vendorsSubscription?.cancel();
     _vendorsSubscription = _repository.watchVendors(_organizationId).listen(
@@ -31,9 +37,12 @@ class VendorsCubit extends Cubit<VendorsState> {
         emit(state.copyWith(
           status: ViewStatus.success,
           vendors: vendors,
-          filteredVendors: _applyCurrentFilters(vendors),
+          filteredVendors: state.searchQuery.isNotEmpty
+              ? state.filteredVendors
+              : _applyCurrentFilters(vendors),
           message: null,
         ));
+        _isSubscribed = true;
       },
       onError: (e, stackTrace) {
         debugPrint('[VendorsCubit] Error in stream: $e');
@@ -76,23 +85,62 @@ class VendorsCubit extends Cubit<VendorsState> {
     return filtered;
   }
 
-  Future<void> loadVendors() async {
-    // Re-subscribe to refresh data
-    _subscribeToVendors();
+  Future<void> loadVendors({bool force = false}) async {
+    // Re-subscribe only when explicitly forced (retry/refresh)
+    _subscribeToVendors(force: force);
   }
 
   @override
   Future<void> close() {
     _vendorsSubscription?.cancel();
+    _isSubscribed = false;
+    _searchDebounce?.cancel();
     return super.close();
   }
 
-  void searchVendors(String query) {
-    // Apply search filter to current vendors (client-side filtering)
+  void searchVendorsDebounced(String query) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      searchVendors(query);
+    });
+  }
+
+  Future<void> searchVendors(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      emit(state.copyWith(
+        searchQuery: '',
+        status: ViewStatus.success,
+        filteredVendors: _applyCurrentFilters(state.vendors),
+      ));
+      return;
+    }
+
     emit(state.copyWith(
-      searchQuery: query,
-      filteredVendors: _applyCurrentFilters(state.vendors),
+      searchQuery: trimmed,
+      status: ViewStatus.loading,
     ));
+
+    final token = ++_searchToken;
+    try {
+      final results = await _repository.searchVendors(_organizationId, trimmed);
+      if (token != _searchToken) {
+        return;
+      }
+      emit(state.copyWith(
+        status: ViewStatus.success,
+        filteredVendors: _applyCurrentFilters(results),
+        message: null,
+      ));
+    } catch (e) {
+      if (token != _searchToken) {
+        return;
+      }
+      emit(state.copyWith(
+        status: ViewStatus.failure,
+        message: 'Failed to search vendors: ${e.toString()}',
+      ));
+    }
   }
 
   void filterByType(VendorType? vendorType) {

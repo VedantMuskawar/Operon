@@ -47,7 +47,7 @@ class RolesPage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
                 boxShadow: [
                   BoxShadow(
-                    color: AuthColors.primary.withOpacity(0.4),
+                    color: AuthColors.primary.withValues(alpha: 0.4),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -66,7 +66,7 @@ class RolesPage extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(AppSpacing.paddingSM),
                           decoration: BoxDecoration(
-                            color: AuthColors.textMain.withOpacity(0.2),
+                            color: AuthColors.textMain.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                           ),
                           child: const Icon(
@@ -370,15 +370,15 @@ class _RoleInfoPanel extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              AuthColors.success.withOpacity(0.15),
-              AuthColors.success.withOpacity(0.05),
+              AuthColors.success.withValues(alpha: 0.15),
+              AuthColors.success.withValues(alpha: 0.05),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
           border: Border.all(
-            color: AuthColors.success.withOpacity(0.3),
+            color: AuthColors.success.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
@@ -387,7 +387,7 @@ class _RoleInfoPanel extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.paddingMD),
               decoration: BoxDecoration(
-                color: AuthColors.success.withOpacity(0.2),
+                color: AuthColors.success.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               ),
               child: const Icon(
@@ -431,15 +431,15 @@ class _RoleInfoPanel extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AuthColors.primary.withOpacity(0.15),
-            AuthColors.primary.withOpacity(0.05),
+            AuthColors.primary.withValues(alpha: 0.15),
+            AuthColors.primary.withValues(alpha: 0.05),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
         border: Border.all(
-          color: AuthColors.primary.withOpacity(0.3),
+          color: AuthColors.primary.withValues(alpha: 0.3),
           width: 1.5,
         ),
       ),
@@ -448,7 +448,7 @@ class _RoleInfoPanel extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.paddingMD),
             decoration: BoxDecoration(
-              color: AuthColors.primary.withOpacity(0.2),
+              color: AuthColors.primary.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             ),
             child: const Icon(

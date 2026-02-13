@@ -55,11 +55,11 @@ class EmptyStateWidget extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: AppSpacing.paddingXXL),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 onPressed: onAction,
                 icon: const Icon(Icons.add, size: 18),
                 label: Text(actionLabel!),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AuthColors.legacyAccent,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,

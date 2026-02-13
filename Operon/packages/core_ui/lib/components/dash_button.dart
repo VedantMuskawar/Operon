@@ -48,27 +48,31 @@ class DashButton extends StatelessWidget {
     const minSize = Size(0, 52);
 
     if (variant == DashButtonVariant.text) {
-      return TextButton(
+      return FilledButton(
         onPressed: isLoading ? null : onPressed,
-        style: TextButton.styleFrom(
+        style: FilledButton.styleFrom(
           minimumSize: minSize,
           shape: shape,
+          backgroundColor: Colors.transparent,
           foregroundColor: isDestructive ? AuthColors.error : null,
+          shadowColor: Colors.transparent,
         ),
         child: child,
       );
     }
 
     if (variant == DashButtonVariant.outlined) {
-      return OutlinedButton(
+      return FilledButton(
         onPressed: isLoading ? null : onPressed,
-        style: OutlinedButton.styleFrom(
+        style: FilledButton.styleFrom(
           minimumSize: minSize,
           shape: shape,
+          backgroundColor: Colors.transparent,
           foregroundColor: isDestructive ? AuthColors.error : null,
-          side: isDestructive
-              ? const BorderSide(color: AuthColors.error)
-              : null,
+          shadowColor: Colors.transparent,
+          side: BorderSide(
+            color: isDestructive ? AuthColors.error : AuthColors.textSub,
+          ),
         ),
         child: child,
       );

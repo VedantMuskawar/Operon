@@ -28,6 +28,36 @@ class RawMaterialsDataSource {
         .toList();
   }
 
+  Future<List<RawMaterial>> fetchRawMaterialsByIds(
+    String orgId,
+    List<String> materialIds,
+  ) async {
+    if (materialIds.isEmpty) return [];
+
+    const chunkSize = 10;
+    final chunks = <List<String>>[];
+    for (var i = 0; i < materialIds.length; i += chunkSize) {
+      chunks.add(materialIds.sublist(
+        i,
+        i + chunkSize > materialIds.length ? materialIds.length : i + chunkSize,
+      ));
+    }
+
+    final futures = chunks.map((chunk) {
+      return _rawMaterialsRef(orgId).where(FieldPath.documentId, whereIn: chunk).get();
+    }).toList();
+
+    final results = await Future.wait(futures);
+    final materials = <RawMaterial>[];
+    for (final snapshot in results) {
+      materials.addAll(snapshot.docs
+          .map((doc) => RawMaterial.fromJson(doc.data(), doc.id)));
+    }
+
+    materials.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return materials;
+  }
+
   Future<void> createRawMaterial(String orgId, RawMaterial material) {
     return _rawMaterialsRef(orgId).doc(material.id).set({
       ...material.toJson(),

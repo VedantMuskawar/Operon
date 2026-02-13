@@ -676,6 +676,86 @@ class AnalyticsRepository {
       return null;
     }
   }
+
+  /// Document ID: fuel_{orgId}_{YYYY-MM}.
+  Future<FuelAnalytics?> fetchFuelAnalytics(
+    String orgId, {
+    String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      final (effectiveStartDate, effectiveEndDate) = _calculateDateRange(
+        financialYear: financialYear,
+        startDate: startDate,
+        endDate: endDate,
+      );
+      final months = _getMonthsInRange(effectiveStartDate, effectiveEndDate);
+      if (months.isEmpty) return null;
+      final docIds = months.map((month) => 'fuel_${orgId}_$month').toList();
+      final docs = await _dataSource.fetchAnalyticsDocuments(docIds);
+      if (docs.isEmpty) return null;
+
+      var totalUnpaidFuelBalance = 0.0;
+      final consumptionByVehicleKey = <String, double>{};
+      final vehicleKeyMap = <String, String>{};
+      DateTime? latestGeneratedAt;
+
+      for (final doc in docs) {
+        final balance = (doc['metrics']?['totalUnpaidFuelBalance'] as num?)?.toDouble() ?? 0.0;
+        totalUnpaidFuelBalance += balance;
+
+        final metadataKeyMap = doc['metadata']?['fuelVehicleKeyMap'] as Map<String, dynamic>?;
+        if (metadataKeyMap != null) {
+          metadataKeyMap.forEach((key, value) {
+            if (value is String && value.trim().isNotEmpty) {
+              vehicleKeyMap[key] = value.trim();
+            }
+          });
+        }
+
+        final consumption = doc['metrics']?['fuelConsumptionByVehicle'] as Map<String, dynamic>?;
+        if (consumption != null) {
+          consumption.forEach((key, value) {
+            if (value is num) {
+              consumptionByVehicleKey[key] = (consumptionByVehicleKey[key] ?? 0.0) + value.toDouble();
+            }
+          });
+        } else {
+          const prefix = 'metrics.fuelConsumptionByVehicle.';
+          doc.forEach((docKey, docValue) {
+            if (docKey.startsWith(prefix) && docValue is num) {
+              final key = docKey.substring(prefix.length);
+              consumptionByVehicleKey[key] = (consumptionByVehicleKey[key] ?? 0.0) + docValue.toDouble();
+            }
+          });
+        }
+
+        final generatedAtRaw = doc['generatedAt'];
+        final generatedAt = generatedAtRaw is Timestamp
+            ? generatedAtRaw.toDate()
+            : (generatedAtRaw is DateTime ? generatedAtRaw : null);
+        if (generatedAt != null && (latestGeneratedAt == null || generatedAt.isAfter(latestGeneratedAt))) {
+          latestGeneratedAt = generatedAt;
+        }
+      }
+
+      final consumptionByVehicle = <String, double>{};
+      consumptionByVehicleKey.forEach((key, value) {
+        final displayKey = vehicleKeyMap[key] ?? key;
+        consumptionByVehicle[displayKey] = (consumptionByVehicle[displayKey] ?? 0.0) + value;
+      });
+
+      return FuelAnalytics(
+        totalUnpaidFuelBalance: totalUnpaidFuelBalance,
+        fuelConsumptionByVehicle: consumptionByVehicle,
+        generatedAt: latestGeneratedAt,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[AnalyticsRepository] Error fetching fuel analytics: $e');
+      return null;
+    }
+  }
 }
 
 class TopClientEntry {
@@ -1010,6 +1090,18 @@ class VendorsAnalytics {
 
   final double totalPayable;
   final Map<String, Map<String, double>> purchasesByVendorType;
+  final DateTime? generatedAt;
+}
+
+class FuelAnalytics {
+  FuelAnalytics({
+    required this.totalUnpaidFuelBalance,
+    required this.fuelConsumptionByVehicle,
+    this.generatedAt,
+  });
+
+  final double totalUnpaidFuelBalance;
+  final Map<String, double> fuelConsumptionByVehicle;
   final DateTime? generatedAt;
 }
 

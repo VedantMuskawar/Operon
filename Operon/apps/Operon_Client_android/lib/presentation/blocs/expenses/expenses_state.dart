@@ -22,7 +22,7 @@ class ExpensesState extends BaseState {
     this.employees = const [],
     this.subCategories = const [],
     this.paymentAccounts = const [],
-    this.message,
+    String? message,
   }) : super(message: message);
 
   final List<Transaction> vendorExpenses;
@@ -36,9 +36,6 @@ class ExpensesState extends BaseState {
   final List<OrganizationEmployee> employees;
   final List<ExpenseSubCategory> subCategories;
   final List<PaymentAccount> paymentAccounts;
-  @override
-  final String? message;
-
   bool get isSearching => searchQuery.isNotEmpty;
   bool get isFiltered => selectedSubCategoryId != null;
 

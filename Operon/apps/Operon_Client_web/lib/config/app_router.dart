@@ -763,7 +763,7 @@ GoRouter buildRouter() {
               create: (context) => EmployeeWagesCubit(
                 repository: context.read<EmployeeWagesRepository>(),
                 organizationId: organization.id,
-              )..watchTransactions(),
+              ),
               child: const EmployeeWagesPage(),
             ),
           );

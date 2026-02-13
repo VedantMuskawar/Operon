@@ -1,3 +1,7 @@
+// Unified Ledger Maintenance Manager
+export * from './ledger-maintenance/LedgerMaintenanceManager';
+// Ledger maintenance: sync CurrentBalance fields
+export * from './ledger-maintenance/syncCurrentBalance';
 import * as admin from 'firebase-admin';
 
 admin.initializeApp();
@@ -17,7 +21,7 @@ export * from './cleanup';
 export * from './maintenance';
 export * from './production-batches';
 export * from './trip-wages';
-export * from './ledger-maintenance';
+// export * from './ledger-maintenance'; // Removed to avoid LedgerType export ambiguity
 export * from './employees/employee-analytics';
 export * from './geofences';
 export * from './edd';
@@ -47,5 +51,5 @@ export const orders = {
 export const transactions = {
   onTransactionCreated: transactionsNs.onTransactionCreated,
   onTransactionDeleted: transactionsNs.onTransactionDeleted,
-  rebuildClientLedgers: transactionsNs.rebuildClientLedgers,
+  // rebuildClientLedgers removed: replaced by LedgerMaintenanceManager
 };

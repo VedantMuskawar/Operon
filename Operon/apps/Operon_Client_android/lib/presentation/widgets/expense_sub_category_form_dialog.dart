@@ -137,7 +137,7 @@ class _ExpenseSubCategoryFormDialogState
                             ? Color(int.parse(_selectedColor.substring(1),
                                         radix: 16) +
                                     0xFF000000)
-                                .withOpacity(0.2)
+                            .withValues(alpha: 0.2)
                             : AuthColors.backgroundAlt,
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusMD),

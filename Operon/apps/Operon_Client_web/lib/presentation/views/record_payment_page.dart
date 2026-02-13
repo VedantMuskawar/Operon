@@ -1,7 +1,9 @@
 import 'package:dash_web/presentation/widgets/section_workspace_layout.dart';
 import 'package:dash_web/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_web/presentation/blocs/clients/clients_cubit.dart';
-import 'package:core_ui/core_ui.dart' show AuthColors, DashButton, DashFormField, DashSnackbar, DashTheme;
+import 'package:dash_web/data/repositories/clients_repository.dart';
+import 'package:core_ui/core_ui.dart'
+    show AuthColors, DashButton, DashFormField, DashSnackbar, DashTheme;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +30,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   bool _isSubmitting = false;
   PlatformFile? _selectedReceiptPhoto;
   Uint8List? _receiptPhotoBytes;
+  final Map<String, double> _balanceCache = {};
 
   @override
   void initState() {
@@ -42,7 +45,20 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   }
 
   String _getMonthName(int month) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return months[month - 1];
   }
 
@@ -56,36 +72,42 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
   Future<void> _selectClient() async {
     final orgState = context.read<OrganizationContextCubit>().state;
     final organization = orgState.organization;
-    
     if (organization == null) {
-      DashSnackbar.show(context, message: 'Please select an organization', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please select an organization', isError: true);
       return;
     }
 
-    // Show client selection dialog
     final client = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) => BlocProvider.value(
-        value: context.read<ClientsCubit>(),
-        child: _ClientSelectionDialog(organizationId: organization.id),
-      ),
+      builder: (dialogContext) {
+        return BlocProvider(
+          create: (_) => ClientsCubit(
+            repository: context.read<ClientsRepository>(),
+            orgId: organization.id,
+          )..loadRecentClients(),
+          child: _ClientSelectionDialog(organizationId: organization.id),
+        );
+      },
     );
 
     if (client != null && mounted) {
+      final clientId = client['id'] as String;
+      final cachedBalance = _balanceCache[clientId];
       setState(() {
-        _selectedClientId = client['id'] as String;
+        _selectedClientId = clientId;
         _selectedClientName = client['name'] as String;
-        _currentBalance = null; // Will be fetched
+        _currentBalance = cachedBalance;
       });
-      
-      // Fetch client balance
-      _fetchClientBalance();
+      if (cachedBalance == null) {
+        _fetchClientBalance(clientId);
+      }
     }
   }
 
-  Future<void> _fetchClientBalance() async {
+  Future<void> _fetchClientBalance(String clientId) async {
     if (_selectedClientId == null) return;
-    
+
     final orgState = context.read<OrganizationContextCubit>().state;
     final organization = orgState.organization;
     if (organization == null) return;
@@ -103,17 +125,24 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
 
       final ledgerDoc = await FirebaseFirestore.instance
           .collection('CLIENT_LEDGERS')
-          .doc('${_selectedClientId}_$financialYear')
+          .doc('${clientId}_$financialYear')
           .get();
 
       if (ledgerDoc.exists) {
-        final balance = (ledgerDoc.data()?['currentBalance'] as num?)?.toDouble();
+        final balance =
+            (ledgerDoc.data()?['currentBalance'] as num?)?.toDouble();
         setState(() {
-          _currentBalance = balance ?? 0.0;
+          if (_selectedClientId == clientId) {
+            _currentBalance = balance ?? 0.0;
+            _balanceCache[clientId] = _currentBalance ?? 0.0;
+          }
         });
       } else {
         setState(() {
-          _currentBalance = 0.0;
+          if (_selectedClientId == clientId) {
+            _currentBalance = 0.0;
+            _balanceCache[clientId] = 0.0;
+          }
         });
       }
     } catch (e) {
@@ -136,7 +165,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       }
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Failed to pick image: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to pick image: $e', isError: true);
       }
     }
   }
@@ -203,26 +233,30 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedClientId == null) {
-      DashSnackbar.show(context, message: 'Please select a client', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please select a client', isError: true);
       return;
     }
 
     final amount = double.tryParse(_amountController.text.replaceAll(',', ''));
     if (amount == null || amount <= 0) {
-      DashSnackbar.show(context, message: 'Please enter a valid amount', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please enter a valid amount', isError: true);
       return;
     }
 
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
+      DashSnackbar.show(context,
+          message: 'User not authenticated', isError: true);
       return;
     }
 
     final orgState = context.read<OrganizationContextCubit>().state;
     final organization = orgState.organization;
     if (organization == null) {
-      DashSnackbar.show(context, message: 'No organization selected', isError: true);
+      DashSnackbar.show(context,
+          message: 'No organization selected', isError: true);
       return;
     }
 
@@ -260,22 +294,25 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
         },
       };
 
-      final transactionDocRef = await FirebaseFirestore.instance.collection('TRANSACTIONS').add(transactionData);
+      final transactionDocRef = await FirebaseFirestore.instance
+          .collection('TRANSACTIONS')
+          .add(transactionData);
       final transactionId = transactionDocRef.id;
 
       // Upload receipt photo if provided (optional - payment is already recorded)
       String? photoUrl;
       bool photoUploadFailed = false;
       String? photoUploadError;
-      
+
       if (_selectedReceiptPhoto != null) {
         try {
           photoUrl = await _uploadReceiptPhoto(transactionId);
-          
+
           // Update transaction with photo URL in metadata
           await transactionDocRef.update({
             'metadata.receiptPhotoUrl': photoUrl,
-            'metadata.receiptPhotoPath': 'payments/${organization.id}/$_selectedClientId/$transactionId/receipt.jpg',
+            'metadata.receiptPhotoPath':
+                'payments/${organization.id}/$_selectedClientId/$transactionId/receipt.jpg',
           });
         } catch (e) {
           // Photo upload failed, but transaction is already created successfully
@@ -291,13 +328,15 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
           // Show warning that photo upload failed, but payment was recorded
           DashSnackbar.show(
             context,
-            message: 'Payment recorded successfully. Photo upload failed: $photoUploadError',
+            message:
+                'Payment recorded successfully. Photo upload failed: $photoUploadError',
             isError: false,
           );
         } else {
-          DashSnackbar.show(context, message: 'Payment recorded successfully', isError: false);
+          DashSnackbar.show(context,
+              message: 'Payment recorded successfully', isError: false);
         }
-        
+
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {
             context.go('/transactions');
@@ -306,7 +345,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
       }
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Failed to record payment: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to record payment: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -369,7 +409,9 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
           color: AuthColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: hasClient ? AuthColors.textMainWithOpacity(0.24) : AuthColors.textMainWithOpacity(0.12),
+            color: hasClient
+                ? AuthColors.textMainWithOpacity(0.24)
+                : AuthColors.textMainWithOpacity(0.12),
           ),
         ),
         child: Row(
@@ -386,9 +428,11 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                   Text(
                     _selectedClientName ?? 'Select Client',
                     style: TextStyle(
-                      color: hasClient ? AuthColors.textMain : AuthColors.textSub,
+                      color:
+                          hasClient ? AuthColors.textMain : AuthColors.textSub,
                       fontSize: 16,
-                      fontWeight: hasClient ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight:
+                          hasClient ? FontWeight.w600 : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -405,17 +449,21 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: balance >= 0 ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+        color: balance >= 0
+            ? AuthColors.success.withOpacity(0.1)
+            : AuthColors.error.withOpacity(0.1),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: balance >= 0 ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3),
+          color: balance >= 0
+              ? AuthColors.success.withOpacity(0.3)
+              : AuthColors.error.withOpacity(0.3),
         ),
       ),
       child: Row(
         children: [
           Icon(
             balance >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
-            color: balance >= 0 ? Colors.green : Colors.red,
+            color: balance >= 0 ? AuthColors.success : AuthColors.error,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -430,7 +478,7 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 Text(
                   _formatCurrency(balance.abs()),
                   style: TextStyle(
-                    color: balance >= 0 ? Colors.green : Colors.red,
+                    color: balance >= 0 ? AuthColors.success : AuthColors.error,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -491,7 +539,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                     _selectedDate != null
                         ? '${_selectedDate!.day} ${_getMonthName(_selectedDate!.month)} ${_selectedDate!.year}'
                         : 'Select date',
-                    style: const TextStyle(color: AuthColors.textMain, fontSize: 16),
+                    style: const TextStyle(
+                        color: AuthColors.textMain, fontSize: 16),
                   ),
                 ],
               ),
@@ -520,7 +569,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
+                  border:
+                      Border.all(color: AuthColors.textMainWithOpacity(0.12)),
                 ),
                 child: FutureBuilder<Uint8List>(
                   future: Future.value(_receiptPhotoBytes!),
@@ -533,7 +583,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.error_outline, color: AuthColors.textSub, size: 48),
+                            Icon(Icons.error_outline,
+                                color: AuthColors.textSub, size: 48),
                             SizedBox(height: 8),
                             Text(
                               'Failed to load image',
@@ -547,7 +598,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                       return const Center(
                         child: Padding(
                           padding: EdgeInsets.all(32.0),
-                          child: CircularProgressIndicator(color: AuthColors.textSub),
+                          child: CircularProgressIndicator(
+                              color: AuthColors.textSub),
                         ),
                       );
                     }
@@ -567,7 +619,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                             child: const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.error_outline, color: AuthColors.textSub, size: 48),
+                                Icon(Icons.error_outline,
+                                    color: AuthColors.textSub, size: 48),
                                 SizedBox(height: 8),
                                 Text(
                                   'Failed to load image',
@@ -577,7 +630,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                             ),
                           );
                         },
-                        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                        frameBuilder:
+                            (context, child, frame, wasSynchronouslyLoaded) {
                           if (wasSynchronouslyLoaded) {
                             return child;
                           }
@@ -585,7 +639,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
                             return const Center(
                               child: Padding(
                                 padding: EdgeInsets.all(32.0),
-                                child: CircularProgressIndicator(color: AuthColors.textSub),
+                                child: CircularProgressIndicator(
+                                    color: AuthColors.textSub),
                               ),
                             );
                           }
@@ -624,7 +679,8 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               child: const Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add_photo_alternate, color: AuthColors.textSub, size: 40),
+                  Icon(Icons.add_photo_alternate,
+                      color: AuthColors.textSub, size: 40),
                   SizedBox(height: 8),
                   Text(
                     'Add Receipt Photo',
@@ -659,78 +715,138 @@ class _ClientSelectionDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print(
+        '[DEBUG] _ClientSelectionDialog build called for orgId: $organizationId');
     return Dialog(
       backgroundColor: AuthColors.surface,
       child: SizedBox(
         width: 500,
         height: 600,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Select Client',
-                    style: TextStyle(color: AuthColors.textMain, fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AuthColors.textSub),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: AuthColors.textMainWithOpacity(0.12)),
-            Expanded(
-              child: BlocBuilder<ClientsCubit, ClientsState>(
-                builder: (context, state) {
-                  final clients = state.recentClients;
-                  
-                  if (state.isRecentLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (clients.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No clients found',
-                        style: TextStyle(color: AuthColors.textSub),
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: clients.length,
-                    itemBuilder: (context, index) {
-                      final client = clients[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: AuthColors.primary,
-                          child: Text(
-                            client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
-                            style: const TextStyle(color: AuthColors.textMain),
-                          ),
-                        ),
-                        title: Text(client.name, style: const TextStyle(color: AuthColors.textMain)),
-                        subtitle: client.primaryPhone != null
-                            ? Text(client.primaryPhone!, style: const TextStyle(color: AuthColors.textSub))
-                            : null,
-                        onTap: () => Navigator.of(context).pop({
-                          'id': client.id,
-                          'name': client.name,
-                        }),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+        child: _ClientSearchContent(organizationId: organizationId),
       ),
     );
   }
 }
 
+class _ClientSearchContent extends StatefulWidget {
+  const _ClientSearchContent({required this.organizationId});
+  final String organizationId;
+
+  @override
+  State<_ClientSearchContent> createState() => _ClientSearchContentState();
+}
+
+class _ClientSearchContentState extends State<_ClientSearchContent> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Select Client',
+                style: TextStyle(
+                    color: AuthColors.textMain,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: AuthColors.textSub),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: TextField(
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Search clients by name or phone',
+              hintStyle: const TextStyle(color: AuthColors.textSub),
+              prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
+              suffixIcon: _query.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: AuthColors.textSub),
+                      onPressed: () => setState(() => _query = ''),
+                    )
+                  : null,
+              filled: true,
+              fillColor: AuthColors.backgroundAlt,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+            ),
+            style: const TextStyle(color: AuthColors.textMain),
+            onChanged: (v) {
+              setState(() => _query = v);
+              context.read<ClientsCubit>().search(v);
+            },
+          ),
+        ),
+        Divider(height: 1, color: AuthColors.textMainWithOpacity(0.12)),
+        Expanded(
+          child: BlocBuilder<ClientsCubit, ClientsState>(
+            builder: (context, state) {
+              final isSearching = _query.isNotEmpty;
+              final clients =
+                  isSearching ? state.searchResults : state.recentClients;
+
+              if (isSearching && state.isSearchLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!isSearching && state.isRecentLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (clients.isEmpty) {
+                return Center(
+                  child: Text(
+                    isSearching ? 'No clients found' : 'No recent clients',
+                    style: const TextStyle(color: AuthColors.textSub),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: clients.length,
+                itemBuilder: (context, index) {
+                  final client = clients[index];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: AuthColors.primary,
+                      child: Text(
+                        client.name.isNotEmpty
+                            ? client.name[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(color: AuthColors.textMain),
+                      ),
+                    ),
+                    title: Text(client.name,
+                        style: const TextStyle(color: AuthColors.textMain)),
+                    subtitle: client.primaryPhone != null
+                        ? Text(client.primaryPhone!,
+                            style: const TextStyle(color: AuthColors.textSub))
+                        : null,
+                    onTap: () => Navigator.of(context).pop({
+                      'id': client.id,
+                      'name': client.name,
+                    }),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}

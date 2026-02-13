@@ -168,7 +168,7 @@ class _OperonPdfPreviewModalState extends State<OperonPdfPreviewModal> {
                       // Vertical layout for small screens
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: FilledButton.icon(
                           onPressed: _isSharing ? null : _handleShareOrDownload,
                           icon: _isSharing
                               ? const SizedBox(
@@ -192,7 +192,7 @@ class _OperonPdfPreviewModalState extends State<OperonPdfPreviewModal> {
                               fontSize: 16,
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor: AuthColors.primary,
                             foregroundColor: AuthColors.textMain,
                             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -205,7 +205,7 @@ class _OperonPdfPreviewModalState extends State<OperonPdfPreviewModal> {
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton.icon(
+                        child: FilledButton.icon(
                           onPressed: _isPrinting ? null : _handlePrint,
                           icon: _isPrinting
                               ? const SizedBox(
@@ -229,7 +229,7 @@ class _OperonPdfPreviewModalState extends State<OperonPdfPreviewModal> {
                               fontSize: 16,
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
+                          style: FilledButton.styleFrom(
                             backgroundColor: AuthColors.primary,
                             foregroundColor: AuthColors.textMain,
                             padding: const EdgeInsets.symmetric(vertical: 16),

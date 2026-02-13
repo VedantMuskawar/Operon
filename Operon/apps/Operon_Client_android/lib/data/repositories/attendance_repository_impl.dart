@@ -19,6 +19,19 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     return DateTime(date.year, date.month, date.day);
   }
 
+  /// Get year-month string in "YYYY-MM" format
+  String _getYearMonth(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}';
+  }
+
+  bool _isFullMonthRange(DateTime startDate, DateTime endDate) {
+    if (startDate.year != endDate.year || startDate.month != endDate.month) {
+      return false;
+    }
+    final lastDay = _getTotalDaysInMonth(startDate);
+    return startDate.day == 1 && endDate.day == lastDay;
+  }
+
   /// Calculate days present/absent from daily records for a given month
   (int present, int absent) _calculateDaysForMonth(
     List<DailyAttendanceRecord> dailyRecords,
@@ -84,11 +97,73 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     final monthStart = DateTime(year, month, 1);
     final monthEnd = DateTime(year, month, _getTotalDaysInMonth(monthStart));
 
-    return getAttendanceByRoleForDateRange(
+    // Fetch all employees for the organization
+    final employees = await _employeesDataSource.fetchEmployees(organizationId);
+
+    if (employees.isEmpty) {
+      return {};
+    }
+
+    final financialYear = FinancialYearUtils.getFinancialYear(monthStart);
+
+    final attendanceDocs = await _attendanceDataSource
+        .fetchAttendanceForMonthForOrganization(
       organizationId: organizationId,
-      startDate: monthStart,
-      endDate: monthEnd,
+      financialYear: financialYear,
+      yearMonth: yearMonth,
     );
+
+    final attendanceByEmployeeId = <String, EmployeeAttendance>{
+      for (final attendance in attendanceDocs) attendance.employeeId: attendance,
+    };
+
+    final attendanceDataList = employees.map((employee) {
+      final attendance = attendanceByEmployeeId[employee.id];
+      final dailyRecords = attendance?.dailyRecords ?? <DailyAttendanceRecord>[];
+
+      final (daysPresent, daysAbsent) =
+          _calculateDaysForMonth(dailyRecords, monthStart, monthEnd);
+
+      final totalDaysInMonth = _getTotalDaysInMonth(monthStart);
+      final monthSummary = _getMonthSummary(daysPresent, totalDaysInMonth);
+
+      final effectiveRoleTitle =
+          employee.primaryJobRoleTitle.isEmpty ? 'No Role' : employee.primaryJobRoleTitle;
+
+      return EmployeeAttendanceData(
+        employeeId: employee.id,
+        employeeName: employee.name,
+        roleTitle: effectiveRoleTitle,
+        dailyRecords: dailyRecords,
+        daysPresent: daysPresent,
+        daysAbsent: daysAbsent,
+        monthSummary: monthSummary,
+      );
+    }).toList();
+
+    // Group by role
+    final roleGroups = <String, List<EmployeeAttendanceData>>{};
+    for (final attendanceData in attendanceDataList) {
+      final roleKey = attendanceData.roleTitle;
+      roleGroups.putIfAbsent(roleKey, () => []).add(attendanceData);
+    }
+
+    // Convert to RoleAttendanceGroup map
+    final result = <String, RoleAttendanceGroup>{};
+    for (final entry in roleGroups.entries) {
+      final employees = entry.value;
+      final totalPresent = employees.fold<int>(0, (sum, e) => sum + e.daysPresent);
+      final totalAbsent = employees.fold<int>(0, (sum, e) => sum + e.daysAbsent);
+
+      result[entry.key] = RoleAttendanceGroup(
+        roleTitle: entry.key,
+        employees: employees,
+        totalPresent: totalPresent,
+        totalAbsent: totalAbsent,
+      );
+    }
+
+    return result;
   }
 
   @override
@@ -97,6 +172,12 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
+    if (_isFullMonthRange(startDate, endDate)) {
+      return getAttendanceByRole(
+        organizationId: organizationId,
+        yearMonth: _getYearMonth(startDate),
+      );
+    }
     // Fetch all employees for the organization
     final employees = await _employeesDataSource.fetchEmployees(organizationId);
 
@@ -203,6 +284,7 @@ class AttendanceRepositoryImpl implements AttendanceRepository {
     required String employeeId,
     required DateTime date,
     required bool isPresent,
+    String? organizationId,
   }) {
     // Android app is read-only, so this method should not be called
     throw UnimplementedError(

@@ -121,6 +121,7 @@ async function fetchDeviceTokens(
       .where('appId', '==', CLIENT_ANDROID_APP_ID)
       .where('platform', '==', ANDROID_PLATFORM)
       .where('userId', 'in', chunk)
+      .select('fcmToken')
       .get();
 
     snapshot.forEach((doc) => {

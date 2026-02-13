@@ -58,7 +58,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
 
   // Cache key: '${organizationId}_$yearMonth' or '${organizationId}_${startDate}_${endDate}'
   final Map<String, ({DateTime timestamp, Map<String, RoleAttendanceGroup> data})> _cache = {};
-  static const _cacheTTL = Duration(seconds: 30);
+  static const _cacheTTL = Duration(minutes: 2);
 
   String get organizationId => _organizationId;
 
@@ -245,6 +245,7 @@ class AttendanceCubit extends Cubit<AttendanceState> {
         employeeId: employeeId,
         date: date,
         isPresent: isPresent,
+        organizationId: _organizationId,
       );
 
       // Invalidate cache and refresh to get latest data

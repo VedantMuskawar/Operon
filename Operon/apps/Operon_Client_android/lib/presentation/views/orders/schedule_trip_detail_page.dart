@@ -38,6 +38,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
   late Map<String, dynamic> _trip;
   int _selectedTabIndex = 0;
   StreamSubscription<DocumentSnapshot>? _tripSubscription;
+  List<PaymentAccount>? _cachedPaymentAccounts;
+  String? _cachedPaymentAccountsOrgId;
 
   @override
   void initState() {
@@ -48,15 +50,21 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
   void _subscribeToTrip() {
     final tripId = _trip['id'] as String?;
-    if (tripId == null) return;
+    if (tripId == null) {
+      return;
+    }
 
     // Use WidgetsBinding to ensure context is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       final orgContext = context.read<OrganizationContextCubit>().state;
       final organization = orgContext.organization;
-      if (organization == null) return;
+      if (organization == null) {
+        return;
+      }
 
       _tripSubscription?.cancel();
       _tripSubscription = FirebaseFirestore.instance
@@ -99,6 +107,27 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     super.dispose();
   }
 
+  Future<List<PaymentAccount>> _getActivePaymentAccounts() async {
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final organization = orgContext.organization;
+    if (organization == null) {
+      return [];
+    }
+
+    if (_cachedPaymentAccounts != null &&
+        _cachedPaymentAccountsOrgId == organization.id) {
+      return _cachedPaymentAccounts!;
+    }
+
+    final accountsRepo = context.read<PaymentAccountsRepository>();
+    final accounts = await accountsRepo.fetchAccounts(organization.id);
+    final activeAccounts = accounts.where((a) => a.isActive).toList();
+
+    _cachedPaymentAccounts = activeAccounts;
+    _cachedPaymentAccountsOrgId = organization.id;
+    return activeAccounts;
+  }
+
   Future<void> _openPrintDialog(BuildContext context) async {
     final org = context.read<OrganizationContextCubit>().state.organization;
     if (org == null) {
@@ -109,14 +138,18 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
     final printService = context.read<DmPrintService>();
     final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
-    if (dmNumber == null) return;
+    if (dmNumber == null) {
+      return;
+    }
     final dmData = await printService.fetchDmByNumberOrId(
       organizationId: org.id,
       dmNumber: dmNumber,
       dmId: _trip['dmId'] as String?,
       tripData: _trip,
     );
-    if (dmData == null || !context.mounted) return;
+    if (dmData == null || !context.mounted) {
+      return;
+    }
     await DmPrintDialog.show(
       context: context,
       dmPrintService: printService,
@@ -166,7 +199,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final userRole = orgContext.appAccessRole?.name ?? 'unknown';
 
     try {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Dispatching trip...')),
       );
@@ -183,18 +218,24 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       setState(() {
         _trip['orderStatus'] = 'dispatched';
         _trip['tripStatus'] = 'dispatched';
-        if (initialReading != null) _trip['initialReading'] = initialReading;
+        if (initialReading != null) {
+          _trip['initialReading'] = initialReading;
+        }
         _trip['dispatchedAt'] = DateTime.now();
         _trip['dispatchedBy'] = currentUser.uid;
         _trip['dispatchedByRole'] = userRole;
       });
 
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Trip dispatched successfully')),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to dispatch trip: $e')),
       );
@@ -202,7 +243,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
   }
 
   String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return 'N/A';
+    if (timestamp == null) {
+      return 'N/A';
+    }
     try {
       DateTime date;
       if (timestamp is DateTime) {
@@ -278,7 +321,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                        color: AuthColors.textSub.withOpacity(0.1),
+                        color: AuthColors.textSub.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
@@ -329,15 +372,17 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                           dmNumber: dmNumber,
                           onCallDriver: () {
                             final driverPhone = _trip['driverPhone'] as String?;
-                            if (driverPhone != null)
+                            if (driverPhone != null) {
                               _callNumber(driverPhone, 'Driver');
+                            }
                           },
                           onCallCustomer: () {
                             final clientPhone =
                                 _trip['clientPhone'] as String? ??
                                     _trip['customerNumber'] as String?;
-                            if (clientPhone != null)
+                            if (clientPhone != null) {
                               _callNumber(clientPhone, 'Customer');
+                            }
                           },
                           onPrintDM: dmNumber != null
                               ? () => _openPrintDialog(context)
@@ -463,7 +508,13 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
 
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
@@ -476,7 +527,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
 
     try {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reverting dispatch...')),
       );
@@ -498,12 +551,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         _trip.remove('dispatchedByRole');
       });
 
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Dispatch reverted successfully')),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to revert dispatch: $e')),
       );
@@ -581,7 +638,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         [];
     final alreadyPaid = existingPayments.fold<double>(
       0,
-      (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+      (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
     );
 
     List<Map<String, dynamic>> newPayments = [];
@@ -589,11 +646,12 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
     // If pay_on_delivery, collect payment entries
     if (paymentType == 'pay_on_delivery') {
-      // Fetch payment accounts
       try {
-        final accountsRepo = context.read<PaymentAccountsRepository>();
-        final accounts = await accountsRepo.fetchAccounts(organization.id);
-        final activeAccounts = accounts.where((a) => a.isActive).toList();
+        final activeAccounts = await _getActivePaymentAccounts();
+
+        if (!context.mounted) {
+          return;
+        }
 
         if (activeAccounts.isEmpty) {
           if (context.mounted) {
@@ -618,6 +676,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           return;
         }
 
+        if (!context.mounted) {
+          return;
+        }
+
         newPayments = result
             .map((p) => {
                   ...p,
@@ -628,7 +690,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             .toList();
         newPaidAmount = newPayments.fold<double>(
           0,
-          (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+          (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
         );
       } catch (e) {
         if (context.mounted) {
@@ -700,7 +762,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
 
     try {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Marking trip as returned...')),
       );
@@ -709,6 +773,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       // Note: Order Credit transaction was already created at DM generation (dispatch)
       for (int i = 0; i < newPayments.length; i++) {
         await createPaymentTransaction(newPayments[i], i);
+      }
+
+      if (!context.mounted) {
+        return;
       }
 
       // For pay_on_delivery: Order Credit transaction was created at DM generation (dispatch)
@@ -742,9 +810,12 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       setState(() {
         _trip['orderStatus'] = 'returned';
         _trip['tripStatus'] = 'returned';
-        if (finalReading != null) _trip['finalReading'] = finalReading;
-        if (distanceTravelled != null)
+        if (finalReading != null) {
+          _trip['finalReading'] = finalReading;
+        }
+        if (distanceTravelled != null) {
           _trip['distanceTravelled'] = distanceTravelled;
+        }
         _trip['returnedAt'] = DateTime.now();
         _trip['returnedBy'] = currentUser.uid;
         _trip['returnedByRole'] = userRole;
@@ -759,7 +830,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         _trip['returnTransactions'] = transactionIds;
       });
 
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -770,7 +843,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         ),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to mark as returned: $e')),
       );
@@ -802,7 +877,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final userRole = orgContext.appAccessRole?.name ?? 'unknown';
 
     try {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Marking trip as delivered...')),
       );
@@ -824,12 +901,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         _trip['deliveredByRole'] = userRole;
       });
 
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Trip marked as delivered')),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to mark as delivered: $e')),
       );
@@ -861,7 +942,13 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
 
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
@@ -874,7 +961,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
 
     try {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reverting delivery...')),
       );
@@ -894,12 +983,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         _trip.remove('deliveredByRole');
       });
 
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Delivery reverted successfully')),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to revert delivery: $e')),
       );
@@ -945,14 +1038,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         [];
     final alreadyPaid = existingPayments.fold<double>(
       0,
-      (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+      (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
     );
 
     // Fetch payment accounts
     try {
-      final accountsRepo = context.read<PaymentAccountsRepository>();
-      final accounts = await accountsRepo.fetchAccounts(organization.id);
-      final activeAccounts = accounts.where((a) => a.isActive).toList();
+      final activeAccounts = await _getActivePaymentAccounts();
+
+      if (!context.mounted) {
+        return;
+      }
 
       if (activeAccounts.isEmpty) {
         if (context.mounted) {
@@ -977,6 +1072,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         return;
       }
 
+      if (!context.mounted) {
+        return;
+      }
+
       final newPayments = result
           .map((p) => {
                 ...p,
@@ -987,7 +1086,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           .toList();
       final newPaidAmount = newPayments.fold<double>(
         0,
-        (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+        (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
       );
 
       final totalPaidAfter = alreadyPaid + newPaidAmount;
@@ -1011,7 +1110,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       Future<void> createPaymentTransaction(
           Map<String, dynamic> payment, int index) async {
         final amount = (payment['amount'] as num?)?.toDouble() ?? 0.0;
-        if (amount <= 0) return;
+        if (amount <= 0) {
+          return;
+        }
 
         final txnId = await transactionsRepo.createTransaction(
           Transaction(
@@ -1044,7 +1145,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       }
 
       try {
-        if (!context.mounted) return;
+        if (!context.mounted) {
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Recording payment...')),
         );
@@ -1052,6 +1155,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         // Create payment transactions
         for (int i = 0; i < newPayments.length; i++) {
           await createPaymentTransaction(newPayments[i], i);
+        }
+
+        if (!context.mounted) {
+          return;
         }
 
         // Update trip with payment info
@@ -1082,12 +1189,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
           }
         });
 
-        if (!context.mounted) return;
+        if (!context.mounted) {
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Payment recorded successfully')),
         );
       } catch (e) {
-        if (!context.mounted) return;
+        if (!context.mounted) {
+          return;
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to record payment: $e')),
         );
@@ -1126,7 +1237,13 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
 
     final tripId = _trip['id'] as String?;
     if (tripId == null) {
@@ -1139,7 +1256,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     }
 
     try {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Reverting return...')),
       );
@@ -1163,6 +1282,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             // continue cancelling others
           }
         }
+      }
+
+      if (!context.mounted) {
+        return;
       }
 
       final repository = context.read<ScheduledTripsRepository>();
@@ -1194,12 +1317,16 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
         _trip.remove('returnTransactions');
       });
 
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Return reverted successfully')),
       );
     } catch (e) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to revert return: $e')),
       );
@@ -1208,7 +1335,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
   Future<void> _callNumber(String? phone, String label) async {
     if (phone == null || phone.isEmpty) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$label phone not available')),
       );
@@ -1218,7 +1347,9 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     } else {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not call $label')),
       );
@@ -1342,16 +1473,16 @@ class _ActionButton extends StatelessWidget {
                 ? null
                 : LinearGradient(
                     colors: [
-                      color.withOpacity(0.2),
-                      color.withOpacity(0.15),
+                      color.withValues(alpha: 0.2),
+                      color.withValues(alpha: 0.15),
                     ],
                   ),
             color: isDisabled ? AuthColors.surface : null,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
             border: Border.all(
               color: isDisabled
-                  ? AuthColors.textMain.withOpacity(0.1)
-                  : color.withOpacity(0.3),
+                  ? AuthColors.textMain.withValues(alpha: 0.1)
+                  : color.withValues(alpha: 0.3),
               width: 1.5,
             ),
           ),
@@ -1388,7 +1519,7 @@ class _ActionButton extends StatelessWidget {
                         style: TextStyle(
                           color: isDisabled
                               ? AuthColors.textSub
-                              : AuthColors.textMain.withOpacity(0.6),
+                              : AuthColors.textMain.withValues(alpha: 0.6),
                           fontSize: 11,
                         ),
                         maxLines: 1,
@@ -1444,7 +1575,7 @@ class _StatusToggleRow extends StatelessWidget {
                 Text(
                   hint!,
                   style: TextStyle(
-                    color: activeColor.withOpacity(0.8),
+                    color: activeColor.withValues(alpha: 0.8),
                     fontSize: 11,
                   ),
                 ),
@@ -1464,7 +1595,9 @@ class _StatusToggleRow extends StatelessWidget {
 
 extension StringExtension on String {
   String capitalizeFirst() {
-    if (isEmpty) return this;
+    if (isEmpty) {
+      return this;
+    }
     return '${this[0].toUpperCase()}${substring(1)}';
   }
 }
@@ -1496,7 +1629,9 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
   Future<void> _loadPaymentAccounts() async {
     final orgContext = context.read<OrganizationContextCubit>().state;
     final organization = orgContext.organization;
-    if (organization == null) return;
+    if (organization == null) {
+      return;
+    }
 
     try {
       setState(() => _isLoading = true);
@@ -1553,7 +1688,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                       labelStyle: const TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
                         borderSide: BorderSide(
-                            color: AuthColors.textMain.withOpacity(0.3)),
+                          color: AuthColors.textMain.withValues(alpha: 0.3)),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusSM),
                       ),
@@ -1592,7 +1727,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                       labelStyle: const TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
                         borderSide: BorderSide(
-                            color: AuthColors.textMain.withOpacity(0.3)),
+                          color: AuthColors.textMain.withValues(alpha: 0.3)),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusSM),
                       ),
@@ -1648,14 +1783,20 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
 
   Future<void> _addPayment(PaymentAccount account, double amount) async {
     final tripId = widget.trip['id'] as String?;
-    if (tripId == null) return;
+    if (tripId == null) {
+      return;
+    }
 
     final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+    if (currentUser == null) {
+      return;
+    }
 
     final orgContext = context.read<OrganizationContextCubit>().state;
     final organization = orgContext.organization;
-    if (organization == null) return;
+    if (organization == null) {
+      return;
+    }
 
     final tripPricing =
         widget.trip['tripPricing'] as Map<String, dynamic>? ?? {};
@@ -1664,9 +1805,9 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
         (widget.trip['paymentDetails'] as List<dynamic>?) ?? [];
     final paidAmount = existingPayments.fold<double>(
       0.0,
-      (sum, payment) {
+      (total, payment) {
         final amount = (payment as Map<String, dynamic>)['amount'] as num?;
-        return sum + (amount?.toDouble() ?? 0.0);
+        return total + (amount?.toDouble() ?? 0.0);
       },
     );
 
@@ -1760,9 +1901,9 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
         (widget.trip['paymentDetails'] as List<dynamic>?) ?? [];
     final paidAmount = existingPayments.fold<double>(
       0.0,
-      (sum, payment) {
+      (total, payment) {
         final amount = (payment as Map<String, dynamic>)['amount'] as num?;
-        return sum + (amount?.toDouble() ?? 0.0);
+        return total + (amount?.toDouble() ?? 0.0);
       },
     );
     final remainingAmount = totalAmount - paidAmount;
@@ -1830,7 +1971,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
         ),
         if (existingPayments.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Divider(color: AuthColors.textMain.withOpacity(0.24), height: 1),
+          Divider(color: AuthColors.textMain.withValues(alpha: 0.24), height: 1),
           const SizedBox(height: AppSpacing.paddingMD),
           ...existingPayments.map((payment) {
             final paymentMap = payment as Map<String, dynamic>;
@@ -1859,7 +2000,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                         Text(
                           accountType,
                           style: TextStyle(
-                            color: AuthColors.textMain.withOpacity(0.6),
+                            color: AuthColors.textMain.withValues(alpha: 0.6),
                             fontSize: 11,
                           ),
                         ),
@@ -1945,12 +2086,12 @@ class _TripHeader extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             AuthColors.surface,
-            AuthColors.surface.withOpacity(0.95),
+            AuthColors.surface.withValues(alpha: 0.95),
           ],
         ),
         border: Border(
           bottom: BorderSide(
-            color: AuthColors.textSub.withOpacity(0.1),
+            color: AuthColors.textSub.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
@@ -2017,13 +2158,13 @@ class _TripHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      statusColor.withOpacity(0.25),
-                      statusColor.withOpacity(0.15),
+                      statusColor.withValues(alpha: 0.25),
+                      statusColor.withValues(alpha: 0.15),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
-                    color: statusColor.withOpacity(0.5),
+                    color: statusColor.withValues(alpha: 0.5),
                     width: 1.5,
                   ),
                 ),
@@ -2090,10 +2231,10 @@ class _InfoPill extends StatelessWidget {
         vertical: AppSpacing.paddingSM,
       ),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -2222,7 +2363,7 @@ class _OverviewTab extends StatelessWidget {
     final totalPaidStored = (trip['totalPaidOnReturn'] as num?)?.toDouble();
     final computedPaid = paymentDetails.fold<double>(
       0,
-      (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+      (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
     );
     final totalPaid = totalPaidStored ?? computedPaid;
     final remainingStored = (trip['remainingAmount'] as num?)?.toDouble();
@@ -2300,7 +2441,7 @@ class _OverviewTab extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.paddingLG),
               Divider(
-                color: AuthColors.textMain.withOpacity(0.1),
+                color: AuthColors.textMain.withValues(alpha: 0.1),
                 height: AppSpacing.paddingMD,
                 thickness: 1,
               ),
@@ -2316,7 +2457,7 @@ class _OverviewTab extends StatelessWidget {
               if (isDispatched || isDelivered || isReturned) ...[
                 const SizedBox(height: AppSpacing.paddingLG),
                 Divider(
-                  color: AuthColors.textMain.withOpacity(0.1),
+                  color: AuthColors.textMain.withValues(alpha: 0.1),
                   height: AppSpacing.paddingMD,
                   thickness: 1,
                 ),
@@ -2333,7 +2474,7 @@ class _OverviewTab extends StatelessWidget {
               if (isDelivered || isReturned) ...[
                 const SizedBox(height: AppSpacing.paddingLG),
                 Divider(
-                  color: AuthColors.textMain.withOpacity(0.1),
+                  color: AuthColors.textMain.withValues(alpha: 0.1),
                   height: AppSpacing.paddingMD,
                   thickness: 1,
                 ),
@@ -2470,7 +2611,7 @@ class _ItemsTab extends StatelessWidget {
                                 Text(
                                   'Qty: $qty',
                                   style: TextStyle(
-                                    color: AuthColors.textMain.withOpacity(0.6),
+                                    color: AuthColors.textMain.withValues(alpha: 0.6),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -2478,7 +2619,7 @@ class _ItemsTab extends StatelessWidget {
                                 Text(
                                   '× ₹${unitPrice.toStringAsFixed(2)}',
                                   style: TextStyle(
-                                    color: AuthColors.textMain.withOpacity(0.6),
+                                    color: AuthColors.textMain.withValues(alpha: 0.6),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -2501,7 +2642,7 @@ class _ItemsTab extends StatelessWidget {
               }),
               const SizedBox(height: AppSpacing.paddingMD),
               Divider(
-                color: AuthColors.textMain.withOpacity(0.1),
+                color: AuthColors.textMain.withValues(alpha: 0.1),
                 height: AppSpacing.paddingLG,
                 thickness: 1,
               ),
@@ -2567,7 +2708,7 @@ class _ItemsTab extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.paddingMD),
               Divider(
-                color: AuthColors.textMain.withOpacity(0.1),
+                color: AuthColors.textMain.withValues(alpha: 0.1),
                 height: AppSpacing.paddingLG,
                 thickness: 1,
               ),
@@ -2679,7 +2820,7 @@ class _PaymentsTab extends StatelessWidget {
     final totalPaidStored = (trip['totalPaidOnReturn'] as num?)?.toDouble();
     final computedPaid = paymentDetails.fold<double>(
       0,
-      (sum, p) => sum + ((p['amount'] as num?)?.toDouble() ?? 0),
+      (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
     );
     final totalPaid = totalPaidStored ?? computedPaid;
     final remainingStored = (trip['remainingAmount'] as num?)?.toDouble();
@@ -2718,7 +2859,7 @@ class _PaymentsTab extends StatelessWidget {
                 child: Text(
                   'Status',
                   style: TextStyle(
-                    color: AuthColors.textMain.withOpacity(0.6),
+                    color: AuthColors.textMain.withValues(alpha: 0.6),
                     fontSize: 13,
                   ),
                 ),
@@ -2731,13 +2872,13 @@ class _PaymentsTab extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      statusColor().withOpacity(0.25),
-                      statusColor().withOpacity(0.15),
+                      statusColor().withValues(alpha: 0.25),
+                      statusColor().withValues(alpha: 0.15),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
                   border: Border.all(
-                    color: statusColor().withOpacity(0.5),
+                    color: statusColor().withValues(alpha: 0.5),
                     width: 1.5,
                   ),
                 ),
@@ -2771,7 +2912,7 @@ class _PaymentsTab extends StatelessWidget {
         if (paymentDetails.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.paddingMD),
           Divider(
-            color: AuthColors.textMain.withOpacity(0.1),
+            color: AuthColors.textMain.withValues(alpha: 0.1),
             height: AppSpacing.paddingLG,
             thickness: 1,
           ),
@@ -2779,7 +2920,7 @@ class _PaymentsTab extends StatelessWidget {
           Text(
             'Payment Entries',
             style: TextStyle(
-              color: AuthColors.textMain.withOpacity(0.6),
+              color: AuthColors.textMain.withValues(alpha: 0.6),
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -2816,7 +2957,7 @@ class _PaymentsTab extends StatelessWidget {
                           Text(
                             type.toUpperCase(),
                             style: TextStyle(
-                              color: AuthColors.textMain.withOpacity(0.6),
+                              color: AuthColors.textMain.withValues(alpha: 0.6),
                               fontSize: 11,
                             ),
                           ),
@@ -2872,8 +3013,8 @@ class _StatCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      color.withOpacity(0.2),
-                      color.withOpacity(0.1),
+                      color.withValues(alpha: 0.2),
+                      color.withValues(alpha: 0.1),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSM),

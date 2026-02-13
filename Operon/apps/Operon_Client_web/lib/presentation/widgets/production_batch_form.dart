@@ -46,6 +46,10 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
   final _bricksStackedController = TextEditingController();
   final _notesController = TextEditingController();
 
+  static final Map<String, List<OrganizationEmployee>> _employeesCache = {};
+  static final Map<String, List<OrganizationProduct>> _productsCache = {};
+  static final Map<String, WageSettings?> _wageSettingsCache = {};
+
   DateTime _batchDate = DateTime.now();
   String? _selectedMethodId;
   String? _selectedProductId;
@@ -96,10 +100,35 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
   Future<void> _loadData() async {
     setState(() => _isLoadingData = true);
     try {
-      final employees = await widget.employeesRepository.fetchEmployees(widget.organizationId);
-      final products = await widget.productsRepository.fetchProducts(widget.organizationId);
-      final settings = await widget.wageSettingsRepository.fetchWageSettings(widget.organizationId);
+      final cachedEmployees = _employeesCache[widget.organizationId];
+      final cachedProducts = _productsCache[widget.organizationId];
+      final cachedSettings = _wageSettingsCache[widget.organizationId];
 
+      final employeesFuture = cachedEmployees != null
+          ? Future.value(cachedEmployees)
+          : widget.employeesRepository.fetchEmployees(widget.organizationId);
+      final productsFuture = cachedProducts != null
+          ? Future.value(cachedProducts)
+          : widget.productsRepository.fetchProducts(widget.organizationId);
+      final settingsFuture = cachedSettings != null
+          ? Future.value(cachedSettings)
+          : widget.wageSettingsRepository.fetchWageSettings(widget.organizationId);
+
+      final results = await Future.wait([
+        employeesFuture,
+        productsFuture,
+        settingsFuture,
+      ]);
+
+      final employees = results[0] as List<OrganizationEmployee>;
+      final products = results[1] as List<OrganizationProduct>;
+      final settings = results[2] as WageSettings?;
+
+      _employeesCache[widget.organizationId] = employees;
+      _productsCache[widget.organizationId] = products;
+      _wageSettingsCache[widget.organizationId] = settings;
+
+      if (!mounted) return;
       setState(() {
         _employees = employees;
         _products = products.where((p) => p.status == ProductStatus.active).toList();
@@ -327,7 +356,7 @@ class _ProductionBatchFormState extends State<ProductionBatchForm> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AuthColors.transparent,
       insetPadding: const EdgeInsets.all(20),
       child: Container(
         width: 750,

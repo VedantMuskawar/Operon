@@ -86,10 +86,11 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
     
     // Subscribe to fuel purchases
     _purchasesSubscription = FirebaseFirestore.instance
-        .collection('TRANSACTIONS')
-        .where('organizationId', isEqualTo: orgId)
-        .where('ledgerType', isEqualTo: 'vendorLedger')
-        .where('category', isEqualTo: 'vendorPurchase')
+      .collection('TRANSACTIONS')
+      .where('organizationId', isEqualTo: orgId)
+      .where('ledgerType', isEqualTo: 'vendorLedger')
+      .where('category', isEqualTo: 'vendorPurchase')
+      .where('metadata.purchaseType', isEqualTo: 'fuel')
         .orderBy('createdAt', descending: true)
         .limit(200)
         .snapshots()
@@ -97,22 +98,28 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
           (snapshot) {
             final purchases = snapshot.docs
                 .map((doc) => Transaction.fromJson(doc.data(), doc.id))
-                .where((tx) {
-                  // Filter for fuel purchases
-                  final metadata = tx.metadata;
-                  return metadata != null && (metadata['purchaseType'] as String?) == 'fuel';
-                })
                 .toList();
+
+            final vendorNamesFromTransactions = <String, String>{};
+            for (final purchase in purchases) {
+              final vendorId = purchase.vendorId;
+              if (vendorId == null || vendorId.isEmpty) continue;
+              final vendorName = purchase.vendorName ??
+                  (purchase.metadata?['vendorName'] as String?);
+              if (vendorName != null && vendorName.trim().isNotEmpty) {
+                vendorNamesFromTransactions[vendorId] = vendorName.trim();
+              }
+            }
             
             if (mounted) {
               setState(() {
                 _fuelPurchases = purchases;
                 _isLoading = false;
                 _isInitialLoad = false;
+                if (vendorNamesFromTransactions.isNotEmpty) {
+                  _vendorNames.addAll(vendorNamesFromTransactions);
+                }
               });
-              
-              // Fetch vendor names for new purchases
-              _fetchVendorNames();
             }
           },
           onError: (error) {
@@ -143,10 +150,22 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                 return sum + balance;
               },
             );
+
+            final vendorNames = <String, String>{};
+            for (final doc in snapshot.docs) {
+              final data = doc.data();
+              final name = data['name'] as String?;
+              if (name != null && name.trim().isNotEmpty) {
+                vendorNames[doc.id] = name.trim();
+              }
+            }
             
             if (mounted) {
               setState(() {
                 _totalFuelVendorBalance = totalBalance;
+                if (vendorNames.isNotEmpty) {
+                  _vendorNames.addAll(vendorNames);
+                }
               });
             }
           },
@@ -162,37 +181,18 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
   }
 
 
-  Future<void> _fetchVendorNames() async {
-    final vendorIds = _fuelPurchases
-        .where((tx) => tx.vendorId != null && !_vendorNames.containsKey(tx.vendorId))
-        .map((tx) => tx.vendorId!)
-        .toSet();
-
-    if (vendorIds.isEmpty) return;
-
-    try {
-      final vendorDocs = await Future.wait(
-        vendorIds.map((id) => FirebaseFirestore.instance
-            .collection('VENDORS')
-            .doc(id)
-            .get()),
-      );
-
-      final newVendorNames = <String, String>{};
-      for (final doc in vendorDocs) {
-        if (doc.exists) {
-          final data = doc.data();
-          final name = data?['name'] as String? ?? 'Unknown Vendor';
-          newVendorNames[doc.id] = name;
-        }
-      }
-
-      setState(() {
-        _vendorNames.addAll(newVendorNames);
-      });
-    } catch (e) {
-      // Silently fail
+  String _getVendorDisplayName(Transaction purchase) {
+    final vendorName = purchase.vendorName ??
+        (purchase.metadata?['vendorName'] as String?);
+    if (vendorName != null && vendorName.trim().isNotEmpty) {
+      return vendorName.trim();
     }
+    final vendorId = purchase.vendorId ?? '';
+    final cached = _vendorNames[vendorId];
+    if (cached != null && cached.trim().isNotEmpty) {
+      return cached.trim();
+    }
+    return 'Unknown Vendor';
   }
 
   List<Transaction> _applyFiltersAndSort(List<Transaction> purchases) {
@@ -205,7 +205,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
         final metadata = p.metadata;
         final vehicleNumber = (metadata?['vehicleNumber'] as String?)?.toLowerCase() ?? '';
         final voucherNumber = (metadata?['voucherNumber'] as String?)?.toLowerCase() ?? '';
-        final vendorName = (_vendorNames[p.vendorId ?? ''] ?? '').toLowerCase();
+        final vendorName = _getVendorDisplayName(p).toLowerCase();
         return vehicleNumber.contains(queryLower) ||
             voucherNumber.contains(queryLower) ||
             vendorName.contains(queryLower);
@@ -631,7 +631,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                       purchases: _getPaginatedData(filtered),
                       formatCurrency: _formatCurrency,
                       formatDate: _formatDate,
-                      vendorNames: _vendorNames,
+                      getVendorName: _getVendorDisplayName,
                       getLinkedTripsCount: _getLinkedTripsCount,
                       onLinkTrips: _showLinkTripsDialog,
                       onDelete: _showDeleteConfirmationDialog,
@@ -1007,7 +1007,7 @@ class _FuelPurchaseTable extends StatelessWidget {
     required this.purchases,
     required this.formatCurrency,
     required this.formatDate,
-    required this.vendorNames,
+    required this.getVendorName,
     required this.getLinkedTripsCount,
     required this.onLinkTrips,
     required this.onDelete,
@@ -1016,7 +1016,7 @@ class _FuelPurchaseTable extends StatelessWidget {
   final List<Transaction> purchases;
   final String Function(double) formatCurrency;
   final String Function(DateTime) formatDate;
-  final Map<String, String> vendorNames;
+  final String Function(Transaction) getVendorName;
   final int Function(Transaction) getLinkedTripsCount;
   final void Function(Transaction) onLinkTrips;
   final void Function(Transaction) onDelete;
@@ -1048,7 +1048,7 @@ class _FuelPurchaseTable extends StatelessWidget {
           flex: 3,
           alignment: Alignment.center,
           cellBuilder: (context, purchase, index) {
-              final vendorName = vendorNames[purchase.vendorId ?? ''] ?? 'Unknown Vendor';
+              final vendorName = getVendorName(purchase);
               return Text(
                 vendorName,
                 style: const TextStyle(

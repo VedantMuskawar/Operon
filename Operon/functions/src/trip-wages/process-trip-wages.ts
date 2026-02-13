@@ -1,4 +1,4 @@
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import {
@@ -42,7 +42,7 @@ export const processTripWages = onCall(
         console.log('[DEBUG] processTripWages VALIDATION_FAILED', JSON.stringify({location:'process-trip-wages.ts:141',message:'Validation failed - missing parameters',data:{hasTripWageId:!!tripWageId,hasPaymentDate:!!paymentDate,hasCreatedBy:!!createdBy},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A,C'}));
         fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'process-trip-wages.ts:141',message:'Validation failed - missing parameters',data:{hasTripWageId:!!tripWageId,hasPaymentDate:!!paymentDate,hasCreatedBy:!!createdBy},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A,C'})}).catch(()=>{});
         // #endregion
-        throw new Error('Missing required parameters: tripWageId, paymentDate, createdBy');
+        throw new HttpsError('invalid-argument', 'Missing required parameters: tripWageId, paymentDate, createdBy');
       }
 
       try {
@@ -60,7 +60,7 @@ export const processTripWages = onCall(
             console.log('[DEBUG] processTripWages INVALID_DATE_FORMAT', JSON.stringify({location:'process-trip-wages.ts:151',message:'Invalid paymentDate string format',data:{paymentDate},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'}));
             fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'process-trip-wages.ts:151',message:'Invalid paymentDate string format',data:{paymentDate},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
             // #endregion
-            throw new Error('Invalid paymentDate string format');
+            throw new HttpsError('invalid-argument', 'Invalid paymentDate string format');
           }
         } else if (paymentDate?.toDate && typeof paymentDate.toDate === 'function') {
           parsedPaymentDate = paymentDate.toDate();
@@ -73,7 +73,7 @@ export const processTripWages = onCall(
           console.log('[DEBUG] processTripWages UNKNOWN_DATE_FORMAT', JSON.stringify({location:'process-trip-wages.ts:161',message:'Unknown paymentDate format',data:{paymentDate:JSON.stringify(paymentDate)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'}));
           fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'process-trip-wages.ts:161',message:'Unknown paymentDate format',data:{paymentDate:JSON.stringify(paymentDate)},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'})}).catch(()=>{});
           // #endregion
-          throw new Error(`Invalid paymentDate format: ${JSON.stringify(paymentDate)}`);
+          throw new HttpsError('invalid-argument', `Invalid paymentDate format: ${JSON.stringify(paymentDate)}`);
         }
         // #region agent log
         console.log('[DEBUG] processTripWages AFTER_PARSE_DATE', JSON.stringify({location:'process-trip-wages.ts:164',message:'After parsing paymentDate',data:{parsedPaymentDate:parsedPaymentDate.toISOString()},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'C'}));
@@ -93,7 +93,7 @@ export const processTripWages = onCall(
         console.log('[DEBUG] processTripWages DOC_NOT_FOUND', JSON.stringify({location:'process-trip-wages.ts:171',message:'Trip wage document not found',data:{tripWageId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A,B'}));
         fetch('http://127.0.0.1:7243/ingest/0f2c904c-02d4-456a-9593-57a451fc7c6a',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'process-trip-wages.ts:171',message:'Trip wage document not found',data:{tripWageId},timestamp:Date.now(),sessionId:'debug-session',runId:'initial',hypothesisId:'A,B'})}).catch(()=>{});
         // #endregion
-        throw new Error(`Trip wage not found: ${tripWageId}`);
+        throw new HttpsError('not-found', `Trip wage not found: ${tripWageId}`);
       }
 
       const tripWageData = tripWageDoc.data()!;
@@ -115,13 +115,13 @@ export const processTripWages = onCall(
 
       // Validate required fields
       if (!organizationId) {
-        throw new Error('Trip wage is missing organizationId');
+        throw new HttpsError('invalid-argument', 'Trip wage is missing organizationId');
       }
       if (!dmId) {
-        throw new Error('Trip wage is missing dmId');
+        throw new HttpsError('invalid-argument', 'Trip wage is missing dmId');
       }
       if (loadingEmployeeIds.length === 0 && unloadingEmployeeIds.length === 0) {
-        throw new Error('Trip wage must have at least one employee (loading or unloading)');
+        throw new HttpsError('invalid-argument', 'Trip wage must have at least one employee (loading or unloading)');
       }
 
       if (
@@ -141,7 +141,7 @@ export const processTripWages = onCall(
       }
 
       if (status === 'processed') {
-        throw new Error('Trip wage has already been processed');
+        throw new HttpsError('failed-precondition', 'Trip wage has already been processed');
       }
 
       // Get scheduled date and vehicle number from DM or use payment date as fallback
@@ -479,7 +479,10 @@ export const processTripWages = onCall(
         { tripWageId },
       );
 
-      throw error;
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      throw new HttpsError('internal', error instanceof Error ? error.message : String(error));
     }
   },
 );

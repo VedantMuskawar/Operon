@@ -1,4 +1,4 @@
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 import {
@@ -28,8 +28,8 @@ export const revertTripWages = onCall(
     });
 
     // Validate input
-    if (!tripWageId) {
-      throw new Error('Missing required parameter: tripWageId');
+    if (!tripWageId || tripWageId.trim().length === 0) {
+      throw new HttpsError('invalid-argument', 'Missing or empty required parameter: tripWageId');
     }
 
     try {
@@ -38,7 +38,7 @@ export const revertTripWages = onCall(
       const tripWageDoc = await tripWageRef.get();
 
       if (!tripWageDoc.exists) {
-        throw new Error(`Trip wage not found: ${tripWageId}`);
+        throw new HttpsError('not-found', `Trip wage not found: ${tripWageId}`);
       }
 
       const tripWageData = tripWageDoc.data()!;
@@ -237,6 +237,9 @@ export const revertTripWages = onCall(
         totalEmployeeCount: allEmployeeIds.length,
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : '';
+      
       logError(
         'TripWages',
         'revertTripWages',
@@ -245,7 +248,27 @@ export const revertTripWages = onCall(
         { tripWageId },
       );
 
-      throw error;
+      console.error('[revertTripWages] Full error details:', {
+        errorMessage,
+        errorStack,
+        errorCode: (error as any)?.code,
+        errorType: error?.constructor?.name,
+        tripWageId,
+      });
+
+      if (error instanceof HttpsError) {
+        throw error;
+      }
+      
+      // Check for specific Firebase error codes
+      if ((error as any)?.code === 'permission-denied') {
+        throw new HttpsError('permission-denied', 'You do not have permission to revert this trip wage');
+      }
+      if ((error as any)?.code === 'not-found') {
+        throw new HttpsError('not-found', 'Trip wage document not found');
+      }
+      
+      throw new HttpsError('internal', errorMessage);
     }
   },
 );

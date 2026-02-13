@@ -105,10 +105,12 @@ class _SalaryVoucherPageState extends State<SalaryVoucherPage> {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: AppSpacing.paddingLG),
-                          OutlinedButton(
+                          FilledButton(
                             onPressed: () => context.go('/financial-transactions'),
-                            style: OutlinedButton.styleFrom(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.transparent,
                               foregroundColor: AuthColors.primary,
+                              shadowColor: Colors.transparent,
                               side: const BorderSide(color: AuthColors.primary),
                             ),
                             child: const Text('Back'),

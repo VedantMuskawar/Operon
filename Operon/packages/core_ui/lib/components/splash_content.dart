@@ -76,9 +76,9 @@ class SplashContent extends StatelessWidget {
             SizedBox(
               width: 200,
               height: 50,
-              child: ElevatedButton(
+              child: FilledButton(
                 onPressed: onRetry,
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AuthColors.primary,
                   foregroundColor: Colors.white,
                   elevation: 0,
