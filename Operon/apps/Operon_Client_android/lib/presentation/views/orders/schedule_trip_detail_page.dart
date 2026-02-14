@@ -22,6 +22,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+DateTime _resolveDeliveryDate(Map<String, dynamic> trip) {
+  DateTime? resolved;
+
+  final deliveredAt = trip['deliveredAt'];
+  if (deliveredAt is DateTime) {
+    resolved = deliveredAt;
+  } else if (deliveredAt is Timestamp) {
+    resolved = deliveredAt.toDate();
+  }
+
+  if (resolved == null) {
+    final scheduledDate = trip['scheduledDate'];
+    if (scheduledDate is DateTime) {
+      resolved = scheduledDate;
+    } else if (scheduledDate is Timestamp) {
+      resolved = scheduledDate.toDate();
+    }
+  }
+
+  return resolved ?? DateTime.now();
+}
+
 class ScheduleTripDetailPage extends StatefulWidget {
   const ScheduleTripDetailPage({
     super.key,
@@ -40,6 +62,74 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
   StreamSubscription<DocumentSnapshot>? _tripSubscription;
   List<PaymentAccount>? _cachedPaymentAccounts;
   String? _cachedPaymentAccountsOrgId;
+
+  Future<void> _updatePaymentType(String paymentType) async {
+    final tripId = _trip['id'] as String?;
+    if (tripId == null) {
+      return;
+    }
+
+    final tripStatus =
+        (_trip['tripStatus'] ?? _trip['orderStatus'])?.toString().toLowerCase();
+    if (tripStatus == 'returned') {
+      return;
+    }
+
+    final orgContext = context.read<OrganizationContextCubit>().state;
+    final organization = orgContext.organization;
+    if (organization == null) {
+      return;
+    }
+
+    final dmId = _trip['dmId'] as String?;
+    final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('SCHEDULE_TRIPS')
+          .doc(tripId)
+          .update({
+        'paymentType': paymentType,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (dmId != null && dmId.isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('DELIVERY_MEMOS')
+            .doc(dmId)
+            .update({
+          'paymentType': paymentType,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else if (dmNumber != null) {
+        final dmSnapshot = await FirebaseFirestore.instance
+            .collection('DELIVERY_MEMOS')
+            .where('organizationId', isEqualTo: organization.id)
+            .where('dmNumber', isEqualTo: dmNumber)
+            .limit(1)
+            .get();
+
+        if (dmSnapshot.docs.isNotEmpty) {
+          await dmSnapshot.docs.first.reference.update({
+            'paymentType': paymentType,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _trip['paymentType'] = paymentType;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update payment type: $e')),
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -366,6 +456,10 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
                       children: [
                         _OverviewTab(
                           trip: _trip,
+                          paymentType: _trip['paymentType'] as String?,
+                          isPaymentTypeLocked:
+                              tripStatus.toLowerCase() == 'returned',
+                          onPaymentTypeChanged: _updatePaymentType,
                           formatDate: _formatDate,
                           tripStatus: tripStatus,
                           statusColor: statusColor,
@@ -633,6 +727,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
     final paymentType = (_trip['paymentType'] as String?)?.toLowerCase() ?? '';
     final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    final paymentTimestamp = _resolveDeliveryDate(_trip);
     final existingPayments = (_trip['paymentDetails'] as List<dynamic>?)
             ?.cast<Map<String, dynamic>>() ??
         [];
@@ -643,64 +738,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
     List<Map<String, dynamic>> newPayments = [];
     double newPaidAmount = 0;
-
-    // If pay_on_delivery, collect payment entries
-    if (paymentType == 'pay_on_delivery') {
-      try {
-        final activeAccounts = await _getActivePaymentAccounts();
-
-        if (!context.mounted) {
-          return;
-        }
-
-        if (activeAccounts.isEmpty) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No active payment accounts found')),
-            );
-          }
-          return;
-        }
-
-        final result = await showDialog<List<Map<String, dynamic>>>(
-          context: context,
-          builder: (ctx) => ReturnPaymentDialog(
-            paymentAccounts: activeAccounts,
-            tripTotal: tripTotal,
-            alreadyPaid: alreadyPaid,
-          ),
-        );
-
-        if (result == null) {
-          // User cancelled payment entry
-          return;
-        }
-
-        if (!context.mounted) {
-          return;
-        }
-
-        newPayments = result
-            .map((p) => {
-                  ...p,
-                  'paidAt': DateTime.now(),
-                  'paidBy': currentUser.uid,
-                  'returnPayment': true,
-                })
-            .toList();
-        newPaidAmount = newPayments.fold<double>(
-          0,
-          (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
-        );
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to load payment accounts: $e')),
-          );
-        }
-        return;
-      }
-    }
+    // No payment dialog on return. Payments must be recorded manually.
 
     final totalPaidAfter = alreadyPaid + newPaidAmount;
     final double remainingAmount =
@@ -713,7 +751,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
     // Create transactions for new payments and optional credit
     final transactionsRepo = context.read<TransactionsRepository>();
-    final financialYear = FinancialYearUtils.getFinancialYear(DateTime.now());
+    final financialYear = FinancialYearUtils.getFinancialYear(paymentTimestamp);
     final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
     final dmText = dmNumber != null ? 'DM-$dmNumber' : 'Order Payment';
     final clientId = _trip['clientId'] as String? ?? '';
@@ -753,8 +791,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
             'returnPayment': true,
           },
           createdBy: currentUser.uid,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+          createdAt: paymentTimestamp,
+          updatedAt: paymentTimestamp,
           financialYear: financialYear,
         ),
       );
@@ -1033,6 +1071,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
     final tripPricing = _trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final tripTotal = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    final paymentTimestamp = _resolveDeliveryDate(_trip);
     final existingPayments = (_trip['paymentDetails'] as List<dynamic>?)
             ?.cast<Map<String, dynamic>>() ??
         [];
@@ -1079,7 +1118,7 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
       final newPayments = result
           .map((p) => {
                 ...p,
-                'paidAt': DateTime.now(),
+                'paidAt': paymentTimestamp,
                 'paidBy': currentUser.uid,
                 'manualPayment': true,
               })
@@ -1100,7 +1139,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
 
       // Create payment transactions
       final transactionsRepo = context.read<TransactionsRepository>();
-      final financialYear = FinancialYearUtils.getFinancialYear(DateTime.now());
+      final financialYear =
+          FinancialYearUtils.getFinancialYear(paymentTimestamp);
       final clientId = _trip['clientId'] as String?;
       final clientName = _trip['clientName'] as String?;
       final dmNumber = (_trip['dmNumber'] as num?)?.toInt();
@@ -1136,8 +1176,8 @@ class _ScheduleTripDetailPageState extends State<ScheduleTripDetailPage> {
               'manualPayment': true,
             },
             createdBy: currentUser.uid,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
+            createdAt: paymentTimestamp,
+            updatedAt: paymentTimestamp,
             financialYear: financialYear,
           ),
         );
@@ -1688,7 +1728,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                       labelStyle: const TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
                         borderSide: BorderSide(
-                          color: AuthColors.textMain.withValues(alpha: 0.3)),
+                            color: AuthColors.textMain.withValues(alpha: 0.3)),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusSM),
                       ),
@@ -1727,7 +1767,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
                       labelStyle: const TextStyle(color: AuthColors.textSub),
                       enabledBorder: OutlineInputBorder(
                         borderSide: BorderSide(
-                          color: AuthColors.textMain.withValues(alpha: 0.3)),
+                            color: AuthColors.textMain.withValues(alpha: 0.3)),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusSM),
                       ),
@@ -1801,6 +1841,7 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
     final tripPricing =
         widget.trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final totalAmount = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
+    final paymentTimestamp = _resolveDeliveryDate(widget.trip);
     final existingPayments =
         (widget.trip['paymentDetails'] as List<dynamic>?) ?? [];
     final paidAmount = existingPayments.fold<double>(
@@ -1830,13 +1871,14 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
         'paymentAccountName': account.name,
         'paymentAccountType': account.type.name,
         'amount': amount,
-        'paidAt': DateTime.now(),
+        'paidAt': paymentTimestamp,
         'paidBy': currentUser.uid,
       };
 
       // Create transaction
       final transactionsRepo = context.read<TransactionsRepository>();
-      final financialYear = FinancialYearUtils.getFinancialYear(DateTime.now());
+      final financialYear =
+          FinancialYearUtils.getFinancialYear(paymentTimestamp);
       final clientId = widget.trip['clientId'] as String? ?? '';
       final clientName = widget.trip['clientName'] as String?;
       final dmNumber = (widget.trip['dmNumber'] as num?)?.toInt();
@@ -1855,8 +1897,8 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
               TransactionCategory.tripPayment, // Payment collected on delivery
           amount: amount,
           createdBy: currentUser.uid,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+          createdAt: paymentTimestamp,
+          updatedAt: paymentTimestamp,
           financialYear: financialYear,
           paymentAccountId: account.id,
           paymentAccountType: account.type.name,
@@ -1971,7 +2013,8 @@ class _PaymentDetailsSectionState extends State<_PaymentDetailsSection> {
         ),
         if (existingPayments.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Divider(color: AuthColors.textMain.withValues(alpha: 0.24), height: 1),
+          Divider(
+              color: AuthColors.textMain.withValues(alpha: 0.24), height: 1),
           const SizedBox(height: AppSpacing.paddingMD),
           ...existingPayments.map((payment) {
             final paymentMap = payment as Map<String, dynamic>;
@@ -2323,6 +2366,9 @@ class _TabButton extends StatelessWidget {
 class _OverviewTab extends StatelessWidget {
   const _OverviewTab({
     required this.trip,
+    required this.paymentType,
+    required this.isPaymentTypeLocked,
+    required this.onPaymentTypeChanged,
     required this.formatDate,
     required this.tripStatus,
     required this.statusColor,
@@ -2337,6 +2383,9 @@ class _OverviewTab extends StatelessWidget {
   });
 
   final Map<String, dynamic> trip;
+  final String? paymentType;
+  final bool isPaymentTypeLocked;
+  final ValueChanged<String> onPaymentTypeChanged;
   final String Function(dynamic) formatDate;
   final String tripStatus;
   final Color statusColor;
@@ -2356,24 +2405,7 @@ class _OverviewTab extends StatelessWidget {
         trip['clientPhone'] as String? ?? trip['customerNumber'] as String?;
     final tripPricing = trip['tripPricing'] as Map<String, dynamic>? ?? {};
     final totalAmount = (tripPricing['total'] as num?)?.toDouble() ?? 0.0;
-    final paymentType = (trip['paymentType'] as String?)?.toLowerCase() ?? '';
-    final paymentDetails = (trip['paymentDetails'] as List<dynamic>?)
-            ?.cast<Map<String, dynamic>>() ??
-        [];
-    final totalPaidStored = (trip['totalPaidOnReturn'] as num?)?.toDouble();
-    final computedPaid = paymentDetails.fold<double>(
-      0,
-      (total, p) => total + ((p['amount'] as num?)?.toDouble() ?? 0),
-    );
-    final totalPaid = totalPaidStored ?? computedPaid;
-    final remainingStored = (trip['remainingAmount'] as num?)?.toDouble();
-    final remaining = remainingStored ?? (totalAmount - totalPaid);
-    final status = (trip['paymentStatus'] as String?) ??
-        (remaining <= 0.001
-            ? 'full'
-            : totalPaid > 0
-                ? 'partial'
-                : 'pending');
+    final paymentTypeValue = (paymentType ?? '').toLowerCase();
 
     final isDispatched = tripStatus.toLowerCase() == 'dispatched';
     final isDelivered = tripStatus.toLowerCase() == 'delivered';
@@ -2381,6 +2413,9 @@ class _OverviewTab extends StatelessWidget {
     final isPending = tripStatus.toLowerCase() == 'pending' ||
         tripStatus.toLowerCase() == 'scheduled';
     final hasDM = dmNumber != null;
+    final canRecordPayment = isReturned;
+    final canEditPaymentType = !isPaymentTypeLocked;
+    final showPaymentSection = paymentTypeValue.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.paddingLG),
@@ -2489,12 +2524,57 @@ class _OverviewTab extends StatelessWidget {
               ],
             ],
           ),
-          if (paymentType.isNotEmpty && status.toLowerCase() == 'pending') ...[
+          if (showPaymentSection) ...[
+            const SizedBox(height: AppSpacing.paddingMD),
+            Opacity(
+              opacity: canEditPaymentType ? 1.0 : 0.6,
+              child: IgnorePointer(
+                ignoring: !canEditPaymentType,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Payment Type',
+                      style: TextStyle(
+                        color: AuthColors.textSub,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.paddingSM),
+                    Wrap(
+                      spacing: AppSpacing.paddingSM,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Pay Later'),
+                          selected: paymentTypeValue == 'pay_later',
+                          onSelected: (selected) {
+                            if (selected) {
+                              onPaymentTypeChanged('pay_later');
+                            }
+                          },
+                        ),
+                        ChoiceChip(
+                          label: const Text('Pay On Delivery'),
+                          selected: paymentTypeValue == 'pay_on_delivery',
+                          onSelected: (selected) {
+                            if (selected) {
+                              onPaymentTypeChanged('pay_on_delivery');
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: AppSpacing.paddingMD),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () => onRecordPayment(context),
+                onPressed:
+                    canRecordPayment ? () => onRecordPayment(context) : null,
                 icon: const Icon(Icons.payment, size: 18),
                 label: const Text('Record Payment'),
                 style: FilledButton.styleFrom(
@@ -2611,7 +2691,8 @@ class _ItemsTab extends StatelessWidget {
                                 Text(
                                   'Qty: $qty',
                                   style: TextStyle(
-                                    color: AuthColors.textMain.withValues(alpha: 0.6),
+                                    color: AuthColors.textMain
+                                        .withValues(alpha: 0.6),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -2619,7 +2700,8 @@ class _ItemsTab extends StatelessWidget {
                                 Text(
                                   '× ₹${unitPrice.toStringAsFixed(2)}',
                                   style: TextStyle(
-                                    color: AuthColors.textMain.withValues(alpha: 0.6),
+                                    color: AuthColors.textMain
+                                        .withValues(alpha: 0.6),
                                     fontSize: 12,
                                   ),
                                 ),

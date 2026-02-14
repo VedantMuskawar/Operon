@@ -7,8 +7,8 @@ class ProductsState extends BaseState {
   const ProductsState({
     super.status = ViewStatus.initial,
     this.products = const [],
-    String? message,
-  }) : super(message: message);
+    super.message,
+  });
 
   final List<OrganizationProduct> products;
   @override
@@ -104,4 +104,3 @@ class ProductsCubit extends Cubit<ProductsState> {
     }
   }
 }
-

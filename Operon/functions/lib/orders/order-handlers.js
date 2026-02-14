@@ -42,6 +42,15 @@ const firestore_helpers_1 = require("../shared/firestore-helpers");
 const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
 const SCHEDULE_TRIPS_COLLECTION = 'SCHEDULE_TRIPS';
+function computeHasAvailableTrips(items) {
+    return items.some((item) => {
+        if (!item || typeof item !== 'object')
+            return false;
+        const estimatedTrips = Math.max(0, Math.floor(Number(item.estimatedTrips)) || 0);
+        const scheduledTrips = Math.max(0, Math.floor(Number(item.scheduledTrips)) || 0);
+        return estimatedTrips > scheduledTrips;
+    });
+}
 /**
  * Helper function to mark trips with orderDeleted flag when order is deleted
  * This is for audit purposes only - trips remain independent and functional
@@ -362,6 +371,18 @@ exports.onPendingOrderCreated = (0, firestore_1.onDocumentCreated)(Object.assign
     const orderId = event.params.orderId;
     const orderData = snapshot.data();
     const organizationId = orderData.organizationId;
+    const initUpdates = {};
+    const existingStatus = orderData.status || '';
+    if (!existingStatus) {
+        initUpdates.status = 'pending';
+    }
+    if (orderData.hasAvailableTrips === undefined) {
+        const items = orderData.items || [];
+        initUpdates.hasAvailableTrips = computeHasAvailableTrips(items);
+    }
+    if (Object.keys(initUpdates).length > 0) {
+        await snapshot.ref.update(Object.assign(Object.assign({}, initUpdates), { updatedAt: admin.firestore.FieldValue.serverTimestamp() }));
+    }
     // Idempotency: skip if advance transaction already created for this order
     const existingAdvance = await db
         .collection(constants_1.TRANSACTIONS_COLLECTION)

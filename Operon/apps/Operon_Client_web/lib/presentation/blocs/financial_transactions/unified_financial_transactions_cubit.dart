@@ -50,12 +50,14 @@ class UnifiedFinancialTransactionsCubit
       );
 
       final transactions = data['transactions'] ?? [];
+      final orders = data['orders'] ?? [];
       final purchases = data['purchases'] ?? [];
       final expenses = data['expenses'] ?? [];
 
       // Enrich transactions with vendor names
       final enriched = await _enrichWithVendorNames(
         transactions,
+        orders,
         purchases,
         expenses,
       );
@@ -63,6 +65,7 @@ class UnifiedFinancialTransactionsCubit
       emit(state.copyWith(
         status: ViewStatus.success,
         transactions: enriched['transactions']!,
+        orders: enriched['orders']!,
         purchases: enriched['purchases']!,
         expenses: enriched['expenses']!,
         financialYear: fy,
@@ -111,13 +114,14 @@ class UnifiedFinancialTransactionsCubit
   /// Enrich transactions with vendor names from vendorId
   Future<Map<String, List<Transaction>>> _enrichWithVendorNames(
     List<Transaction> transactions,
+    List<Transaction> orders,
     List<Transaction> purchases,
     List<Transaction> expenses,
   ) async {
     try {
       // Collect all unique vendor IDs
       final vendorIds = <String>{};
-      for (final tx in [...transactions, ...purchases, ...expenses]) {
+      for (final tx in [...transactions, ...orders, ...purchases, ...expenses]) {
         if (tx.vendorId != null && tx.vendorId!.isNotEmpty) {
           final hasVendorName =
               (tx.metadata?['vendorName'] as String?)?.trim().isNotEmpty == true;
@@ -141,6 +145,7 @@ class UnifiedFinancialTransactionsCubit
       if (_vendorNameCache.isEmpty) {
         return {
           'transactions': transactions,
+          'orders': orders,
           'purchases': purchases,
           'expenses': expenses,
         };
@@ -148,6 +153,17 @@ class UnifiedFinancialTransactionsCubit
 
       // Enrich transactions by updating metadata (create new transaction objects with enriched metadata)
       final enrichedTransactions = transactions.map((tx) {
+        if (tx.vendorId != null && _vendorNameCache.containsKey(tx.vendorId)) {
+          final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
+          if (!metadata.containsKey('vendorName')) {
+            metadata['vendorName'] = _vendorNameCache[tx.vendorId];
+            return tx.copyWith(metadata: metadata);
+          }
+        }
+        return tx;
+      }).toList();
+
+      final enrichedOrders = orders.map((tx) {
         if (tx.vendorId != null && _vendorNameCache.containsKey(tx.vendorId)) {
           final metadata = Map<String, dynamic>.from(tx.metadata ?? {});
           if (!metadata.containsKey('vendorName')) {
@@ -182,6 +198,7 @@ class UnifiedFinancialTransactionsCubit
 
       return {
         'transactions': enrichedTransactions,
+        'orders': enrichedOrders,
         'purchases': enrichedPurchases,
         'expenses': enrichedExpenses,
       };
@@ -190,6 +207,7 @@ class UnifiedFinancialTransactionsCubit
       // Transactions will still display with fallback names
       return {
         'transactions': transactions,
+        'orders': orders,
         'purchases': purchases,
         'expenses': expenses,
       };

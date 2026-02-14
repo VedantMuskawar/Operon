@@ -9,8 +9,8 @@ class DmSettingsState extends BaseState {
   const DmSettingsState({
     super.status = ViewStatus.initial,
     this.settings,
-    String? message,
-  }) : super(message: message);
+    super.message,
+  });
 
   final DmSettings? settings;
   @override
@@ -53,7 +53,8 @@ class DmSettingsCubit extends Cubit<DmSettingsState> {
     try {
       debugPrint('[DmSettingsCubit] Fetching settings from repository...');
       final settings = await _repository.fetchDmSettings(_orgId);
-      debugPrint('[DmSettingsCubit] Settings fetched - hasSettings: ${settings != null}');
+      debugPrint(
+          '[DmSettingsCubit] Settings fetched - hasSettings: ${settings != null}');
       emit(state.copyWith(
         status: ViewStatus.success,
         settings: settings,
@@ -72,7 +73,8 @@ class DmSettingsCubit extends Cubit<DmSettingsState> {
     try {
       final extension = fileExtension.toLowerCase();
       if (!['png', 'jpg', 'jpeg'].contains(extension)) {
-        throw Exception('Invalid file format. Only PNG, JPG, and JPEG are supported.');
+        throw Exception(
+            'Invalid file format. Only PNG, JPG, and JPEG are supported.');
       }
 
       final ref = _storage
@@ -138,12 +140,17 @@ class DmSettingsCubit extends Cubit<DmSettingsState> {
       );
 
       final footer = DmFooterSettings(
-        customText: customText?.trim().isEmpty == true ? null : customText?.trim(),
+        customText:
+            customText?.trim().isEmpty == true ? null : customText?.trim(),
       );
 
-      final template = templateType ?? currentSettings?.templateType ?? DmTemplateType.universal;
+      final template = templateType ??
+          currentSettings?.templateType ??
+          DmTemplateType.universal;
       final templateId = template == DmTemplateType.custom
-          ? (customTemplateId?.trim().isEmpty == true ? null : customTemplateId?.trim())
+          ? (customTemplateId?.trim().isEmpty == true
+              ? null
+              : customTemplateId?.trim())
           : null;
 
       final settings = DmSettings(
@@ -152,8 +159,12 @@ class DmSettingsCubit extends Cubit<DmSettingsState> {
         footer: footer,
         updatedAt: DateTime.now(),
         updatedBy: _userId,
-        printOrientation: printOrientation ?? currentSettings?.printOrientation ?? DmPrintOrientation.portrait,
-        paymentDisplay: paymentDisplay ?? currentSettings?.paymentDisplay ?? DmPaymentDisplay.qrCode,
+        printOrientation: printOrientation ??
+            currentSettings?.printOrientation ??
+            DmPrintOrientation.portrait,
+        paymentDisplay: paymentDisplay ??
+            currentSettings?.paymentDisplay ??
+            DmPaymentDisplay.qrCode,
         templateType: template,
         customTemplateId: templateId,
       );

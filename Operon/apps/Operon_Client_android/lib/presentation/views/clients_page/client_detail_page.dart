@@ -78,11 +78,13 @@ class _ClientDetailPageState extends State<ClientDetailPage> {
             Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: AppSpacing.paddingXL),
-              child: _ClientHeader(
-                client: client,
-                phone: _primaryPhone,
-                onEdit: _selectPrimaryContact,
-                onDelete: _confirmDelete,
+              child: RepaintBoundary(
+                child: _ClientHeader(
+                  client: client,
+                  phone: _primaryPhone,
+                  onEdit: _selectPrimaryContact,
+                  onDelete: _confirmDelete,
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.paddingLG),
@@ -810,25 +812,25 @@ class _PendingOrdersSectionState extends State<_PendingOrdersSection> {
                     style: TextStyle(color: AuthColors.textSub),
                   ),
                 )
-              : SingleChildScrollView(
+              : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: Column(
-                    children: [
-                      ..._orders.map((order) => Padding(
-                            padding: const EdgeInsets.only(
-                                bottom: AppSpacing.paddingMD),
-                            child: OrderTile(
-                              order: order,
-                              onTripsUpdated: () {
-                                // Refresh is handled by stream
-                              },
-                              onDeleted: () {
-                                // Refresh is handled by stream
-                              },
-                            ),
-                          )),
-                    ],
-                  ),
+                  itemCount: _orders.length,
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.paddingMD),
+                  itemBuilder: (context, index) {
+                    final order = _orders[index];
+                    return RepaintBoundary(
+                      child: OrderTile(
+                        order: order,
+                        onTripsUpdated: () {
+                          // Refresh is handled by stream
+                        },
+                        onDeleted: () {
+                          // Refresh is handled by stream
+                        },
+                      ),
+                    );
+                  },
                 ),
     );
   }
@@ -1088,65 +1090,67 @@ class _ClientDMsSection extends StatelessWidget {
             final total = tripPricing != null
                 ? (tripPricing['total'] as num?)?.toDouble() ?? 0.0
                 : 0.0;
-            return Card(
-              margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
-              color: AuthColors.backgroundAlt,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-                side: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.paddingLG,
-                    vertical: AppSpacing.paddingSM),
-                title: Row(
-                  children: [
-                    Text(
-                      dmNumber != null ? 'DM-$dmNumber' : 'DM',
-                      style: const TextStyle(
-                        color: AuthColors.textMain,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.print_outlined),
-                      onPressed: () => _openPrintDialog(context, org.id, dm),
-                      tooltip: 'Print DM',
-                      style: IconButton.styleFrom(
-                          foregroundColor: AuthColors.textSub),
-                    ),
-                  ],
+            return RepaintBoundary(
+              child: Card(
+                margin: const EdgeInsets.only(bottom: AppSpacing.paddingMD),
+                color: AuthColors.backgroundAlt,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                  side: BorderSide(color: AuthColors.textMainWithOpacity(0.1)),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: AppSpacing.paddingXS),
-                    Text(
-                      clientName,
-                      style: AppTypography.withColor(AppTypography.body,
-                          AuthColors.textMainWithOpacity(0.8)),
-                    ),
-                    Text(
-                      '${_formatDate(scheduledDate)} · $vehicleNumber',
-                      style: AppTypography.withColor(
-                          AppTypography.labelSmall, AuthColors.textSub),
-                    ),
-                    if (total > 0)
-                      Padding(
-                        padding:
-                            const EdgeInsets.only(top: AppSpacing.paddingXS),
-                        child: Text(
-                          '₹${total.toStringAsFixed(2)}',
-                          style: AppTypography.withColor(
-                            AppTypography.withWeight(
-                                AppTypography.bodySmall, FontWeight.w600),
-                            AuthColors.successVariant,
-                          ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.paddingLG,
+                      vertical: AppSpacing.paddingSM),
+                  title: Row(
+                    children: [
+                      Text(
+                        dmNumber != null ? 'DM-$dmNumber' : 'DM',
+                        style: const TextStyle(
+                          color: AuthColors.textMain,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
                         ),
                       ),
-                  ],
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.print_outlined),
+                        onPressed: () => _openPrintDialog(context, org.id, dm),
+                        tooltip: 'Print DM',
+                        style: IconButton.styleFrom(
+                            foregroundColor: AuthColors.textSub),
+                      ),
+                    ],
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: AppSpacing.paddingXS),
+                      Text(
+                        clientName,
+                        style: AppTypography.withColor(AppTypography.body,
+                            AuthColors.textMainWithOpacity(0.8)),
+                      ),
+                      Text(
+                        '${_formatDate(scheduledDate)} · $vehicleNumber',
+                        style: AppTypography.withColor(
+                            AppTypography.labelSmall, AuthColors.textSub),
+                      ),
+                      if (total > 0)
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(top: AppSpacing.paddingXS),
+                          child: Text(
+                            '₹${total.toStringAsFixed(2)}',
+                            style: AppTypography.withColor(
+                              AppTypography.withWeight(
+                                  AppTypography.bodySmall, FontWeight.w600),
+                              AuthColors.successVariant,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             );

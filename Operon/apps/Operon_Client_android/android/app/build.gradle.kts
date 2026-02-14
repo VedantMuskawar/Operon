@@ -30,6 +30,10 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.operonclientandroid.app"
         minSdk = flutter.minSdkVersion
@@ -37,6 +41,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         resValue("string", "google_maps_key", mapsApiKey)
+        buildConfigField("String", "APP_NAME", "\"operon_client\"")
     }
 
     compileOptions {
@@ -92,4 +97,5 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.6.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-functions")
+    implementation(project(":appupdater"))
 }

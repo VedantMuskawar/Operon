@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onFuelAnalyticsTransactionWrite = void 0;
+exports.rebuildFuelAnalyticsForOrg = rebuildFuelAnalyticsForOrg;
 const admin = __importStar(require("firebase-admin"));
 const firestore_1 = require("firebase-functions/v2/firestore");
 const constants_1 = require("../shared/constants");
@@ -154,6 +155,116 @@ async function applyFuelImpact(impact, multiplier) {
             error,
         });
     }
+}
+/**
+ * Rebuild fuel analytics for a single organization and financial year.
+ * Recalculates unpaid fuel balance and fuel consumption by vehicle.
+ */
+async function rebuildFuelAnalyticsForOrg(organizationId, financialYear, fyStart, fyEnd) {
+    // Query all transactions for this org and financial year that impact fuel analytics
+    const txSnapshot = await db
+        .collection(constants_1.TRANSACTIONS_COLLECTION)
+        .where('organizationId', '==', organizationId)
+        .where('financialYear', '==', financialYear)
+        .where('ledgerType', '==', 'vendorLedger')
+        .where('category', '==', 'vendorPurchase')
+        .get();
+    // Group by month and build metrics
+    const fuelByMonth = {};
+    txSnapshot.forEach((doc) => {
+        const impact = buildFuelImpactSync(doc);
+        if (!impact) {
+            return;
+        }
+        const monthKey = impact.monthKey;
+        if (!fuelByMonth[monthKey]) {
+            fuelByMonth[monthKey] = {
+                unpaidDelta: 0,
+                vehicleConsumption: {},
+                vehicleKeyMap: {},
+            };
+        }
+        fuelByMonth[monthKey].unpaidDelta += impact.unpaidDelta;
+        if (impact.vehicleKey) {
+            fuelByMonth[monthKey].vehicleConsumption[impact.vehicleKey] =
+                (fuelByMonth[monthKey].vehicleConsumption[impact.vehicleKey] || 0) +
+                    impact.vehicleAmountDelta;
+            if (impact.vehicleNumber) {
+                fuelByMonth[monthKey].vehicleKeyMap[impact.vehicleKey] = impact.vehicleNumber;
+            }
+        }
+    });
+    // Write monthly fuel analytics documents
+    const monthPromises = Object.entries(fuelByMonth).map(async ([monthKey, data]) => {
+        const analyticsDocId = `${constants_1.FUEL_ANALYTICS_SOURCE_KEY}_${organizationId}_${monthKey}`;
+        const analyticsRef = db.collection(constants_1.ANALYTICS_COLLECTION).doc(analyticsDocId);
+        await (0, firestore_helpers_1.seedFuelAnalyticsDoc)(analyticsRef, financialYear, organizationId);
+        const updatePayload = {
+            generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (data.unpaidDelta !== 0) {
+            updatePayload['metrics.totalUnpaidFuelBalance'] = data.unpaidDelta;
+        }
+        if (Object.keys(data.vehicleConsumption).length > 0) {
+            updatePayload['metrics.fuelConsumptionByVehicle'] = data.vehicleConsumption;
+        }
+        if (Object.keys(data.vehicleKeyMap).length > 0) {
+            updatePayload['metadata.fuelVehicleKeyMap'] = data.vehicleKeyMap;
+        }
+        await analyticsRef.set(updatePayload, { merge: true });
+    });
+    await Promise.all(monthPromises);
+}
+/**
+ * Helper to build FuelImpact synchronously (for rebuild, not real-time)
+ */
+function buildFuelImpactSync(snapshot) {
+    var _a;
+    if (!snapshot.exists) {
+        return null;
+    }
+    const data = snapshot.data() || {};
+    const organizationId = data.organizationId;
+    const financialYear = data.financialYear;
+    const amount = data.amount || 0;
+    const type = data.type;
+    const ledgerType = data.ledgerType;
+    const category = data.category;
+    const vendorId = data.vendorId;
+    const metadata = data.metadata || {};
+    const purchaseType = metadata.purchaseType;
+    const vehicleNumber = (_a = metadata.vehicleNumber) === null || _a === void 0 ? void 0 : _a.trim();
+    if (!organizationId || !financialYear || !amount || !type) {
+        return null;
+    }
+    const transactionDate = (0, transaction_helpers_1.getTransactionDate)(snapshot);
+    const monthKey = (0, date_helpers_1.getYearMonth)(transactionDate);
+    let unpaidDelta = 0;
+    if (ledgerType === 'vendorLedger' && vendorId && purchaseType === 'fuel') {
+        unpaidDelta = type === 'credit' ? amount : -amount;
+    }
+    let vehicleAmountDelta = 0;
+    let vehicleKey;
+    if (ledgerType === 'vendorLedger' &&
+        category === 'vendorPurchase' &&
+        type === 'credit' &&
+        purchaseType === 'fuel' &&
+        vehicleNumber) {
+        vehicleKey = normalizeVehicleKey(vehicleNumber);
+        vehicleAmountDelta = amount;
+    }
+    if (unpaidDelta === 0 && vehicleAmountDelta === 0) {
+        return null;
+    }
+    return {
+        organizationId,
+        financialYear,
+        monthKey,
+        unpaidDelta,
+        vehicleKey,
+        vehicleNumber,
+        vehicleAmountDelta,
+    };
 }
 exports.onFuelAnalyticsTransactionWrite = (0, firestore_1.onDocumentWritten)(Object.assign({ document: `${constants_1.TRANSACTIONS_COLLECTION}/{transactionId}` }, function_config_1.STANDARD_TRIGGER_OPTS), async (event) => {
     var _a, _b;

@@ -33,7 +33,7 @@ class CashLedgerState extends BaseState {
     this.startDate,
     this.endDate,
     this.financialYear,
-    String? message,
+    super.message,
     this.allRows = const [],
     this.totalOrderTransactions = 0.0,
     this.totalPayments = 0.0,
@@ -48,7 +48,7 @@ class CashLedgerState extends BaseState {
     this.clientCreditRows = const [],
     this.vendorCreditRows = const [],
     this.employeeCreditRows = const [],
-  }) : super(message: message);
+  });
 
   final List<Transaction> orderTransactions;
   final List<Transaction> payments;
@@ -129,14 +129,16 @@ class CashLedgerState extends BaseState {
       financialYear: financialYear ?? this.financialYear,
       message: message ?? this.message,
       allRows: allRows ?? this.allRows,
-      totalOrderTransactions: totalOrderTransactions ?? this.totalOrderTransactions,
+      totalOrderTransactions:
+          totalOrderTransactions ?? this.totalOrderTransactions,
       totalPayments: totalPayments ?? this.totalPayments,
       totalPurchases: totalPurchases ?? this.totalPurchases,
       totalExpenses: totalExpenses ?? this.totalExpenses,
       totalIncome: totalIncome ?? this.totalIncome,
       totalOutcome: totalOutcome ?? this.totalOutcome,
       netBalance: netBalance ?? this.netBalance,
-      paymentAccountDistribution: paymentAccountDistribution ?? this.paymentAccountDistribution,
+      paymentAccountDistribution:
+          paymentAccountDistribution ?? this.paymentAccountDistribution,
       totalCredit: totalCredit ?? this.totalCredit,
       totalDebit: totalDebit ?? this.totalDebit,
       clientCreditRows: clientCreditRows ?? this.clientCreditRows,

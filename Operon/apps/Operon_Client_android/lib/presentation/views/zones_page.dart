@@ -448,42 +448,44 @@ class _ZonesPageState extends State<ZonesPage> {
               ),
             ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: submitting
-                    ? null
-                    : () async {
-                        final newName = controller.text.trim();
-                        if (newName.isEmpty || newName == city.name) {
-                          Navigator.of(context).pop();
-                          return;
-                        }
-                        setState(() => submitting = true);
-                        try {
-                          await context
-                              .read<DeliveryZonesCubit>()
-                              .renameCity(city: city, newName: newName);
-                          if (mounted) Navigator.of(context).pop();
-                        } catch (err) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(err.toString())),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setState(() => submitting = false);
-                        }
-                      },
-                child: submitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Save'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  DashButton(
+                    label: submitting ? '' : 'Save',
+                    onPressed: submitting
+                        ? null
+                        : () async {
+                            final newName = controller.text.trim();
+                            if (newName.isEmpty || newName == city.name) {
+                              Navigator.of(context).pop();
+                              return;
+                            }
+                            setState(() => submitting = true);
+                            try {
+                              await context
+                                  .read<DeliveryZonesCubit>()
+                                  .renameCity(city: city, newName: newName);
+                              if (mounted) Navigator.of(context).pop();
+                            } catch (err) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(err.toString())),
+                                );
+                              }
+                            } finally {
+                              if (mounted) setState(() => submitting = false);
+                            }
+                          },
+                    variant: DashButtonVariant.primary,
+                    isLoading: submitting,
+                  ),
+                ],
               ),
             ],
           );
@@ -507,16 +509,20 @@ class _ZonesPageState extends State<ZonesPage> {
           style: const TextStyle(color: AuthColors.textSub),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AuthColors.error),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              const SizedBox(width: 8),
+              DashButton(
+                label: 'Delete',
+                onPressed: () => Navigator.of(context).pop(true),
+                variant: DashButtonVariant.primary,
+              ),
+            ],
           ),
         ],
       ),
@@ -909,38 +915,40 @@ class _AddCityDialogState extends State<_AddCityDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: _submitting
-              ? null
-              : () async {
-                  if (!(_formKey.currentState?.validate() ?? false)) return;
-                  setState(() => _submitting = true);
-                  try {
-                    await context
-                        .read<DeliveryZonesCubit>()
-                        .createCity(_controller.text.trim());
-                    if (mounted) Navigator.of(context).pop();
-                  } catch (err) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(err.toString())),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setState(() => _submitting = false);
-                  }
-                },
-          child: _submitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            const SizedBox(width: 8),
+            DashButton(
+              label: _submitting ? '' : 'Save',
+              onPressed: _submitting
+                  ? null
+                  : () async {
+                      if (!(_formKey.currentState?.validate() ?? false)) return;
+                      setState(() => _submitting = true);
+                      try {
+                        await context
+                            .read<DeliveryZonesCubit>()
+                            .createCity(_controller.text.trim());
+                        if (mounted) Navigator.of(context).pop();
+                      } catch (err) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(err.toString())),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _submitting = false);
+                      }
+                    },
+              variant: DashButtonVariant.primary,
+              isLoading: _submitting,
+            ),
+          ],
         ),
       ],
     );
@@ -1067,43 +1075,45 @@ class _AddRegionDialogState extends State<_AddRegionDialog> {
               ),
             ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: widget.cities.isEmpty || _submitting
-              ? null
-              : () async {
-                  if (!(_formKey.currentState?.validate() ?? false)) return;
-                  if (_selectedCity == null) return;
-                  setState(() => _submitting = true);
-                  try {
-                    final roundtripKm =
-                        double.parse(_roundtripKmController.text.trim());
-                    await context.read<DeliveryZonesCubit>().createRegion(
-                          city: _selectedCity!,
-                          region: _regionController.text.trim(),
-                          roundtripKm: roundtripKm,
-                        );
-                    if (mounted) Navigator.of(context).pop();
-                  } catch (err) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(err.toString())),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setState(() => _submitting = false);
-                  }
-                },
-          child: _submitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            const SizedBox(width: 8),
+            DashButton(
+              label: _submitting ? '' : 'Save',
+              onPressed: widget.cities.isEmpty || _submitting
+                  ? null
+                  : () async {
+                      if (!(_formKey.currentState?.validate() ?? false)) return;
+                      if (_selectedCity == null) return;
+                      setState(() => _submitting = true);
+                      try {
+                        final roundtripKm =
+                            double.parse(_roundtripKmController.text.trim());
+                        await context.read<DeliveryZonesCubit>().createRegion(
+                              city: _selectedCity!,
+                              region: _regionController.text.trim(),
+                              roundtripKm: roundtripKm,
+                            );
+                        if (mounted) Navigator.of(context).pop();
+                      } catch (err) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(err.toString())),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _submitting = false);
+                      }
+                    },
+              variant: DashButtonVariant.primary,
+              isLoading: _submitting,
+            ),
+          ],
         ),
       ],
     );
@@ -1302,109 +1312,54 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: widget.canEditRegion ? widget.onEditRegion : null,
-              child: const Text('Edit Region'),
-            ),
-            if (widget.canDeleteRegion)
-              TextButton(
-                onPressed: () async {
-                  HapticFeedback.mediumImpact();
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      backgroundColor: AuthColors.surface,
-                      title: const Text('Delete Region',
-                          style: TextStyle(color: AuthColors.textMain)),
-                      content: Text(
-                        'Are you sure you want to delete "${widget.zone.region}"? This will also delete all prices for this region.',
-                        style: const TextStyle(color: AuthColors.textSub),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(true),
-                          child: const Text(
-                            'Delete',
-                            style: TextStyle(color: AuthColors.error),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (confirmed != true || !mounted) return;
-
-                  try {
-                    await context
-                        .read<DeliveryZonesCubit>()
-                        .deleteZone(widget.zone.id);
-                    if (mounted) {
-                      Navigator.of(context).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Region deleted successfully'),
-                          backgroundColor: AuthColors.success,
-                        ),
-                      );
-                    }
-                  } catch (err) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Failed to delete region: ${err.toString()}'),
-                          backgroundColor: AuthColors.error,
-                        ),
-                      );
-                    }
-                  }
-                },
-                child: const Text(
-                  'Delete Region',
-                  style: TextStyle(color: AuthColors.error),
-                ),
-              ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-            TextButton(
-              onPressed: !canEditPrice ||
-                      products.isEmpty ||
-                      _selectedProductId == null ||
-                      _submitting
-                  ? null
-                  : () async {
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (widget.canDeleteRegion)
+                  DashButton(
+                    label: 'Delete',
+                    onPressed: () async {
                       HapticFeedback.mediumImpact();
-                      if (!(_formKey.currentState?.validate() ?? false)) {
-                        return;
-                      }
-                      final parsed =
-                          double.tryParse(_priceController.text.trim());
-                      if (parsed == null || parsed < 0) {
-                        return;
-                      }
-                      setState(() => _submitting = true);
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          backgroundColor: AuthColors.surface,
+                          title: const Text('Delete Region',
+                              style: TextStyle(color: AuthColors.textMain)),
+                          content: Text(
+                            'Are you sure you want to delete "${widget.zone.region}"? This will also delete all prices for this region.',
+                            style: const TextStyle(color: AuthColors.textSub),
+                          ),
+                          actions: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text('Cancel'),
+                                ),
+                                const SizedBox(width: 8),
+                                DashButton(
+                                  label: 'Delete',
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  variant: DashButtonVariant.primary,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true || !mounted) return;
+
                       try {
-                        await context.read<DeliveryZonesCubit>().upsertPrice(
-                              DeliveryZonePrice(
-                                productId: _selectedProductId!,
-                                productName: products
-                                    .firstWhere(
-                                        (p) => p.id == _selectedProductId!)
-                                    .name,
-                                deliverable: true,
-                                unitPrice: parsed,
-                              ),
-                            );
+                        await context
+                            .read<DeliveryZonesCubit>()
+                            .deleteZone(widget.zone.id);
                         if (mounted) {
                           Navigator.of(context).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Price updated successfully'),
+                              content: Text('Region deleted successfully'),
                               backgroundColor: AuthColors.success,
                             ),
                           );
@@ -1414,33 +1369,97 @@ class _RegionPriceDialogState extends State<_RegionPriceDialog> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                  'Failed to update price: ${err.toString()}'),
+                                  'Failed to delete region: ${err.toString()}'),
                               backgroundColor: AuthColors.error,
-                              action: SnackBarAction(
-                                label: 'Retry',
-                                onPressed: () {
-                                  // Re-run the save operation
-                                  final parsed = double.tryParse(
-                                      _priceController.text.trim());
-                                  if (parsed != null && parsed >= 0) {
-                                    // This will be handled by the button's onPressed callback
-                                  }
-                                },
-                              ),
                             ),
                           );
                         }
-                      } finally {
-                        if (mounted) setState(() => _submitting = false);
                       }
                     },
-              child: _submitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Save Price'),
+                    variant: DashButtonVariant.primary,
+                  )
+                else
+                  const SizedBox.shrink(),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Close'),
+                    ),
+                    const SizedBox(width: 8),
+                    DashButton(
+                      label: _submitting ? '' : 'Save Price',
+                      onPressed: !canEditPrice ||
+                              products.isEmpty ||
+                              _selectedProductId == null ||
+                              _submitting
+                          ? null
+                          : () async {
+                              HapticFeedback.mediumImpact();
+                              if (!(_formKey.currentState?.validate() ?? false)) {
+                                return;
+                              }
+                              final parsed = double.tryParse(
+                                  _priceController.text.trim());
+                              if (parsed == null || parsed < 0) {
+                                return;
+                              }
+                              setState(() => _submitting = true);
+                              try {
+                                await context.read<DeliveryZonesCubit>().upsertPrice(
+                                      DeliveryZonePrice(
+                                        productId: _selectedProductId!,
+                                        productName: products
+                                            .firstWhere((p) =>
+                                                p.id == _selectedProductId!)
+                                            .name,
+                                        deliverable: true,
+                                        unitPrice: parsed,
+                                      ),
+                                    );
+                                if (mounted) {
+                                  Navigator.of(context).pop();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Price updated successfully'),
+                                      backgroundColor: AuthColors.success,
+                                    ),
+                                  );
+                                }
+                              } catch (err) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Failed to update price: ${err.toString()}'),
+                                      backgroundColor: AuthColors.error,
+                                      action: SnackBarAction(
+                                        label: 'Retry',
+                                        onPressed: () {
+                                          // Re-run the save operation
+                                          final parsed = double.tryParse(
+                                              _priceController.text.trim());
+                                          if (parsed != null && parsed >= 0) {
+                                            // This will be handled by the button's onPressed callback
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _submitting = false);
+                                }
+                              }
+                            },
+                      variant: DashButtonVariant.primary,
+                      isLoading: _submitting,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         );
@@ -1581,73 +1600,80 @@ class _ZoneDialogState extends State<_ZoneDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: canSubmit
-              ? () async {
-                  if (!(_formKey.currentState?.validate() ?? false)) return;
-                  _zonesLog('ZoneDialog submit tapped (editing=$isEditing)');
-                  final cubit = context.read<DeliveryZonesCubit>();
-                  final state = cubit.state;
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            const SizedBox(width: 8),
+            DashButton(
+              label: 'Save',
+              onPressed: canSubmit
+                  ? () async {
+                      if (!(_formKey.currentState?.validate() ?? false)) return;
+                      _zonesLog('ZoneDialog submit tapped (editing=$isEditing)');
+                      final cubit = context.read<DeliveryZonesCubit>();
+                      final state = cubit.state;
 
-                  // Find city by name to get cityId
-                  final cityName = _cityController.text.trim();
-                  final city = state.cities.firstWhere(
-                    (c) => c.name == cityName,
-                    orElse: () => throw Exception('City not found: $cityName'),
-                  );
-
-                  // Get organizationId from existing zone or from cubit
-                  final organizationId = widget.zone?.organizationId ??
-                      (state.zones.isNotEmpty
-                          ? state.zones.first.organizationId
-                          : cubit.orgId);
-
-                  // Parse roundtripKm
-                  final roundtripKmText = _roundtripKmController.text.trim();
-                  final roundtripKm = roundtripKmText.isEmpty
-                      ? null
-                      : double.tryParse(roundtripKmText);
-                  if (roundtripKm != null && roundtripKm <= 0) {
-                    throw Exception(
-                        'Round trip distance must be a positive number');
-                  }
-
-                  // ID will be auto-generated by Firestore for new zones
-                  final zone = DeliveryZone(
-                    id: widget.zone?.id ??
-                        '', // Empty for new zones, Firestore will generate
-                    organizationId: organizationId,
-                    cityId: city.id,
-                    cityName: city.name,
-                    region: _regionController.text.trim(),
-                    prices: widget.zone?.prices ?? {},
-                    isActive: _isActive,
-                    roundtripKm: roundtripKm,
-                  );
-                  try {
-                    if (isEditing) {
-                      await cubit.updateZone(zone);
-                    } else {
-                      await cubit.createZone(zone);
-                    }
-                    if (mounted) Navigator.of(context).pop();
-                  } catch (err, stack) {
-                    _zonesLog('ZoneDialog submit error: $err\n$stack');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to save zone: $err'),
-                        ),
+                      // Find city by name to get cityId
+                      final cityName = _cityController.text.trim();
+                      final city = state.cities.firstWhere(
+                        (c) => c.name == cityName,
+                        orElse: () => throw Exception('City not found: $cityName'),
                       );
+
+                      // Get organizationId from existing zone or from cubit
+                      final organizationId = widget.zone?.organizationId ??
+                          (state.zones.isNotEmpty
+                              ? state.zones.first.organizationId
+                              : cubit.orgId);
+
+                      // Parse roundtripKm
+                      final roundtripKmText = _roundtripKmController.text.trim();
+                      final roundtripKm = roundtripKmText.isEmpty
+                          ? null
+                          : double.tryParse(roundtripKmText);
+                      if (roundtripKm != null && roundtripKm <= 0) {
+                        throw Exception(
+                            'Round trip distance must be a positive number');
+                      }
+
+                      // ID will be auto-generated by Firestore for new zones
+                      final zone = DeliveryZone(
+                        id: widget.zone?.id ??
+                            '', // Empty for new zones, Firestore will generate
+                        organizationId: organizationId,
+                        cityId: city.id,
+                        cityName: city.name,
+                        region: _regionController.text.trim(),
+                        prices: widget.zone?.prices ?? {},
+                        isActive: _isActive,
+                        roundtripKm: roundtripKm,
+                      );
+                      try {
+                        if (isEditing) {
+                          await cubit.updateZone(zone);
+                        } else {
+                          await cubit.createZone(zone);
+                        }
+                        if (mounted) Navigator.of(context).pop();
+                      } catch (err, stack) {
+                        _zonesLog('ZoneDialog submit error: $err\n$stack');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to save zone: $err'),
+                            ),
+                          );
+                        }
+                      }
                     }
-                  }
-                }
-              : null,
-          child: const Text('Save'),
+                  : null,
+              variant: DashButtonVariant.primary,
+            ),
+          ],
         ),
       ],
     );

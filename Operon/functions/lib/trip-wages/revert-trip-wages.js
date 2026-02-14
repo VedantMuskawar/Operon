@@ -49,20 +49,21 @@ const TRIP_WAGES_COLLECTION = 'TRIP_WAGES';
  * Deletes all transactions and reverts attendance for a trip wage
  */
 exports.revertTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTION_CONFIG, async (request) => {
+    var _a;
     const { tripWageId } = request.data;
     (0, logger_1.logInfo)('TripWages', 'revertTripWages', 'Request received', {
         tripWageId,
     });
     // Validate input
-    if (!tripWageId) {
-        throw new Error('Missing required parameter: tripWageId');
+    if (!tripWageId || tripWageId.trim().length === 0) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing or empty required parameter: tripWageId');
     }
     try {
         // Read trip wage document
         const tripWageRef = db.collection(TRIP_WAGES_COLLECTION).doc(tripWageId);
         const tripWageDoc = await tripWageRef.get();
         if (!tripWageDoc.exists) {
-            throw new Error(`Trip wage not found: ${tripWageId}`);
+            throw new https_1.HttpsError('not-found', `Trip wage not found: ${tripWageId}`);
         }
         const tripWageData = tripWageDoc.data();
         const wageTransactionIds = tripWageData.wageTransactionIds || [];
@@ -240,8 +241,27 @@ exports.revertTripWages = (0, https_1.onCall)(function_config_1.CALLABLE_FUNCTIO
         };
     }
     catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : '';
         (0, logger_1.logError)('TripWages', 'revertTripWages', 'Error reverting trip wage', error instanceof Error ? error : String(error), { tripWageId });
-        throw error;
+        console.error('[revertTripWages] Full error details:', {
+            errorMessage,
+            errorStack,
+            errorCode: error === null || error === void 0 ? void 0 : error.code,
+            errorType: (_a = error === null || error === void 0 ? void 0 : error.constructor) === null || _a === void 0 ? void 0 : _a.name,
+            tripWageId,
+        });
+        if (error instanceof https_1.HttpsError) {
+            throw error;
+        }
+        // Check for specific Firebase error codes
+        if ((error === null || error === void 0 ? void 0 : error.code) === 'permission-denied') {
+            throw new https_1.HttpsError('permission-denied', 'You do not have permission to revert this trip wage');
+        }
+        if ((error === null || error === void 0 ? void 0 : error.code) === 'not-found') {
+            throw new https_1.HttpsError('not-found', 'Trip wage document not found');
+        }
+        throw new https_1.HttpsError('internal', errorMessage);
     }
 });
 //# sourceMappingURL=revert-trip-wages.js.map

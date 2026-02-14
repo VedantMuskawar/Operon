@@ -14,6 +14,7 @@ class ProfileView extends StatelessWidget {
     required this.organization,
     this.actualUserName,
     this.fetchUserName,
+    this.appVersion,
     required this.onChangeOrg,
     required this.onLogout,
     this.onOpenUsers,
@@ -26,6 +27,7 @@ class ProfileView extends StatelessWidget {
   final dynamic organization; // OrganizationMembership (app-specific)
   final String? actualUserName; // Actual user name from organization user record (if already fetched)
   final Future<String?> Function()? fetchUserName; // Optional function to fetch user name
+  final String? appVersion; // Optional app version string (e.g. 1.2.3+45)
   final VoidCallback onChangeOrg;
   final VoidCallback onLogout;
   final VoidCallback? onOpenUsers;
@@ -216,6 +218,28 @@ class ProfileView extends StatelessWidget {
                           style: TextStyle(
                             color: AuthColors.textSub.withValues(alpha: 0.9),
                             fontSize: 13,
+                            fontFamily: 'SF Pro Display',
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (appVersion != null && appVersion!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 13,
+                          color: AuthColors.textSub.withValues(alpha: 0.7),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Version $appVersion',
+                          style: TextStyle(
+                            color: AuthColors.textSub.withValues(alpha: 0.85),
+                            fontSize: 12.5,
                             fontFamily: 'SF Pro Display',
                             height: 1.4,
                           ),

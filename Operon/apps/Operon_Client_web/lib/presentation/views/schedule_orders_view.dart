@@ -26,7 +26,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   bool _isLoadingTrips = true;
   String? _currentOrgId;
   List<Vehicle> _vehicles = [];
-  String? _selectedVehicleId;
+  final Set<String> _selectedVehicleIds = {};
   String? _vehiclesOrgId;
   int _totalTrips = 0;
   double _totalValue = 0.0;
@@ -169,7 +169,13 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
 
   void _onVehicleFilterChanged(String? vehicleId) {
     setState(() {
-      _selectedVehicleId = vehicleId;
+      if (vehicleId == null) {
+        _selectedVehicleIds.clear();
+      } else if (_selectedVehicleIds.contains(vehicleId)) {
+        _selectedVehicleIds.remove(vehicleId);
+      } else {
+        _selectedVehicleIds.add(vehicleId);
+      }
       _scheduledTrips = _applyFilters(_allTripsForDate);
       final summary = _buildSummary(_scheduledTrips);
       _totalTrips = summary.totalTrips;
@@ -181,10 +187,10 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
 
   List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> trips) {
     var filtered = trips;
-    if (_selectedVehicleId != null) {
+    if (_selectedVehicleIds.isNotEmpty) {
       filtered = filtered.where((trip) {
         final vehicleId = trip['vehicleId'] as String?;
-        return vehicleId == _selectedVehicleId;
+        return vehicleId != null && _selectedVehicleIds.contains(vehicleId);
       }).toList();
     }
 
@@ -260,10 +266,10 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   }
 
   List<Vehicle> _getFilteredVehicles() {
-    if (_scheduledTrips.isEmpty) {
+    if (_allTripsForDate.isEmpty) {
       return [];
     }
-    final vehicleIds = _scheduledTrips
+    final vehicleIds = _allTripsForDate
         .map((trip) => trip['vehicleId'] as String?)
         .where((id) => id != null)
         .toSet()
@@ -543,33 +549,36 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
             child: Builder(
               builder: (context) {
                 final filteredVehicles = _getFilteredVehicles();
-                return ListView.builder(
+                return SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: filteredVehicles.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _VehicleFilterButton(
-                          label: 'All',
-                          isSelected: _selectedVehicleId == null,
-                          onTap: () => _onVehicleFilterChanged(null),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _VehicleFilterButton(
+                            label: 'All',
+                            isSelected: _selectedVehicleIds.isEmpty,
+                            onTap: () => _onVehicleFilterChanged(null),
+                          ),
                         ),
-                      );
-                    } else {
-                      final vehicle = filteredVehicles[index - 1];
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: _VehicleFilterButton(
-                          label: vehicle.vehicleNumber,
-                          isSelected: _selectedVehicleId == vehicle.id,
-                          onTap: () => _onVehicleFilterChanged(vehicle.id),
+                        ...filteredVehicles.map(
+                          (vehicle) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _VehicleFilterButton(
+                              label: vehicle.vehicleNumber,
+                              isSelected:
+                                  _selectedVehicleIds.contains(vehicle.id),
+                              onTap: () => _onVehicleFilterChanged(vehicle.id),
+                            ),
+                          ),
                         ),
-                      );
-                    }
-                  },
+                      ],
+                    ),
+                  ),
                 );
               },
             ),

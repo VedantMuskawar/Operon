@@ -1,4 +1,3 @@
-
 import 'package:core_models/core_models.dart';
 import 'package:core_datasources/core_datasources.dart';
 import 'package:core_ui/core_ui.dart';
@@ -43,7 +42,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
   static final Map<String, List<OrganizationEmployee>> _employeesCache = {};
   static final Map<String, List<ExpenseSubCategory>> _subCategoriesCache = {};
   static final Map<String, List<PaymentAccount>> _paymentAccountsCache = {};
-  static final Map<String, List<_LedgerAccountOption>> _ledgerAccountsCache = {};
+  static final Map<String, List<_LedgerAccountOption>> _ledgerAccountsCache =
+      {};
 
   ExpenseFormType _selectedType = ExpenseFormType.vendorPayment;
   Vendor? _selectedVendor;
@@ -124,9 +124,10 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       final subCategoriesFuture = _subCategoriesCache[organizationId] != null
           ? Future.value(_subCategoriesCache[organizationId]!)
           : subCategoriesRepo.fetchSubCategories(organizationId);
-      final paymentAccountsFuture = _paymentAccountsCache[organizationId] != null
-          ? Future.value(_paymentAccountsCache[organizationId]!)
-          : paymentAccountsDataSource.fetchAccounts(organizationId);
+      final paymentAccountsFuture =
+          _paymentAccountsCache[organizationId] != null
+              ? Future.value(_paymentAccountsCache[organizationId]!)
+              : paymentAccountsDataSource.fetchAccounts(organizationId);
 
       final results = await Future.wait([
         vendorsFuture,
@@ -184,7 +185,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         setState(() {
           _ledgerAccounts = cachedAccounts;
           if (_selectedLedgerAccount != null &&
-              !_ledgerAccounts.any((a) => a.key == _selectedLedgerAccount!.key)) {
+              !_ledgerAccounts
+                  .any((a) => a.key == _selectedLedgerAccount!.key)) {
             _selectedLedgerAccount = null;
           }
           _isLoadingLedgerAccounts = false;
@@ -206,7 +208,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
             (data['ledgerName'] as String?) ??
             'Combined Account';
         final accountsData = (data['accounts'] as List<dynamic>?) ?? [];
-        final accounts = accountsData.whereType<Map<String, dynamic>>().toList();
+        final accounts =
+            accountsData.whereType<Map<String, dynamic>>().toList();
         if (id.isEmpty) continue;
         final option = _LedgerAccountOption(
           id: id,
@@ -548,6 +551,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           }
           await cubit.createGeneralExpense(
             subCategoryId: _selectedSubCategory!.id,
+            subCategoryName: _selectedSubCategory!.name,
             amount: amount,
             paymentAccountId: _selectedPaymentAccount!.id,
             date: _selectedDate,
@@ -829,8 +833,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
         setState(() {
           _selectedType = type;
           _selectedVendor = null;
-            _selectedEmployee = null;
-            _selectedLedgerAccount = null;
+          _selectedEmployee = null;
+          _selectedLedgerAccount = null;
           _selectedSubCategory = null;
           if (type != ExpenseFormType.salaryDebit) {
             _cashVoucherPhotoBytes = null;
@@ -1346,9 +1350,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
               child: DashButton(
                 label: 'ACCOUNT',
                 icon: Icons.account_balance_wallet_outlined,
-                onPressed: _isLoadingLedgerAccounts
-                    ? null
-                    : _openAccountSearchDialog,
+                onPressed:
+                    _isLoadingLedgerAccounts ? null : _openAccountSearchDialog,
                 variant: DashButtonVariant.outlined,
               ),
             ),
@@ -1380,7 +1383,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           message: 'No employees available', isError: true);
       return;
     }
-    final selection = await _showSearchableSelectionDialog<OrganizationEmployee>(
+    final selection =
+        await _showSearchableSelectionDialog<OrganizationEmployee>(
       title: 'Select Employee',
       items: _employees,
       itemLabel: (employee) => employee.name,
@@ -1401,7 +1405,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
           message: 'No ledger accounts available', isError: true);
       return;
     }
-    final selection = await _showSearchableSelectionDialog<_LedgerAccountOption>(
+    final selection =
+        await _showSearchableSelectionDialog<_LedgerAccountOption>(
       title: 'Select Ledger Account',
       items: _ledgerAccounts,
       itemLabel: (account) => account.name,
@@ -1435,7 +1440,8 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: isSelected ? AuthColors.primary : AuthColors.textSub),
+          Icon(icon,
+              color: isSelected ? AuthColors.primary : AuthColors.textSub),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1443,13 +1449,16 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(color: AuthColors.textSub, fontSize: 12),
+                  style:
+                      const TextStyle(color: AuthColors.textSub, fontSize: 12),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
                   style: TextStyle(
-                    color: isSelected ? AuthColors.textMain : AuthColors.textDisabled,
+                    color: isSelected
+                        ? AuthColors.textMain
+                        : AuthColors.textDisabled,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                     fontSize: 14,
                   ),
@@ -1695,7 +1704,7 @@ class _RecordExpenseDialogState extends State<RecordExpenseDialog> {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AuthColors.primary,
         shape: BoxShape.circle,
       ),
@@ -1881,7 +1890,11 @@ class _LedgerEmployeeRef {
   final String name;
 }
 
-enum _LedgerAccountType { client, vendor, employee, combined;
+enum _LedgerAccountType {
+  client,
+  vendor,
+  employee,
+  combined;
 
   // No extra helpers needed here.
 }

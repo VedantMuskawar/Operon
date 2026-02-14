@@ -7,8 +7,8 @@ class ExpenseSubCategoriesState extends BaseState {
     this.subCategories = const [],
     this.filteredSubCategories = const [],
     this.searchQuery = '',
-    String? message,
-  }) : super(message: message);
+    super.message,
+  });
 
   final List<ExpenseSubCategory> subCategories;
   final List<ExpenseSubCategory> filteredSubCategories;
@@ -26,10 +26,10 @@ class ExpenseSubCategoriesState extends BaseState {
     return ExpenseSubCategoriesState(
       status: status ?? this.status,
       subCategories: subCategories ?? this.subCategories,
-      filteredSubCategories: filteredSubCategories ?? this.filteredSubCategories,
+      filteredSubCategories:
+          filteredSubCategories ?? this.filteredSubCategories,
       searchQuery: searchQuery ?? this.searchQuery,
       message: message ?? this.message,
     );
   }
 }
-

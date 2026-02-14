@@ -17,6 +17,7 @@
     "firebase-functions": "^7.0.5"
   },
   "devDependencies": {
+    "@types/debug": "^4.1.12",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^22.10.2",
     "acorn": "^8.15.0",

@@ -263,8 +263,10 @@ class DashMobileApp extends StatelessWidget {
                 }
 
                 final wrapped = TexturedBackground(
-                  pattern: BackgroundPattern.dotted, // More visible pattern
-                  opacity: 1.0, // Maximum visibility for testing
+                  pattern: kDebugMode
+                      ? BackgroundPattern.dotted
+                      : BackgroundPattern.grain,
+                  opacity: kDebugMode ? 0.15 : 0.03,
                   debugMode: kDebugMode, // Enable debug in debug mode
                   child: wrappedChild,
                 );

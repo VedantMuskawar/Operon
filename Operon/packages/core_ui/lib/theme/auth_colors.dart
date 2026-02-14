@@ -20,8 +20,8 @@ class AuthColors {
   static const Color surface = Color(0xFF1E1E1E); // Dark Grey
 
   // Text colors
-  static const Color textMain = Color(0xFFE0E0E0); // Platinum
-  static const Color textSub = Color(0xFFA1A1A1); // Medium Grey
+    static const Color textMain = Color(0xFFFDF2F2); // Soft Off-White
+    static const Color textSub = Color(0xFFF2F2F2); // Light Grey
   static const Color textDisabled = Color(0xFF6B6B6B); // Disabled text
 
   // Accent colors

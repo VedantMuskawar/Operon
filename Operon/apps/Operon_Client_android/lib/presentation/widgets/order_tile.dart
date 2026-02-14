@@ -527,7 +527,7 @@ class _OrderHeader extends StatelessWidget {
             const Icon(
               Icons.location_on_outlined,
               size: AppSpacing.iconXS,
-              color: AuthColors.textSub,
+              color: AuthColors.textMain,
             ),
             const SizedBox(width: AppSpacing.paddingXS / 2),
             Expanded(
@@ -535,7 +535,7 @@ class _OrderHeader extends StatelessWidget {
                 zoneText,
                 style: AppTypography.bodySmall.copyWith(
                   fontSize: 12,
-                  color: AuthColors.textSub,
+                  color: AuthColors.textMain,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -680,7 +680,7 @@ class _ProductInfo extends StatelessWidget {
               const Icon(
                 Icons.inventory_2_outlined,
                 size: AppSpacing.iconXS,
-                color: AuthColors.textSub,
+                color: AuthColors.textMain,
               ),
               const SizedBox(width: AppSpacing.paddingXS / 2),
               Text(
@@ -716,7 +716,7 @@ class _ProductInfo extends StatelessWidget {
           child: Text(
             'Qty: $fixedQuantityPerTrip',
             style: AppTypography.captionSmall.copyWith(
-              color: AuthColors.success,
+              color: AuthColors.textMain,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -725,7 +725,7 @@ class _ProductInfo extends StatelessWidget {
         Text(
           formattedCreatedAt,
           style: AppTypography.captionSmall.copyWith(
-            color: AuthColors.textDisabled,
+            color: AuthColors.textMain,
           ),
         ),
       ],
@@ -806,8 +806,8 @@ class _CompactActionButton extends StatelessWidget {
         ? AuthColors.textMainWithOpacity(0.08)
         : color;
     final textColor = (isDisabled || onTap == null)
-        ? AuthColors.textDisabled
-        : AuthColors.textMain;
+      ? AuthColors.textMain
+      : AuthColors.textMain;
 
     return Material(
       color: AuthColors.background.withValues(alpha: 0),

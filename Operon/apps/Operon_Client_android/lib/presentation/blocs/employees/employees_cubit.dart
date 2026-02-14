@@ -9,8 +9,8 @@ class EmployeesState extends BaseState {
     super.status = ViewStatus.initial,
     this.employees = const [],
     this.roles = const [],
-    String? message,
-  }) : super(message: message);
+    super.message,
+  });
 
   final List<OrganizationEmployee> employees;
   final List<OrganizationRole> roles;
@@ -117,4 +117,3 @@ class EmployeesCubit extends Cubit<EmployeesState> {
     }
   }
 }
-

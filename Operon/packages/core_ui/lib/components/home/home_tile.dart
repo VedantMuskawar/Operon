@@ -19,6 +19,8 @@ class HomeTile extends StatefulWidget {
     this.subtitle,
     required this.onTap,
     this.isCompact = true,
+    this.showIcon = true,
+    this.titleFontSize,
   });
 
   final String title;
@@ -28,6 +30,8 @@ class HomeTile extends StatefulWidget {
   final String? subtitle;
   final VoidCallback onTap;
   final bool isCompact;
+  final bool showIcon;
+  final double? titleFontSize;
 
   @override
   State<HomeTile> createState() => _HomeTileState();
@@ -165,8 +169,10 @@ class _HomeTileState extends State<HomeTile>
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildIconSection(),
-          SizedBox(height: widget.isCompact ? 12 : 16),
+          if (widget.showIcon) ...[
+            _buildIconSection(),
+            SizedBox(height: widget.isCompact ? 12 : 16),
+          ],
           _buildTextSection(),
         ],
       ),
@@ -245,7 +251,7 @@ class _HomeTileState extends State<HomeTile>
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white,
-              fontSize: widget.isCompact ? 14 : 16,
+              fontSize: widget.titleFontSize ?? (widget.isCompact ? 16 : 18),
               fontWeight: FontWeight.w600,
               letterSpacing: -0.2,
               height: 1.2,

@@ -15,20 +15,14 @@ class HomeOverviewView extends StatefulWidget {
 
 class _HomeOverviewViewState extends State<HomeOverviewView> {
   // Category color mapping
-  static const Color _peopleColor = AuthColors.warning; // Orange
-  static const Color _financialColor = AuthColors.success; // Green
-  static const Color _operationsColor = AuthColors.info; // Blue
-  static const Color _documentsColor = AuthColors.secondary; // Purple
+  static const Color _peopleColor = Color(0xFFB96A2C); // Muted rust
+  static const Color _financialColor = Color(0xFF3E8E6F); // Industrial green
+  static const Color _operationsColor = Color(0xFF3E6E8C); // Steel blue
 
   // Memoized tile list - only rebuilds when role changes
   List<_TileData>? _cachedTiles;
   dynamic _cachedRoleId; // Cache role identity to detect changes
   String? _cachedOrgId;
-
-  static String _monthKey(DateTime date) {
-    final month = date.month.toString().padLeft(2, '0');
-    return '${date.year}-$month';
-  }
 
   static String _formatCurrency(double value) {
     return '₹${value.toStringAsFixed(0)}';
@@ -36,43 +30,47 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
 
   Widget _buildFuelBalanceTile(BuildContext context, String? orgId) {
     if (orgId == null || orgId.isEmpty) {
-      return HomeTile(
-        title: 'Fuel Balance',
-        subtitle: '—',
+      return const HomeTile(
+        title: '—',
+        subtitle: 'Fuel Balance',
         icon: Icons.local_gas_station_outlined,
         accentColor: _financialColor,
         onTap: _noOp,
         isCompact: true,
+        showIcon: false,
       );
     }
 
-    final docId = 'fuel_${orgId}_${_monthKey(DateTime.now())}';
-    final docRef = FirebaseFirestore.instance
-        .collection('ANALYTICS')
-        .doc(docId)
-        .withConverter<Map<String, dynamic>>(
-          fromFirestore: (snapshot, _) => snapshot.data() ?? {},
-          toFirestore: (value, _) => value,
-        );
+    final vendorsQuery = FirebaseFirestore.instance
+        .collection('VENDORS')
+        .where('organizationId', isEqualTo: orgId)
+        .where('vendorType', isEqualTo: 'fuel');
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: docRef.snapshots(),
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: vendorsQuery.snapshots(),
       builder: (context, snapshot) {
-        final data = snapshot.data?.data();
-        final raw = data?['metrics']?['totalUnpaidFuelBalance'];
-        final subtitle = snapshot.connectionState == ConnectionState.waiting
+        double totalBalance = 0.0;
+        if (snapshot.hasData) {
+          for (final doc in snapshot.data!.docs) {
+            final data = doc.data();
+            final balance = (data['currentBalance'] as num?)?.toDouble() ?? 0.0;
+            totalBalance += balance;
+          }
+        }
+
+        final title = snapshot.connectionState == ConnectionState.waiting
             ? 'Loading…'
-            : raw is num
-                ? _formatCurrency(raw.toDouble())
-                : '—';
+            : _formatCurrency(totalBalance);
 
         return HomeTile(
-          title: 'Fuel Balance',
-          subtitle: subtitle,
+          title: title,
+          subtitle: 'Fuel Balance',
           icon: Icons.local_gas_station_outlined,
           accentColor: _financialColor,
+              titleFontSize: 18,
           onTap: _noOp,
           isCompact: true,
+          showIcon: false,
         );
       },
     );
@@ -95,16 +93,6 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
       ),
     ];
 
-    // Add attendance tile if user can access employees page
-    if (role?.canAccessPage('employees') == true) {
-      peopleTiles.add(const _TileData(
-        icon: Icons.event_available_outlined,
-        title: 'Attendance',
-        route: '/attendance',
-        color: _peopleColor,
-      ));
-    }
-
     if (role?.canAccessPage('vendors') == true) {
       peopleTiles.add(const _TileData(
         icon: Icons.store_outlined,
@@ -115,6 +103,16 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
     }
 
     final operationsTiles = <_TileData>[];
+    if (role?.canAccessSection('pendingOrders') == true ||
+        role?.canAccessSection('scheduleOrders') == true) {
+      operationsTiles.add(const _TileData(
+        icon: Icons.description_outlined,
+        title: 'DM',
+        route: '/delivery-memos',
+        color: _operationsColor,
+      ));
+    }
+
     if (role?.canAccessPage('zonesCity') == true ||
         role?.canAccessPage('zonesRegion') == true ||
         role?.canAccessPage('zonesPrice') == true) {
@@ -126,16 +124,16 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
       ));
     }
 
-    final documentsTiles = <_TileData>[];
-    if (role?.canAccessSection('pendingOrders') == true ||
-        role?.canAccessSection('scheduleOrders') == true) {
-      documentsTiles.add(const _TileData(
-        icon: Icons.description_outlined,
-        title: 'DM',
-        route: '/delivery-memos',
-        color: _documentsColor,
+    if (role?.canAccessPage('employees') == true) {
+      operationsTiles.add(const _TileData(
+        icon: Icons.event_available_outlined,
+        title: 'Attendance',
+        route: '/attendance',
+        color: _operationsColor,
       ));
     }
+
+    final documentsTiles = <_TileData>[];
 
     final financialTiles = <_TileData>[
       if (role?.canAccessSection('analyticsDashboard') == true ||
@@ -178,7 +176,9 @@ class _HomeOverviewViewState extends State<HomeOverviewView> {
 
   List<_TileData> _getTiles(dynamic role, String? orgId) {
     // Use identity check to detect role changes
-    if (_cachedTiles == null || _cachedRoleId != role || _cachedOrgId != orgId) {
+    if (_cachedTiles == null ||
+        _cachedRoleId != role ||
+        _cachedOrgId != orgId) {
       _cachedRoleId = role;
       _cachedOrgId = orgId;
       _cachedTiles = _buildTiles(role, orgId);

@@ -136,6 +136,28 @@ class _CashLedgerViewState extends State<CashLedgerView> {
     return '$day $month $year • ${hour == 0 ? 12 : hour}:$minute $period';
   }
 
+  Future<void> _selectSingleDate() async {
+    final state = context.read<CashLedgerCubit>().state;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: state.startDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: DashTheme.light(),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final start = DateTime(picked.year, picked.month, picked.day);
+      final end = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+      context.read<CashLedgerCubit>().setDateRange(start, end);
+    }
+  }
+
   Future<void> _selectStartDate() async {
     final state = context.read<CashLedgerCubit>().state;
     final picked = await showDatePicker(
@@ -382,6 +404,51 @@ class _CashLedgerViewState extends State<CashLedgerView> {
       builder: (context, state) {
         return Row(
           children: [
+            Container(
+              constraints: const BoxConstraints(maxWidth: 200),
+              child: InkWell(
+                onTap: _selectSingleDate,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AuthColors.surface.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(12),
+                    border:
+                        Border.all(color: AuthColors.textMainWithOpacity(0.1)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.calendar_today,
+                          color: AuthColors.textSub, size: 16),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Day',
+                              style: TextStyle(
+                                  color: AuthColors.textSub, fontSize: 10)),
+                          Text(
+                            state.startDate != null
+                                ? _formatDatePicker(state.startDate!)
+                                : 'Select',
+                            style: const TextStyle(
+                              color: AuthColors.textMain,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
             Container(
               constraints: const BoxConstraints(maxWidth: 200),
               child: InkWell(

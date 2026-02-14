@@ -544,13 +544,15 @@ class _RecordPaymentPageState extends State<RecordPaymentPage> {
               borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
               border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-              child: Image.file(
-                File(state.receiptPhoto!),
-                fit: BoxFit.cover,
+              child: RepaintBoundary(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+                  child: Image.file(
+                    File(state.receiptPhoto!),
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
-            ),
           ),
           Positioned(
             top: 8,

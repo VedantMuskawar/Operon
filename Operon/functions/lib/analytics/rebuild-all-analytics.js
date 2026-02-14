@@ -12,6 +12,7 @@ const transaction_rebuild_1 = require("../transactions/transaction-rebuild");
 const deliveries_analytics_1 = require("./deliveries-analytics");
 const productions_analytics_1 = require("./productions-analytics");
 const trip_wages_analytics_1 = require("./trip-wages-analytics");
+const fuel_analytics_1 = require("./fuel-analytics");
 const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
 /**
@@ -92,6 +93,12 @@ exports.rebuildAllAnalytics = (0, scheduler_1.onSchedule)(Object.assign({ schedu
         }
         catch (error) {
             console.error('[Analytics Rebuild] Trip wages analytics failed for org', organizationId, error);
+        }
+        try {
+            await (0, fuel_analytics_1.rebuildFuelAnalyticsForOrg)(organizationId, fyLabel, fyStart, fyEnd);
+        }
+        catch (error) {
+            console.error('[Analytics Rebuild] Fuel analytics failed for org', organizationId, error);
         }
     }
     console.log('[Analytics Rebuild] Unified rebuild completed', { fyLabel });

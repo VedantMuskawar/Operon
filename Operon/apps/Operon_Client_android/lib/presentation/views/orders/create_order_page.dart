@@ -27,10 +27,12 @@ class CreateOrderPage extends StatefulWidget {
 class _CreateOrderPageState extends State<CreateOrderPage> {
   late final PageController _pageController;
   double _currentPage = 0;
+  late final ClientRecord? _client;
 
   @override
   void initState() {
     super.initState();
+    _client = widget.client;
     _pageController = PageController()
       ..addListener(() {
         if (mounted) {
@@ -165,7 +167,7 @@ class _CreateOrderPageState extends State<CreateOrderPage> {
                               AppSpacing.paddingXXXL,
                               MediaQuery.of(context).viewInsets.bottom + AppSpacing.sectionSpacing,
                             ),
-                            child: OrderSummarySection(client: widget.client),
+                            child: OrderSummarySection(client: _client),
                           ),
                         ],
                       ),

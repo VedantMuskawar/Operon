@@ -21,6 +21,51 @@ class ScheduledTripTile extends StatelessWidget {
   final VoidCallback onReschedule;
   final VoidCallback? onOpenDetails;
 
+  String? _resolvePaymentAccountName(List<dynamic> paymentDetails) {
+    for (final payment in paymentDetails) {
+      if (payment is Map<String, dynamic>) {
+        final name = payment['paymentAccountName'] as String?;
+        if (name != null && name.trim().isNotEmpty) {
+          return name.trim();
+        }
+      }
+    }
+    return null;
+  }
+
+  Widget _paymentBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.paddingSM,
+        vertical: AppSpacing.paddingXS,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
+        border: Border.all(color: color.withValues(alpha: 0.95)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AuthColors.textMain),
+          const SizedBox(width: AppSpacing.paddingXS),
+          Text(
+            label,
+            style: TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _callClient(BuildContext context) async {
     final phone =
         trip['customerNumber'] as String? ?? trip['clientPhone'] as String?;
@@ -284,6 +329,13 @@ class ScheduledTripTile extends StatelessWidget {
         : 'N/A';
     final statusColor = _getStatusColor();
 
+    final paymentType = trip['paymentType'] as String? ?? 'pay_later';
+    final paymentDetails = trip['paymentDetails'] as List<dynamic>? ?? [];
+    final paymentAccountName = _resolvePaymentAccountName(paymentDetails);
+    final showCreditBatch = paymentType == 'pay_later';
+    final showPaymentAccountBadge = paymentType == 'pay_on_delivery' &&
+      (paymentAccountName?.isNotEmpty ?? false);
+
     // Get product info from items
     final items = trip['items'] as List<dynamic>? ?? [];
     final firstItem =
@@ -349,7 +401,7 @@ class ScheduledTripTile extends StatelessWidget {
                                 child: Text(
                                   zoneText,
                                   style: TextStyle(
-                                    color: AuthColors.textSub.withValues(alpha: 0.6),
+                                    color: AuthColors.textMain,
                                     fontSize: 11,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -467,7 +519,7 @@ class ScheduledTripTile extends StatelessWidget {
                       child: Text(
                         'Qty: $fixedQuantityPerTrip',
                         style: const TextStyle(
-                          color: AuthColors.successVariant,
+                          color: AuthColors.textMain,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
@@ -476,6 +528,27 @@ class ScheduledTripTile extends StatelessWidget {
                     const Spacer(),
                   ],
                 ),
+                if (showCreditBatch || showPaymentAccountBadge) ...[
+                  const SizedBox(height: AppSpacing.paddingSM),
+                  Wrap(
+                    spacing: AppSpacing.paddingXS,
+                    runSpacing: AppSpacing.paddingXS,
+                    children: [
+                      if (showCreditBatch)
+                        _paymentBadge(
+                          icon: Icons.credit_score_outlined,
+                          label: 'Credit Batch',
+                          color: AuthColors.secondary,
+                        ),
+                      if (showPaymentAccountBadge)
+                        _paymentBadge(
+                          icon: Icons.account_balance_wallet_outlined,
+                          label: paymentAccountName ?? 'Account',
+                          color: AuthColors.info,
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

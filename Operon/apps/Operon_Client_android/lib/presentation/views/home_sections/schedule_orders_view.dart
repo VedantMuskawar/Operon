@@ -35,7 +35,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   String? _currentOrgId;
   DateTime? _currentDate; // Only re-subscribe when org or date actually changes
   List<Vehicle> _vehicles = [];
-  String? _selectedVehicleId;
+  final Set<String> _selectedVehicleIds = {};
 
   // Cached values — recomputed only when _scheduledTrips or _vehicles change
   int _cachedTotalTrips = 0;
@@ -172,7 +172,13 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
 
   void _onVehicleFilterChanged(String? vehicleId) {
     setState(() {
-      _selectedVehicleId = vehicleId;
+      if (vehicleId == null) {
+        _selectedVehicleIds.clear();
+      } else if (_selectedVehicleIds.contains(vehicleId)) {
+        _selectedVehicleIds.remove(vehicleId);
+      } else {
+        _selectedVehicleIds.add(vehicleId);
+      }
       _scheduledTrips = _applyFilters(_allTripsForDate);
       _updateCachedValues();
     });
@@ -180,9 +186,12 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
 
   List<Map<String, dynamic>> _applyFilters(List<Map<String, dynamic>> trips) {
     var filtered = trips;
-    if (_selectedVehicleId != null) {
+    if (_selectedVehicleIds.isNotEmpty) {
       filtered = filtered
-          .where((trip) => (trip['vehicleId'] as String?) == _selectedVehicleId)
+          .where((trip) {
+            final vehicleId = trip['vehicleId'] as String?;
+            return vehicleId != null && _selectedVehicleIds.contains(vehicleId);
+          })
           .toList();
     }
 
@@ -523,8 +532,8 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
   }
 
   List<Vehicle> _computeFilteredVehicles() {
-    if (_scheduledTrips.isEmpty) return [];
-    final vehicleIds = _scheduledTrips
+    if (_allTripsForDate.isEmpty) return [];
+    final vehicleIds = _allTripsForDate
         .map((trip) => trip['vehicleId'] as String?)
         .where((id) => id != null)
         .toSet()
@@ -742,7 +751,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                           const EdgeInsets.only(right: AppSpacing.paddingSM),
                       child: _VehicleFilterButton(
                         label: 'All',
-                        isSelected: _selectedVehicleId == null,
+                        isSelected: _selectedVehicleIds.isEmpty,
                         onTap: () => _onVehicleFilterChanged(null),
                       ),
                     );
@@ -752,7 +761,7 @@ class _ScheduleOrdersViewState extends State<ScheduleOrdersView> {
                     padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                     child: _VehicleFilterButton(
                       label: vehicle.vehicleNumber,
-                      isSelected: _selectedVehicleId == vehicle.id,
+                      isSelected: _selectedVehicleIds.contains(vehicle.id),
                       onTap: () => _onVehicleFilterChanged(vehicle.id),
                     ),
                   );

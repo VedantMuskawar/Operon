@@ -704,6 +704,14 @@ class _UnifiedFinancialTransactionsViewState
             (transaction.description?.isNotEmpty == true
                 ? transaction.description!
                 : 'Client Payment');
+      case TransactionCategory.tripPayment:
+        return (transaction.clientName?.trim().isNotEmpty == true
+                ? transaction.clientName!.trim()
+                : null) ??
+            transaction.metadata?['clientName']?.toString().trim() ??
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Trip Payment');
       case TransactionCategory.vendorPurchase:
         return transaction.metadata?['vendorName']?.toString().trim() ??
             (transaction.description?.isNotEmpty == true

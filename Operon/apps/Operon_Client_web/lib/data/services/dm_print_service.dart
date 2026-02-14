@@ -1249,30 +1249,13 @@ class DmPrintService with PrintViewDataMixin {
           (productQuant * productUnitPrice);
     }
 
-    // Extract payment info - handle both bool and string values from Firestore
-    final paymentStatusValue = dmData['paymentStatus'];
-    final paymentStatus = paymentStatusValue is bool
-        ? paymentStatusValue
-        : (paymentStatusValue is String
-            ? paymentStatusValue.toLowerCase() == 'true' || 
-              paymentStatusValue.toLowerCase() == 'paid'
-            : false);
-    final toAccount = dmData['toAccount'] as String?;
-    final paySchedule = dmData['paySchedule'] as String?;
+    // Extract payment info - map paymentType to display value
+    final paymentType = dmData['paymentType'] as String?;
     String paymentMode = 'N/A';
-    if (paymentStatus && toAccount != null) {
-      paymentMode = toAccount;
-    } else if (paySchedule == 'POD') {
-      paymentMode = 'Cash';
-    } else if (paySchedule == 'PL') {
+    if (paymentType == 'pay_later') {
       paymentMode = 'Credit';
-    } else if (paySchedule != null) {
-      paymentMode = paySchedule;
-    } else {
-      final paymentModeRaw = dmData['paymentMode'] as String?;
-      if (paymentModeRaw != null && paymentModeRaw.trim().isNotEmpty) {
-        paymentMode = paymentModeRaw.trim();
-      }
+    } else if (paymentType == 'pay_on_delivery') {
+      paymentMode = 'Cash';
     }
 
     // Convert images to base64

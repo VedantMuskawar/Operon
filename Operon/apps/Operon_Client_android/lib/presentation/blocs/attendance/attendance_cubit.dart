@@ -10,8 +10,8 @@ class AttendanceState extends BaseState {
     this.selectedYearMonth,
     this.selectedStartDate,
     this.selectedEndDate,
-    String? message,
-  }) : super(message: message);
+    super.message,
+  });
 
   final Map<String, RoleAttendanceGroup>? roleGroups;
   final String? selectedYearMonth;
@@ -50,7 +50,9 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   final String _organizationId;
 
   // Cache key: '${organizationId}_$yearMonth' or '${organizationId}_${startDate}_${endDate}'
-  final Map<String, ({DateTime timestamp, Map<String, RoleAttendanceGroup> data})> _cache = {};
+  final Map<String,
+          ({DateTime timestamp, Map<String, RoleAttendanceGroup> data})>
+      _cache = {};
   static const _cacheTTL = Duration(minutes: 2);
 
   String get organizationId => _organizationId;
@@ -71,7 +73,8 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   Future<void> loadAttendanceForMonth(String yearMonth) async {
     final cacheKey = '${_organizationId}_$yearMonth';
     final cached = _cache[cacheKey];
-    if (cached != null && DateTime.now().difference(cached.timestamp) < _cacheTTL) {
+    if (cached != null &&
+        DateTime.now().difference(cached.timestamp) < _cacheTTL) {
       emit(state.copyWith(
         status: ViewStatus.success,
         roleGroups: cached.data,
@@ -113,9 +116,11 @@ class AttendanceCubit extends Cubit<AttendanceState> {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
-    final cacheKey = '${_organizationId}_${startDate.toIso8601String()}_${endDate.toIso8601String()}';
+    final cacheKey =
+        '${_organizationId}_${startDate.toIso8601String()}_${endDate.toIso8601String()}';
     final cached = _cache[cacheKey];
-    if (cached != null && DateTime.now().difference(cached.timestamp) < _cacheTTL) {
+    if (cached != null &&
+        DateTime.now().difference(cached.timestamp) < _cacheTTL) {
       emit(state.copyWith(
         status: ViewStatus.success,
         roleGroups: cached.data,
@@ -160,7 +165,8 @@ class AttendanceCubit extends Cubit<AttendanceState> {
   Future<void> refresh() async {
     if (state.selectedYearMonth != null) {
       await loadAttendanceForMonth(state.selectedYearMonth!);
-    } else if (state.selectedStartDate != null && state.selectedEndDate != null) {
+    } else if (state.selectedStartDate != null &&
+        state.selectedEndDate != null) {
       await loadAttendanceForDateRange(
         startDate: state.selectedStartDate!,
         endDate: state.selectedEndDate!,

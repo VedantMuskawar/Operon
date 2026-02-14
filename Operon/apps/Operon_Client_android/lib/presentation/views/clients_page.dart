@@ -62,7 +62,8 @@ class _ClientsPageState extends State<ClientsPage> {
   Future<void> _loadMore() async {
     if (_isLoadingMore) return;
     final cubit = context.read<ClientsCubit>();
-    if (!cubit.hasMore) return;
+    // Don't paginate when searching (server-side search returns all results)
+    if (!cubit.hasMore || cubit.state.searchQuery.isNotEmpty) return;
     setState(() => _isLoadingMore = true);
     try {
       await cubit.loadMoreClients(limit: _pageSize);
@@ -329,7 +330,10 @@ class _ClientsListView extends StatelessWidget {
           );
         }
 
-        final allClients = state.recentClients;
+        // Use server-side search results if query exists, otherwise use recent clients
+        final allClients = state.searchQuery.isNotEmpty
+            ? state.searchResults
+            : state.recentClients;
         final filteredClients = onApplyFilter(allClients);
 
         return CustomScrollView(

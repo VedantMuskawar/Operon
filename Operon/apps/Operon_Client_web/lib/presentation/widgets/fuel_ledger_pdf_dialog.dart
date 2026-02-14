@@ -192,8 +192,9 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
     final boundary = _repaintKey.currentContext?.findRenderObject()
         as RenderRepaintBoundary?;
     if (boundary == null) {
-      if (mounted)
+      if (mounted) {
         DashSnackbar.show(context, message: 'Could not capture', isError: true);
+      }
       return;
     }
     try {
@@ -208,9 +209,10 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
         text: 'Fuel Ledger ${widget.vendor.name}',
       );
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         DashSnackbar.show(context,
             message: 'Failed to share: $e', isError: true);
+      }
     }
   }
 

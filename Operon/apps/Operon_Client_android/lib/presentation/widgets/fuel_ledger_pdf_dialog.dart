@@ -316,10 +316,10 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                     setState(() => _rangeMode = value);
                   }
                 },
-                child: Column(
+                child: const Column(
                   children: [
                     RadioListTile<String>(
-                      title: const Text(
+                      title: Text(
                         'Voucher range',
                         style: TextStyle(
                           color: AuthColors.textSub,
@@ -332,7 +332,7 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
                       contentPadding: EdgeInsets.zero,
                     ),
                     RadioListTile<String>(
-                      title: const Text(
+                      title: Text(
                         'Date range',
                         style: TextStyle(
                           color: AuthColors.textSub,
@@ -515,7 +515,8 @@ class _FuelLedgerPdfDialogState extends State<FuelLedgerPdfDialog> {
         TextButton(
           onPressed:
               _isGeneratingPdf ? null : () => Navigator.of(context).pop(),
-          child: const Text('Close', style: TextStyle(color: AuthColors.textSub)),
+          child:
+              const Text('Close', style: TextStyle(color: AuthColors.textSub)),
         ),
         DashButton(
           label: 'Share',

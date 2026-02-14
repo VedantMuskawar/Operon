@@ -16,7 +16,7 @@ class ClientService {
     return query;
   }
 
-  Future<void> createClient({
+  Future<ClientRecord> createClient({
     required String name,
     required String primaryPhone,
     required List<String> phones,
@@ -72,6 +72,11 @@ class ClientService {
 
     final docRef = await _firestore.collection(_collection).add(docData);
     await docRef.update({'clientId': docRef.id});
+    final dataForReturn = <String, dynamic>{
+      ...docData,
+      'clientId': docRef.id,
+    };
+    return ClientRecord.fromMap(docRef.id, dataForReturn);
   }
 
   Future<ClientRecord?> findClientByPhone(
@@ -311,7 +316,19 @@ class ClientRecord {
 
   factory ClientRecord.fromDoc(
       QueryDocumentSnapshot<Map<String, dynamic>> snapshot) {
+    return ClientRecord.fromMap(snapshot.id, snapshot.data());
+  }
+
+  factory ClientRecord.fromSnapshot(
+      DocumentSnapshot<Map<String, dynamic>> snapshot) {
     final data = snapshot.data();
+    if (data == null) {
+      throw Exception('Client record not found');
+    }
+    return ClientRecord.fromMap(snapshot.id, data);
+  }
+
+  factory ClientRecord.fromMap(String id, Map<String, dynamic> data) {
     final phoneEntries =
         List<Map<String, dynamic>>.from(data['phones'] ?? const <Map>[]);
     final phoneIndex = data['phoneIndex'] != null
@@ -323,7 +340,7 @@ class ClientRecord {
     final contactEntries =
         List<Map<String, dynamic>>.from(data['contacts'] ?? const <Map>[]);
     return ClientRecord(
-      id: snapshot.id,
+      id: id,
       name: (data['name'] as String?) ?? 'Unnamed Client',
       tags: List<String>.from(data['tags'] ?? const []),
       primaryPhone: data['primaryPhone'] as String?,

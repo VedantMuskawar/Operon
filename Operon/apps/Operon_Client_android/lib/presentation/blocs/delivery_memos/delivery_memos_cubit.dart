@@ -11,8 +11,8 @@ class DeliveryMemosState extends BaseState {
     this.statusFilter, // 'active' or 'cancelled'
     this.startDate,
     this.endDate,
-    String? message,
-  }) : super(message: message);
+    super.message,
+  });
 
   final List<Map<String, dynamic>> deliveryMemos;
   final String searchQuery;
@@ -55,6 +55,7 @@ class DeliveryMemosState extends BaseState {
     _lastSearchIndexHash = memosHash;
     return _searchIndexCache;
   }
+
   List<Map<String, dynamic>> get filteredDeliveryMemos {
     var filtered = deliveryMemos;
 
@@ -145,12 +146,12 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
 
     _deliveryMemosSubscription = _repository
         .watchDeliveryMemos(
-          organizationId: _organizationId,
-          status: state.statusFilter,
-          startDate: state.startDate,
-          endDate: state.endDate,
-          limit: limit, // Show top 10 when no search, all DMs when searching
-        )
+      organizationId: _organizationId,
+      status: state.statusFilter,
+      startDate: state.startDate,
+      endDate: state.endDate,
+      limit: limit, // Show top 10 when no search, all DMs when searching
+    )
         .listen(
       (deliveryMemos) {
         emit(state.copyWith(
@@ -202,4 +203,3 @@ class DeliveryMemosCubit extends Cubit<DeliveryMemosState> {
     return super.close();
   }
 }
-

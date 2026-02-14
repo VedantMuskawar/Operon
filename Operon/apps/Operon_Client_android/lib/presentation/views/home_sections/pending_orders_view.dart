@@ -5,6 +5,7 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:dash_mobile/data/repositories/clients_repository.dart';
 import 'package:dash_mobile/data/repositories/pending_orders_repository.dart';
+import 'package:dash_mobile/data/services/client_service.dart';
 import 'package:dash_mobile/presentation/blocs/clients/clients_cubit.dart';
 import 'package:dash_mobile/presentation/blocs/org_context/org_context_cubit.dart';
 import 'package:dash_mobile/presentation/views/clients_page/contact_page.dart';
@@ -32,18 +33,20 @@ class PendingOrdersView extends StatefulWidget {
 }
 
 class _PendingOrdersViewState extends State<PendingOrdersView> {
-  int _pendingOrdersCount = 0;
-  int _totalPendingTrips = 0;
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
   bool _isEddRunning = false;
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
   String? _currentOrgId;
-  int? _selectedFixedQuantityFilter; // null means "All"
+  final Set<int> _selectedFixedQuantityFilters = {}; // empty means "All"
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   // Cached — recomputed only when _orders or _selectedFixedQuantityFilter change
   List<Map<String, dynamic>> _cachedFilteredOrders = [];
   List<int> _cachedUniqueQuantities = [];
+  int _cachedFilteredOrdersCount = 0;
+  int _cachedFilteredTripsCount = 0;
 
   // Cache trip counts per order to avoid recalculating on every stream update
   final Map<String, int> _orderTripCounts = {};
@@ -53,11 +56,36 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   void initState() {
     super.initState();
     _subscribeToOrders();
+    _searchController.addListener(_handleSearchChanged);
   }
 
   void _updateCachedValues() {
     _cachedFilteredOrders = _computeFilteredOrders();
     _cachedUniqueQuantities = _computeUniqueQuantities();
+    _cachedFilteredOrdersCount = _cachedFilteredOrders.length;
+    _cachedFilteredTripsCount =
+        _calculateTotalTrips(_cachedFilteredOrders);
+  }
+
+  void _handleSearchChanged() {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query == _searchQuery) return;
+    setState(() {
+      _searchQuery = query;
+      _updateCachedValues();
+    });
+  }
+
+  bool _matchesSearch(Map<String, dynamic> order) {
+    if (_searchQuery.isEmpty) return true;
+    final clientName = (order['clientName'] as String? ?? '').toLowerCase();
+    final clientPhone = (order['clientPhone'] as String? ?? '').toLowerCase();
+    final orderNumber = (order['orderNumber'] as String? ?? '').toLowerCase();
+    final orderId = (order['id'] as String? ?? '').toLowerCase();
+    return clientName.contains(_searchQuery) ||
+        clientPhone.contains(_searchQuery) ||
+        orderNumber.contains(_searchQuery) ||
+        orderId.contains(_searchQuery);
   }
 
   /// Calculate remaining trips for a single order (pending trips to schedule)
@@ -149,15 +177,17 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   }
 
   List<Map<String, dynamic>> _computeFilteredOrders() {
-    if (_selectedFixedQuantityFilter == null) {
-      return _orders; // Return reference, no need to copy
+    if (_selectedFixedQuantityFilters.isEmpty) {
+      return _orders.where(_matchesSearch).toList();
     }
     return _orders.where((order) {
+      if (!_matchesSearch(order)) return false;
       final items = order['items'] as List<dynamic>? ?? [];
       if (items.isEmpty) return false;
       final firstItem = items.first as Map<String, dynamic>;
-      return (firstItem['fixedQuantityPerTrip'] as int?) ==
-          _selectedFixedQuantityFilter;
+      final fixedQuantity = firstItem['fixedQuantityPerTrip'] as int?;
+      return fixedQuantity != null &&
+          _selectedFixedQuantityFilters.contains(fixedQuantity);
     }).toList();
   }
 
@@ -189,8 +219,6 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
         setState(() {
           _isLoading = false;
           _orders = [];
-          _pendingOrdersCount = 0;
-          _totalPendingTrips = 0;
           _updateCachedValues();
         });
       }
@@ -210,14 +238,9 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     await _ordersSubscription?.cancel();
     _ordersSubscription = repository.watchPendingOrders(orgId).listen(
       (orders) {
-        // Use cached calculation method that only recalculates when orders change
-        final tripsCount = _calculateTotalTrips(orders);
-
         if (mounted) {
           setState(() {
             _orders = orders;
-            _pendingOrdersCount = orders.length;
-            _totalPendingTrips = tripsCount;
             _isLoading = false;
             _updateCachedValues();
           });
@@ -234,6 +257,8 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   @override
   void dispose() {
     _ordersSubscription?.cancel();
+    _searchController.removeListener(_handleSearchChanged);
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -262,7 +287,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                             Expanded(
                               child: _StatTile(
                                 title: 'Orders',
-                                value: _pendingOrdersCount.toString(),
+                                value: _cachedFilteredOrdersCount.toString(),
                                 icon: Icons.shopping_cart_outlined,
                                 accentColor: AuthColors.primary,
                               ),
@@ -271,7 +296,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                             Expanded(
                               child: _StatTile(
                                 title: 'Trips',
-                                value: _totalPendingTrips.toString(),
+                                value: _cachedFilteredTripsCount.toString(),
                                 icon: Icons.route_outlined,
                                 accentColor: AuthColors.secondary,
                               ),
@@ -302,6 +327,58 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                             ),
                           ),
                         ),
+                        const SizedBox(height: AppSpacing.paddingMD),
+                        TextField(
+                          controller: _searchController,
+                          style: const TextStyle(
+                            color: AuthColors.textMain,
+                            fontSize: 14,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Search orders by client, phone, or order #',
+                            hintStyle: const TextStyle(
+                              color: AuthColors.textDisabled,
+                              fontSize: 13,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: AuthColors.textSub,
+                              size: 20,
+                            ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    onPressed: () {
+                                      _searchController.clear();
+                                    },
+                                    icon: const Icon(
+                                      Icons.clear,
+                                      color: AuthColors.textSub,
+                                      size: 18,
+                                    ),
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: AuthColors.backgroundAlt,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.paddingLG,
+                              vertical: AppSpacing.paddingLG,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusLG),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusLG),
+                              borderSide: const BorderSide(
+                                color: AuthColors.primary,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                          textInputAction: TextInputAction.search,
+                        ),
                       ],
                     ),
                   ),
@@ -311,10 +388,12 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                     SliverToBoxAdapter(
                       child: _FixedQuantityFilter(
                         uniqueQuantities: _cachedUniqueQuantities,
-                        selectedValue: _selectedFixedQuantityFilter,
-                        onFilterChanged: (value) {
+                        selectedValues: _selectedFixedQuantityFilters,
+                        onFilterChanged: (values) {
                           setState(() {
-                            _selectedFixedQuantityFilter = value;
+                            _selectedFixedQuantityFilters
+                              ..clear()
+                              ..addAll(values);
                             _updateCachedValues();
                           });
                         },
@@ -382,13 +461,13 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
 class _FixedQuantityFilter extends StatelessWidget {
   const _FixedQuantityFilter({
     required this.uniqueQuantities,
-    required this.selectedValue,
+    required this.selectedValues,
     required this.onFilterChanged,
   });
 
   final List<int> uniqueQuantities;
-  final int? selectedValue;
-  final ValueChanged<int?> onFilterChanged;
+  final Set<int> selectedValues;
+  final ValueChanged<Set<int>> onFilterChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -402,16 +481,24 @@ class _FixedQuantityFilter extends StatelessWidget {
         children: [
           _FilterChip(
             label: 'All',
-            isSelected: selectedValue == null,
-            onTap: () => onFilterChanged(null),
+            isSelected: selectedValues.isEmpty,
+            onTap: () => onFilterChanged(<int>{}),
           ),
           const SizedBox(width: AppSpacing.paddingSM),
           ...uniqueQuantities.map((quantity) => Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.paddingSM),
                 child: _FilterChip(
                   label: quantity.toString(),
-                  isSelected: selectedValue == quantity,
-                  onTap: () => onFilterChanged(quantity),
+                  isSelected: selectedValues.contains(quantity),
+                  onTap: () {
+                    final updated = Set<int>.from(selectedValues);
+                    if (updated.contains(quantity)) {
+                      updated.remove(quantity);
+                    } else {
+                      updated.add(quantity);
+                    }
+                    onFilterChanged(updated);
+                  },
                 ),
               )),
         ],
@@ -570,57 +657,21 @@ class _CustomerTypeDialog extends StatelessWidget {
               title: 'New Customer',
               subtitle: 'Create a new customer profile',
               onTap: () async {
+                final rootNavigator = Navigator.of(context, rootNavigator: true);
                 Navigator.of(context).pop();
-                final result = await Navigator.of(context).push<bool>(
+                final result = await rootNavigator.push<ClientRecord>(
                   MaterialPageRoute(
                     builder: (_) => const ContactPage(),
                     fullscreenDialog: true,
                   ),
                 );
-                // If client was created successfully, fetch the most recent client and navigate to create order page
-                if (result == true && context.mounted) {
-                  final clientsRepository = context.read<ClientsRepository>();
-                  final org = context
-                      .read<OrganizationContextCubit>()
-                      .state
-                      .organization;
-                  if (org == null) {
-                    return;
-                  }
-                  try {
-                    // Fetch the most recently created client
-                    final recentClients =
-                        await clientsRepository.fetchRecentClients(
-                      orgId: org.id,
-                      limit: 1,
-                    );
-                    final createdClient =
-                        recentClients.isNotEmpty ? recentClients.first : null;
-
-                    if (!context.mounted) {
-                      return;
-                    }
-
-                    if (context.mounted) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              CreateOrderPage(client: createdClient),
-                          fullscreenDialog: true,
-                        ),
-                      );
-                    }
-                  } catch (error) {
-                    // If fetching fails, still navigate but without client
-                    if (context.mounted) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const CreateOrderPage(),
-                          fullscreenDialog: true,
-                        ),
-                      );
-                    }
-                  }
+                if (result != null) {
+                  rootNavigator.push(
+                    MaterialPageRoute(
+                      builder: (_) => CreateOrderPage(client: result),
+                      fullscreenDialog: true,
+                    ),
+                  );
                 }
               },
             ),

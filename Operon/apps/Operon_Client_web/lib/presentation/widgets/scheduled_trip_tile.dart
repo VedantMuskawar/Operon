@@ -158,6 +158,48 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
     });
   }
 
+  String? _resolvePaymentAccountName(List<dynamic> paymentDetails) {
+    for (final payment in paymentDetails) {
+      if (payment is Map<String, dynamic>) {
+        final name = payment['paymentAccountName'] as String?;
+        if (name != null && name.trim().isNotEmpty) {
+          return name.trim();
+        }
+      }
+    }
+    return null;
+  }
+
+  Widget _paymentBadge({
+    required IconData icon,
+    required String label,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.85),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.95)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: AuthColors.textMain),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: AuthColors.textMain,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _getStatusColor() {
     final tripStatus = widget.trip['tripStatus'] as String? ??
         widget.trip['orderStatus'] as String? ??
@@ -632,6 +674,11 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
         (tripPricing?['gstAmount'] as num?)?.toDouble() ?? 0.0;
     final tripTotal = (tripPricing?['total'] as num?)?.toDouble() ?? 0.0;
     final paymentType = widget.trip['paymentType'] as String? ?? 'pay_later';
+    final paymentDetails = widget.trip['paymentDetails'] as List<dynamic>? ?? [];
+    final paymentAccountName = _resolvePaymentAccountName(paymentDetails);
+    final showCreditBatch = paymentType == 'pay_later';
+    final showPaymentAccountBadge = paymentType == 'pay_on_delivery' &&
+      (paymentAccountName?.isNotEmpty ?? false);
 
     final dmNumber = widget.trip['dmNumber'] as int?;
     final hasDM = dmNumber != null;
@@ -802,7 +849,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                                 child: Text(
                                   zoneText,
                                   style: const TextStyle(
-                                    color: AuthColors.textSub,
+                                    color: AuthColors.textMain,
                                     fontSize: 12,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -918,7 +965,7 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                       child: Text(
                         'Qty: $fixedQuantityPerTrip',
                         style: const TextStyle(
-                          color: Color(0xFF1B5E20),
+                          color: AuthColors.textMain,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1032,6 +1079,27 @@ class _ScheduledTripTileState extends State<ScheduledTripTile>
                             ),
                           ],
                         ),
+                        if (showCreditBatch || showPaymentAccountBadge) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              if (showCreditBatch)
+                                _paymentBadge(
+                                  icon: Icons.credit_score_outlined,
+                                  label: 'Credit Batch',
+                                  color: AuthColors.secondary,
+                                ),
+                              if (showPaymentAccountBadge)
+                                _paymentBadge(
+                                  icon: Icons.account_balance_wallet_outlined,
+                                  label: paymentAccountName ?? 'Account',
+                                  color: AuthColors.info,
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

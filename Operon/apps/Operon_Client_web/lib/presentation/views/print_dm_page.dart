@@ -1,11 +1,13 @@
 import 'dart:html' as html;
 import 'dart:convert';
+import 'package:dash_web/data/services/js_util_bridge.dart' as js_util;
 import 'package:core_ui/core_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 import 'package:js/js.dart';
+
 /// Print page for Delivery Memos that opens in a new window and triggers browser print.
 /// Route: /print-dm/:dmNumber (matches PaveBoard's exact flow)
 class PrintDMPage extends StatefulWidget {
@@ -19,108 +21,141 @@ class PrintDMPage extends StatefulWidget {
 external void myJsFunction(String arg1, String arg2);
 
 class _PrintDMPageState extends State<PrintDMPage> {
-    @override
-    void initState() {
-      super.initState();
-      _startPrintFlow();
-    }
+  @override
+  void initState() {
+    super.initState();
+    _startPrintFlow();
+  }
 
-    Future<void> _startPrintFlow() async {
-      setState(() {
-        _isLoading = true;
-        _hasError = false;
-        _errorMessage = null;
-      });
+  Future<void> _startPrintFlow() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorMessage = null;
+    });
+
+    final flowStopwatch = Stopwatch()..start();
+
+    try {
+      // Extract DM number from route
+      final uri = Uri.base;
+      final dmNumberRaw =
+          uri.pathSegments.isNotEmpty ? uri.pathSegments.last : null;
+      if (dmNumberRaw == null || dmNumberRaw.isEmpty) {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+          _errorMessage = 'Invalid or missing DM number in URL.';
+        });
+        return;
+      }
+
+      final dmNumber =
+          int.tryParse(dmNumberRaw.replaceAll(RegExp(r'[^0-9]'), ''));
+      if (dmNumber == null) {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+          _errorMessage = 'Invalid DM number format in URL.';
+        });
+        return;
+      }
+
+      // 1. Try to load from sessionStorage (unified print flow) - FASTEST PATH
       try {
-        // Extract DM number from route
-        final uri = Uri.base;
-        final dmNumberRaw = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : null;
-        if (dmNumberRaw == null || dmNumberRaw.isEmpty) {
-          setState(() {
-            _hasError = true;
-            _isLoading = false;
-            _errorMessage = 'Invalid or missing DM number in URL.';
-          });
-          return;
-        }
-
-        final dmNumber = int.tryParse(dmNumberRaw.replaceAll(RegExp(r'[^0-9]'), ''));
-        if (dmNumber == null) {
-          setState(() {
-            _hasError = true;
-            _isLoading = false;
-            _errorMessage = 'Invalid DM number format in URL.';
-          });
-          return;
-        }
-
-        // 1. Try to load from sessionStorage (unified print flow)
-        try {
-          final storageKey = 'temp_print_data_$dmNumber';
-          final cachedJson = html.window.sessionStorage[storageKey];
-          if (cachedJson != null && cachedJson.isNotEmpty) {
-            final cachedData = jsonDecode(cachedJson) as Map<String, dynamic>;
-            final htmlString = cachedData['htmlString'] as String?;
-            if (htmlString != null) {
-              // Remove after use (one-time)
-              html.window.sessionStorage.remove(storageKey);
-              _replaceDocumentAndPrint(htmlString);
-              return;
-            }
+        final storageKey = 'temp_print_data_$dmNumber';
+        final cachedJson = html.window.sessionStorage[storageKey];
+        if (cachedJson != null && cachedJson.isNotEmpty) {
+          final cachedData = jsonDecode(cachedJson) as Map<String, dynamic>;
+          final htmlString = cachedData['htmlString'] as String?;
+          if (htmlString != null) {
+            html.window.sessionStorage.remove(storageKey);
+            debugPrint(
+                '[PrintDMPage] Using cached print data (${flowStopwatch.elapsedMilliseconds}ms)');
+            _replaceDocumentAndPrint(htmlString);
+            return;
           }
-        } catch (e) {
-          // If sessionStorage fails, fall back to Firestore
         }
+      } catch (e) {
+        debugPrint('[PrintDMPage] sessionStorage failed: $e');
+      }
 
-        // 2. Fallback: Fetch DM data from Firestore
-        final dmSnap = await FirebaseFirestore.instance
+      debugPrint('[PrintDMPage] Cache miss, fetching from Firestore...');
+      final firestoreStopwatch = Stopwatch()..start();
+
+      // 2. Fallback: Fetch DM data from Firestore
+      final dmSnap = await FirebaseFirestore.instance
           .collection('DELIVERY_MEMOS')
           .where('dmNumber', isEqualTo: dmNumber)
           .limit(1)
           .get();
-        if (!mounted) return;
-        if (dmSnap.docs.isEmpty) {
-          setState(() {
-            _hasError = true;
-            _isLoading = false;
-            _errorMessage = 'Delivery Memo not found.';
-          });
-          return;
-        }
-        final dmData = dmSnap.docs.first.data();
-        final orderId = dmData['orderID'] as String?;
-        final orgId = dmData['orgID'] as String?;
-        Map<String, dynamic>? orderData;
-        final hasClientPhone = _hasNonEmptyString(
-          dmData,
-          ['clientPhone', 'clientPhoneNumber', 'customerNumber'],
-        );
-        final hasDriverName = _hasNonEmptyString(dmData, ['driverName']);
-        final hasDriverPhone = _hasNonEmptyString(dmData, ['driverPhone', 'driverPhoneNumber']);
 
-        if (orderId != null && orgId != null && (!hasClientPhone || !hasDriverName || !hasDriverPhone)) {
-          orderData = await _fetchRelatedOrder(orderId, orgId);
-        }
-
-        // Generate HTML (placeholder, replace with real template)
-        final htmlString = _generateHtml(dmData, orderData);
-        _replaceDocumentAndPrint(htmlString);
-        // No need to update state, as page will be replaced
-      } catch (e) {
+      if (!mounted) return;
+      if (dmSnap.docs.isEmpty) {
         setState(() {
           _hasError = true;
           _isLoading = false;
-          _errorMessage = 'Error loading Delivery Memo: $e';
+          _errorMessage = 'Delivery Memo not found.';
         });
+        return;
       }
-    }
 
-    String _generateHtml(Map<String, dynamic> dmData, Map<String, dynamic>? orderData) {
-      // TODO: Replace with real HTML template. This is a placeholder.
-      final dmNumber = dmData['dmNumber'] ?? '';
-      final clientName = orderData != null ? (orderData['clientName'] ?? '') : '';
-      final date = dmData['date']?.toString() ?? '';
-      return '''
+      final dmData = dmSnap.docs.first.data();
+      firestoreStopwatch.stop();
+      debugPrint(
+          '[PrintDMPage] DM query completed (${firestoreStopwatch.elapsedMilliseconds}ms)');
+
+      final orderId = dmData['orderID'] as String?;
+      final orgId = dmData['orgID'] as String?;
+
+      // Check which data is missing and needs to be fetched from order
+      final hasClientPhone = _hasNonEmptyString(
+        dmData,
+        ['clientPhone', 'clientPhoneNumber', 'customerNumber'],
+      );
+      final hasDriverName = _hasNonEmptyString(dmData, ['driverName']);
+      final hasDriverPhone =
+          _hasNonEmptyString(dmData, ['driverPhone', 'driverPhoneNumber']);
+
+      Map<String, dynamic>? orderData;
+
+      // Only fetch order if it has the data we need
+      if (orderId != null &&
+          orgId != null &&
+          (!hasClientPhone || !hasDriverName || !hasDriverPhone)) {
+        final orderStopwatch = Stopwatch()..start();
+        orderData = await _fetchRelatedOrder(orderId, orgId);
+        orderStopwatch.stop();
+        debugPrint(
+            '[PrintDMPage] Order query completed (${orderStopwatch.elapsedMilliseconds}ms)');
+      }
+
+      // Generate HTML
+      final htmlString = _generateHtml(dmData, orderData);
+      flowStopwatch.stop();
+      debugPrint(
+          '[PrintDMPage] Total flow time: ${flowStopwatch.elapsedMilliseconds}ms');
+
+      _replaceDocumentAndPrint(htmlString);
+    } catch (e) {
+      flowStopwatch.stop();
+      debugPrint(
+          '[PrintDMPage] Flow failed after ${flowStopwatch.elapsedMilliseconds}ms: $e');
+      setState(() {
+        _hasError = true;
+        _isLoading = false;
+        _errorMessage = 'Error loading Delivery Memo: $e';
+      });
+    }
+  }
+
+  String _generateHtml(
+      Map<String, dynamic> dmData, Map<String, dynamic>? orderData) {
+    // TODO: Replace with real HTML template. This is a placeholder.
+    final dmNumber = dmData['dmNumber'] ?? '';
+    final clientName = orderData != null ? (orderData['clientName'] ?? '') : '';
+    final date = dmData['date']?.toString() ?? '';
+    return '''
         <html>
           <head>
             <title>Delivery Memo $dmNumber</title>
@@ -140,11 +175,13 @@ class _PrintDMPageState extends State<PrintDMPage> {
           </body>
         </html>
       ''';
-    }
+  }
+
   // Example JS interop usage
   void callJsFunction() {
     myJsFunction('arg1', 'arg2');
   }
+
   bool _isLoading = false;
   bool _hasError = false;
   String? _errorMessage;
@@ -234,7 +271,7 @@ class _PrintDMPageState extends State<PrintDMPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Icon(
+                const Icon(
                   Icons.error_outline,
                   color: AuthColors.error,
                   size: 48,
@@ -242,7 +279,7 @@ class _PrintDMPageState extends State<PrintDMPage> {
                 const SizedBox(height: 16),
                 Text(
                   _errorMessage ?? 'Failed to load DM',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AuthColors.textSub,
                     fontSize: 14,
                   ),
@@ -272,18 +309,21 @@ class _PrintDMPageState extends State<PrintDMPage> {
   }
 
   /// Fetch related order data from SCH_ORDERS collection (like PaveBoard does)
-  Future<Map<String, dynamic>?> _fetchRelatedOrder(String orderId, String orgId) async {
+  Future<Map<String, dynamic>?> _fetchRelatedOrder(
+      String orderId, String orgId) async {
     try {
-      debugPrint('[PrintDMPage] Querying SCH_ORDERS for orderID: $orderId, orgID: $orgId');
+      debugPrint(
+          '[PrintDMPage] Querying SCH_ORDERS for orderID: $orderId, orgID: $orgId');
       final orderQuery = FirebaseFirestore.instance
           .collection('SCH_ORDERS')
           .where('orderID', isEqualTo: orderId)
           .where('orgID', isEqualTo: orgId)
           .limit(1);
-      
+
       final orderSnap = await orderQuery.get();
       if (!context.mounted) return null;
-      debugPrint('[PrintDMPage] Order query returned ${orderSnap.docs.length} documents');
+      debugPrint(
+          '[PrintDMPage] Order query returned ${orderSnap.docs.length} documents');
       if (orderSnap.docs.isNotEmpty) {
         final orderData = orderSnap.docs.first.data();
         debugPrint('[PrintDMPage] Order data found, converting timestamps...');
@@ -316,18 +356,34 @@ class _PrintDMPageState extends State<PrintDMPage> {
   void _replaceDocumentAndPrint(String htmlString) {
     try {
       debugPrint('[PrintDMPage] Replacing document with HTML...');
-      final doc = web.window.document;
-      final dynamic docDynamic = doc;
-      docDynamic.open();
-      docDynamic.write(htmlString);
-      docDynamic.close();
-      web.window.print();
+      final stopwatch = Stopwatch()..start();
+
+      final doc = html.window.document;
+
+      try {
+        js_util.callMethod(doc, 'open', const []);
+        js_util.callMethod(doc, 'write', [htmlString]);
+        js_util.callMethod(doc, 'close', const []);
+      } catch (_) {
+        final documentElement = doc.documentElement;
+        if (documentElement != null) {
+          documentElement.innerHtml = htmlString;
+        }
+      }
+
+      stopwatch.stop();
+      debugPrint(
+          '[PrintDMPage] Document replaced in ${stopwatch.elapsedMilliseconds}ms');
+
+      _waitForDomReadyAndPrint();
     } catch (e) {
       debugPrint('[PrintDMPage] Error replacing document: $e');
+      setState(() {
+        _hasError = true;
+        _isLoading = false;
+        _errorMessage = 'Failed to print document: $e';
+      });
     }
-    // This should not be reached as HTML replacement happens before this
-    // But keep as fallback
-    // (no return, since this is void)
   }
 
   bool _hasNonEmptyString(Map<String, dynamic> data, List<String> keys) {
@@ -338,5 +394,38 @@ class _PrintDMPageState extends State<PrintDMPage> {
       }
     }
     return false;
+  }
+
+  Future<void> _waitForDomReadyAndPrint() async {
+    try {
+      const maxWaitMs = 4000;
+      const pollMs = 100;
+      var waitedMs = 0;
+
+      while (waitedMs < maxWaitMs) {
+        final readyState = html.window.document.readyState;
+        final images = html.window.document.querySelectorAll('img');
+        final allImagesLoaded = images.every((img) {
+          if (img is html.ImageElement) {
+            return (img.complete ?? false) && img.naturalWidth > 0;
+          }
+          return true;
+        });
+
+        if (readyState == 'complete' && allImagesLoaded) {
+          break;
+        }
+
+        await Future.delayed(const Duration(milliseconds: pollMs));
+        waitedMs += pollMs;
+      }
+
+      html.window.requestAnimationFrame((_) {
+        html.window.print();
+      });
+    } catch (e) {
+      debugPrint('[PrintDMPage] Print wait failed, printing anyway: $e');
+      html.window.print();
+    }
   }
 }

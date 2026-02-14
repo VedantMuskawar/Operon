@@ -359,6 +359,30 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
         )}';
   }
 
+  Future<void> _handleSingleDatePicker() async {
+    final cubit = context.read<CashLedgerCubit>();
+    final state = cubit.state;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: state.startDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: DashTheme.light(),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && mounted) {
+      final start = DateTime(picked.year, picked.month, picked.day);
+      final end = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+      await cubit.setDateRange(start, end);
+    }
+  }
+
   Future<void> _handleDateRangePicker() async {
     final cubit = context.read<CashLedgerCubit>();
     final state = cubit.state;
@@ -505,15 +529,22 @@ class _CashLedgerContentState extends State<_CashLedgerContent> {
                                       width: 1,
                                     ),
                                   ),
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.calendar_today,
-                                      color: AuthColors.textMain,
-                                      size: 20,
+                                  child: Tooltip(
+                                    message:
+                                        'Tap for single day, long-press for range',
+                                    child: InkWell(
+                                      onTap: _handleSingleDatePicker,
+                                      onLongPress: _handleDateRangePicker,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: Icon(
+                                          Icons.calendar_today,
+                                          color: AuthColors.textMain,
+                                          size: 20,
+                                        ),
+                                      ),
                                     ),
-                                    tooltip: 'Select date range',
-                                    onPressed: _handleDateRangePicker,
-                                    padding: const EdgeInsets.all(12),
                                   ),
                                 ),
                               ],

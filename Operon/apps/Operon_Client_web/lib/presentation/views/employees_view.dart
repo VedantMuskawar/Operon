@@ -54,7 +54,7 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
   // ⚡ Performance: Extract and cache unique roles
   List<_SimpleRole> _extractUniqueRoles(List<OrganizationEmployee> employees) {
     final employeesHash = employees.hashCode;
-    
+
     // Return cached roles if employees haven't changed
     if (_cachedRoles != null && _lastEmployeesHash == employeesHash) {
       return _cachedRoles!;
@@ -73,11 +73,11 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
         .map((e) => _SimpleRole(id: e.key, title: e.value))
         .toList();
     uniqueRoles.sort((a, b) => a.title.compareTo(b.title));
-    
+
     // Cache the result
     _cachedRoles = uniqueRoles;
     _lastEmployeesHash = employeesHash;
-    
+
     return uniqueRoles;
   }
 
@@ -87,9 +87,9 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
   ) {
     final cacheKey = _generateCacheKey();
     final employeesHash = employees.hashCode;
-    
+
     // Return cached result if inputs haven't changed
-    if (_cachedFilteredEmployees != null && 
+    if (_cachedFilteredEmployees != null &&
         _lastCacheKey == cacheKey &&
         _lastEmployeesHash == employeesHash) {
       return _cachedFilteredEmployees!;
@@ -103,12 +103,10 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
       final queryLower = _query.toLowerCase();
       final employeesHashKey = '${employees.length}_${employees.hashCode}';
       final searchIndex = _buildSearchIndex(employees, employeesHashKey);
-      filtered = filtered
-          .where((e) {
-            final indexText = searchIndex[e.id] ?? '';
-            return indexText.contains(queryLower);
-          })
-          .toList();
+      filtered = filtered.where((e) {
+        final indexText = searchIndex[e.id] ?? '';
+        return indexText.contains(queryLower);
+      }).toList();
     }
 
     // Apply role filter
@@ -122,10 +120,12 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
     final sortedList = List<OrganizationEmployee>.from(filtered);
     switch (_sortOption) {
       case _SortOption.nameAsc:
-        sortedList.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        sortedList.sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         break;
       case _SortOption.nameDesc:
-        sortedList.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        sortedList.sort(
+            (a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
         break;
       case _SortOption.balanceHigh:
         sortedList.sort((a, b) => b.currentBalance.compareTo(a.currentBalance));
@@ -134,7 +134,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
         sortedList.sort((a, b) => a.currentBalance.compareTo(b.currentBalance));
         break;
       case _SortOption.roleAsc:
-        sortedList.sort((a, b) => a.primaryJobRoleTitle.compareTo(b.primaryJobRoleTitle));
+        sortedList.sort(
+            (a, b) => a.primaryJobRoleTitle.compareTo(b.primaryJobRoleTitle));
         break;
     }
 
@@ -178,7 +179,7 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
   Widget build(BuildContext context) {
     return BlocBuilder<EmployeesCubit, EmployeesState>(
       // ⚡ Performance: Only rebuild when employees list changes
-      buildWhen: (previous, current) => 
+      buildWhen: (previous, current) =>
           previous.employees != current.employees ||
           previous.status != current.status,
       builder: (context, state) {
@@ -196,14 +197,16 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   const SizedBox(height: 16),
-                  ...List.generate(8, (_) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: SkeletonLoader(
-                      height: 80,
-                      width: double.infinity,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  )),
+                  ...List.generate(
+                      8,
+                      (_) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: SkeletonLoader(
+                              height: 80,
+                              width: double.infinity,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          )),
                 ],
               ),
             ),
@@ -217,21 +220,21 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
         }
 
         final employees = state.employees;
-        
+
         // ⚡ Performance: Use cached unique roles
         final uniqueRoles = _extractUniqueRoles(employees);
-        
+
         // ⚡ Performance: Use memoized filter and sort
         final filtered = _applyFiltersAndSort(employees);
 
         return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             // Statistics Dashboard
             // ⚡ Performance: Separate widget to prevent unnecessary recalculations
             _MemoizedEmployeesStatsHeader(employees: employees),
             const SizedBox(height: 32),
-            
+
             // Top Action Bar with Filters
             Row(
               children: [
@@ -256,10 +259,12 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                         ),
                         filled: true,
                         fillColor: AuthColors.transparent,
-                        prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
+                        prefixIcon:
+                            const Icon(Icons.search, color: AuthColors.textSub),
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, color: AuthColors.textSub),
+                                icon: const Icon(Icons.clear,
+                                    color: AuthColors.textSub),
                                 onPressed: () => setState(() => _query = ''),
                               )
                             : null,
@@ -276,7 +281,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                 // Role Filter
                 if (uniqueRoles.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: AuthColors.surface.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(12),
@@ -290,28 +296,33 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                         hint: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.filter_list, size: 16, color: AuthColors.textSub),
+                            Icon(Icons.filter_list,
+                                size: 16, color: AuthColors.textSub),
                             SizedBox(width: 6),
                             Text(
                               'All Roles',
-                              style: TextStyle(color: AuthColors.textSub, fontSize: 14),
+                              style: TextStyle(
+                                  color: AuthColors.textSub, fontSize: 14),
                             ),
                           ],
                         ),
                         dropdownColor: AuthColors.surface,
-                        style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
+                        style: const TextStyle(
+                            color: AuthColors.textMain, fontSize: 14),
                         items: [
                           const DropdownMenuItem<String>(
                             value: null,
                             child: Text('All Roles'),
                           ),
                           ...uniqueRoles.map((role) => DropdownMenuItem<String>(
-                            value: role.id,
-                            child: Text(role.title),
-                          )),
+                                value: role.id,
+                                child: Text(role.title),
+                              )),
                         ],
-                        onChanged: (value) => setState(() => _selectedRoleFilter = value),
-                        icon: const Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
+                        onChanged: (value) =>
+                            setState(() => _selectedRoleFilter = value),
+                        icon: const Icon(Icons.arrow_drop_down,
+                            color: AuthColors.textSub, size: 20),
                         isDense: true,
                       ),
                     ),
@@ -319,7 +330,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                 if (uniqueRoles.isNotEmpty) const SizedBox(width: 12),
                 // Sort Options
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
@@ -330,20 +342,23 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.sort, size: 16, color: AuthColors.textSub),
+                      const Icon(Icons.sort,
+                          size: 16, color: AuthColors.textSub),
                       const SizedBox(width: 6),
                       DropdownButtonHideUnderline(
                         child: DropdownButton<_SortOption>(
                           value: _sortOption,
                           dropdownColor: AuthColors.surface,
-                          style: const TextStyle(color: AuthColors.textMain, fontSize: 14),
+                          style: const TextStyle(
+                              color: AuthColors.textMain, fontSize: 14),
                           items: const [
                             DropdownMenuItem(
                               value: _SortOption.nameAsc,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.sort_by_alpha,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Name (A-Z)'),
                                 ],
@@ -354,7 +369,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.sort_by_alpha, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.sort_by_alpha,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Name (Z-A)'),
                                 ],
@@ -365,7 +381,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.trending_down, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.trending_down,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Balance (High to Low)'),
                                 ],
@@ -376,7 +393,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.trending_up, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.trending_up,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Balance (Low to High)'),
                                 ],
@@ -387,7 +405,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.badge, size: 16, color: AuthColors.textSub),
+                                  Icon(Icons.badge,
+                                      size: 16, color: AuthColors.textSub),
                                   SizedBox(width: 8),
                                   Text('Role'),
                                 ],
@@ -399,7 +418,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                               setState(() => _sortOption = value);
                             }
                           },
-                          icon: const Icon(Icons.arrow_drop_down, color: AuthColors.textSub, size: 20),
+                          icon: const Icon(Icons.arrow_drop_down,
+                              color: AuthColors.textSub, size: 20),
                           isDense: true,
                           hint: const Text('Sort'),
                         ),
@@ -410,7 +430,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                 const SizedBox(width: 12),
                 // Results count
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: AuthColors.surface.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
@@ -437,9 +458,10 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
               ],
             ),
             const SizedBox(height: 24),
-            
+
             // Employee List
-            if (filtered.isEmpty && (_query.isNotEmpty || _selectedRoleFilter != null))
+            if (filtered.isEmpty &&
+                (_query.isNotEmpty || _selectedRoleFilter != null))
               _EmptySearchState(query: _query)
             else if (filtered.isEmpty)
               _EmptyEmployeesState(
@@ -452,8 +474,8 @@ class _EmployeesPageContentState extends State<EmployeesPageContent> {
                 onEdit: (emp) => _showEmployeeDialog(context, emp),
                 onDelete: (emp) => _showDeleteConfirmation(context, emp),
               ),
-            ],
-          );
+          ],
+        );
       },
     );
   }
@@ -503,7 +525,8 @@ void _showEmployeeDialog(BuildContext context, OrganizationEmployee? employee) {
   );
 }
 
-void _showDeleteConfirmation(BuildContext context, OrganizationEmployee employee) {
+void _showDeleteConfirmation(
+    BuildContext context, OrganizationEmployee employee) {
   showDialog(
     context: context,
     builder: (dialogContext) => AlertDialog(
@@ -556,12 +579,12 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _openingBalanceController;
   late final TextEditingController _wageAmountController;
-  
+
   // Multiple job roles support
   Set<String> _selectedJobRoleIds = {};
   String? _primaryJobRoleId;
   bool _hasInitializedRoles = false;
-  
+
   // Wage structure
   WageType _selectedWageType = WageType.perMonth;
 
@@ -573,13 +596,14 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
     _openingBalanceController = TextEditingController(
       text: employee != null ? employee.openingBalance.toStringAsFixed(2) : '',
     );
-    
+
     // Initialize wage from employee or default
     if (employee != null) {
       _selectedWageType = employee.wage.type;
       _wageAmountController = TextEditingController(
-        text: employee.wage.baseAmount?.toStringAsFixed(2) ?? 
-              employee.wage.rate?.toStringAsFixed(2) ?? '',
+        text: employee.wage.baseAmount?.toStringAsFixed(2) ??
+            employee.wage.rate?.toStringAsFixed(2) ??
+            '',
       );
       _selectedJobRoleIds = employee.jobRoleIds.toSet();
       _primaryJobRoleId = employee.primaryJobRoleId;
@@ -705,7 +729,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                 ],
               ),
             ),
-            
+
             // Content
             Flexible(
               child: SingleChildScrollView(
@@ -719,14 +743,15 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       TextFormField(
                         controller: _nameController,
                         style: const TextStyle(color: AuthColors.textMain),
-                        decoration: _inputDecoration('Employee name', Icons.person_outline),
+                        decoration: _inputDecoration(
+                            'Employee name', Icons.person_outline),
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
                                 ? 'Enter employee name'
                                 : null,
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Job Roles Multi-Select
                       const Text(
                         'Job Roles *',
@@ -743,7 +768,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                           color: AuthColors.surface,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: _selectedJobRoleIds.isEmpty 
+                            color: _selectedJobRoleIds.isEmpty
                                 ? AuthColors.error.withValues(alpha: 0.5)
                                 : AuthColors.textMain.withValues(alpha: 0.1),
                           ),
@@ -753,16 +778,18 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                           itemCount: jobRoles.length,
                           itemBuilder: (context, index) {
                             final jobRole = jobRoles[index];
-                            final isSelected = _selectedJobRoleIds.contains(jobRole.id);
+                            final isSelected =
+                                _selectedJobRoleIds.contains(jobRole.id);
                             final isPrimary = _primaryJobRoleId == jobRole.id;
-                            
+
                             return CheckboxListTile(
-                                    title: Row(
+                              title: Row(
                                 children: [
                                   Expanded(
                                     child: Text(
                                       jobRole.title,
-                                      style: const TextStyle(color: AuthColors.textMain),
+                                      style: const TextStyle(
+                                          color: AuthColors.textMain),
                                     ),
                                   ),
                                   if (isPrimary)
@@ -772,7 +799,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                                         vertical: 4,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: AuthColors.primary.withValues(alpha: 0.2),
+                                        color: AuthColors.primary
+                                            .withValues(alpha: 0.2),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Text(
@@ -798,8 +826,10 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                                   } else {
                                     _selectedJobRoleIds.remove(jobRole.id);
                                     // If removing primary, assign new primary
-                                    if (isPrimary && _selectedJobRoleIds.isNotEmpty) {
-                                      _primaryJobRoleId = _selectedJobRoleIds.first;
+                                    if (isPrimary &&
+                                        _selectedJobRoleIds.isNotEmpty) {
+                                      _primaryJobRoleId =
+                                          _selectedJobRoleIds.first;
                                     } else if (_selectedJobRoleIds.isEmpty) {
                                       _primaryJobRoleId = null;
                                     }
@@ -809,7 +839,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                               secondary: isSelected
                                   ? IconButton(
                                       icon: const Icon(Icons.star, size: 20),
-                                      color: isPrimary 
+                                      color: isPrimary
                                           ? AuthColors.primary
                                           : AuthColors.textSub,
                                       onPressed: _selectedJobRoleIds.length > 1
@@ -838,13 +868,15 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                           ),
                         ),
                       const SizedBox(height: 16),
-                      
+
                       TextFormField(
                         controller: _openingBalanceController,
                         enabled: !isEditing,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         style: const TextStyle(color: AuthColors.textMain),
-                        decoration: _inputDecoration('Opening balance', Icons.account_balance_wallet_outlined),
+                        decoration: _inputDecoration('Opening balance',
+                            Icons.account_balance_wallet_outlined),
                         validator: (value) {
                           if (isEditing) return null;
                           if (value == null || value.trim().isEmpty) {
@@ -857,13 +889,14 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Wage Type Selection
                       DropdownButtonFormField<WageType>(
                         initialValue: _selectedWageType,
                         dropdownColor: AuthColors.surface,
                         style: const TextStyle(color: AuthColors.textMain),
-                        decoration: _inputDecoration('Wage Type', Icons.payments_outlined),
+                        decoration: _inputDecoration(
+                            'Wage Type', Icons.payments_outlined),
                         items: WageType.values.map((type) {
                           return DropdownMenuItem(
                             value: type,
@@ -880,7 +913,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Conditional Wage Amount Field
                       if (_selectedWageType == WageType.perMonth ||
                           _selectedWageType == WageType.perTrip ||
@@ -889,7 +922,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                           _selectedWageType == WageType.perKm)
                         TextFormField(
                           controller: _wageAmountController,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           style: const TextStyle(color: AuthColors.textMain),
                           decoration: _inputDecoration(
                             _getWageAmountLabel(_selectedWageType),
@@ -910,7 +944,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                 ),
               ),
             ),
-            
+
             // Footer Actions
             Container(
               padding: const EdgeInsets.all(24),
@@ -935,7 +969,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                     label: isEditing ? 'Save Changes' : 'Create Employee',
                     onPressed: () {
                       if (!(_formKey.currentState?.validate() ?? false)) return;
-                      
+
                       if (_selectedJobRoleIds.isEmpty) {
                         DashSnackbar.show(
                           context,
@@ -944,7 +978,7 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                         );
                         return;
                       }
-                      
+
                       if (_primaryJobRoleId == null) {
                         DashSnackbar.show(
                           context,
@@ -957,7 +991,8 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       // Build job roles map
                       final jobRolesMap = <String, EmployeeJobRole>{};
                       for (final jobRoleId in _selectedJobRoleIds) {
-                        final jobRole = jobRoles.firstWhere((r) => r.id == jobRoleId);
+                        final jobRole =
+                            jobRoles.firstWhere((r) => r.id == jobRoleId);
                         jobRolesMap[jobRoleId] = EmployeeJobRole(
                           jobRoleId: jobRoleId,
                           jobRoleTitle: jobRole.title,
@@ -967,17 +1002,23 @@ class _EmployeeDialogState extends State<_EmployeeDialog> {
                       }
 
                       // Build wage structure
-                      final wageAmount = double.tryParse(_wageAmountController.text.trim());
+                      final wageAmount =
+                          double.tryParse(_wageAmountController.text.trim());
                       final wage = EmployeeWage(
                         type: _selectedWageType,
-                        baseAmount: _selectedWageType == WageType.perMonth ? wageAmount : null,
-                        rate: _selectedWageType != WageType.perMonth ? wageAmount : null,
+                        baseAmount: _selectedWageType == WageType.perMonth
+                            ? wageAmount
+                            : null,
+                        rate: _selectedWageType != WageType.perMonth
+                            ? wageAmount
+                            : null,
                       );
 
                       final employee = OrganizationEmployee(
                         id: widget.employee?.id ??
                             DateTime.now().millisecondsSinceEpoch.toString(),
-                        organizationId: widget.employee?.organizationId ?? widget.orgId,
+                        organizationId:
+                            widget.employee?.organizationId ?? widget.orgId,
                         name: _nameController.text.trim(),
                         jobRoleIds: _selectedJobRoleIds.toList(),
                         jobRoles: jobRolesMap,
@@ -1091,10 +1132,12 @@ class _MemoizedEmployeesStatsHeader extends StatefulWidget {
   final List<OrganizationEmployee> employees;
 
   @override
-  State<_MemoizedEmployeesStatsHeader> createState() => _MemoizedEmployeesStatsHeaderState();
+  State<_MemoizedEmployeesStatsHeader> createState() =>
+      _MemoizedEmployeesStatsHeaderState();
 }
 
-class _MemoizedEmployeesStatsHeaderState extends State<_MemoizedEmployeesStatsHeader> {
+class _MemoizedEmployeesStatsHeaderState
+    extends State<_MemoizedEmployeesStatsHeader> {
   int? _cachedEmployeesHash;
   int? _cachedTotalEmployees;
   double? _cachedTotalCurrentBalance;
@@ -1104,9 +1147,10 @@ class _MemoizedEmployeesStatsHeaderState extends State<_MemoizedEmployeesStatsHe
 
   void _calculateStats() {
     final employeesHash = widget.employees.hashCode;
-    
+
     // Return if stats already calculated for this employee list
-    if (_cachedEmployeesHash == employeesHash && _cachedTotalEmployees != null) {
+    if (_cachedEmployeesHash == employeesHash &&
+        _cachedTotalEmployees != null) {
       return;
     }
 
@@ -1169,7 +1213,9 @@ class _MemoizedEmployeesStatsHeaderState extends State<_MemoizedEmployeesStatsHe
                       subtitle: balanceDifference != 0
                           ? '${balanceDifference >= 0 ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)} (${balanceChangePercent >= 0 ? '+' : ''}${balanceChangePercent.abs().toStringAsFixed(1)}%)'
                           : null,
-                      subtitleColor: balanceDifference >= 0 ? AuthColors.success : AuthColors.error,
+                      subtitleColor: balanceDifference >= 0
+                          ? AuthColors.success
+                          : AuthColors.error,
                       color: AuthColors.secondary,
                     ),
                   ),
@@ -1201,7 +1247,9 @@ class _MemoizedEmployeesStatsHeaderState extends State<_MemoizedEmployeesStatsHe
                     subtitle: balanceDifference != 0
                         ? '${balanceDifference >= 0 ? '+' : ''}₹${balanceDifference.abs().toStringAsFixed(2)} (${balanceChangePercent >= 0 ? '+' : ''}${balanceChangePercent.abs().toStringAsFixed(1)}%)'
                         : null,
-                    subtitleColor: balanceDifference >= 0 ? AuthColors.success : AuthColors.error,
+                    subtitleColor: balanceDifference >= 0
+                        ? AuthColors.success
+                        : AuthColors.error,
                     color: AuthColors.secondary,
                   ),
                   _StatCard(
@@ -1332,7 +1380,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               message,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 14,
               ),
@@ -1401,7 +1449,7 @@ class _EmptyEmployeesState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Start by adding your first employee to the system',
               style: TextStyle(
                 color: AuthColors.textSub,
@@ -1452,7 +1500,7 @@ class _EmptySearchState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'No employees match "$query"',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 14,
               ),
@@ -1495,7 +1543,9 @@ class _EmployeeListView extends StatelessWidget {
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return name.length >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
+    return name.length >= 2
+        ? name.substring(0, 2).toUpperCase()
+        : name.toUpperCase();
   }
 
   @override
@@ -1508,7 +1558,8 @@ class _EmployeeListView extends StatelessWidget {
         itemBuilder: (context, index) {
           final employee = employees[index];
           final roleColor = _getRoleColor(employee.primaryJobRoleTitle);
-          final balanceDifference = employee.currentBalance - employee.openingBalance;
+          final balanceDifference =
+              employee.currentBalance - employee.openingBalance;
           final isPositive = balanceDifference >= 0;
           final roleTitle = employee.primaryJobRoleTitle.isNotEmpty
               ? employee.primaryJobRoleTitle
@@ -1526,81 +1577,91 @@ class _EmployeeListView extends StatelessWidget {
               child: FadeInAnimation(
                 curve: Curves.easeOut,
                 child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          decoration: BoxDecoration(
-            color: AuthColors.background,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: DataList(
-            title: employee.name,
-            subtitle: subtitle,
-            leading: DataListAvatar(
-              initial: _getInitials(employee.name),
-              radius: 28,
-              statusRingColor: roleColor,
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (balanceDifference != 0)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isPositive
-                            ? AuthColors.success.withOpacity(0.15)
-                            : AuthColors.error.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                            size: 10,
-                            color: isPositive ? AuthColors.success : AuthColors.error,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            '₹${balanceDifference.abs().toStringAsFixed(2)}',
-                            style: TextStyle(
-                              color: isPositive ? AuthColors.success : AuthColors.error,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AuthColors.background,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: DataList(
+                    title: employee.name,
+                    subtitle: subtitle,
+                    leading: DataListAvatar(
+                      initial: _getInitials(employee.name),
+                      radius: 28,
+                      statusRingColor: roleColor,
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (balanceDifference != 0)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isPositive
+                                    ? AuthColors.success.withOpacity(0.15)
+                                    : AuthColors.error.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isPositive
+                                        ? Icons.arrow_upward
+                                        : Icons.arrow_downward,
+                                    size: 10,
+                                    color: isPositive
+                                        ? AuthColors.success
+                                        : AuthColors.error,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '₹${balanceDifference.abs().toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      color: isPositive
+                                          ? AuthColors.success
+                                          : AuthColors.error,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ],
-                      ),
+                        IconButton(
+                          icon: const Icon(Icons.visibility_outlined,
+                              size: 20, color: AuthColors.textSub),
+                          onPressed: () => onTap?.call(employee),
+                          tooltip: 'View Details',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined,
+                              size: 20, color: AuthColors.textSub),
+                          onPressed: () => onEdit(employee),
+                          tooltip: 'Edit',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline,
+                              size: 20, color: AuthColors.error),
+                          onPressed: () => onDelete(employee),
+                          tooltip: 'Delete',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
                     ),
+                    onTap: () => onTap?.call(employee),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.visibility_outlined, size: 20, color: AuthColors.textSub),
-                  onPressed: () => onTap?.call(employee),
-                  tooltip: 'View Details',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined, size: 20, color: AuthColors.textSub),
-                  onPressed: () => onEdit(employee),
-                  tooltip: 'Edit',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 20, color: AuthColors.error),
-                  onPressed: () => onDelete(employee),
-                  tooltip: 'Delete',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            onTap: () => onTap?.call(employee),
-          ),
                 ),
               ),
             ),

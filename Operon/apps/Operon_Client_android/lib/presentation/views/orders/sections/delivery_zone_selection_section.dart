@@ -900,7 +900,14 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
     setState(() => _loading = true);
     try {
       final isPendingZone = widget.zoneId.startsWith('pending-');
-      _products = widget.cubit.state.availableProducts;
+      final state = widget.cubit.state;
+      final productById = <String, OrganizationProduct>{
+        for (final product in state.availableProducts) product.id: product,
+      };
+      _products = [
+        for (final item in state.selectedItems)
+          if (productById[item.productId] != null) productById[item.productId]!,
+      ];
       
       // Dispose old controllers
       for (final controller in _priceControllers.values) {
@@ -910,21 +917,16 @@ class _UnitPriceBoxState extends State<_UnitPriceBox> {
       
       if (isPendingZone) {
         // For pending zones, start with empty fields or pendingPriceUpdates
-        final state = widget.cubit.state;
         final priceMap = <String, double>{};
         
         for (final product in _products) {
           // Use pendingPriceUpdates if available, otherwise empty
           final pendingPrice = state.pendingPriceUpdates?[product.id];
-          if (pendingPrice != null) {
-            _priceControllers[product.id] = TextEditingController(
-              text: pendingPrice.toStringAsFixed(2),
-            );
-            priceMap[product.id] = pendingPrice;
-          } else {
-            // Empty field for new pending zone
-            _priceControllers[product.id] = TextEditingController();
-          }
+          final effectivePrice = pendingPrice ?? product.unitPrice;
+          _priceControllers[product.id] = TextEditingController(
+            text: effectivePrice.toStringAsFixed(2),
+          );
+          priceMap[product.id] = effectivePrice;
         }
         
         // Update cubit with zone prices (if any pending prices exist)

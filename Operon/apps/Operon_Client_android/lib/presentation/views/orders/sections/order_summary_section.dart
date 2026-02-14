@@ -77,6 +77,7 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
   Widget build(BuildContext context) {
     final cubit = context.watch<CreateOrderCubit>();
     final state = cubit.state;
+    final isClientMissing = widget.client == null;
 
     if (state.selectedItems.isEmpty) {
       return const Center(
@@ -127,7 +128,17 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
           _buildTotalSummary(totalSubtotal, totalGst, totalAmount),
           const SizedBox(height: AppSpacing.paddingXXL),
           // Create Order Button
-          _buildCreateOrderButton(),
+          _buildCreateOrderButton(isClientMissing: isClientMissing),
+          if (isClientMissing) ...[
+            const SizedBox(height: AppSpacing.paddingSM),
+            Text(
+              'Select or create a client to enable order creation.',
+              style: AppTypography.withColor(
+                AppTypography.bodySmall,
+                AuthColors.textSub,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.paddingXXL),
         ],
       ),
@@ -635,11 +646,12 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
     );
   }
 
-  Widget _buildCreateOrderButton() {
-    return SizedBox(
+  Widget _buildCreateOrderButton({required bool isClientMissing}) {
+    final isDisabled = _isCreatingOrder || isClientMissing;
+    final button = SizedBox(
       width: double.infinity,
       child: FilledButton(
-        onPressed: _isCreatingOrder
+        onPressed: isDisabled
             ? null
             : () async {
                 await _createOrder();
@@ -668,6 +680,15 @@ class _OrderSummarySectionState extends State<OrderSummarySection> {
                 ),
               ),
       ),
+    );
+
+    if (!isClientMissing) {
+      return button;
+    }
+
+    return Tooltip(
+      message: 'Select or create a client before placing an order.',
+      child: button,
     );
   }
 

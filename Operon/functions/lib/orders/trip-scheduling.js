@@ -120,6 +120,8 @@ async function applyOrderTripConsistencyFixes(orderId, fixes) {
             }
         }
         if (Object.keys(updateData).length > 0) {
+            const effectiveItems = updateData.items || orderData.items || [];
+            updateData.hasAvailableTrips = computeHasAvailableTrips(effectiveItems);
             updateData.updatedAt = new Date();
             transaction.update(orderRef, updateData);
         }
@@ -131,6 +133,15 @@ function debugLog(p) {
     fetch(DEBUG_INGEST, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign(Object.assign({}, p), { timestamp: Date.now() })) }).catch(() => { });
 }
 // #endregion
+function computeHasAvailableTrips(items) {
+    return items.some((item) => {
+        if (!item || typeof item !== 'object')
+            return false;
+        const estimatedTrips = Math.max(0, Math.floor(Number(item.estimatedTrips)) || 0);
+        const scheduledTrips = Math.max(0, Math.floor(Number(item.scheduledTrips)) || 0);
+        return estimatedTrips > scheduledTrips;
+    });
+}
 /**
  * When a trip is scheduled:
  * 1. Update PENDING_ORDER: Add to scheduledTrips array, increment totalScheduledTrips, decrement estimatedTrips
@@ -596,6 +607,7 @@ exports.onScheduledTripCreated = (0, firestore_1.onDocumentCreated)(Object.assig
                 // Ensure status is 'pending' if trips remain
                 updateData.status = 'pending';
             }
+            updateData.hasAvailableTrips = computeHasAvailableTrips(cleanedItems);
             // #region agent log
             debugLog({ location: 'trip-scheduling.ts:txn:beforeUpdate', message: 'Transaction: about to update order', data: { tripId, orderId, updateDataKeys: Object.keys(updateData), allItemsFullyScheduled, scheduledTripsArrayLen: (_c = updateData.scheduledTrips) === null || _c === void 0 ? void 0 : _c.length, totalScheduledTrips: updateData.totalScheduledTrips }, hypothesisId: 'H3' });
             // #endregion
@@ -722,6 +734,7 @@ exports.onScheduledTripDeleted = (0, firestore_1.onDocumentDeleted)(Object.assig
             if (hasRemainingTrips) {
                 updateData.status = 'pending';
             }
+            updateData.hasAvailableTrips = computeHasAvailableTrips(items);
             transaction.update(orderRef, updateData);
             const targetItem = items[itemIndex] || items[0];
             const newEstimatedTrips = (targetItem === null || targetItem === void 0 ? void 0 : targetItem.estimatedTrips) || 0;

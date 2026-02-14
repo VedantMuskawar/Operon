@@ -52,6 +52,7 @@ dependencies:
     path: ../../packages/core_datasources
   operon_auth_flow:
     path: ../../packages/operon_auth_flow
+  package_info_plus: ^8.1.0
 
 dev_dependencies:
   flutter_test:

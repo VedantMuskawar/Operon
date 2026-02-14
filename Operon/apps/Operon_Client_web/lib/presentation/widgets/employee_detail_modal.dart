@@ -262,7 +262,8 @@ class _ModalHeader extends StatelessWidget {
                 tooltip: 'Edit',
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, color: AuthColors.textSub),
+                icon:
+                    const Icon(Icons.delete_outline, color: AuthColors.textSub),
                 onPressed: onDelete,
                 tooltip: 'Delete',
               ),
@@ -396,17 +397,14 @@ class _OverviewSection extends StatelessWidget {
                     Icon(
                       isPositive ? Icons.trending_up : Icons.trending_down,
                       size: 16,
-                      color: isPositive
-                          ? AuthColors.success
-                          : AuthColors.error,
+                      color: isPositive ? AuthColors.success : AuthColors.error,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       '${isPositive ? '+' : ''}${_formatCurrency(balanceDifference.abs())} from opening',
                       style: TextStyle(
-                        color: isPositive
-                            ? AuthColors.success
-                            : AuthColors.error,
+                        color:
+                            isPositive ? AuthColors.success : AuthColors.error,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -478,7 +476,7 @@ class _OverviewSection extends StatelessWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.account_balance_wallet_outlined,
                       size: 20,
                       color: AuthColors.textSub,
@@ -568,7 +566,8 @@ class _OverviewSection extends StatelessWidget {
                             Text(
                               jobRole.jobRoleTitle,
                               style: TextStyle(
-                                color: isPrimary ? roleColor : AuthColors.textSub,
+                                color:
+                                    isPrimary ? roleColor : AuthColors.textSub,
                                 fontSize: 12,
                                 fontWeight: isPrimary
                                     ? FontWeight.w600

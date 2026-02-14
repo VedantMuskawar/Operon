@@ -11,7 +11,7 @@ class DashedLinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AuthColors.printGray
+      ..color = AuthColors.printBlack
       ..strokeWidth = 1;
 
     const dashWidth = 5.0;
@@ -84,7 +84,7 @@ class DeliveryMemoDocument extends StatelessWidget {
         decoration: BoxDecoration(
           color: AuthColors.surface,
           border: Border.all(
-            color: AuthColors.info,
+            color: AuthColors.printBlack,
             width: 2,
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
@@ -95,7 +95,7 @@ class DeliveryMemoDocument extends StatelessWidget {
             const Icon(
               Icons.description_outlined,
               size: 64,
-              color: AuthColors.info,
+              color: AuthColors.printBlack,
             ),
             const SizedBox(height: AppSpacing.paddingLG),
             Text(
@@ -103,7 +103,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AuthColors.textMain,
+                color: AuthColors.printBlack,
               ),
               textAlign: TextAlign.center,
             ),
@@ -112,7 +112,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               'Preview is not available for this custom template.\nThe PDF will use the custom template when you print.',
               style: TextStyle(
                 fontSize: 14,
-                color: AuthColors.textSub,
+                color: AuthColors.printBlack,
               ),
               textAlign: TextAlign.center,
             ),
@@ -278,7 +278,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AuthColors.textMain,
+                    color: AuthColors.printBlack,
                   ),
                 ),
                 if (header.address.isNotEmpty) ...[
@@ -287,7 +287,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     header.address,
                     style: const TextStyle(
                       fontSize: 10,
-                      color: AuthColors.textSub,
+                      color: AuthColors.printBlack,
                     ),
                   ),
                 ],
@@ -297,7 +297,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     header.phone,
                     style: const TextStyle(
                       fontSize: 10,
-                      color: AuthColors.textSub,
+                      color: AuthColors.printBlack,
                     ),
                   ),
                 ],
@@ -307,7 +307,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     'GST: ${header.gstNo}',
                     style: const TextStyle(
                       fontSize: 10,
-                      color: AuthColors.textSub,
+                      color: AuthColors.printBlack,
                     ),
                   ),
                 ],
@@ -355,14 +355,14 @@ class DeliveryMemoDocument extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: AuthColors.info,
+                  color: AuthColors.printBlack,
                 ),
               ),
               Text(
                 'Date: ${PdfBuilder.formatDate(date)}',
                 style: const TextStyle(
                   fontSize: 10,
-                  color: AuthColors.textSub,
+                  color: AuthColors.printBlack,
                 ),
               ),
             ],
@@ -375,7 +375,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   'Client: $clientName${clientPhone.isNotEmpty ? ' ($clientPhone)' : ''}',
                   style: const TextStyle(
                     fontSize: 10,
-                    color: AuthColors.textMain,
+                    color: AuthColors.printBlack,
                   ),
                 ),
               ),
@@ -384,7 +384,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   'Zone: $zoneText',
                   style: const TextStyle(
                     fontSize: 10,
-                    color: AuthColors.textSub,
+                    color: AuthColors.printBlack,
                   ),
                 ),
             ],
@@ -397,7 +397,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   'Vehicle: $vehicleNumber',
                   style: const TextStyle(
                     fontSize: 10,
-                    color: AuthColors.textMain,
+                    color: AuthColors.printBlack,
                   ),
                 ),
               ),
@@ -407,7 +407,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     'Driver: $driverName${driverPhone != null && driverPhone.isNotEmpty ? ' ($driverPhone)' : ''}',
                     style: const TextStyle(
                       fontSize: 10,
-                      color: AuthColors.textMain,
+                      color: AuthColors.printBlack,
                     ),
                   ),
                 ),
@@ -431,7 +431,7 @@ class DeliveryMemoDocument extends StatelessWidget {
             'No items',
             style: TextStyle(
               fontSize: 11,
-              color: AuthColors.textSub,
+              color: AuthColors.printBlack,
             ),
           ),
         ),
@@ -508,7 +508,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: AuthColors.textMain,
+                      color: AuthColors.printBlack,
                     ),
                   ),
                 ),
@@ -519,7 +519,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     quantity.toString(),
                     style: const TextStyle(
                       fontSize: 10,
-                      color: AuthColors.textMain,
+                      color: AuthColors.printBlack,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -531,7 +531,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     PdfBuilder.formatCurrency(unitPrice),
                     style: const TextStyle(
                       fontSize: 10,
-                      color: AuthColors.textMain,
+                      color: AuthColors.printBlack,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -544,7 +544,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: AuthColors.info,
+                      color: AuthColors.printBlack,
                     ),
                     textAlign: TextAlign.right,
                   ),
@@ -642,7 +642,7 @@ class DeliveryMemoDocument extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: labelSize,
-              color: AuthColors.textSub,
+              color: AuthColors.printBlack,
             ),
             overflow: TextOverflow.ellipsis,
           ),
@@ -679,7 +679,7 @@ class DeliveryMemoDocument extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.paddingMD),
         decoration: BoxDecoration(
           border: Border.all(
-            color: AuthColors.info,
+            color: AuthColors.printBlack,
             width: 1.5,
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
@@ -693,7 +693,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: AuthColors.info,
+                color: AuthColors.printBlack,
               ),
             ),
             const SizedBox(height: AppSpacing.paddingSM),
@@ -719,7 +719,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 accountName,
                 style: const TextStyle(
                   fontSize: 10,
-                  color: AuthColors.textSub,
+                  color: AuthColors.printBlack,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
@@ -731,7 +731,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 upiId,
                 style: const TextStyle(
                   fontSize: 8,
-                  color: AuthColors.textSub,
+                  color: AuthColors.printBlack,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -760,7 +760,7 @@ class DeliveryMemoDocument extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: AuthColors.info,
+                color: AuthColors.printBlack,
               ),
             ),
             const SizedBox(height: AppSpacing.paddingSM),
@@ -777,7 +777,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 upiId,
                 style: const TextStyle(
                   fontSize: 11,
-                  color: AuthColors.textMain,
+                  color: AuthColors.printBlack,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
@@ -789,7 +789,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                 accountName,
                 style: const TextStyle(
                   fontSize: 9,
-                  color: AuthColors.textSub,
+                  color: AuthColors.printBlack,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -823,7 +823,7 @@ class DeliveryMemoDocument extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: AuthColors.info,
+              color: AuthColors.printBlack,
             ),
           ),
           const SizedBox(height: AppSpacing.paddingSM),
@@ -858,7 +858,7 @@ class DeliveryMemoDocument extends StatelessWidget {
         footer.customText!,
         style: const TextStyle(
           fontSize: 9,
-          color: AuthColors.textSub,
+          color: AuthColors.printBlack,
         ),
       ),
     );
@@ -1400,7 +1400,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   decoration: const BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: AuthColors.printGray,
+                        color: AuthColors.printBlack,
                         width: 1,
                         style: BorderStyle.solid,
                       ),
@@ -1416,7 +1416,7 @@ class DeliveryMemoDocument extends StatelessWidget {
                   '✂️ Cut Here',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AuthColors.printGray,
+                    color: AuthColors.printBlack,
                   ),
                   textAlign: TextAlign.center,
                 ),

@@ -33,15 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rebuildClientLedgers = void 0;
 exports.rebuildTransactionAnalyticsForOrg = rebuildTransactionAnalyticsForOrg;
 const admin = __importStar(require("firebase-admin"));
-const scheduler_1 = require("firebase-functions/v2/scheduler");
 const constants_1 = require("../shared/constants");
-const financial_year_1 = require("../shared/financial-year");
 const firestore_helpers_1 = require("../shared/firestore-helpers");
 const date_helpers_1 = require("../shared/date-helpers");
-const function_config_1 = require("../shared/function-config");
 const db = (0, firestore_helpers_1.getFirestore)();
 /**
  * Get previous financial year label
@@ -196,6 +192,7 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
         .collection(constants_1.TRANSACTIONS_COLLECTION)
         .where('organizationId', '==', organizationId)
         .where('financialYear', '==', financialYear)
+        .select('status', 'category', 'type', 'amount', 'paymentAccountId', 'paymentAccountType', 'ledgerType', 'createdAt')
         .get();
     // Group transactions by month
     const transactionsByMonth = {};
@@ -345,45 +342,5 @@ async function rebuildTransactionAnalyticsForOrg(organizationId, financialYear) 
  * Cloud Function: Scheduled function to rebuild all client ledgers
  * Runs every 24 hours (midnight UTC) to recalculate ledger balances
  */
-exports.rebuildClientLedgers = (0, scheduler_1.onSchedule)(Object.assign({ schedule: '0 0 * * *', timeZone: 'UTC' }, function_config_1.SCHEDULED_FUNCTION_OPTS), async () => {
-    const now = new Date();
-    const { fyLabel } = (0, financial_year_1.getFinancialContext)(now);
-    const ledgersSnapshot = await db
-        .collection(constants_1.CLIENT_LEDGERS_COLLECTION)
-        .where('financialYear', '==', fyLabel)
-        .get();
-    const rebuildPromises = ledgersSnapshot.docs.map(async (ledgerDoc) => {
-        const ledgerData = ledgerDoc.data();
-        const organizationId = ledgerData.organizationId;
-        const clientId = ledgerData.clientId;
-        const financialYear = ledgerData.financialYear;
-        if (!organizationId || !clientId || !financialYear) {
-            console.warn('[Client Ledger Rebuild] Missing required fields', {
-                ledgerId: ledgerDoc.id,
-                organizationId,
-                clientId,
-                financialYear,
-            });
-            return;
-        }
-        try {
-            await rebuildClientLedger(organizationId, clientId, financialYear);
-            console.log('[Client Ledger Rebuild] Successfully rebuilt', {
-                organizationId,
-                clientId,
-                financialYear,
-            });
-        }
-        catch (error) {
-            console.error('[Client Ledger Rebuild] Error rebuilding ledger', {
-                organizationId,
-                clientId,
-                financialYear,
-                error,
-            });
-        }
-    });
-    await Promise.all(rebuildPromises);
-    console.log(`[Client Ledger Rebuild] Rebuilt ${ledgersSnapshot.size} client ledgers`);
-});
+// Function removed: replaced by LedgerMaintenanceManager
 //# sourceMappingURL=transaction-rebuild.js.map

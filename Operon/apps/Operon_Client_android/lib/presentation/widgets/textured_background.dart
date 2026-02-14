@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:core_ui/core_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -61,6 +63,8 @@ class TexturedBackground extends StatelessWidget {
                     width: size.width,
                     height: size.height,
                     child: CustomPaint(
+                      isComplex: true,
+                      willChange: false,
                       painter: _TexturedPainter(
                         pattern: pattern,
                         opacity: opacity,
@@ -173,7 +177,7 @@ class _TexturedPainter extends CustomPainter {
     // Create a random grain pattern using noise
     // More visible grain texture
     final random = _SeededRandom(42);
-    const density = 0.12; // Increased density for better visibility
+    final density = debugMode ? 0.12 : 0.03;
     final totalPixels = (size.width * size.height * density / 100).round();
 
     if (kDebugMode && debugMode) {
@@ -195,8 +199,8 @@ class _TexturedPainter extends CustomPainter {
 
   void _paintDotted(Canvas canvas, Size size, Paint paint) {
     // Create a regular dotted pattern - more visible
-    const spacing = 4.0; // Closer spacing
-    const dotSize = 2.0; // Larger dots
+    final spacing = debugMode ? 4.0 : 6.0;
+    final dotSize = debugMode ? 2.0 : 1.5;
 
     // Validate size
     if (size.width <= 0 || size.height <= 0) {
@@ -208,19 +212,25 @@ class _TexturedPainter extends CustomPainter {
     }
 
     int dotCount = 0;
+    final points = <Offset>[];
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
         // Offset every other row for a more natural look
         final offsetX = ((y / spacing).floor() % 2 == 0) ? x : x + spacing / 2;
         if (offsetX < size.width) {
-          canvas.drawCircle(
-            Offset(offsetX, y),
-            dotSize,
-            paint,
-          );
+          points.add(Offset(offsetX, y));
           dotCount++;
         }
       }
+    }
+
+    if (points.isNotEmpty) {
+      final pointPaint = Paint()
+        ..color = paint.color
+        ..strokeWidth = dotSize * 2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      canvas.drawPoints(ui.PointMode.points, points, pointPaint);
     }
 
     if (kDebugMode && debugMode) {

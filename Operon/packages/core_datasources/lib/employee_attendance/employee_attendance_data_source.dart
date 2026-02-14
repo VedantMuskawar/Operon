@@ -208,7 +208,7 @@ class EmployeeAttendanceDataSource {
         .collectionGroup('Attendance')
         .where('organizationId', isEqualTo: organizationId)
         .where('financialYear', isEqualTo: financialYear)
-        .where(FieldPath.documentId, isEqualTo: yearMonth)
+        .where('yearMonth', isEqualTo: yearMonth)
         .get();
 
     return querySnapshot.docs

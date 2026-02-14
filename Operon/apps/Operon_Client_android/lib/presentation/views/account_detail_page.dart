@@ -6,7 +6,6 @@ import 'package:dash_mobile/presentation/models/combined_ledger_model.dart';
 import 'package:dash_mobile/data/utils/financial_year_utils.dart';
 import 'package:dash_mobile/shared/constants/app_spacing.dart';
 import 'package:dash_mobile/shared/constants/app_typography.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -362,7 +361,9 @@ class _TabButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.paddingMD),
         decoration: BoxDecoration(
-          color: isSelected ? AuthColors.primaryWithOpacity(0.1) : Colors.transparent,
+          color: isSelected
+              ? AuthColors.primaryWithOpacity(0.1)
+              : Colors.transparent,
           border: Border(
             bottom: BorderSide(
               color: isSelected ? AuthColors.primary : Colors.transparent,
@@ -374,8 +375,7 @@ class _TabButton extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color:
-                isSelected ? AuthColors.primary : AuthColors.textSub,
+            color: isSelected ? AuthColors.primary : AuthColors.textSub,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             fontSize: 14,
           ),
@@ -410,12 +410,12 @@ class _TransactionsTabState extends State<_TransactionsTab> {
   void _loadTransactions() {
     try {
       _transactionsSubscription?.cancel();
-      
-        final financialYear = FinancialYearUtils.getCurrentFinancialYear();
-        final ledgerId = _ledger.lastLedgerId ??
-          '${_ledger.accountsLedgerId}_$financialYear';
-        debugPrint('DEBUG: Loading transactions for ledgerId=$ledgerId');
-      
+
+      final financialYear = FinancialYearUtils.getCurrentFinancialYear();
+      final ledgerId =
+          _ledger.lastLedgerId ?? '${_ledger.accountsLedgerId}_$financialYear';
+      debugPrint('DEBUG: Loading transactions for ledgerId=$ledgerId');
+
       if (ledgerId.isEmpty) {
         setState(() {
           _isLoading = false;
@@ -426,7 +426,7 @@ class _TransactionsTabState extends State<_TransactionsTab> {
         );
         return;
       }
-      
+
       _transactionsSubscription = FirebaseFirestore.instance
           .collection('ACCOUNTS_LEDGERS')
           .doc(ledgerId)
@@ -734,7 +734,9 @@ class _LedgerTable extends StatelessWidget {
           child: Column(
             children: [
               _LedgerTableHeader(),
-              Divider(height: 1, color: AuthColors.textMain.withValues(alpha: 0.12)),
+              Divider(
+                  height: 1,
+                  color: AuthColors.textMain.withValues(alpha: 0.12)),
               ...rows.map((r) => _LedgerTableRow(
                     row: r,
                     formatCurrency: formatCurrency,
@@ -965,7 +967,7 @@ class _LedgerTableRow extends StatelessWidget {
                                         vertical: AppSpacing.paddingXS / 2),
                                     decoration: BoxDecoration(
                                       color: _accountColor(p.accountType)
-                                        .withValues(alpha: 0.15),
+                                          .withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(
                                           AppSpacing.radiusXS),
                                     ),

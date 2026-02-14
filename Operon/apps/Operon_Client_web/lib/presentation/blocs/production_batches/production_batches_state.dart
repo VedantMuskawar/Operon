@@ -64,8 +64,8 @@ class ProductionBatchesState extends BaseState {
   }
 
   const ProductionBatchesState._internal({
-    required ViewStatus status,
-    String? message,
+    required super.status,
+    super.message,
     required this.batches,
     required this.selectedStatus,
     required this.startDate,
@@ -82,7 +82,7 @@ class ProductionBatchesState extends BaseState {
     required this.processedToday,
     required this.totalWagesProcessed,
     required this.needsActionCount,
-  }) : super(status: status, message: message);
+  });
 
   final List<ProductionBatch> batches;
   final List<ProductionBatch> filteredBatches;
@@ -261,4 +261,3 @@ class _ProductionBatchStats {
   final double totalWagesProcessed;
   final int needsActionCount;
 }
-

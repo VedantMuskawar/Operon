@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:core_models/core_models.dart';
 import 'package:core_ui/core_ui.dart';
 import 'package:core_datasources/core_datasources.dart';
@@ -51,7 +51,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
 
   ExpenseFormType _selectedType = ExpenseFormType.vendorPayment;
   Vendor? _selectedVendor;
-  List<OrganizationEmployee> _selectedEmployees = [];
+  OrganizationEmployee? _selectedEmployee;
   ExpenseSubCategory? _selectedSubCategory;
   PaymentAccount? _selectedPaymentAccount;
   DateTime _selectedDate = DateTime.now();
@@ -61,6 +61,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   List<OrganizationEmployee> _employees = [];
   List<ExpenseSubCategory> _subCategories = [];
   List<PaymentAccount> _paymentAccounts = [];
+  List<_LedgerAccountOption> _ledgerAccounts = [];
+  _LedgerAccountOption? _selectedLedgerAccount;
+  bool _isLoadingLedgerAccounts = false;
   bool _isLoading = true;
   bool _isSubmitting = false;
 
@@ -76,7 +79,6 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   List<Transaction> _availableInvoices = [];
   Set<String> _selectedInvoiceIds = {};
   bool _isLoadingInvoices = false;
-  Timer? _invoiceSearchDebounce;
 
   /// Cash voucher photo for salary expense (optional).
   File? _cashVoucherPhoto;
@@ -93,22 +95,12 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
 
   @override
   void dispose() {
-    _invoiceSearchDebounce?.cancel();
     _amountController.dispose();
     _descriptionController.dispose();
     _referenceNumberController.dispose();
     _fromInvoiceNumberController.dispose();
     _toInvoiceNumberController.dispose();
     super.dispose();
-  }
-
-  void _scheduleInvoiceSearch() {
-    _invoiceSearchDebounce?.cancel();
-    _invoiceSearchDebounce = Timer(const Duration(milliseconds: 400), () {
-      if (mounted) {
-        _loadUnpaidInvoices();
-      }
-    });
   }
 
   Future<void> _loadData() async {
@@ -129,8 +121,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
       final vendorsRepo = context.read<VendorsRepository>();
       final employeesRepo = context.read<EmployeesRepository>();
       final subCategoriesRepo = context.read<ExpenseSubCategoriesRepository>();
-      final paymentAccountsDataSource =
-          context.read<PaymentAccountsDataSource>();
+        final paymentAccountsDataSource = PaymentAccountsDataSource();
 
       _vendors = await vendorsRepo.fetchVendors(organizationId);
       _employees = await employeesRepo.fetchEmployees(organizationId);
@@ -138,6 +129,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           await subCategoriesRepo.fetchSubCategories(organizationId);
       _paymentAccounts =
           await paymentAccountsDataSource.fetchAccounts(organizationId);
+
+        await _loadLedgerAccounts(organizationId);
 
       // Initialize selections from widget parameters
       if (widget.vendorId != null) {
@@ -155,7 +148,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
               ? _employees.first
               : throw StateError('No employees'),
         );
-        _selectedEmployees = [employee];
+        _selectedEmployee = employee;
       }
       // Set default payment account
       _selectedPaymentAccount =
@@ -170,6 +163,57 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _loadLedgerAccounts(String organizationId) async {
+    setState(() => _isLoadingLedgerAccounts = true);
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('COMBINED_ACCOUNTS')
+          .where('organizationId', isEqualTo: organizationId)
+          .orderBy('updatedAt', descending: true)
+          .get();
+
+      final Map<String, _LedgerAccountOption> deduped = {};
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final id = (data['accountId'] as String?) ?? doc.id;
+        final name = (data['accountName'] as String?) ??
+            (data['ledgerName'] as String?) ??
+            'Combined Account';
+        final accountsData = (data['accounts'] as List<dynamic>?) ?? [];
+        final accounts =
+            accountsData.whereType<Map<String, dynamic>>().toList();
+        if (id.isEmpty) continue;
+        final option = _LedgerAccountOption(
+          id: id,
+          name: name,
+          type: _LedgerAccountType.combined,
+          accounts: accounts,
+        );
+        deduped[option.key] = option;
+      }
+
+      final list = deduped.values.toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+      if (!mounted) return;
+      setState(() {
+        _ledgerAccounts = list;
+        if (_selectedLedgerAccount != null &&
+            !_ledgerAccounts.any((a) => a.key == _selectedLedgerAccount!.key)) {
+          _selectedLedgerAccount = null;
+        }
+        _isLoadingLedgerAccounts = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingLedgerAccounts = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load ledger accounts: $e')),
+        );
       }
     }
   }
@@ -407,22 +451,80 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           );
           break;
         case ExpenseFormType.salaryDebit:
-          if (_selectedEmployees.isEmpty) {
+          if (_selectedEmployee == null && _selectedLedgerAccount == null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Select at least one employee')),
+              const SnackBar(
+                  content: Text('Select an employee or an account')),
             );
             setState(() => _isSubmitting = false);
             return;
           }
+
           final splitGroupId = 'split_${DateTime.now().microsecondsSinceEpoch}';
+
+          if (_selectedEmployee != null) {
+            final metadata = <String, dynamic>{
+              'employeeName': _selectedEmployee!.name,
+              if (_selectedLedgerAccount != null)
+                'ledgerAccount': _selectedLedgerAccount!.toJson(),
+              'splitIndex': 1,
+              'splitCount': 1,
+            };
+
+            transaction = Transaction(
+              id: '',
+              organizationId: organizationId,
+              employeeId: _selectedEmployee!.id,
+              employeeName: _selectedEmployee!.name,
+              splitGroupId: splitGroupId,
+              ledgerType: LedgerType.employeeLedger,
+              type: TransactionType.debit,
+              category: TransactionCategory.salaryDebit,
+              amount: amount,
+              createdBy: userId,
+              createdAt: _selectedDate,
+              updatedAt: DateTime.now(),
+              financialYear: financialYear,
+              paymentAccountId: _selectedPaymentAccount!.id,
+              paymentAccountType: _selectedPaymentAccount!.type.name,
+              description: _descriptionController.text.trim().isEmpty
+                  ? null
+                  : _descriptionController.text.trim(),
+              referenceNumber: _referenceNumberController.text.trim().isEmpty
+                  ? null
+                  : _referenceNumberController.text.trim(),
+              metadata: metadata,
+            );
+            final transactionId =
+                await transactionsDataSource.createTransaction(transaction);
+            salaryTransactionIds.add(transactionId);
+            break;
+          }
+
+          final accountEmployees = _extractEmployeesFromLedgerAccount(
+            _selectedLedgerAccount!,
+          );
+          if (accountEmployees.length < 2) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text(
+                      'Selected account must include at least 2 employees')),
+            );
+            setState(() => _isSubmitting = false);
+            return;
+          }
+
+          final selectedTwo = accountEmployees.take(2).toList();
           final splitAmounts =
-              _computeSplitAmounts(amount, _selectedEmployees.length);
-          for (var i = 0; i < _selectedEmployees.length; i++) {
-            final employee = _selectedEmployees[i];
+              _computeSplitAmounts(amount, selectedTwo.length);
+
+          for (var i = 0; i < selectedTwo.length; i++) {
+            final employee = selectedTwo[i];
             final metadata = <String, dynamic>{
               'employeeName': employee.name,
+              'ledgerAccount': _selectedLedgerAccount!.toJson(),
               'splitIndex': i + 1,
-              'splitCount': _selectedEmployees.length,
+              'splitCount': selectedTwo.length,
             };
             transaction = Transaction(
               id: '',
@@ -650,7 +752,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                               _buildInvoiceSelectionSection(),
                             ] else if (_selectedType ==
                                 ExpenseFormType.salaryDebit) ...[
-                              _buildEmployeeSelector(),
+                              _buildSalarySelectors(),
                               const SizedBox(height: AppSpacing.paddingLG),
                               _buildCashVoucherSection(),
                             ] else if (_selectedType ==
@@ -863,7 +965,8 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
         setState(() {
           _selectedType = type;
           _selectedVendor = null;
-          _selectedEmployees = [];
+          _selectedEmployee = null;
+          _selectedLedgerAccount = null;
           _selectedSubCategory = null;
           if (type != ExpenseFormType.salaryDebit) _cashVoucherPhoto = null;
         });
@@ -942,13 +1045,13 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     _loadUnpaidInvoices();
                   }
                 },
-                child: Row(
+                child: const Row(
                   children: [
                     Expanded(
                       child: RadioListTile<String>(
-                        title: const Text('Pay Selected Invoices',
-                            style:
-                                TextStyle(color: AuthColors.textSub, fontSize: 14)),
+                        title: Text('Pay Selected Invoices',
+                            style: TextStyle(
+                                color: AuthColors.textSub, fontSize: 14)),
                         value: 'manualSelection',
                         activeColor: AuthColors.primary,
                         dense: true,
@@ -957,9 +1060,9 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                     ),
                     Expanded(
                       child: RadioListTile<String>(
-                        title: const Text('Pay by Date Range',
-                            style:
-                                TextStyle(color: AuthColors.textSub, fontSize: 14)),
+                        title: Text('Pay by Date Range',
+                            style: TextStyle(
+                                color: AuthColors.textSub, fontSize: 14)),
                         value: 'dateRange',
                         activeColor: AuthColors.primary,
                         dense: true,
@@ -1013,7 +1116,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                        color: AuthColors.textMain.withValues(alpha: 0.1)),
+                          color: AuthColors.textMain.withValues(alpha: 0.1)),
                     ),
                     child: Row(
                       children: [
@@ -1072,7 +1175,7 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                       color: AuthColors.surface,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
                       border: Border.all(
-                        color: AuthColors.textMain.withValues(alpha: 0.1)),
+                          color: AuthColors.textMain.withValues(alpha: 0.1)),
                     ),
                     child: Row(
                       children: [
@@ -1108,9 +1211,6 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   controller: _fromInvoiceNumberController,
                   style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('From Invoice Number'),
-                  onChanged: (_) {
-                    _scheduleInvoiceSearch();
-                  },
                 ),
               ),
               const SizedBox(width: AppSpacing.paddingMD),
@@ -1119,9 +1219,6 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
                   controller: _toInvoiceNumberController,
                   style: const TextStyle(color: AuthColors.textMain),
                   decoration: _inputDecoration('To Invoice Number'),
-                  onChanged: (_) {
-                    _scheduleInvoiceSearch();
-                  },
                 ),
               ),
             ],
@@ -1268,11 +1365,81 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   }
 
   Widget _buildVendorSelector() {
+    return FormField<Vendor>(
+      initialValue: _selectedVendor,
+      validator: (value) => value == null ? 'Select a vendor' : null,
+      builder: (fieldState) {
+        final selected = fieldState.value;
+        final showError = fieldState.errorText != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Vendor *',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.paddingSM),
+            InkWell(
+              onTap: _vendors.isEmpty
+                  ? null
+                  : () async {
+                      final selection =
+                          await _showSearchableSelectionDialog<Vendor>(
+                        title: 'Select Vendor',
+                        items: _vendors,
+                        itemLabel: (vendor) => vendor.name,
+                      );
+                      if (selection == null) return;
+                      setState(() {
+                        _selectedVendor = selection;
+                        _selectedInvoiceIds.clear();
+                        _availableInvoices.clear();
+                        _fromInvoiceNumberController.clear();
+                        _toInvoiceNumberController.clear();
+                      });
+                      fieldState.didChange(selection);
+                      _loadUnpaidInvoices();
+                    },
+              child: InputDecorator(
+                decoration: _inputDecoration('Select vendor').copyWith(
+                  errorText: showError ? fieldState.errorText : null,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        selected?.name ?? 'Select vendor',
+                        style: TextStyle(
+                          color: selected == null
+                              ? AuthColors.textSub
+                              : AuthColors.textMain,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down,
+                        color: AuthColors.textSub),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSalarySelectors() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Vendor *',
+          'Salary Details',
           style: TextStyle(
             color: AuthColors.textSub,
             fontSize: 14,
@@ -1280,126 +1447,203 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           ),
         ),
         const SizedBox(height: AppSpacing.paddingSM),
-        DropdownButtonFormField<Vendor>(
-          initialValue: _selectedVendor,
-          dropdownColor: AuthColors.surface,
-          style: const TextStyle(color: AuthColors.textMain),
-          decoration: _inputDecoration('Select vendor'),
-          items: _vendors.map((vendor) {
-            return DropdownMenuItem(
-              value: vendor,
-              child: Text(vendor.name),
-            );
-          }).toList(),
-          onChanged: (vendor) {
-            setState(() {
-              _selectedVendor = vendor;
-              _selectedInvoiceIds.clear();
-              _availableInvoices.clear();
-              _fromInvoiceNumberController.clear();
-              _toInvoiceNumberController.clear();
-            });
-          },
-          validator: (value) => value == null ? 'Select a vendor' : null,
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: _openEmployeeSearchDialog,
+                icon: const Icon(Icons.person_outline, size: 18),
+                label: const Text('EMPLOYEE'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AuthColors.transparent,
+                  foregroundColor: AuthColors.primary,
+                  shadowColor: AuthColors.transparent,
+                  side: const BorderSide(color: AuthColors.primary),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.paddingMD),
+            Expanded(
+              child: FilledButton.icon(
+                onPressed:
+                    _isLoadingLedgerAccounts ? null : _openAccountSearchDialog,
+                icon: const Icon(Icons.account_balance_wallet_outlined,
+                    size: 18),
+                label: const Text('ACCOUNT'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AuthColors.transparent,
+                  foregroundColor: AuthColors.primary,
+                  shadowColor: AuthColors.transparent,
+                  side: const BorderSide(color: AuthColors.primary),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.paddingMD),
+        _selectionSummaryRow(
+          label: 'Employee',
+          value: _selectedEmployee?.name ?? 'Not selected',
+          icon: Icons.person,
+          isSelected: _selectedEmployee != null,
+        ),
+        const SizedBox(height: AppSpacing.paddingSM),
+        _selectionSummaryRow(
+          label: 'Account',
+          value: _selectedLedgerAccount?.name ?? 'Not selected',
+          icon: _selectedLedgerAccount == null
+              ? Icons.account_balance_wallet_outlined
+              : _ledgerAccountIcon(_selectedLedgerAccount!.type),
+          isSelected: _selectedLedgerAccount != null,
         ),
       ],
     );
   }
 
-  String _employeeSelectionText() {
-    if (_selectedEmployees.isEmpty) return 'Select employees';
-    if (_selectedEmployees.length <= 2) {
-      return _selectedEmployees.map((e) => e.name).join(', ');
+  Future<void> _openEmployeeSearchDialog() async {
+    if (_employees.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No employees available')),
+      );
+      return;
     }
-    return '${_selectedEmployees.length} employees selected';
+
+    final selection =
+        await _showSearchableSelectionDialog<OrganizationEmployee>(
+      title: 'Select Employee',
+      items: _employees,
+      itemLabel: (employee) => employee.name,
+    );
+
+    if (selection != null && mounted) {
+      setState(() => _selectedEmployee = selection);
+    }
   }
 
-  Future<void> _openEmployeeSelectorDialog() async {
-    if (_employees.isEmpty) return;
-    final result = await showDialog<Set<String>>(
-      context: context,
-      builder: (dialogContext) => _EmployeeMultiSelectDialog(
-        employees: _employees,
-        initialSelectedIds: _selectedEmployees.map((e) => e.id).toSet(),
-        searchFillColor: AuthColors.background,
+  Future<void> _openAccountSearchDialog() async {
+    if (_isLoadingLedgerAccounts) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Loading ledger accounts...')),
+      );
+      return;
+    }
+
+    if (_ledgerAccounts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No ledger accounts available')),
+      );
+      return;
+    }
+
+    final selection =
+        await _showSearchableSelectionDialog<_LedgerAccountOption>(
+      title: 'Select Ledger Account',
+      items: _ledgerAccounts,
+      itemLabel: (account) => account.name,
+      leadingBuilder: (account) => Icon(
+        _ledgerAccountIcon(account.type),
+        color: AuthColors.textSub,
+        size: 18,
       ),
     );
 
-    if (result != null && mounted) {
-      setState(() {
-        _selectedEmployees = _employees
-            .where((employee) => result.contains(employee.id))
-            .toList();
-      });
+    if (selection != null && mounted) {
+      setState(() => _selectedLedgerAccount = selection);
     }
   }
 
-  Widget _buildEmployeeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Employees *',
-          style: TextStyle(
-            color: AuthColors.textSub,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+  Widget _selectionSummaryRow({
+    required String label,
+    required String value,
+    required IconData icon,
+    required bool isSelected,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.paddingMD,
+        vertical: AppSpacing.paddingMD,
+      ),
+      decoration: BoxDecoration(
+        color: AuthColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
+        border: Border.all(
+          color: isSelected
+              ? AuthColors.primaryWithOpacity(0.5)
+              : AuthColors.textMainWithOpacity(0.12),
         ),
-        const SizedBox(height: AppSpacing.paddingSM),
-        if (_employees.isEmpty)
-          const Text(
-            'No employees available.',
-            style: TextStyle(color: AuthColors.textSub),
-          )
-        else
-          InkWell(
-            onTap: _openEmployeeSelectorDialog,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AuthColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _employeeSelectionText(),
-                      style: TextStyle(
-                        color: _selectedEmployees.isEmpty
-                            ? AuthColors.textSub
-                            : AuthColors.textMain,
-                        fontSize: 14,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon,
+              color: isSelected ? AuthColors.primary : AuthColors.textSub),
+          const SizedBox(width: AppSpacing.paddingSM),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style:
+                      const TextStyle(color: AuthColors.textSub, fontSize: 12),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: isSelected
+                        ? AuthColors.textMain
+                        : AuthColors.textDisabled,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontSize: 14,
                   ),
-                  const Icon(Icons.arrow_drop_down, color: AuthColors.textSub),
-                ],
-              ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
-        if (_selectedEmployees.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.paddingSM),
-          Wrap(
-            spacing: AppSpacing.paddingSM,
-            runSpacing: AppSpacing.paddingSM,
-            children: _selectedEmployees
-                .map(
-                  (employee) => Chip(
-                    label: Text(employee.name),
-                    backgroundColor: AuthColors.background,
-                    labelStyle: const TextStyle(color: AuthColors.textMain),
-                  ),
-                )
-                .toList(),
-          ),
         ],
-      ],
+      ),
     );
+  }
+
+  List<_LedgerEmployeeRef> _extractEmployeesFromLedgerAccount(
+    _LedgerAccountOption account,
+  ) {
+    final employees = <_LedgerEmployeeRef>[];
+    for (final entry in account.accounts) {
+      final typeRaw = (entry['type'] as String?) ?? '';
+      final normalized = typeRaw.toLowerCase();
+      if (normalized != 'employee' && normalized != 'employees') continue;
+      final id = (entry['id'] as String?) ??
+          (entry['accountId'] as String?) ??
+          (entry['employeeId'] as String?) ??
+          '';
+      final name = (entry['name'] as String?) ??
+          (entry['employeeName'] as String?) ??
+          (entry['accountName'] as String?) ??
+          '';
+      if (id.isEmpty && name.isEmpty) continue;
+      employees.add(
+        _LedgerEmployeeRef(
+          id: id.isNotEmpty ? id : name,
+          name: name.isNotEmpty ? name : id,
+        ),
+      );
+    }
+    return employees;
+  }
+
+  IconData _ledgerAccountIcon(_LedgerAccountType type) {
+    switch (type) {
+      case _LedgerAccountType.client:
+        return Icons.person_outline;
+      case _LedgerAccountType.vendor:
+        return Icons.storefront;
+      case _LedgerAccountType.employee:
+        return Icons.badge_outlined;
+      case _LedgerAccountType.combined:
+        return Icons.account_balance_wallet_outlined;
+    }
   }
 
   Future<void> _pickCashVoucherPhoto() async {
@@ -1478,13 +1722,15 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
           const SizedBox(height: AppSpacing.paddingMD),
           Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
-                child: Image.file(
-                  _cashVoucherPhoto!,
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
+              RepaintBoundary(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSM),
+                  child: Image.file(
+                    _cashVoucherPhoto!,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.paddingMD),
@@ -1502,164 +1748,193 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
   }
 
   Widget _buildSubCategorySelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Sub-Category *',
-          style: TextStyle(
-            color: AuthColors.textSub,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.paddingSM),
-        DropdownButtonFormField<ExpenseSubCategory>(
-          initialValue: _selectedSubCategory,
-          dropdownColor: AuthColors.surface,
-          style: const TextStyle(color: AuthColors.textMain),
-          decoration: _inputDecoration('Select sub-category'),
-          items: _subCategories.where((sc) => sc.isActive).map((subCategory) {
-            return DropdownMenuItem(
-              value: subCategory,
-              child: Row(
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: AuthColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.paddingSM),
-                  Text(subCategory.name),
-                ],
+    final activeSubCategories =
+        _subCategories.where((subCategory) => subCategory.isActive).toList();
+
+    return FormField<ExpenseSubCategory>(
+      initialValue: _selectedSubCategory,
+      validator: (value) => value == null ? 'Select a sub-category' : null,
+      builder: (fieldState) {
+        final selected = fieldState.value;
+        final showError = fieldState.errorText != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Sub-Category *',
+              style: TextStyle(
+                color: AuthColors.textSub,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
-            );
-          }).toList(),
-          onChanged: (subCategory) {
-            setState(() {
-              _selectedSubCategory = subCategory;
-            });
-          },
-          validator: (value) => value == null ? 'Select a sub-category' : null,
-        ),
-      ],
+            ),
+            const SizedBox(height: AppSpacing.paddingSM),
+            InkWell(
+              onTap: activeSubCategories.isEmpty
+                  ? null
+                  : () async {
+                      final selection =
+                          await _showSearchableSelectionDialog<
+                              ExpenseSubCategory>(
+                        title: 'Select Sub-Category',
+                        items: activeSubCategories,
+                        itemLabel: (subCategory) => subCategory.name,
+                        leadingBuilder: (subCategory) =>
+                            _buildColorDot(subCategory.colorHex, size: 12),
+                      );
+                      if (selection == null) return;
+                      setState(() {
+                        _selectedSubCategory = selection;
+                      });
+                      fieldState.didChange(selection);
+                    },
+              child: InputDecorator(
+                decoration: _inputDecoration('Select sub-category').copyWith(
+                  errorText: showError ? fieldState.errorText : null,
+                ),
+                child: Row(
+                  children: [
+                    if (selected != null)
+                      Padding(
+                        padding:
+                            const EdgeInsets.only(right: AppSpacing.paddingSM),
+                        child: _buildColorDot(selected.colorHex, size: 12),
+                      ),
+                    Expanded(
+                      child: Text(
+                        selected?.name ?? 'Select sub-category',
+                        style: TextStyle(
+                          color: selected == null
+                              ? AuthColors.textSub
+                              : AuthColors.textMain,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down,
+                        color: AuthColors.textSub),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildPaymentAccountSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Payment Account *',
-          style: TextStyle(
-            color: AuthColors.textSub,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.paddingSM),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _paymentAccounts.map((account) {
-            return _buildPaymentAccountOption(account);
-          }).toList(),
-        ),
-        if (_selectedPaymentAccount == null)
-          Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.paddingSM),
-            child: Text(
-              'Select a payment account',
-              style: TextStyle(
-                  color: AuthColors.error.withValues(alpha: 0.8), fontSize: 12),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildPaymentAccountOption(PaymentAccount account) {
-    final isSelected = _selectedPaymentAccount?.id == account.id;
-    IconData icon;
-    switch (account.type) {
-      case PaymentAccountType.bank:
-        icon = Icons.account_balance;
-        break;
-      case PaymentAccountType.cash:
-        icon = Icons.money;
-        break;
-      case PaymentAccountType.upi:
-        icon = Icons.qr_code;
-        break;
-      case PaymentAccountType.other:
-        icon = Icons.payment;
-        break;
-    }
-
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedPaymentAccount = account;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.paddingMD, vertical: AppSpacing.paddingMD),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AuthColors.primaryWithOpacity(0.2)
-              : AuthColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMD),
-          border: Border.all(
-            color: isSelected
-                ? AuthColors.primary
-                : AuthColors.textMain.withValues(alpha: 0.1),
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+    return FormField<PaymentAccount>(
+      initialValue: _selectedPaymentAccount,
+      validator: (value) => value == null ? 'Select a payment account' : null,
+      builder: (fieldState) {
+        final selected = fieldState.value;
+        final showError = fieldState.errorText != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon,
-                color: isSelected ? AuthColors.primary : AuthColors.textSub,
-                size: 18),
-            const SizedBox(width: AppSpacing.paddingSM),
-            Text(
-              account.name,
+            const Text(
+              'Payment Account *',
               style: TextStyle(
-                color: isSelected ? AuthColors.textMain : AuthColors.textSub,
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: AuthColors.textSub,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            if (account.isPrimary) ...[
-              const SizedBox(width: AppSpacing.paddingXS),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.paddingXS,
-                    vertical: AppSpacing.paddingXS),
-                decoration: BoxDecoration(
-                  color: AuthColors.primaryWithOpacity(0.2),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusXS),
-                ),
-                child: const Text(
-                  'Primary',
-                  style: TextStyle(
-                    color: AuthColors.primary,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+            const SizedBox(height: AppSpacing.paddingSM),
+            if (_paymentAccounts.isEmpty)
+              const Text(
+                'No payment accounts available.',
+                style: TextStyle(color: AuthColors.textSub, fontSize: 12),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _paymentAccounts.map((account) {
+                  final isSelected = selected?.id == account.id;
+                  return ChoiceChip(
+                    selected: isSelected,
+                    onSelected: (_) {
+                      setState(() {
+                        _selectedPaymentAccount = account;
+                      });
+                      fieldState.didChange(account);
+                    },
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _paymentAccountIcon(account.type),
+                          size: 16,
+                          color: isSelected
+                              ? AuthColors.textMain
+                              : AuthColors.textSub,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          account.name,
+                          style: TextStyle(
+                            color: isSelected
+                                ? AuthColors.textMain
+                                : AuthColors.textSub,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                        if (account.isPrimary) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            'Primary',
+                            style: TextStyle(
+                              color: isSelected
+                                  ? AuthColors.primary
+                                  : AuthColors.textDisabled,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    selectedColor: AuthColors.primaryWithOpacity(0.18),
+                    backgroundColor: AuthColors.surface,
+                    side: BorderSide(
+                      color: isSelected
+                          ? AuthColors.primary
+                          : AuthColors.textMainWithOpacity(0.1),
+                    ),
+                  );
+                }).toList(),
+              ),
+            if (showError)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.paddingSM),
+                child: Text(
+                  fieldState.errorText ?? '',
+                  style: const TextStyle(
+                    color: AuthColors.error,
+                    fontSize: 12,
                   ),
                 ),
               ),
-            ],
           ],
-        ),
-      ),
+        );
+      },
     );
+  }
+  IconData _paymentAccountIcon(PaymentAccountType type) {
+    switch (type) {
+      case PaymentAccountType.bank:
+        return Icons.account_balance;
+      case PaymentAccountType.cash:
+        return Icons.money;
+      case PaymentAccountType.upi:
+        return Icons.qr_code;
+      case PaymentAccountType.other:
+        return Icons.payment;
+    }
   }
 
   InputDecoration _inputDecoration(String label) {
@@ -1674,147 +1949,188 @@ class _RecordExpensePageState extends State<RecordExpensePage> {
       ),
     );
   }
-}
-
-class _EmployeeMultiSelectDialog extends StatefulWidget {
-  const _EmployeeMultiSelectDialog({
-    required this.employees,
-    required this.initialSelectedIds,
-    required this.searchFillColor,
-  });
-
-  final List<OrganizationEmployee> employees;
-  final Set<String> initialSelectedIds;
-  final Color searchFillColor;
-
-  @override
-  State<_EmployeeMultiSelectDialog> createState() =>
-      _EmployeeMultiSelectDialogState();
-}
-
-class _EmployeeMultiSelectDialogState
-    extends State<_EmployeeMultiSelectDialog> {
-  late final TextEditingController _searchController;
-  late List<OrganizationEmployee> _filtered;
-  late Set<String> _selectedIds;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController = TextEditingController();
-    _filtered = List.of(widget.employees);
-    _selectedIds = Set.of(widget.initialSelectedIds);
-    _searchController.addListener(_applyFilter);
-  }
-
-  @override
-  void dispose() {
-    _searchController
-      ..removeListener(_applyFilter)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _applyFilter() {
-    final query = _searchController.text.trim().toLowerCase();
-    setState(() {
-      if (query.isEmpty) {
-        _filtered = List.of(widget.employees);
-      } else {
-        _filtered = widget.employees
-            .where((employee) => employee.name.toLowerCase().contains(query))
-            .toList();
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final availableHeight = MediaQuery.of(context).size.height -
-        MediaQuery.of(context).viewInsets.bottom;
-    var dialogHeight = availableHeight * 0.7;
-    if (dialogHeight < 280) dialogHeight = 280;
-    if (dialogHeight > 520) dialogHeight = 520;
-
-    return AlertDialog(
-      backgroundColor: AuthColors.surface,
-      title: const Text(
-        'Select Employees',
-        style: TextStyle(color: AuthColors.textMain),
+  Widget _buildColorDot(String colorHex, {double size = 10}) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: AuthColors.primary,
+        shape: BoxShape.circle,
       ),
-      content: SizedBox(
-        width: 520,
-        height: dialogHeight,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _searchController,
-              style: const TextStyle(color: AuthColors.textMain),
-              decoration: InputDecoration(
-                labelText: 'Search employees',
-                labelStyle: const TextStyle(color: AuthColors.textSub),
-                filled: true,
-                fillColor: widget.searchFillColor,
-                prefixIcon: const Icon(Icons.search, color: AuthColors.textSub),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AuthColors.textMainWithOpacity(0.12),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: _filtered.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No employees found.',
-                        style: TextStyle(color: AuthColors.textSub),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _filtered.length,
-                      itemBuilder: (context, index) {
-                        final employee = _filtered[index];
-                        final isSelected = _selectedIds.contains(employee.id);
-                        return CheckboxListTile(
-                          value: isSelected,
-                          onChanged: (selected) {
-                            setState(() {
-                              if (selected == true) {
-                                _selectedIds.add(employee.id);
-                              } else {
-                                _selectedIds.remove(employee.id);
-                              }
-                            });
-                          },
-                          title: Text(
-                            employee.name,
-                            style: const TextStyle(color: AuthColors.textMain),
-                          ),
-                          controlAffinity: ListTileControlAffinity.leading,
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        DashButton(
-          label: 'Cancel',
-          onPressed: () => Navigator.of(context).pop(),
-          variant: DashButtonVariant.text,
-        ),
-        DashButton(
-          label: 'Apply',
-          onPressed: () => Navigator.of(context).pop(_selectedIds),
-        ),
-      ],
     );
   }
+
+  Future<T?> _showSearchableSelectionDialog<T>({
+    required String title,
+    required List<T> items,
+    required String Function(T item) itemLabel,
+    Widget Function(T item)? leadingBuilder,
+  }) {
+    return showDialog<T>(
+      context: context,
+      barrierColor: AuthColors.background.withValues(alpha: 0.7),
+      builder: (dialogContext) {
+        final searchController = TextEditingController();
+        List<T> filteredItems = List<T>.from(items);
+
+        void applyFilter(String query, void Function(void Function()) setState) {
+          final normalized = query.trim().toLowerCase();
+          setState(() {
+            if (normalized.isEmpty) {
+              filteredItems = List<T>.from(items);
+            } else {
+              filteredItems = items
+                  .where((item) =>
+                      itemLabel(item).toLowerCase().contains(normalized))
+                  .toList();
+            }
+          });
+        }
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: AuthColors.transparent,
+              insetPadding: const EdgeInsets.all(AppSpacing.paddingLG),
+              child: Container(
+                constraints: const BoxConstraints(
+                  maxWidth: 520,
+                  maxHeight: 560,
+                ),
+                padding: const EdgeInsets.all(AppSpacing.paddingLG),
+                decoration: BoxDecoration(
+                  color: AuthColors.surface,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLG),
+                  border: Border.all(
+                      color: AuthColors.textMainWithOpacity(0.1)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: const TextStyle(
+                              color: AuthColors.textMain,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          icon: const Icon(Icons.close,
+                              color: AuthColors.textSub),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.paddingSM),
+                    TextField(
+                      controller: searchController,
+                      onChanged: (value) => applyFilter(value, setState),
+                      decoration: InputDecoration(
+                        hintText: 'Search...',
+                        prefixIcon: const Icon(Icons.search,
+                            color: AuthColors.textSub, size: 18),
+                        filled: true,
+                        fillColor: AuthColors.background,
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusMD),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      style: const TextStyle(color: AuthColors.textMain),
+                    ),
+                    const SizedBox(height: AppSpacing.paddingSM),
+                    Expanded(
+                      child: filteredItems.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No results found',
+                                style: TextStyle(
+                                  color: AuthColors.textSub,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: filteredItems.length,
+                              separatorBuilder: (_, __) => Divider(
+                                color: AuthColors.textMainWithOpacity(0.08),
+                                height: 1,
+                              ),
+                              itemBuilder: (context, index) {
+                                final item = filteredItems[index];
+                                return ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.paddingSM),
+                                  leading: leadingBuilder?.call(item),
+                                  title: Text(
+                                    itemLabel(item),
+                                    style: const TextStyle(
+                                      color: AuthColors.textMain,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  onTap: () =>
+                                      Navigator.of(dialogContext).pop(item),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _LedgerAccountOption {
+  const _LedgerAccountOption({
+    required this.id,
+    required this.name,
+    required this.type,
+    this.accounts = const [],
+  });
+
+  final String id;
+  final String name;
+  final _LedgerAccountType type;
+  final List<Map<String, dynamic>> accounts;
+
+  String get key => '${type.name}:$id';
+
+  Map<String, dynamic> toJson() => {
+        'type': type.name,
+        'id': id,
+        'name': name,
+        if (accounts.isNotEmpty) 'accounts': accounts,
+      };
+}
+
+class _LedgerEmployeeRef {
+  const _LedgerEmployeeRef({
+    required this.id,
+    required this.name,
+  });
+
+  final String id;
+  final String name;
+}
+
+enum _LedgerAccountType {
+  client,
+  vendor,
+  employee,
+  combined,
 }
 
 extension FirstWhereOrNull<T> on List<T> {

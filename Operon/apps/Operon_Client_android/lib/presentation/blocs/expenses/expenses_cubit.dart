@@ -223,6 +223,7 @@ class ExpensesCubit extends Cubit<ExpensesState> {
   /// Create a general expense
   Future<void> createGeneralExpense({
     required String subCategoryId,
+    String? subCategoryName,
     required double amount,
     required String paymentAccountId,
     required DateTime date,
@@ -232,7 +233,16 @@ class ExpensesCubit extends Cubit<ExpensesState> {
     emit(state.copyWith(status: ViewStatus.loading, message: null));
     try {
       final financialYear = FinancialYearUtils.getFinancialYear(date);
-      final subCategory = state.subCategories.firstWhere((sc) => sc.id == subCategoryId);
+      String? resolvedSubCategoryName = subCategoryName;
+      if (resolvedSubCategoryName == null || resolvedSubCategoryName.isEmpty) {
+        try {
+          resolvedSubCategoryName = state.subCategories
+              .firstWhere((sc) => sc.id == subCategoryId)
+              .name;
+        } catch (_) {
+          resolvedSubCategoryName = null;
+        }
+      }
 
       final transaction = Transaction(
         id: '', // Will be set by data source
@@ -252,7 +262,9 @@ class ExpensesCubit extends Cubit<ExpensesState> {
         metadata: {
           'expenseCategory': 'general',
           'subCategoryId': subCategoryId,
-          'subCategoryName': subCategory.name,
+          if (resolvedSubCategoryName != null &&
+              resolvedSubCategoryName.isNotEmpty)
+            'subCategoryName': resolvedSubCategoryName,
         },
       );
 

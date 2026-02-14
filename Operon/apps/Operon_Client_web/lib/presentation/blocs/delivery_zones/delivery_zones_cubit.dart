@@ -17,6 +17,9 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
         _orgId = orgId,
         super(const DeliveryZonesState());
 
+  static const Duration _cacheTtl = Duration(minutes: 5);
+  static final Map<String, _ZonesCache> _cacheByOrg = {};
+
   final DeliveryZonesRepository _repository;
   final ProductsRepository _productsRepository;
   final String _orgId;
@@ -26,6 +29,26 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
 
   void _log(String message) {
     debugPrint('[ZonesCubit] $message');
+  }
+
+  _ZonesCache? _readCache() {
+    final cached = _cacheByOrg[_orgId];
+    if (cached == null) return null;
+    if (!cached.isFresh(_cacheTtl)) return null;
+    return cached;
+  }
+
+  void _writeCache({
+    required List<DeliveryZone> zones,
+    required List<DeliveryCity> cities,
+    required List<OrganizationProduct> catalog,
+  }) {
+    _cacheByOrg[_orgId] = _ZonesCache(
+      zones: zones,
+      cities: cities,
+      catalog: catalog,
+      fetchedAt: DateTime.now(),
+    );
   }
 
   Future<void> loadZones({bool forceRefresh = false}) async {
@@ -38,6 +61,11 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
         state.zones,
         preferredZoneId: state.selectedZoneId,
       );
+      _writeCache(
+        zones: state.zones,
+        cities: _cities,
+        catalog: _catalog,
+      );
       emit(state.copyWith(
         status: ViewStatus.success,
         zones: state.zones,
@@ -49,15 +77,48 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       ));
       return;
     }
+
+    if (!forceRefresh) {
+      final cached = _readCache();
+      if (cached != null && cached.hasData) {
+        final zones = _sortZones(cached.zones);
+        _cities = [...cached.cities]..sort((a, b) => a.name.compareTo(b.name));
+        _catalog = cached.catalog;
+        final selection = _resolveSelection(
+          zones,
+          preferredZoneId: state.selectedZoneId,
+        );
+        emit(state.copyWith(
+          status: ViewStatus.success,
+          zones: zones,
+          products: _catalog,
+          cities: _cities,
+          selectedZoneId: selection.zoneId,
+          selectedZonePrices: selection.prices,
+          message: null,
+        ));
+        return;
+      }
+    }
     emit(state.copyWith(status: ViewStatus.loading));
     try {
+      final cached = _readCache();
+      final zonesFuture = forceRefresh || cached?.zones.isEmpty != false
+          ? _repository.fetchZones(_orgId)
+          : Future.value(cached!.zones);
+      final citiesFuture = forceRefresh || cached?.cities.isEmpty != false
+          ? _repository.fetchCities(_orgId)
+          : Future.value(cached!.cities);
+      final catalogFuture = forceRefresh || cached?.catalog.isEmpty != false
+          ? _productsRepository.fetchProducts(_orgId)
+          : Future.value(cached!.catalog);
+
       final results = await Future.wait([
-        _repository.fetchZones(_orgId),
-        _repository.fetchCities(_orgId),
-        _catalog.isEmpty
-            ? _productsRepository.fetchProducts(_orgId)
-            : Future.value(_catalog),
+        zonesFuture,
+        citiesFuture,
+        catalogFuture,
       ]);
+
       final zones = _sortZones(results[0] as List<DeliveryZone>);
       _log('Fetched ${zones.length} zones');
       _cities = (results[1] as List<DeliveryCity>)
@@ -65,6 +126,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       _log('Resolved ${_cities.length} cities');
       _catalog = results[2] as List<OrganizationProduct>;
       _log('Resolved products catalog size=${_catalog.length}');
+      _writeCache(zones: zones, cities: _cities, catalog: _catalog);
       final selection = _resolveSelection(
         zones,
         preferredZoneId: state.selectedZoneId,
@@ -119,6 +181,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       final created = zone.copyWith(id: zoneId, organizationId: _orgId);
       final updatedZones = _sortZones([...state.zones, created]);
       final selection = _resolveSelection(updatedZones, preferredZoneId: zoneId);
+      _writeCache(zones: updatedZones, cities: _cities, catalog: _catalog);
       emit(state.copyWith(
         status: ViewStatus.success,
         zones: updatedZones,
@@ -149,6 +212,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
         updatedZones,
         preferredZoneId: state.selectedZoneId,
       );
+      _writeCache(zones: updatedZones, cities: _cities, catalog: _catalog);
       emit(state.copyWith(
         status: ViewStatus.success,
         zones: updatedZones,
@@ -177,6 +241,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
             ? null
             : state.selectedZoneId,
       );
+      _writeCache(zones: updatedZones, cities: _cities, catalog: _catalog);
       emit(state.copyWith(
         status: ViewStatus.success,
         zones: updatedZones,
@@ -223,6 +288,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
         updatedPrice: enriched,
       );
       final selection = _resolveSelection(updatedZones, preferredZoneId: zoneId);
+      _writeCache(zones: updatedZones, cities: _cities, catalog: _catalog);
       emit(state.copyWith(
         status: ViewStatus.success,
         zones: updatedZones,
@@ -256,6 +322,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
         productId: productId,
       );
       final selection = _resolveSelection(updatedZones, preferredZoneId: zoneId);
+      _writeCache(zones: updatedZones, cities: _cities, catalog: _catalog);
       emit(state.copyWith(
         status: ViewStatus.success,
         zones: updatedZones,
@@ -368,6 +435,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
     );
     _cities = [..._cities, DeliveryCity(id: cityId, name: normalized)]
       ..sort((a, b) => a.name.compareTo(b.name));
+    _writeCache(zones: state.zones, cities: _cities, catalog: _catalog);
     emit(state.copyWith(cities: _cities));
   }
 
@@ -400,6 +468,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       updatedZones,
       preferredZoneId: state.selectedZoneId,
     );
+    _writeCache(zones: updatedZones, cities: _cities, catalog: _catalog);
     emit(state.copyWith(
       cities: _cities,
       zones: updatedZones,
@@ -418,6 +487,7 @@ class DeliveryZonesCubit extends Cubit<DeliveryZonesState> {
       ..sort((a, b) => a.name.compareTo(b.name));
     final updatedZones = state.zones.where((z) => z.cityId != city.id).toList();
     final selection = _resolveSelection(updatedZones, preferredZoneId: null);
+    _writeCache(zones: updatedZones, cities: _cities, catalog: _catalog);
     emit(state.copyWith(
       cities: _cities,
       zones: updatedZones,
@@ -472,5 +542,25 @@ class _SelectionSnapshot {
 
   final String? zoneId;
   final List<DeliveryZonePrice> prices;
+}
+
+class _ZonesCache {
+  const _ZonesCache({
+    required this.zones,
+    required this.cities,
+    required this.catalog,
+    required this.fetchedAt,
+  });
+
+  final List<DeliveryZone> zones;
+  final List<DeliveryCity> cities;
+  final List<OrganizationProduct> catalog;
+  final DateTime fetchedAt;
+
+  bool get hasData => zones.isNotEmpty && cities.isNotEmpty && catalog.isNotEmpty;
+
+  bool isFresh(Duration ttl) {
+    return DateTime.now().difference(fetchedAt) <= ttl;
+  }
 }
 

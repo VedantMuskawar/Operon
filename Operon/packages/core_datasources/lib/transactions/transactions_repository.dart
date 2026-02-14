@@ -176,6 +176,23 @@ class TransactionsRepository {
     );
   }
 
+  /// Get all trip payment transactions (orders)
+  Future<List<Transaction>> getTripPayments({
+    required String organizationId,
+    String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? limit,
+  }) {
+    return _dataSource.getTripPayments(
+      organizationId: organizationId,
+      financialYear: financialYear,
+      startDate: startDate,
+      endDate: endDate,
+      limit: limit,
+    );
+  }
+
   /// Get all vendor purchases
   Future<List<Transaction>> getVendorPurchases({
     required String organizationId,
@@ -273,8 +290,8 @@ class TransactionsRepository {
     );
   }
 
-  /// Get unified financial data (all transactions, purchases, and expenses)
-  /// Returns a map with keys: 'transactions', 'purchases', 'expenses'
+  /// Get unified financial data (payments, orders, purchases, and expenses)
+  /// Returns a map with keys: 'transactions', 'orders', 'purchases', 'expenses'
   Future<Map<String, List<Transaction>>> getUnifiedFinancialData({
     required String organizationId,
     String? financialYear,

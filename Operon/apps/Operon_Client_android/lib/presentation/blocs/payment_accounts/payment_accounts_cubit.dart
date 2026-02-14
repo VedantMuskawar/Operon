@@ -8,8 +8,8 @@ class PaymentAccountsState extends BaseState {
   const PaymentAccountsState({
     super.status = ViewStatus.initial,
     this.accounts = const [],
-    String? message,
-  }) : super(message: message);
+    super.message,
+  });
 
   final List<PaymentAccount> accounts;
   @override
@@ -181,4 +181,3 @@ class PaymentAccountsCubit extends Cubit<PaymentAccountsState> {
     }
   }
 }
-

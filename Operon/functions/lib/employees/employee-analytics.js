@@ -75,7 +75,10 @@ exports.onEmployeeCreated = (0, firestore_1.onDocumentCreated)(Object.assign({ d
  * Called by unified analytics scheduler.
  */
 async function rebuildEmployeeAnalyticsCore(fyLabel) {
-    const employeesSnapshot = await db.collection(constants_1.EMPLOYEES_COLLECTION).get();
+    const employeesSnapshot = await db
+        .collection(constants_1.EMPLOYEES_COLLECTION)
+        .select('organizationId')
+        .get();
     const employeesByOrg = {};
     employeesSnapshot.forEach((doc) => {
         var _a;
@@ -95,6 +98,7 @@ async function rebuildEmployeeAnalyticsCore(fyLabel) {
             .where('ledgerType', '==', 'employeeLedger')
             .where('type', '==', 'credit')
             .where('category', '==', 'wageCredit')
+            .select('transactionDate', 'paymentDate', 'createdAt', 'amount')
             .get();
         // Group wages by month and by day (daily data only)
         const wagesByMonthDay = {};

@@ -15,6 +15,9 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
 var __importStar = (this && this.__importStar) || (function () {
     var ownKeys = function(o) {
         ownKeys = Object.getOwnPropertyNames || function (o) {
@@ -32,11 +35,12 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.transactions = exports.orders = void 0;
+// Unified Ledger Maintenance Manager
+__exportStar(require("./ledger-maintenance/LedgerMaintenanceManager"), exports);
+// Ledger maintenance: sync CurrentBalance fields
+__exportStar(require("./ledger-maintenance/syncCurrentBalance"), exports);
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
 // Eager init Firestore for global caching (optional; getFirestore() also inits on first use)
@@ -53,7 +57,7 @@ __exportStar(require("./cleanup"), exports);
 __exportStar(require("./maintenance"), exports);
 __exportStar(require("./production-batches"), exports);
 __exportStar(require("./trip-wages"), exports);
-__exportStar(require("./ledger-maintenance"), exports);
+// export * from './ledger-maintenance'; // Removed to avoid LedgerType export ambiguity
 __exportStar(require("./employees/employee-analytics"), exports);
 __exportStar(require("./geofences"), exports);
 __exportStar(require("./edd"), exports);
@@ -80,6 +84,6 @@ exports.orders = {
 exports.transactions = {
     onTransactionCreated: transactionsNs.onTransactionCreated,
     onTransactionDeleted: transactionsNs.onTransactionDeleted,
-    rebuildClientLedgers: transactionsNs.rebuildClientLedgers,
+    // rebuildClientLedgers removed: replaced by LedgerMaintenanceManager
 };
 //# sourceMappingURL=index.js.map

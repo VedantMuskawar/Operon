@@ -153,12 +153,10 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                 child: AnimatedBuilder(
                   animation: _fadeAnimation,
                   builder: (context, child) {
-                    return Opacity(
-                      opacity: _fadeAnimation.value,
-                      child: Container(
-                        color: AuthColors.background
-                            .withValues(alpha: 0.5 * _fadeAnimation.value),
-                      ),
+                    final alpha = (0.5 * _fadeAnimation.value)
+                        .clamp(0.0, 1.0);
+                    return ColoredBox(
+                      color: AuthColors.background.withValues(alpha: alpha),
                     );
                   },
                 ),
@@ -192,10 +190,12 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                         offset: Offset(0, slideValue.dy * 80),
                         child: Transform.scale(
                           scale: 1.0 - (slideValue.dy * 0.2),
-                          child: _ActionButton(
-                            icon: action.icon,
-                            label: action.label,
-                            onTap: () => _handleActionTap(action),
+                          child: RepaintBoundary(
+                            child: _ActionButton(
+                              icon: action.icon,
+                              label: action.label,
+                              onTap: () => _handleActionTap(action),
+                            ),
                           ),
                         ),
                       ),
@@ -218,47 +218,48 @@ class _QuickActionMenuState extends State<QuickActionMenu>
                 child: AnimatedBuilder(
                   animation: _controller,
                   builder: (context, child) {
-                    return Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: Transform.rotate(
-                        angle: _rotationAnimation.value * 2 * 3.14159,
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: _isExpanded
-                                  ? [
-                                      AuthColors.legacyAccent,
-                                      AuthColors.legacyAccent
-                                          .withValues(alpha: 0.8),
-                                    ]
-                                  : [
-                                      AuthColors.legacyAccent,
-                                      AuthColors.legacyAccent
-                                          .withValues(alpha: 0.9),
-                                    ],
-                            ),
-                            borderRadius:
-                                BorderRadius.circular(AppSpacing.radiusLG),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AuthColors.legacyAccent.withValues(
-                                  alpha:
-                                  _isExpanded ? 0.5 : 0.4,
-                                ),
-                                blurRadius: _isExpanded ? 20 : 12,
-                                offset: Offset(0, _isExpanded ? 8 : 4),
-                                spreadRadius: _isExpanded ? 2 : 0,
+                    return RepaintBoundary(
+                      child: Transform.scale(
+                        scale: _scaleAnimation.value,
+                        child: Transform.rotate(
+                          angle: _rotationAnimation.value * 2 * 3.14159,
+                          child: Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: _isExpanded
+                                    ? [
+                                        AuthColors.legacyAccent,
+                                        AuthColors.legacyAccent
+                                            .withValues(alpha: 0.8),
+                                      ]
+                                    : [
+                                        AuthColors.legacyAccent,
+                                        AuthColors.legacyAccent
+                                            .withValues(alpha: 0.9),
+                                      ],
                               ),
-                            ],
-                          ),
-                          child: Icon(
-                            _isExpanded ? Icons.close : Icons.add,
-                            color: AuthColors.textMain,
-                            size: 24,
+                              borderRadius:
+                                  BorderRadius.circular(AppSpacing.radiusLG),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AuthColors.legacyAccent.withValues(
+                                    alpha: _isExpanded ? 0.5 : 0.4,
+                                  ),
+                                  blurRadius: _isExpanded ? 20 : 12,
+                                  offset: Offset(0, _isExpanded ? 8 : 4),
+                                  spreadRadius: _isExpanded ? 2 : 0,
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              _isExpanded ? Icons.close : Icons.add,
+                              color: AuthColors.textMain,
+                              size: 24,
+                            ),
                           ),
                         ),
                       ),

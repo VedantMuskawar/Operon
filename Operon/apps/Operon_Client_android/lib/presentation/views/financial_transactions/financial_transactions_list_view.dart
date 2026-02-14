@@ -330,6 +330,19 @@ class _FinancialTransactionsListViewState
           transaction.paymentAccountName,
         );
         break;
+      case TransactionCategory.tripPayment:
+        title = (transaction.clientName?.trim().isNotEmpty == true
+                ? transaction.clientName!.trim()
+                : null) ??
+            transaction.metadata?['clientName']?.toString().trim() ??
+            (transaction.description?.isNotEmpty == true
+                ? transaction.description!
+                : 'Trip Payment');
+        subtitle = _buildSubtitle(
+          transaction.referenceNumber,
+          transaction.paymentAccountName,
+        );
+        break;
       case TransactionCategory.vendorPurchase:
         title = transaction.metadata?['vendorName']?.toString().trim() ??
             (transaction.description?.isNotEmpty == true
@@ -552,6 +565,8 @@ class _EmptyTransactionsState extends StatelessWidget {
     switch (tabType) {
       case TransactionTabType.transactions:
         return 'payments';
+      case TransactionTabType.orders:
+        return 'orders';
       case TransactionTabType.purchases:
         return 'purchases';
       case TransactionTabType.expenses:

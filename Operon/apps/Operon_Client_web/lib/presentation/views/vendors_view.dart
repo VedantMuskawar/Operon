@@ -478,7 +478,7 @@ class _VendorsPageContentState extends State<VendorsPageContent> {
             const SizedBox(height: 24),
             
             // Vendor List
-            Expanded(child: listContent),
+            listContent,
           ],
         );
       },
@@ -834,6 +834,8 @@ class _VendorListView extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimationLimiter(
       child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
         controller: scrollController,
         itemCount: vendors.length,
         itemBuilder: (context, index) {

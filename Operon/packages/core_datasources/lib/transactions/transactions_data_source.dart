@@ -568,6 +568,57 @@ class TransactionsDataSource {
     }
   }
 
+  /// Get all trip payment transactions (order payments)
+  Future<List<Transaction>> getTripPayments({
+    required String organizationId,
+    String? financialYear,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? limit,
+  }) async {
+    try {
+      Query<Map<String, dynamic>> query = _transactionsRef()
+          .where('organizationId', isEqualTo: organizationId)
+          .where('category', isEqualTo: TransactionCategory.tripPayment.name);
+
+      if (financialYear != null) {
+        query = query.where('financialYear', isEqualTo: financialYear);
+      }
+
+      if (startDate != null) {
+        query = query.where(
+          'createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+        );
+      }
+      if (endDate != null) {
+        query = query.where(
+          'createdAt',
+          isLessThanOrEqualTo: Timestamp.fromDate(_endOfDay(endDate)),
+        );
+      }
+
+      query = query.orderBy('createdAt', descending: true);
+
+      final effectiveLimit = limit ?? 50;
+      query = query.limit(effectiveLimit);
+
+      final snapshot = await query.get();
+      return snapshot.docs
+          .map((doc) {
+            try {
+              return Transaction.fromJson(doc.data(), doc.id);
+            } catch (e) {
+              return null;
+            }
+          })
+          .whereType<Transaction>()
+          .toList();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Get all vendor purchases
   Future<List<Transaction>> getVendorPurchases({
     required String organizationId,
@@ -739,8 +790,8 @@ class TransactionsDataSource {
     });
   }
 
-  /// Get unified financial data (all transactions, purchases, and expenses)
-  /// Returns a map with keys: 'transactions', 'purchases', 'expenses'
+  /// Get unified financial data (payments, orders, purchases, and expenses)
+  /// Returns a map with keys: 'transactions', 'orders', 'purchases', 'expenses'
   Future<Map<String, List<Transaction>>> getUnifiedFinancialData({
     required String organizationId,
     String? financialYear,
@@ -752,6 +803,13 @@ class TransactionsDataSource {
       final effectiveLimit = limit ?? 50;
       final results = await Future.wait([
         getClientPayments(
+          organizationId: organizationId,
+          financialYear: financialYear,
+          startDate: startDate,
+          endDate: endDate,
+          limit: effectiveLimit,
+        ),
+        getTripPayments(
           organizationId: organizationId,
           financialYear: financialYear,
           startDate: startDate,
@@ -775,11 +833,13 @@ class TransactionsDataSource {
       ]);
 
       final transactions = results[0];
-      final purchases = results[1];
-      final expenses = results[2];
+      final orders = results[1];
+      final purchases = results[2];
+      final expenses = results[3];
 
       return {
         'transactions': transactions,
+        'orders': orders,
         'purchases': purchases,
         'expenses': expenses,
       };

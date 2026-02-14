@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_update_title">Update available</string>
+    <string name="app_update_update">Update</string>
+    <string name="app_update_later">Later</string>
+    <string name="app_update_downloading">Downloading update…</string>
+    <string name="app_update_permission_required">Allow install from unknown apps to continue.</string>
+    <string name="app_update_download_failed">Download failed. Please try again.</string>
+</resources>

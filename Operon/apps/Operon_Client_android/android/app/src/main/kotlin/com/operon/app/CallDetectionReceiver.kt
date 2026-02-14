@@ -25,11 +25,12 @@ class CallDetectionReceiver : BroadcastReceiver() {
         val phone = number?.takeIf { it.isNotBlank() } ?: ""
 
         Log.d(TAG, "Incoming call: ${if (phone.isEmpty()) "(no number)" else phone}")
-        if (phone.isEmpty()) return
 
         pendingIncomingPhone = phone
-        storePhoneForOverlay(context, phone)
-        storePhoneForOverlayFile(context, phone)
+        if (phone.isNotEmpty()) {
+            storePhoneForOverlay(context, phone)
+            storePhoneForOverlayFile(context, phone)
+        }
 
         val serviceIntent = Intent().apply {
             component = ComponentName(context.packageName, OVERLAY_SERVICE_CLASS)

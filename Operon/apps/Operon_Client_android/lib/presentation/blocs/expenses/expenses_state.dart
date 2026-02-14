@@ -22,8 +22,8 @@ class ExpensesState extends BaseState {
     this.employees = const [],
     this.subCategories = const [],
     this.paymentAccounts = const [],
-    String? message,
-  }) : super(message: message);
+    super.message,
+  });
 
   final List<Transaction> vendorExpenses;
   final List<Transaction> employeeExpenses;
@@ -92,7 +92,8 @@ class ExpensesState extends BaseState {
       allExpenses: allExpenses ?? this.allExpenses,
       selectedExpenseType: selectedExpenseType ?? this.selectedExpenseType,
       searchQuery: searchQuery ?? this.searchQuery,
-      selectedSubCategoryId: selectedSubCategoryId ?? this.selectedSubCategoryId,
+      selectedSubCategoryId:
+          selectedSubCategoryId ?? this.selectedSubCategoryId,
       vendors: vendors ?? this.vendors,
       employees: employees ?? this.employees,
       subCategories: subCategories ?? this.subCategories,
@@ -101,4 +102,3 @@ class ExpensesState extends BaseState {
     );
   }
 }
-

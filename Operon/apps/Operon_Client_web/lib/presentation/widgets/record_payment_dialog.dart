@@ -6,7 +6,14 @@ import 'package:dash_web/data/repositories/payment_accounts_repository.dart';
 import 'package:dash_web/domain/entities/client.dart';
 import 'package:dash_web/domain/entities/payment_account.dart';
 import 'package:core_ui/core_ui.dart'
-  show AuthColors, DashButton, DashButtonVariant, DashDialog, DashSnackbar, DashTheme, DialogActionHandler;
+    show
+        AuthColors,
+        DashButton,
+        DashButtonVariant,
+        DashDialog,
+        DashSnackbar,
+        DashTheme,
+        DialogActionHandler;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,7 +29,8 @@ class RecordPaymentDialog extends StatefulWidget {
   State<RecordPaymentDialog> createState() => _RecordPaymentDialogState();
 }
 
-class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogActionHandler {
+class _RecordPaymentDialogState extends State<RecordPaymentDialog>
+    with DialogActionHandler {
   final _amountController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
@@ -105,7 +113,7 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
             child: LinearProgressIndicator(minHeight: 2),
           )
         else if (_paymentAccounts.isEmpty)
-          Text(
+          const Text(
             'No payment accounts available. Add one in Settings → Payment Accounts.',
             style: TextStyle(
               color: AuthColors.textSub,
@@ -120,21 +128,26 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
               final isSelected = _selectedPaymentAccount?.id == account.id;
               return ChoiceChip(
                 selected: isSelected,
-                onSelected: (_) => setState(() => _selectedPaymentAccount = account),
+                onSelected: (_) =>
+                    setState(() => _selectedPaymentAccount = account),
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       _paymentAccountIcon(account.type),
                       size: 16,
-                      color: isSelected ? AuthColors.textMain : AuthColors.textSub,
+                      color:
+                          isSelected ? AuthColors.textMain : AuthColors.textSub,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       account.name,
                       style: TextStyle(
-                        color: isSelected ? AuthColors.textMain : AuthColors.textSub,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected
+                            ? AuthColors.textMain
+                            : AuthColors.textSub,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w500,
                       ),
                     ),
                     if (account.isPrimary) ...[
@@ -142,7 +155,9 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                       Text(
                         'Primary',
                         style: TextStyle(
-                          color: isSelected ? AuthColors.primary : AuthColors.textDisabled,
+                          color: isSelected
+                              ? AuthColors.primary
+                              : AuthColors.textDisabled,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -153,7 +168,9 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                 selectedColor: AuthColors.primaryWithOpacity(0.18),
                 backgroundColor: AuthColors.backgroundAlt,
                 side: BorderSide(
-                  color: isSelected ? AuthColors.primary : AuthColors.textMainWithOpacity(0.1),
+                  color: isSelected
+                      ? AuthColors.primary
+                      : AuthColors.textMainWithOpacity(0.1),
                 ),
               );
             }).toList(),
@@ -177,17 +194,27 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
 
   String _getMonthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     return months[month - 1];
   }
 
   String _formatCurrency(double amount) {
-    return '₹' + amount.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
+    return '₹${amount.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        )}';
   }
 
   Widget _buildDescriptionField() {
@@ -211,7 +238,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AuthColors.primary, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
       validator: (value) {
         // Optional: allow empty description
@@ -223,9 +251,11 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
   Future<void> _selectClient() async {
     final orgState = context.read<OrganizationContextCubit>().state;
     final organization = orgState.organization;
-    print('[DEBUG] _selectClient called in RecordPaymentDialog for orgId: \'${organization?.id}\'');
+    print(
+        '[DEBUG] _selectClient called in RecordPaymentDialog for orgId: \'${organization?.id}\'');
     if (organization == null) {
-      DashSnackbar.show(context, message: 'Please select an organization', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please select an organization', isError: true);
       return;
     }
 
@@ -234,7 +264,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
       context: context,
       barrierColor: AuthColors.background.withOpacity(0.7),
       builder: (dialogContext) {
-        print('[DEBUG] Building BlocProvider for _ClientSelectionDialog in RecordPaymentDialog');
+        print(
+            '[DEBUG] Building BlocProvider for _ClientSelectionDialog in RecordPaymentDialog');
         return BlocProvider(
           create: (_) => ClientsCubit(
             repository: clientsRepository,
@@ -279,7 +310,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
           .get();
 
       if (ledgerDoc.exists) {
-        final balance = (ledgerDoc.data()?['currentBalance'] as num?)?.toDouble();
+        final balance =
+            (ledgerDoc.data()?['currentBalance'] as num?)?.toDouble();
         setState(() {
           _currentBalance = balance ?? 0.0;
         });
@@ -303,12 +335,12 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
         return null;
       }
       final storageRef = FirebaseStorage.instance
-        .ref()
-        .child('payments')
-        .child(organization.id)
-        .child(_selectedClientId!)
-        .child(transactionId)
-        .child('receipt.jpg');
+          .ref()
+          .child('payments')
+          .child(organization.id)
+          .child(_selectedClientId!)
+          .child(transactionId)
+          .child('receipt.jpg');
       await storageRef.putData(
         _receiptPhotoBytes!,
         SettableMetadata(contentType: 'image/jpeg'),
@@ -342,7 +374,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
       });
     } catch (e) {
       if (mounted) {
-        DashSnackbar.show(context, message: 'Failed to pick photo: $e', isError: true);
+        DashSnackbar.show(context,
+            message: 'Failed to pick photo: $e', isError: true);
       }
     }
   }
@@ -353,7 +386,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
-      builder: (context, child) => Theme(data: DashTheme.light(), child: child!),
+      builder: (context, child) =>
+          Theme(data: DashTheme.light(), child: child!),
     );
     if (picked != null) {
       setState(() => _selectedDate = picked);
@@ -382,7 +416,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AuthColors.primary, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) return 'Enter amount';
@@ -396,33 +431,39 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
   Future<void> _submitPayment() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedClientId == null) {
-      DashSnackbar.show(context, message: 'Please select a client', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please select a client', isError: true);
       return;
     }
     if (_selectedDate == null) {
-      DashSnackbar.show(context, message: 'Please select a date', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please select a date', isError: true);
       return;
     }
     if (_selectedPaymentAccount == null) {
-      DashSnackbar.show(context, message: 'Please select a payment account', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please select a payment account', isError: true);
       return;
     }
     final amount = double.tryParse(_amountController.text.replaceAll(',', ''));
     if (amount == null || amount <= 0) {
-      DashSnackbar.show(context, message: 'Please enter a valid amount', isError: true);
+      DashSnackbar.show(context,
+          message: 'Please enter a valid amount', isError: true);
       return;
     }
 
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) {
-      DashSnackbar.show(context, message: 'User not authenticated', isError: true);
+      DashSnackbar.show(context,
+          message: 'User not authenticated', isError: true);
       return;
     }
 
     final orgState = context.read<OrganizationContextCubit>().state;
     final organization = orgState.organization;
     if (organization == null) {
-      DashSnackbar.show(context, message: 'No organization selected', isError: true);
+      DashSnackbar.show(context,
+          message: 'No organization selected', isError: true);
       return;
     }
 
@@ -536,7 +577,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                       onTap: _selectClient,
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
                         decoration: BoxDecoration(
                           color: AuthColors.backgroundAlt,
                           borderRadius: BorderRadius.circular(10),
@@ -547,18 +589,25 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                         child: Row(
                           children: [
                             Icon(Icons.person_outline,
-                                color: hasClient ? AuthColors.textMain : AuthColors.textSub),
+                                color: hasClient
+                                    ? AuthColors.textMain
+                                    : AuthColors.textSub),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 _selectedClientName ?? 'Select Client',
                                 style: TextStyle(
-                                  color: hasClient ? AuthColors.textMain : AuthColors.textSub,
-                                  fontWeight: hasClient ? FontWeight.w600 : FontWeight.w400,
+                                  color: hasClient
+                                      ? AuthColors.textMain
+                                      : AuthColors.textSub,
+                                  fontWeight: hasClient
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
                                 ),
                               ),
                             ),
-                            const Icon(Icons.chevron_right, color: AuthColors.textSub),
+                            const Icon(Icons.chevron_right,
+                                color: AuthColors.textSub),
                           ],
                         ),
                       ),
@@ -567,7 +616,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                       const SizedBox(height: 8),
                       Text(
                         'Current balance: ${_formatCurrency(_currentBalance!)}',
-                        style: const TextStyle(color: AuthColors.textSub, fontSize: 12),
+                        style: const TextStyle(
+                            color: AuthColors.textSub, fontSize: 12),
                       ),
                     ],
                   ],
@@ -587,7 +637,8 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                             onTap: _selectDate,
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 12),
                               decoration: BoxDecoration(
                                 color: AuthColors.backgroundAlt,
                                 borderRadius: BorderRadius.circular(8),
@@ -607,8 +658,9 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                                         color: date == null
                                             ? AuthColors.textSub
                                             : AuthColors.textMain,
-                                        fontWeight:
-                                            date == null ? FontWeight.w400 : FontWeight.w600,
+                                        fontWeight: date == null
+                                            ? FontWeight.w400
+                                            : FontWeight.w600,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -633,27 +685,32 @@ class _RecordPaymentDialogState extends State<RecordPaymentDialog> with DialogAc
                   children: [
                     _buildDescriptionField(),
                     const SizedBox(height: 12),
-                    if (_selectedReceiptPhoto != null && _receiptPhotoBytes != null)
+                    if (_selectedReceiptPhoto != null &&
+                        _receiptPhotoBytes != null)
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: AuthColors.backgroundAlt,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AuthColors.textMainWithOpacity(0.12)),
+                          border: Border.all(
+                              color: AuthColors.textMainWithOpacity(0.12)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.image_outlined, color: AuthColors.textSub),
+                            const Icon(Icons.image_outlined,
+                                color: AuthColors.textSub),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 _selectedReceiptPhoto!.name,
-                                style: const TextStyle(color: AuthColors.textMain),
+                                style:
+                                    const TextStyle(color: AuthColors.textMain),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.close, color: AuthColors.textSub),
+                              icon: const Icon(Icons.close,
+                                  color: AuthColors.textSub),
                               onPressed: _removeReceiptPhoto,
                               tooltip: 'Remove',
                             ),

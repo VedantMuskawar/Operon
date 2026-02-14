@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:core_models/core_models.dart';
 import 'package:core_utils/core_utils.dart' as pdf_template;
@@ -286,7 +285,8 @@ class DmPrintService {
             qrCodeBytes = await _qrCodeService
                 .generateQrCodeImage(selectedAccount.upiQrData!);
           } catch (e) {
-            debugPrint('[DmPrintService] Failed generating QR from UPI data: $e');
+            debugPrint(
+                '[DmPrintService] Failed generating QR from UPI data: $e');
           }
         } else if ((qrCodeBytes == null || qrCodeBytes.isEmpty) &&
             selectedAccount.upiId != null &&

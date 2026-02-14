@@ -36,7 +36,7 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
   final ScrollController _scrollController = ScrollController();
   final Map<String, String> _searchIndexCache = {};
   String? _lastSearchIndexHash;
-  
+
   // Caching for filtered/sorted results to avoid recomputation
   List<Client>? _cachedFilteredClients;
   String? _cachedQuery;
@@ -83,7 +83,7 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
     // Apply search filter
     List<Client> filtered;
     if (_query.isEmpty) {
-      filtered = clients;
+      filtered = [...clients];
     } else {
       final queryLower = _query.toLowerCase();
       final clientsHash = '${clients.length}_${clients.hashCode}';
@@ -227,24 +227,32 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
           );
         }
 
-        List<Client> filtered = _getFilteredAndSortedClients(state.clients);
+        // Use server-side search results if query exists, otherwise filter local clients
+        List<Client> displayClients =
+            state.searchQuery.isNotEmpty ? state.searchResults : state.clients;
+        List<Client> filtered = _getFilteredAndSortedClients(displayClients);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Statistics Dashboard
             BlocBuilder<ClientsCubit, ClientsState>(
-              buildWhen: (previous, current) => 
+              buildWhen: (previous, current) =>
                   previous.analytics != current.analytics,
               builder: (context, state) {
-                final totalClients = state.analytics?.totalActiveClients ?? state.clients.length;
-                final corporateCount = state.analytics?.corporateCount ?? 
+                final totalClients =
+                    state.analytics?.totalActiveClients ?? state.clients.length;
+                final corporateCount = state.analytics?.corporateCount ??
                     state.clients.where((c) => c.isCorporate).length;
-                final individualCount = state.analytics?.individualCount ?? 
+                final individualCount = state.analytics?.individualCount ??
                     (totalClients - corporateCount);
-                final totalOrders = state.analytics?.totalOrders ?? 
-                    state.clients.fold<int>(0, (sum, client) => sum + ((client.stats?['orders'] as num?)?.toInt() ?? 0));
-                
+                final totalOrders = state.analytics?.totalOrders ??
+                    state.clients.fold<int>(
+                        0,
+                        (sum, client) =>
+                            sum +
+                            ((client.stats?['orders'] as num?)?.toInt() ?? 0));
+
                 return _ClientsStatsHeader(
                   totalClients: totalClients,
                   corporateCount: corporateCount,
@@ -524,7 +532,7 @@ class _ClientsPageContentState extends State<ClientsPageContent> {
             else
               _ClientListView(
                 clients: filtered,
-                hasMore: state.hasMore && _query.trim().isEmpty,
+                hasMore: state.hasMore && state.searchQuery.isEmpty,
                 isLoadingMore: state.isLoadingMore,
                 onLoadMore: () =>
                     context.read<ClientsCubit>().loadMoreClients(),
@@ -775,7 +783,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                                 : null,
                       ),
                       const SizedBox(height: 16),
-                      Text(
+                      const Text(
                         'Tags',
                         style: TextStyle(
                           color: AuthColors.textSub,
@@ -794,7 +802,8 @@ class _ClientDialogState extends State<_ClientDialog> {
                               decoration: InputDecoration(
                                 hintText: 'Enter tag and press Enter',
                                 hintStyle: TextStyle(
-                                  color: AuthColors.textSub.withValues(alpha: 0.6),
+                                  color:
+                                      AuthColors.textSub.withValues(alpha: 0.6),
                                 ),
                                 prefixIcon: const Icon(Icons.tag,
                                     color: AuthColors.textSub, size: 20),
@@ -803,7 +812,8 @@ class _ClientDialogState extends State<_ClientDialog> {
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide(
-                                    color: AuthColors.textMain.withValues(alpha: 0.1),
+                                    color: AuthColors.textMain
+                                        .withValues(alpha: 0.1),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
@@ -861,7 +871,7 @@ class _ClientDialogState extends State<_ClientDialog> {
                                   const SizedBox(width: 6),
                                   GestureDetector(
                                     onTap: () => _removeTag(tag),
-                                    child: Icon(
+                                    child: const Icon(
                                       Icons.close,
                                       size: 16,
                                       color: AuthColors.textSub,
@@ -994,7 +1004,6 @@ class _ClientsStatsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 1000;
@@ -1173,7 +1182,7 @@ class _ErrorState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               message,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 14,
               ),
@@ -1242,7 +1251,7 @@ class _EmptyClientsState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
+            const Text(
               'Start by adding your first client to the system',
               style: TextStyle(
                 color: AuthColors.textSub,
@@ -1293,7 +1302,7 @@ class _EmptySearchState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'No clients match "$query"',
-              style: TextStyle(
+              style: const TextStyle(
                 color: AuthColors.textSub,
                 fontSize: 14,
               ),

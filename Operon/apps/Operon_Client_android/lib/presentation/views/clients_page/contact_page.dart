@@ -400,14 +400,10 @@ class _ContactPageState extends State<_ContactPageContent> {
     if (action == null) return;
 
     if (action == _ContactAction.newClient) {
-      final saved = await _showClientFormSheet(contactToUse);
-      if (saved == true && mounted) {
+      final createdClient = await _showClientFormSheet(contactToUse);
+      if (createdClient != null && mounted) {
         cubit.addRecentContact(contactToUse);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Client "${contactToUse.name}" saved'),
-          ),
-        );
+        Navigator.of(context).pop(createdClient);
       }
       return;
     }
@@ -865,11 +861,11 @@ class _ContactPageState extends State<_ContactPageContent> {
     processContactsInChunks(params.sendPort, params.contacts);
   }
 
-  Future<bool?> _showClientFormSheet(ContactEntry entry) {
+  Future<ClientRecord?> _showClientFormSheet(ContactEntry entry) {
     final orgContext = context.read<OrganizationContextCubit>().state;
     final organizationId = orgContext.organization?.id;
 
-    return showDialog<bool>(
+    return showDialog<ClientRecord>(
       context: context,
       builder: (context) {
         return _ClientFormSheet(
@@ -889,7 +885,7 @@ class _ContactPageState extends State<_ContactPageContent> {
                 );
               }
             }
-            await _clientService.createClient(
+            final createdClient = await _clientService.createClient(
               name: name,
               primaryPhone: phone,
               phones: entry.displayPhones.contains(phone)
@@ -898,6 +894,7 @@ class _ContactPageState extends State<_ContactPageContent> {
               tags: [tag],
               organizationId: organizationId,
             );
+            return createdClient;
           },
         );
       },
@@ -2024,7 +2021,7 @@ class _ClientFormSheet extends StatefulWidget {
 
   final ContactEntry entry;
   final List<String> availableTags;
-  final Future<void> Function(String name, String phone, String tag) onSubmit;
+  final Future<ClientRecord> Function(String name, String phone, String tag) onSubmit;
 
   @override
   State<_ClientFormSheet> createState() => _ClientFormSheetState();
@@ -2104,7 +2101,7 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
                       ),
                     ),
                     IconButton(
-                      onPressed: () => Navigator.of(context).pop(false),
+                      onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close, color: AuthColors.textSub),
                     ),
                   ],
@@ -2244,13 +2241,13 @@ class _ClientFormSheetState extends State<_ClientFormSheet> {
     });
 
     try {
-      await widget.onSubmit(
+      final createdClient = await widget.onSubmit(
         name,
         _selectedPhone,
         _selectedTag,
       );
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(createdClient);
     } on _DuplicateClientException catch (error) {
       setState(() {
         _isSaving = false;

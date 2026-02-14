@@ -286,6 +286,23 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
     return 0;
   }
 
+  String _getPaidStatus(Transaction purchase) {
+    final metadata = purchase.metadata;
+    final paidStatus = metadata?['paidStatus'] as String?;
+    if (paidStatus != null && paidStatus.trim().isNotEmpty) {
+      return paidStatus.toLowerCase();
+    }
+
+    final paidAmount = (metadata?['paidAmount'] as num?)?.toDouble() ?? 0.0;
+    if (paidAmount >= purchase.amount) {
+      return 'paid';
+    }
+    if (paidAmount > 0) {
+      return 'partial';
+    }
+    return 'unpaid';
+  }
+
   void _showLinkTripsDialog(Transaction purchase) {
     final metadata = purchase.metadata;
     if (metadata == null) return;
@@ -633,6 +650,7 @@ class _FuelLedgerPageState extends State<FuelLedgerPage> {
                       formatDate: _formatDate,
                       getVendorName: _getVendorDisplayName,
                       getLinkedTripsCount: _getLinkedTripsCount,
+                      getPaidStatus: _getPaidStatus,
                       onLinkTrips: _showLinkTripsDialog,
                       onDelete: _showDeleteConfirmationDialog,
                     ),
@@ -1009,6 +1027,7 @@ class _FuelPurchaseTable extends StatelessWidget {
     required this.formatDate,
     required this.getVendorName,
     required this.getLinkedTripsCount,
+    required this.getPaidStatus,
     required this.onLinkTrips,
     required this.onDelete,
   });
@@ -1018,6 +1037,7 @@ class _FuelPurchaseTable extends StatelessWidget {
   final String Function(DateTime) formatDate;
   final String Function(Transaction) getVendorName;
   final int Function(Transaction) getLinkedTripsCount;
+  final String Function(Transaction) getPaidStatus;
   final void Function(Transaction) onLinkTrips;
   final void Function(Transaction) onDelete;
 
@@ -1111,6 +1131,40 @@ class _FuelPurchaseTable extends StatelessWidget {
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
+              );
+          },
+        ),
+        custom_table.DataTableColumn<Transaction>(
+          label: 'Paid',
+          icon: Icons.verified,
+          flex: 1,
+          alignment: Alignment.center,
+          cellBuilder: (context, purchase, index) {
+              final status = getPaidStatus(purchase);
+              final statusColor = switch (status) {
+                'paid' => AuthColors.success,
+                'partial' => AuthColors.info,
+                _ => AuthColors.warning,
+              };
+              final label = status.toUpperCase();
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               );
           },
         ),

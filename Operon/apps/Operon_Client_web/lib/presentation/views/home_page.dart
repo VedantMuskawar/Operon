@@ -178,6 +178,9 @@ class _HomeOverviewView extends StatefulWidget {
 
 class _HomeOverviewViewState extends State<_HomeOverviewView>
     with SingleTickerProviderStateMixin {
+  static const Color _peopleColor = Color(0xFFB96A2C); // Muted rust
+  static const Color _financialColor = Color(0xFF3E8E6F); // Industrial green
+  static const Color _operationsColor = Color(0xFF3E6E8C); // Steel blue
   late AnimationController _entranceController;
 
   @override
@@ -208,31 +211,22 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
     final operationsTiles = <_TileData>[];
 
     // People & Contacts
-    if (isAdmin || appAccessRole?.canCreate('employees') == true) {
-      peopleTiles.add(_TileData(
-        icon: Icons.badge_outlined,
-        label: 'Employees',
-        description: 'Manage team members',
-        color: AuthColors.warning, // Orange
-        onTap: () => context.go('/employees'),
-      ));
-    }
-    if (isAdmin || appAccessRole?.canAccessPage('employees') == true) {
-      peopleTiles.add(_TileData(
-        icon: Icons.event_available_outlined,
-        label: 'Attendance',
-        description: 'Track employee attendance',
-        color: AuthColors.warning, // Orange
-        onTap: () => context.go('/attendance'),
-      ));
-    }
     if (isAdmin || appAccessRole?.canAccessPage('clients') == true) {
       peopleTiles.add(_TileData(
         icon: Icons.people_outline,
         label: 'Clients',
         description: 'Client management',
-        color: AuthColors.warning, // Orange
+        color: _peopleColor,
         onTap: () => context.go('/clients'),
+      ));
+    }
+    if (isAdmin || appAccessRole?.canCreate('employees') == true) {
+      peopleTiles.add(_TileData(
+        icon: Icons.badge_outlined,
+        label: 'Employees',
+        description: 'Manage team members',
+        color: _peopleColor,
+        onTap: () => context.go('/employees'),
       ));
     }
     if (isAdmin ||
@@ -242,7 +236,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.store_outlined,
         label: 'Vendors',
         description: 'Manage vendors',
-        color: AuthColors.warning, // Orange
+        color: _peopleColor,
         onTap: () => context.go('/vendors'),
       ));
     }
@@ -252,7 +246,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
       icon: Icons.receipt_long_outlined,
       label: '*Transactions',
       description: 'View transactions',
-      color: AuthColors.success, // Green
+      color: _financialColor,
       onTap: () => context.go('/financial-transactions'),
     ));
     if (isAdmin || appAccessRole?.canAccessPage('accountsLedger') == true) {
@@ -260,7 +254,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.account_balance_outlined,
         label: 'Accounts',
         description: 'Combined ledgers',
-        color: AuthColors.success, // Green
+        color: _financialColor,
         onTap: () => context.go('/accounts'),
       ));
     }
@@ -269,7 +263,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.payments_outlined,
         label: 'Employee Wages',
         description: 'Manage salaries',
-        color: AuthColors.success, // Green
+        color: _financialColor,
         onTap: () => context.go('/employee-wages'),
       ));
     }
@@ -278,7 +272,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.calendar_month_outlined,
         label: 'Monthly Salary & Bonus',
         description: 'Bulk salary and bonus',
-        color: AuthColors.success, // Green
+        color: _financialColor,
         onTap: () => context.go('/monthly-salary-bonus'),
       ));
     }
@@ -286,21 +280,21 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
       icon: Icons.local_gas_station,
       label: 'Fuel Ledger',
       description: 'Track fuel purchases',
-      color: AuthColors.success, // Green
+      color: _financialColor,
       onTap: () => context.go('/fuel-ledger'),
     ));
     financialTiles.add(_TileData(
       icon: Icons.construction_outlined,
       label: 'Production Wages',
       description: 'Batch wages',
-      color: AuthColors.success, // Green
+      color: _financialColor,
       onTap: () => context.go('/production-batches'),
     ));
     financialTiles.add(_TileData(
       icon: Icons.local_shipping_outlined,
       label: 'Trip Wages',
       description: 'Loading/unloading',
-      color: AuthColors.success, // Green
+      color: _financialColor,
       onTap: () => context.go('/trip-wages'),
     ));
 
@@ -312,7 +306,7 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.description_outlined,
         label: 'Delivery Memos',
         description: 'Track delivery memos',
-        color: AuthColors.info, // Blue
+        color: _operationsColor,
         onTap: () => context.go('/delivery-memos'),
       ));
     }
@@ -324,8 +318,17 @@ class _HomeOverviewViewState extends State<_HomeOverviewView>
         icon: Icons.location_city_outlined,
         label: 'Zones',
         description: 'Delivery zones & prices',
-        color: AuthColors.info, // Blue
+        color: _operationsColor,
         onTap: () => context.go('/zones'),
+      ));
+    }
+    if (isAdmin || appAccessRole?.canAccessPage('employees') == true) {
+      operationsTiles.add(_TileData(
+        icon: Icons.event_available_outlined,
+        label: 'Attendance',
+        description: 'Track employee attendance',
+        color: _operationsColor,
+        onTap: () => context.go('/attendance'),
       ));
     }
 

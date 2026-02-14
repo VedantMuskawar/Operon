@@ -61,7 +61,28 @@ class ScheduledTripsDataSource extends shared.ScheduledTripsDataSource {
         return isActive != false;
       }).toList();
 
+      int statusRank(String? status) {
+        switch (status?.toLowerCase()) {
+          case 'scheduled':
+            return 0;
+          case 'dispatched':
+            return 1;
+          case 'delivered':
+            return 2;
+          case 'returned':
+            return 3;
+          case 'cancelled':
+            return 4;
+          default:
+            return 5;
+        }
+      }
+
       activeTrips.sort((a, b) {
+        final statusA = a['tripStatus'] as String? ?? a['orderStatus'] as String?;
+        final statusB = b['tripStatus'] as String? ?? b['orderStatus'] as String?;
+        final rankCompare = statusRank(statusA).compareTo(statusRank(statusB));
+        if (rankCompare != 0) return rankCompare;
         final slotA = a['slot'] as int? ?? 0;
         final slotB = b['slot'] as int? ?? 0;
         return slotA.compareTo(slotB);

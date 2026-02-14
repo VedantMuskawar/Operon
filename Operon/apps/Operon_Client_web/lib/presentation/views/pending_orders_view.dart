@@ -32,7 +32,7 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
   bool _isEddRunning = false;
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
   String? _currentOrgId;
-  int? _selectedFixedQuantityFilter; // null means "All"
+  final Set<int> _selectedFixedQuantityFilters = {}; // empty means "All"
   String _searchQuery = '';
   SortOption _sortOption = SortOption.dateNewest;
   final Set<String> _selectedOrderIds = {};
@@ -117,13 +117,14 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
     List<Map<String, dynamic>> filtered = _orders;
 
     // Filter by fixed quantity
-    if (_selectedFixedQuantityFilter != null) {
+    if (_selectedFixedQuantityFilters.isNotEmpty) {
       filtered = filtered.where((order) {
         final items = order['items'] as List<dynamic>? ?? [];
         if (items.isEmpty) return false;
         final firstItem = items.first as Map<String, dynamic>;
         final fixedQuantityPerTrip = firstItem['fixedQuantityPerTrip'] as int?;
-        return fixedQuantityPerTrip == _selectedFixedQuantityFilter;
+        return fixedQuantityPerTrip != null &&
+            _selectedFixedQuantityFilters.contains(fixedQuantityPerTrip);
       }).toList();
     }
 
@@ -463,10 +464,12 @@ class _PendingOrdersViewState extends State<PendingOrdersView> {
                     const SizedBox(height: 16),
                     _FixedQuantityFilter(
                       orders: _orders,
-                      selectedValue: _selectedFixedQuantityFilter,
-                      onFilterChanged: (value) {
+                      selectedValues: _selectedFixedQuantityFilters,
+                      onFilterChanged: (values) {
                         setState(() {
-                          _selectedFixedQuantityFilter = value;
+                          _selectedFixedQuantityFilters
+                            ..clear()
+                            ..addAll(values);
                         });
                       },
                     ),
@@ -647,13 +650,13 @@ class _StatTile extends StatelessWidget {
 class _FixedQuantityFilter extends StatelessWidget {
   const _FixedQuantityFilter({
     required this.orders,
-    required this.selectedValue,
+    required this.selectedValues,
     required this.onFilterChanged,
   });
 
   final List<Map<String, dynamic>> orders;
-  final int? selectedValue;
-  final ValueChanged<int?> onFilterChanged;
+  final Set<int> selectedValues;
+  final ValueChanged<Set<int>> onFilterChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -690,25 +693,37 @@ class _FixedQuantityFilter extends StatelessWidget {
         const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              // "All" filter chip
-              _FilterChip(
-                label: 'All',
-                isSelected: selectedValue == null,
-                onTap: () => onFilterChanged(null),
-              ),
-              const SizedBox(width: 8),
-              // Quantity filter chips
-              ...sortedQuantities.map((quantity) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _FilterChip(
-                      label: quantity.toString(),
-                      isSelected: selectedValue == quantity,
-                      onTap: () => onFilterChanged(quantity),
-                    ),
-                  )),
-            ],
+          child: Align(
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // "All" filter chip
+                _FilterChip(
+                  label: 'All',
+                  isSelected: selectedValues.isEmpty,
+                  onTap: () => onFilterChanged(<int>{}),
+                ),
+                const SizedBox(width: 8),
+                // Quantity filter chips
+                ...sortedQuantities.map((quantity) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _FilterChip(
+                        label: quantity.toString(),
+                        isSelected: selectedValues.contains(quantity),
+                        onTap: () {
+                          final updated = Set<int>.from(selectedValues);
+                          if (updated.contains(quantity)) {
+                            updated.remove(quantity);
+                          } else {
+                            updated.add(quantity);
+                          }
+                          onFilterChanged(updated);
+                        },
+                      ),
+                    )),
+              ],
+            ),
           ),
         ),
       ],
